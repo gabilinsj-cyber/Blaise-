@@ -5,13 +5,16 @@ import br.com.blaise.rj.core.*
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
+import java.text.Collator
+import java.util.Locale
 
 class CorePolicyTest {
     @Test fun `RJ catalog has 92 unique ordered municipalities`() {
         val cities = RioMunicipalities.all
         assertEquals(92, cities.size)
         assertEquals(92, cities.map { it.name }.toSet().size)
-        assertEquals(cities.map { it.name }.sorted(), cities.map { it.name })
+        val portuguese = Collator.getInstance(Locale("pt", "BR"))
+        assertEquals(cities.map { it.name }.sortedWith(portuguese), cities.map { it.name })
     }
 
     @Test fun `P0 remains accessible without entitlement`() {
@@ -31,4 +34,3 @@ class CorePolicyTest {
         assertEquals("official", ordered.first().name)
     }
 }
-
