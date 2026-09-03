@@ -1,0 +1,56 @@
+name: Android Runtime
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Runtime instrumentation and smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            mkdir -p evidence/runtime
+            ./gradlew --no-daemon connectedDebugAndroidTest
+            ./gradlew --no-daemon installDebug
+            bash scripts/runtime-smoke.sh
+      - name: Upload runtime evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blaise-v6-runtime-evidence
+          path: |
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
+            app/build/outputs/connected_android_test_additional_output/**
+            evidence/runtime/**
