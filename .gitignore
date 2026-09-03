@@ -1,0 +1,8 @@
+.gradle/
+.idea/
+.toolchains/
+local.properties
+**/build/
+*.jks
+*.keystore
+evidence/artifacts/
