@@ -4,12 +4,14 @@ sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 build_tools="${sdk_root}/build-tools/35.0.0"
 apk="app/build/outputs/apk/debug/app-debug.apk"
 aab="app/build/outputs/bundle/release/app-release.aab"
+test_apk="app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 mkdir -p evidence
 test -s "$apk"
 test -s "$aab"
+test -s "$test_apk"
 "${build_tools}/zipalign" -c -P 16 -v 4 "$apk" > evidence/zipalign.txt
 "${build_tools}/apksigner" verify --verbose --print-certs "$apk" > evidence/apksigner.txt
-sha256sum "$apk" "$aab" > evidence/SHA256SUMS
+sha256sum "$apk" "$test_apk" "$aab" > evidence/SHA256SUMS
 if [[ -n "${BUNDLETOOL_JAR:-}" ]]; then
   java -jar "$BUNDLETOOL_JAR" validate --bundle "$aab" > evidence/bundletool.txt
 else
