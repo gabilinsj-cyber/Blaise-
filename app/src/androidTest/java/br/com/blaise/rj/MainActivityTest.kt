@@ -18,6 +18,8 @@ class MainActivityTest {
     private fun assertCoreDashboard() {
         rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
         rule.onNodeWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").assertIsDisplayed()
+        rule.onNodeWithText("P0 oficial permanece disponível sem assinatura.").assertIsDisplayed()
+        rule.onNodeWithText("Conteúdo premium exige entitlement ativo.").assertIsDisplayed()
         rule.onNodeWithText("Cidade 1").assertIsDisplayed()
         rule.onNodeWithText("Cidade 2").assertIsDisplayed()
     }

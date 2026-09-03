@@ -38,6 +38,8 @@ fun BlaiseApp() {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                 Text("Monitoramento integrado do Estado do Rio de Janeiro", color = Color.White)
                 Text("TEMPO ESTÁVEL • SEM ALERTAS P0", color = Color(0xFF55DD88), fontWeight = FontWeight.Bold)
+                Text("P0 oficial permanece disponível sem assinatura.", color = Gold, fontWeight = FontWeight.Bold)
+                Text("Conteúdo premium exige entitlement ativo.", color = Color.LightGray)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CityPanel("Cidade 1", "Rio de Janeiro", Modifier.weight(1f))
                     CityPanel("Cidade 2", "Niterói", Modifier.weight(1f))
@@ -61,4 +63,3 @@ private fun CityPanel(label: String, city: String, modifier: Modifier = Modifier
 
 @Preview(showBackground = true)
 @Composable private fun PreviewApp() = BlaiseApp()
-
