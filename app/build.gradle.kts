@@ -2,6 +2,7 @@ plugins { alias(libs.plugins.android.application); alias(libs.plugins.kotlin.and
 android {
     namespace = "br.com.blaise.rj"
     compileSdk = 35
+    buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId = "br.com.blaise.rj"
         minSdk = 26
