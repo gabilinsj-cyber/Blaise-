@@ -31,7 +31,7 @@ class OperationalPolicyTest {
 
         val staleResult = OfflineRecoveryPolicy.resolve(Result.failure<String>(IllegalStateException("offline")), stale, now)
         assertTrue(staleResult is ResolvedData.Cached<*>)
-        assertEquals(Freshness.STALE, (staleResult as ResolvedData.Cached).freshness)
+        assertEquals(Freshness.STALE, (staleResult as ResolvedData.Cached<String>).freshness)
 
         val expiredResult = OfflineRecoveryPolicy.resolve(Result.failure<String>(IllegalStateException("offline")), expired, now)
         assertTrue(expiredResult is ResolvedData.Unavailable)
@@ -40,7 +40,7 @@ class OperationalPolicyTest {
     @Test fun `network data wins over cache`() {
         val cache = CacheEntry("cached", now, 60)
         val resolved = OfflineRecoveryPolicy.resolve(Result.success("network"), cache, now)
-        assertEquals("network", (resolved as ResolvedData.Network).value)
+        assertEquals("network", (resolved as ResolvedData.Network<String>).value)
     }
 
     @Test fun `severe cadence is one minute and normal cadence is fifteen minutes`() {

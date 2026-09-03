@@ -26,7 +26,7 @@ class RuntimePolicyInstrumentedTest {
             now,
         )
         assertTrue(resolved is ResolvedData.Cached<*>)
-        assertEquals(Freshness.STALE, (resolved as ResolvedData.Cached).freshness)
+        assertEquals(Freshness.STALE, (resolved as ResolvedData.Cached<String>).freshness)
     }
 
     @Test fun expiredCacheFailsClosedOnDevice() {

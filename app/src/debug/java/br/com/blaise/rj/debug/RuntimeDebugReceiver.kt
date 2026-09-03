@@ -24,7 +24,7 @@ class RuntimeDebugReceiver : BroadcastReceiver() {
             expiresAt = now.plusSeconds(600),
         )
         val delivered = AlertNotifier(context).notify(alert, Entitlement(active = false))
-        resultCode = if (delivered) Activity.RESULT_OK else Activity.RESULT_CANCELED
+        setResultCode(if (delivered) Activity.RESULT_OK else Activity.RESULT_CANCELED)
     }
 
     companion object {
