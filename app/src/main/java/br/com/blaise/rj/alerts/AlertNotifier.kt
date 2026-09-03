@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import br.com.blaise.rj.core.AlertNotificationPolicy
 import br.com.blaise.rj.core.Entitlement
 import br.com.blaise.rj.core.OfficialAlert
@@ -20,7 +21,10 @@ class AlertNotifier(private val context: Context) {
     fun notify(alert: OfficialAlert, entitlement: Entitlement): Boolean {
         val decision = AlertNotificationPolicy.decide(alert, entitlement)
         if (!decision.deliver) return false
-        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
             return false
         }
 
