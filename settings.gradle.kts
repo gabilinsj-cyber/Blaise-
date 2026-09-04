@@ -1,14 +1,11 @@
-import java.net.URI
-
 pluginManagement {
     repositories {
         val proxy = System.getenv("BLAISE_MAVEN_PROXY")?.trim().orEmpty()
         if (proxy.isNotEmpty()) {
-            val endpoint = URI("${proxy.trimEnd('/')}/all")
-            require(endpoint.scheme.equals("https", ignoreCase = true) && !endpoint.host.isNullOrBlank()) {
+            require(proxy.startsWith("https://", ignoreCase = true)) {
                 "BLAISE_MAVEN_PROXY must be an absolute HTTPS URL"
             }
-            maven { url = uri(endpoint) }
+            maven { url = uri("${proxy.trimEnd('/')}/all") }
         } else {
             google()
             mavenCentral()
@@ -22,11 +19,10 @@ dependencyResolutionManagement {
     repositories {
         val proxy = System.getenv("BLAISE_MAVEN_PROXY")?.trim().orEmpty()
         if (proxy.isNotEmpty()) {
-            val endpoint = URI("${proxy.trimEnd('/')}/all")
-            require(endpoint.scheme.equals("https", ignoreCase = true) && !endpoint.host.isNullOrBlank()) {
+            require(proxy.startsWith("https://", ignoreCase = true)) {
                 "BLAISE_MAVEN_PROXY must be an absolute HTTPS URL"
             }
-            maven { url = uri(endpoint) }
+            maven { url = uri("${proxy.trimEnd('/')}/all") }
         } else {
             google()
             mavenCentral()
