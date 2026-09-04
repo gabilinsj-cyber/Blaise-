@@ -2,6 +2,7 @@ package br.com.blaise.rj
 
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,7 +21,9 @@ class MainActivityTest {
 
     private fun assertCoreDashboard() {
         rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
-        rule.onNodeWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").assertIsDisplayed()
+        rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
+        rule.onNodeWithText("Não presumimos ausência de alerta sem evidência oficial válida.").assertIsDisplayed()
+        rule.onNodeWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").assertDoesNotExist()
         rule.onNodeWithText("P0 oficial permanece disponível sem assinatura.").assertIsDisplayed()
         rule.onNodeWithText("Conteúdo premium exige entitlement ativo.").assertIsDisplayed()
         rule.onNodeWithText("Cidade 1").assertIsDisplayed()
@@ -29,7 +32,7 @@ class MainActivityTest {
         rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
     }
 
-    @Test fun dashboardDisplaysP0StatusAndTwoCities() {
+    @Test fun dashboardFailsClosedWithoutOfficialAlertEvidence() {
         assertCoreDashboard()
     }
 

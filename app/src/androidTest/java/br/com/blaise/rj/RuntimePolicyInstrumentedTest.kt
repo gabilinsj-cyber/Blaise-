@@ -60,4 +60,12 @@ class RuntimePolicyInstrumentedTest {
         assertTrue(BulletinPolicy.isScheduledHour(12))
         assertTrue(BulletinPolicy.isScheduledHour(16))
     }
+
+    @Test fun officialStatusFailsClosedWithoutEvidenceOnDevice() {
+        assertEquals(OfficialFeedState.UNAVAILABLE, OfficialFeedStatusPolicy.state(null, now))
+        val clear = OfficialFeedEvidence("Defesa Civil RJ", now.minusSeconds(20), activeP0Count = 0)
+        assertEquals(OfficialFeedState.CURRENT_CLEAR, OfficialFeedStatusPolicy.state(clear, now))
+        val expired = clear.copy(checkedAt = now.minusSeconds(200))
+        assertEquals(OfficialFeedState.STALE, OfficialFeedStatusPolicy.state(expired, now))
+    }
 }

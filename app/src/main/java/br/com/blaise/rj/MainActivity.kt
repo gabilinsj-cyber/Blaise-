@@ -39,6 +39,10 @@ import androidx.compose.ui.unit.dp
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
+import br.com.blaise.rj.core.OfficialFeedEvidence
+import br.com.blaise.rj.core.OfficialFeedState
+import br.com.blaise.rj.core.OfficialFeedStatusPolicy
+import java.time.Instant
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,16 +54,26 @@ class MainActivity : ComponentActivity() {
 private val Navy = Color(0xFF071B33)
 private val Gold = Color(0xFFD4AF37)
 private val Panel = Color(0xFF102D4F)
+private val StableGreen = Color(0xFF55DD88)
+private val AlertRed = Color(0xFFFF5252)
+private val WarningAmber = Color(0xFFFFC857)
 
 @Composable
-fun BlaiseApp(store: CitySelectionStore) {
+fun BlaiseApp(
+    store: CitySelectionStore,
+    officialFeedEvidence: OfficialFeedEvidence? = null,
+) {
     var city1 by remember { mutableStateOf(store.load(1)) }
     var city2 by remember { mutableStateOf(store.load(2)) }
     var pickerSlot by remember { mutableStateOf<Int?>(null) }
+    val officialFeedState = remember(officialFeedEvidence) {
+        OfficialFeedStatusPolicy.state(officialFeedEvidence, Instant.now())
+    }
 
     BlaiseDashboard(
         city1 = city1,
         city2 = city2,
+        officialFeedState = officialFeedState,
         onChooseCity1 = { pickerSlot = 1 },
         onChooseCity2 = { pickerSlot = 2 },
     )
@@ -84,6 +98,7 @@ fun BlaiseApp(store: CitySelectionStore) {
 private fun BlaiseDashboard(
     city1: City,
     city2: City,
+    officialFeedState: OfficialFeedState,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
 ) {
@@ -97,7 +112,7 @@ private fun BlaiseDashboard(
             ) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                 Text("Monitoramento integrado do Estado do Rio de Janeiro", color = Color.White)
-                Text("TEMPO ESTÁVEL • SEM ALERTAS P0", color = Color(0xFF55DD88), fontWeight = FontWeight.Bold)
+                OfficialStatusBanner(officialFeedState)
                 Text("P0 oficial permanece disponível sem assinatura.", color = Gold, fontWeight = FontWeight.Bold)
                 Text("Conteúdo premium exige entitlement ativo.", color = Color.LightGray)
 
@@ -113,6 +128,37 @@ private fun BlaiseDashboard(
                 Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
             }
         }
+    }
+}
+
+@Composable
+private fun OfficialStatusBanner(state: OfficialFeedState) {
+    val (headline, detail, color) = when (state) {
+        OfficialFeedState.CURRENT_CLEAR -> Triple(
+            "SEM ALERTAS P0 OFICIAIS ATIVOS",
+            "Ausência de P0 confirmada por evidência oficial válida.",
+            StableGreen,
+        )
+        OfficialFeedState.CURRENT_P0 -> Triple(
+            "ALERTA P0 OFICIAL ATIVO",
+            "Prioridade máxima. Consulte a orientação da fonte oficial exibida.",
+            AlertRed,
+        )
+        OfficialFeedState.STALE -> Triple(
+            "STATUS OFICIAL DESATUALIZADO",
+            "Não presumimos ausência de alerta com evidência vencida.",
+            WarningAmber,
+        )
+        OfficialFeedState.UNAVAILABLE -> Triple(
+            "STATUS OFICIAL • AGUARDANDO DADOS",
+            "Não presumimos ausência de alerta sem evidência oficial válida.",
+            WarningAmber,
+        )
+    }
+
+    Column(Modifier.background(Panel).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(headline, color = color, fontWeight = FontWeight.Bold)
+        Text(detail, color = Color.White)
     }
 }
 
@@ -177,6 +223,7 @@ private fun PreviewApp() {
     BlaiseDashboard(
         city1 = requireNotNull(RioMunicipalities.byIbgeCode(3304557)),
         city2 = requireNotNull(RioMunicipalities.byIbgeCode(3303302)),
+        officialFeedState = OfficialFeedState.UNAVAILABLE,
         onChooseCity1 = {},
         onChooseCity2 = {},
     )

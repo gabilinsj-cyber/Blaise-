@@ -67,4 +67,17 @@ class OperationalPolicyTest {
         assertTrue(RetentionPolicy.withinSevereEventLimit(86_400))
         assertFalse(RetentionPolicy.withinSevereEventLimit(86_401))
     }
+
+    @Test fun `official alert status never assumes clear without current evidence`() {
+        assertEquals(OfficialFeedState.UNAVAILABLE, OfficialFeedStatusPolicy.state(null, now))
+
+        val currentClear = OfficialFeedEvidence("Defesa Civil RJ", now.minusSeconds(30), activeP0Count = 0)
+        assertEquals(OfficialFeedState.CURRENT_CLEAR, OfficialFeedStatusPolicy.state(currentClear, now))
+
+        val currentP0 = currentClear.copy(activeP0Count = 2)
+        assertEquals(OfficialFeedState.CURRENT_P0, OfficialFeedStatusPolicy.state(currentP0, now))
+
+        val stale = currentClear.copy(checkedAt = now.minusSeconds(120))
+        assertEquals(OfficialFeedState.STALE, OfficialFeedStatusPolicy.state(stale, now))
+    }
 }
