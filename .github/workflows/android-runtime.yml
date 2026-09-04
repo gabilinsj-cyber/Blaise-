@@ -18,7 +18,7 @@ env:
 
 jobs:
   runtime:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -37,7 +37,7 @@ jobs:
           echo "$ANDROID_SDK_ROOT/emulator" >> "$GITHUB_PATH"
           echo "$ANDROID_SDK_ROOT/build-tools/35.0.0" >> "$GITHUB_PATH"
           "$SDKMANAGER" --version
-      - uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Install Android 35 runtime toolchain
         run: |
           set -euo pipefail
@@ -68,7 +68,7 @@ jobs:
             bash scripts/runtime-smoke.sh
             printf '%s\n' 'RC_CODE_GATE=PASS' 'scope=unit+instrumentation+lifecycle+offline+P0-notification+city-selection-persistence+92-municipalities+billing-fail-closed' > evidence/runtime/rc-code-gate.txt
       - name: Upload runtime evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: blaise-v6-runtime-evidence
