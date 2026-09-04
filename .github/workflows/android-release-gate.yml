@@ -59,8 +59,25 @@ jobs:
           [[ -n "${BLAISE_KEY_ALIAS:-}" ]] || { echo "BLOCKED: missing key alias secret (accepted: BLAISE_KEY_ALIAS or BLAISE_ANDROID_KEY_ALIAS)" >&2; missing=1; }
           [[ -n "${BLAISE_KEY_PASSWORD:-}" ]] || { echo "BLOCKED: missing key password secret (accepted: BLAISE_KEY_PASSWORD or BLAISE_ANDROID_KEY_PASSWORD)" >&2; missing=1; }
           (( missing == 0 )) || exit 2
-          printf '%s' "$BLAISE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/blaise-release.jks"
+
+          # Termux and mobile copy/paste can introduce line wrapping or whitespace.
+          # Normalize whitespace only; never discard any other character silently.
+          NORMALIZED_KEYSTORE_B64="$(printf '%s' "$BLAISE_KEYSTORE_B64" | tr -d '[:space:]')"
+          [[ -n "$NORMALIZED_KEYSTORE_B64" ]] || { echo "BLOCKED: signing keystore Base64 is empty after whitespace normalization" >&2; exit 2; }
+
+          if ! printf '%s' "$NORMALIZED_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/blaise-release.jks"; then
+            rm -f "$RUNNER_TEMP/blaise-release.jks"
+            echo "BLOCKED: signing keystore secret is not valid Base64. Recreate it from the .jks with: base64 -w 0 <file>.jks (or base64 <file>.jks | tr -d '\\n') and store only that output in the GitHub secret." >&2
+            exit 2
+          fi
+          [[ -s "$RUNNER_TEMP/blaise-release.jks" ]] || { echo "BLOCKED: decoded signing keystore is empty" >&2; exit 2; }
           chmod 600 "$RUNNER_TEMP/blaise-release.jks"
+
+          if ! keytool -list -keystore "$RUNNER_TEMP/blaise-release.jks" -storepass "$BLAISE_STORE_PASSWORD" -alias "$BLAISE_KEY_ALIAS" >/dev/null; then
+            echo "BLOCKED: decoded keystore could not be opened with the configured store password and alias. Verify BLAISE_STORE_PASSWORD and BLAISE_KEY_ALIAS against the original .jks." >&2
+            exit 2
+          fi
+
           {
             echo "BLAISE_KEYSTORE_PATH=$RUNNER_TEMP/blaise-release.jks"
             echo "BLAISE_STORE_PASSWORD=$BLAISE_STORE_PASSWORD"
