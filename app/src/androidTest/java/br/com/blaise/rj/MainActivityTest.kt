@@ -33,6 +33,12 @@ class MainActivityTest {
         rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
     }
 
+    private fun assertCriticalStatusVisible() {
+        rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
+        rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
+        assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
+    }
+
     @Test fun dashboardFailsClosedWithoutOfficialAlertEvidence() { assertCoreDashboard() }
 
     @Test fun dashboardSurvivesActivityRecreation() {
@@ -52,9 +58,12 @@ class MainActivityTest {
     @Test fun dashboardSurvivesPortraitLandscapeTransitions() {
         rule.activityRule.scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
-        assertCoreDashboard()
+        rule.waitForIdle()
+        assertCriticalStatusVisible()
+
         rule.activityRule.scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT }
+        rule.waitForIdle()
         assertCoreDashboard()
     }
 
