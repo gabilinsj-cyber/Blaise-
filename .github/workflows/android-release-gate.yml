@@ -65,6 +65,10 @@ jobs:
             echo "BLAISE_KEY_PASSWORD=$BLAISE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
       - name: Signed release package gate
+        env:
+          BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
+          BLAISE_ANNUAL_PRODUCT_ID: ${{ vars.BLAISE_ANNUAL_PRODUCT_ID }}
+          BLAISE_ENTITLEMENT_VERIFY_URL: ${{ vars.BLAISE_ENTITLEMENT_VERIFY_URL }}
         run: bash scripts/release-gate.sh
       - name: Upload signed release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

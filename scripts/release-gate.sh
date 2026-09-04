@@ -1,13 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-required=(BLAISE_KEYSTORE_PATH BLAISE_STORE_PASSWORD BLAISE_KEY_ALIAS BLAISE_KEY_PASSWORD BUNDLETOOL_JAR)
+required=(
+  BLAISE_KEYSTORE_PATH
+  BLAISE_STORE_PASSWORD
+  BLAISE_KEY_ALIAS
+  BLAISE_KEY_PASSWORD
+  BUNDLETOOL_JAR
+  BLAISE_MONTHLY_PRODUCT_ID
+  BLAISE_ANNUAL_PRODUCT_ID
+  BLAISE_ENTITLEMENT_VERIFY_URL
+)
 for name in "${required[@]}"; do
   if [[ -z "${!name:-}" ]]; then
     echo "BLOCKED: required production value $name is missing." >&2
     exit 2
   fi
 done
+
+if [[ "$BLAISE_ENTITLEMENT_VERIFY_URL" != https://* ]]; then
+  echo "BLOCKED: BLAISE_ENTITLEMENT_VERIFY_URL must use HTTPS." >&2
+  exit 2
+fi
+if [[ "$BLAISE_MONTHLY_PRODUCT_ID" == "$BLAISE_ANNUAL_PRODUCT_ID" ]]; then
+  echo "BLOCKED: monthly and annual Google Play product IDs must differ." >&2
+  exit 2
+fi
 
 ./gradlew --no-daemon clean lintRelease testReleaseUnitTest assembleRelease bundleRelease
 
@@ -24,4 +42,9 @@ test -s "$aab"
 jarsigner -verify -verbose -certs "$aab" > evidence/release/jarsigner-aab.txt
 java -jar "$BUNDLETOOL_JAR" validate --bundle "$aab" > evidence/release/bundletool.txt
 sha256sum "$apk" "$aab" > evidence/release/SHA256SUMS
-printf '%s\n' 'RELEASE_PACKAGE_GATE=PASS' 'play_console_upload=BLOCKED_UNTIL_EXPLICITLY_CONFIGURED' > evidence/release/gate.txt
+printf '%s\n' \
+  'RELEASE_PACKAGE_GATE=PASS' \
+  'billing_products=CONFIGURED' \
+  'entitlement_backend=HTTPS_CONFIGURED' \
+  'play_console_upload=BLOCKED_UNTIL_EXPLICITLY_CONFIGURED' \
+  > evidence/release/gate.txt

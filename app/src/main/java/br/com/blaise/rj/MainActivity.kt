@@ -36,18 +36,64 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import br.com.blaise.rj.billing.BillingEntitlementSnapshot
+import br.com.blaise.rj.billing.PlayBillingEntitlementSource
+import br.com.blaise.rj.billing.PurchaseVerifierFactory
+import br.com.blaise.rj.billing.SubscriptionOffer
+import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
 import br.com.blaise.rj.core.OfficialFeedEvidence
 import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
+import com.android.billingclient.api.BillingClient
 import java.time.Instant
 
 class MainActivity : ComponentActivity() {
+    private lateinit var billingSource: PlayBillingEntitlementSource
+    private var billingSnapshot by mutableStateOf<BillingEntitlementSnapshot>(BillingEntitlementSnapshot.Unconfigured)
+    private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
+    private var purchaseLaunchCode by mutableStateOf<Int?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { BlaiseApp(CitySelectionStore(applicationContext)) }
+
+        val products = setOf(BuildConfig.BLAISE_MONTHLY_PRODUCT_ID, BuildConfig.BLAISE_ANNUAL_PRODUCT_ID)
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .toSet()
+        val verifier = PurchaseVerifierFactory.create(
+            endpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
+            packageName = packageName,
+        )
+        billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier)
+
+        setContent {
+            BlaiseApp(
+                store = CitySelectionStore(applicationContext),
+                billingSnapshot = billingSnapshot,
+                offersSnapshot = offersSnapshot,
+                purchaseLaunchCode = purchaseLaunchCode,
+                onRefreshBilling = { billingSource.refresh() },
+                onSubscribe = { offer ->
+                    purchaseLaunchCode = null
+                    billingSource.launchPurchase(this, offer) { responseCode ->
+                        runOnUiThread { purchaseLaunchCode = responseCode }
+                    }
+                },
+            )
+        }
+
+        billingSource.start(
+            entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
+            offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
+        )
+    }
+
+    override fun onDestroy() {
+        if (::billingSource.isInitialized) billingSource.stop()
+        super.onDestroy()
     }
 }
 
@@ -62,6 +108,11 @@ private val WarningAmber = Color(0xFFFFC857)
 fun BlaiseApp(
     store: CitySelectionStore,
     officialFeedEvidence: OfficialFeedEvidence? = null,
+    billingSnapshot: BillingEntitlementSnapshot = BillingEntitlementSnapshot.Unconfigured,
+    offersSnapshot: SubscriptionOffersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
+    purchaseLaunchCode: Int? = null,
+    onRefreshBilling: () -> Unit = {},
+    onSubscribe: (SubscriptionOffer) -> Unit = {},
 ) {
     var city1 by remember { mutableStateOf(store.load(1)) }
     var city2 by remember { mutableStateOf(store.load(2)) }
@@ -74,6 +125,11 @@ fun BlaiseApp(
         city1 = city1,
         city2 = city2,
         officialFeedState = officialFeedState,
+        billingSnapshot = billingSnapshot,
+        offersSnapshot = offersSnapshot,
+        purchaseLaunchCode = purchaseLaunchCode,
+        onRefreshBilling = onRefreshBilling,
+        onSubscribe = onSubscribe,
         onChooseCity1 = { pickerSlot = 1 },
         onChooseCity2 = { pickerSlot = 2 },
     )
@@ -99,15 +155,18 @@ private fun BlaiseDashboard(
     city1: City,
     city2: City,
     officialFeedState: OfficialFeedState,
+    billingSnapshot: BillingEntitlementSnapshot,
+    offersSnapshot: SubscriptionOffersSnapshot,
+    purchaseLaunchCode: Int?,
+    onRefreshBilling: () -> Unit,
+    onSubscribe: (SubscriptionOffer) -> Unit,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
 ) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
             Column(
-                Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
+                Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
@@ -122,12 +181,69 @@ private fun BlaiseDashboard(
                     CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.weight(1f))
                 }
 
+                BillingPanel(
+                    entitlement = billingSnapshot,
+                    offers = offersSnapshot,
+                    purchaseLaunchCode = purchaseLaunchCode,
+                    onRefresh = onRefreshBilling,
+                    onSubscribe = onSubscribe,
+                )
+
                 Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
                 Text("Clima • Alertas • Radar • Risco • Marinha • Trânsito", color = Color.White)
                 Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
                 Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
             }
         }
+    }
+}
+
+@Composable
+private fun BillingPanel(
+    entitlement: BillingEntitlementSnapshot,
+    offers: SubscriptionOffersSnapshot,
+    purchaseLaunchCode: Int?,
+    onRefresh: () -> Unit,
+    onSubscribe: (SubscriptionOffer) -> Unit,
+) {
+    Column(Modifier.background(Panel).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Assinatura Google Play", color = Gold, fontWeight = FontWeight.Bold)
+        val status = when (entitlement) {
+            BillingEntitlementSnapshot.Unconfigured -> "Não configurada nesta build • premium bloqueado"
+            BillingEntitlementSnapshot.Connecting -> "Conectando ao Google Play • premium bloqueado"
+            BillingEntitlementSnapshot.Verifying -> "Verificando assinatura no backend • premium bloqueado até confirmação"
+            BillingEntitlementSnapshot.Inactive -> "Assinatura inativa ou não verificada • premium bloqueado"
+            is BillingEntitlementSnapshot.Active -> "Assinatura verificada • premium liberado"
+            is BillingEntitlementSnapshot.Unavailable -> "Google Play indisponível (${entitlement.responseCode}) • premium bloqueado"
+        }
+        Text(status, color = Color.White)
+
+        when (offers) {
+            SubscriptionOffersSnapshot.Unconfigured -> Text("IDs de assinatura ainda não configurados para esta build.", color = Color.LightGray)
+            SubscriptionOffersSnapshot.Loading -> Text("Consultando ofertas elegíveis no Google Play…", color = Color.LightGray)
+            is SubscriptionOffersSnapshot.Unavailable -> Text("Ofertas indisponíveis (${offers.responseCode}).", color = Color.LightGray)
+            is SubscriptionOffersSnapshot.Ready -> {
+                if (offers.offers.isEmpty()) {
+                    Text("Nenhuma oferta elegível retornada pelo Google Play.", color = Color.LightGray)
+                } else {
+                    offers.offers.forEach { offer ->
+                        val trial = if (offer.hasFreeTrial) " • teste elegível" else ""
+                        Button(onClick = { onSubscribe(offer) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("${offer.name} • ${offer.formattedRecurringPrice}$trial")
+                        }
+                    }
+                }
+            }
+        }
+        purchaseLaunchCode?.let { code ->
+            val message = if (code == BillingClient.BillingResponseCode.OK) {
+                "Fluxo de compra aberto pelo Google Play. Acesso só será liberado após verificação do backend."
+            } else {
+                "Não foi possível abrir a compra (código $code). Nenhum acesso foi liberado."
+            }
+            Text(message, color = if (code == BillingClient.BillingResponseCode.OK) Gold else WarningAmber)
+        }
+        Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("Atualizar assinatura") }
     }
 }
 
@@ -224,6 +340,11 @@ private fun PreviewApp() {
         city1 = requireNotNull(RioMunicipalities.byIbgeCode(3304557)),
         city2 = requireNotNull(RioMunicipalities.byIbgeCode(3303302)),
         officialFeedState = OfficialFeedState.UNAVAILABLE,
+        billingSnapshot = BillingEntitlementSnapshot.Unconfigured,
+        offersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
+        purchaseLaunchCode = null,
+        onRefreshBilling = {},
+        onSubscribe = {},
         onChooseCity1 = {},
         onChooseCity2 = {},
     )

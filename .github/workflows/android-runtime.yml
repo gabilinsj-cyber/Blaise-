@@ -66,7 +66,7 @@ jobs:
             ./gradlew --no-daemon connectedDebugAndroidTest
             ./gradlew --no-daemon installDebug
             bash scripts/runtime-smoke.sh
-            printf '%s\n' 'RC_CODE_GATE=PASS' 'scope=unit+instrumentation+lifecycle+offline+P0-notification+city-selection-persistence+92-municipalities' > evidence/runtime/rc-code-gate.txt
+            printf '%s\n' 'RC_CODE_GATE=PASS' 'scope=unit+instrumentation+lifecycle+offline+P0-notification+city-selection-persistence+92-municipalities+billing-fail-closed' > evidence/runtime/rc-code-gate.txt
       - name: Upload runtime evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

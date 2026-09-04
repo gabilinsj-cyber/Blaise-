@@ -31,6 +31,8 @@ class MainActivityTest {
         rule.onNodeWithText("Cidade 2").assertIsDisplayed()
         rule.onNodeWithText("Escolher cidade 1").assertIsDisplayed()
         rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
+        rule.onNodeWithText("Assinatura Google Play").assertIsDisplayed()
+        rule.onNodeWithText("Não configurada nesta build • premium bloqueado").assertIsDisplayed()
     }
 
     private fun assertCriticalStatusVisible() {

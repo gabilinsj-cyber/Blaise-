@@ -1,5 +1,7 @@
 plugins { alias(libs.plugins.android.application); alias(libs.plugins.kotlin.android); alias(libs.plugins.kotlin.compose) }
 
+fun buildConfigString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 val releaseKeystorePath = System.getenv("BLAISE_KEYSTORE_PATH")
 val releaseStorePassword = System.getenv("BLAISE_STORE_PASSWORD")
 val releaseKeyAlias = System.getenv("BLAISE_KEY_ALIAS")
@@ -10,6 +12,10 @@ val releaseSigningReady = listOf(
     releaseKeyAlias,
     releaseKeyPassword,
 ).all { !it.isNullOrBlank() }
+
+val monthlyProductId = System.getenv("BLAISE_MONTHLY_PRODUCT_ID").orEmpty().trim()
+val annualProductId = System.getenv("BLAISE_ANNUAL_PRODUCT_ID").orEmpty().trim()
+val entitlementVerifyUrl = System.getenv("BLAISE_ENTITLEMENT_VERIFY_URL").orEmpty().trim()
 
 android {
     namespace = "br.com.blaise.rj"
@@ -22,6 +28,9 @@ android {
         versionCode = 6000001
         versionName = "6.0.0-rc.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BLAISE_MONTHLY_PRODUCT_ID", buildConfigString(monthlyProductId))
+        buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
+        buildConfigField("String", "BLAISE_ENTITLEMENT_VERIFY_URL", buildConfigString(entitlementVerifyUrl))
     }
     signingConfigs {
         if (releaseSigningReady) {
