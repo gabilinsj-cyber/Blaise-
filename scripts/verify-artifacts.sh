@@ -33,12 +33,22 @@ java -version 2> evidence/java-version.txt
 ./gradlew --version > evidence/gradle-version.txt
 "$sdkmanager" --version > evidence/sdkmanager-version.txt
 
-if rg -n --hidden -g '!**/.git/**' -g '!**/build/**' -g '!gradle/wrapper/gradle-wrapper.jar' '(sk_live_|sk-proj-|BEGIN (RSA |EC )?PRIVATE KEY|AIza[0-9A-Za-z_-]{35})' . > evidence/secret-scan.txt; then
-  echo 'Potential committed secret found.' >&2
-  exit 1
+secret_pattern='(sk_live_|sk-proj-|BEGIN (RSA |EC )?PRIVATE KEY|AIza[0-9A-Za-z_-]{35})'
+if command -v rg >/dev/null 2>&1; then
+  if rg -n --hidden -g '!**/.git/**' -g '!**/build/**' -g '!gradle/wrapper/gradle-wrapper.jar' "$secret_pattern" . > evidence/secret-scan.txt; then
+    echo 'Potential committed secret found.' >&2
+    exit 1
+  fi
+elif command -v grep >/dev/null 2>&1; then
+  if grep -RInIE --exclude-dir=.git --exclude-dir=build --exclude=gradle-wrapper.jar "$secret_pattern" . > evidence/secret-scan.txt; then
+    echo 'Potential committed secret found.' >&2
+    exit 1
+  fi
 else
-  printf '%s\n' 'PASS: no high-confidence committed secret patterns detected.' > evidence/secret-scan.txt
+  echo 'BLOCKED: neither ripgrep nor grep is available for the fail-closed secret scan.' >&2
+  exit 1
 fi
+printf '%s\n' 'PASS: no high-confidence committed secret patterns detected.' > evidence/secret-scan.txt
 
 printf '%s\n' \
   'BUILD_GATE=PASS' \
