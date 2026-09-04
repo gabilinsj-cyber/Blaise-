@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -31,8 +32,8 @@ class MainActivityTest {
         rule.onNodeWithText("Cidade 2").assertIsDisplayed()
         rule.onNodeWithText("Escolher cidade 1").assertIsDisplayed()
         rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
-        rule.onNodeWithText("Assinatura Google Play").assertIsDisplayed()
-        rule.onNodeWithText("Não configurada nesta build • premium bloqueado").assertIsDisplayed()
+        rule.onNodeWithText("Assinatura Google Play").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Não configurada nesta build • premium bloqueado").performScrollTo().assertIsDisplayed()
     }
 
     private fun assertCriticalStatusVisible() {
