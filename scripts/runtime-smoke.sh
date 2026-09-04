@@ -45,12 +45,15 @@ test -n "$pid2"
 
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS
 P0_TITLE="BLAISE_P0_TEST"
-adb shell am broadcast -W --user 0 \
+p0_broadcast="$(adb shell am broadcast -W --user 0 \
   -n "$PKG/br.com.blaise.rj.debug.RuntimeDebugReceiver" \
   -a br.com.blaise.rj.debug.RUNTIME_P0 \
-  --es title "$P0_TITLE" | tee "$OUT_DIR/p0-broadcast.txt"
+  --es title "$P0_TITLE")"
+printf '%s\n' "$p0_broadcast" | tee "$OUT_DIR/p0-broadcast.txt"
+printf '%s\n' "$p0_broadcast" | grep -q "Broadcast completed: result=-1"
 sleep 1
 adb shell dumpsys notification --noredact > "$OUT_DIR/notifications.txt"
+grep -q "$PKG" "$OUT_DIR/notifications.txt"
 grep -q "blaise_p0" "$OUT_DIR/notifications.txt"
 grep -q "$P0_TITLE" "$OUT_DIR/notifications.txt"
 

@@ -32,13 +32,14 @@ class AlertNotifier(private val context: Context) {
         val channelId = if (urgent) P0_CHANNEL_ID else GENERAL_CHANNEL_ID
         val channelName = if (urgent) "Alertas oficiais P0" else "Alertas Blaise"
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                channelId,
-                channelName,
-                if (urgent) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT,
-            ),
-        )
+        val channel = NotificationChannel(
+            channelId,
+            channelName,
+            if (urgent) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            if (urgent) enableVibration(true)
+        }
+        manager.createNotificationChannel(channel)
 
         val notification = Notification.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -47,12 +48,6 @@ class AlertNotifier(private val context: Context) {
             .setCategory(if (urgent) Notification.CATEGORY_ALARM else Notification.CATEGORY_EVENT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
-            .apply {
-                if (urgent) {
-                    setPriority(Notification.PRIORITY_MAX)
-                    setDefaults(Notification.DEFAULT_ALL)
-                }
-            }
             .build()
 
         manager.notify(alert.id.hashCode(), notification)

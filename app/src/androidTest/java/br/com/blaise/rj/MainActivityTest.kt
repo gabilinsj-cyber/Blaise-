@@ -4,7 +4,10 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -22,6 +25,8 @@ class MainActivityTest {
         rule.onNodeWithText("Conteúdo premium exige entitlement ativo.").assertIsDisplayed()
         rule.onNodeWithText("Cidade 1").assertIsDisplayed()
         rule.onNodeWithText("Cidade 2").assertIsDisplayed()
+        rule.onNodeWithText("Escolher cidade 1").assertIsDisplayed()
+        rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
     }
 
     @Test fun dashboardDisplaysP0StatusAndTwoCities() {
@@ -58,5 +63,19 @@ class MainActivityTest {
             rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         }
         assertCoreDashboard()
+    }
+
+    @Test fun citySelectionSearchesAllMunicipalitiesAndSurvivesRecreation() {
+        rule.onNodeWithText("Escolher cidade 1").performClick()
+        rule.onNodeWithTag("city-search").performTextInput("sao goncalo")
+        rule.onNodeWithTag("city-option-3304904").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("São Gonçalo").assertIsDisplayed()
+        rule.onNodeWithText("IBGE 3304904").assertIsDisplayed()
+
+        rule.activityRule.scenario.recreate()
+        rule.waitForIdle()
+        rule.onNodeWithText("São Gonçalo").assertIsDisplayed()
+        rule.onNodeWithText("IBGE 3304904").assertIsDisplayed()
     }
 }
