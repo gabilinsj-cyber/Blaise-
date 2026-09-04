@@ -47,15 +47,18 @@ jobs:
           echo "BUNDLETOOL_JAR=$RUNNER_TEMP/bundletool.jar" >> "$GITHUB_ENV"
       - name: Prepare production signing fail-closed
         env:
-          BLAISE_KEYSTORE_B64: ${{ secrets.BLAISE_KEYSTORE_B64 }}
-          BLAISE_STORE_PASSWORD: ${{ secrets.BLAISE_STORE_PASSWORD }}
-          BLAISE_KEY_ALIAS: ${{ secrets.BLAISE_KEY_ALIAS }}
-          BLAISE_KEY_PASSWORD: ${{ secrets.BLAISE_KEY_PASSWORD }}
+          BLAISE_KEYSTORE_B64: ${{ secrets.BLAISE_KEYSTORE_B64 || secrets.BLAISE_ANDROID_KEYSTORE_BASE64 }}
+          BLAISE_STORE_PASSWORD: ${{ secrets.BLAISE_STORE_PASSWORD || secrets.BLAISE_ANDROID_KEYSTORE_PASSWORD }}
+          BLAISE_KEY_ALIAS: ${{ secrets.BLAISE_KEY_ALIAS || secrets.BLAISE_ANDROID_KEY_ALIAS }}
+          BLAISE_KEY_PASSWORD: ${{ secrets.BLAISE_KEY_PASSWORD || secrets.BLAISE_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in BLAISE_KEYSTORE_B64 BLAISE_STORE_PASSWORD BLAISE_KEY_ALIAS BLAISE_KEY_PASSWORD; do
-            [[ -n "${!name:-}" ]] || { echo "BLOCKED: missing $name" >&2; exit 2; }
-          done
+          missing=0
+          [[ -n "${BLAISE_KEYSTORE_B64:-}" ]] || { echo "BLOCKED: missing signing keystore secret (accepted: BLAISE_KEYSTORE_B64 or BLAISE_ANDROID_KEYSTORE_BASE64)" >&2; missing=1; }
+          [[ -n "${BLAISE_STORE_PASSWORD:-}" ]] || { echo "BLOCKED: missing store password secret (accepted: BLAISE_STORE_PASSWORD or BLAISE_ANDROID_KEYSTORE_PASSWORD)" >&2; missing=1; }
+          [[ -n "${BLAISE_KEY_ALIAS:-}" ]] || { echo "BLOCKED: missing key alias secret (accepted: BLAISE_KEY_ALIAS or BLAISE_ANDROID_KEY_ALIAS)" >&2; missing=1; }
+          [[ -n "${BLAISE_KEY_PASSWORD:-}" ]] || { echo "BLOCKED: missing key password secret (accepted: BLAISE_KEY_PASSWORD or BLAISE_ANDROID_KEY_PASSWORD)" >&2; missing=1; }
+          (( missing == 0 )) || exit 2
           printf '%s' "$BLAISE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/blaise-release.jks"
           chmod 600 "$RUNNER_TEMP/blaise-release.jks"
           {
