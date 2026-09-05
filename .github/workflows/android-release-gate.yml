@@ -48,53 +48,119 @@ jobs:
           echo "BUNDLETOOL_JAR=$RUNNER_TEMP/bundletool.jar" >> "$GITHUB_ENV"
       - name: Prepare production signing fail-closed
         env:
-          BLAISE_SIGNING_B64: ${{ secrets.BLAISE_SIGNING_BUNDLE_B64 || secrets.BLAISE_KEYSTORE_B64 || secrets.BLAISE_ANDROID_KEYSTORE_BASE64 }}
+          BLAISE_SIGNING_BUNDLE_B64: ${{ secrets.BLAISE_SIGNING_BUNDLE_B64 }}
+          BLAISE_KEYSTORE_B64: ${{ secrets.BLAISE_KEYSTORE_B64 }}
+          BLAISE_ANDROID_KEYSTORE_BASE64: ${{ secrets.BLAISE_ANDROID_KEYSTORE_BASE64 }}
           BLAISE_STORE_PASSWORD: ${{ secrets.BLAISE_STORE_PASSWORD || secrets.BLAISE_ANDROID_KEYSTORE_PASSWORD }}
           BLAISE_KEY_ALIAS: ${{ secrets.BLAISE_KEY_ALIAS || secrets.BLAISE_ANDROID_KEY_ALIAS }}
           BLAISE_KEY_PASSWORD: ${{ secrets.BLAISE_KEY_PASSWORD || secrets.BLAISE_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          [[ -n "${BLAISE_SIGNING_B64:-}" ]] || { echo "BLOCKED: missing signing secret (accepted: BLAISE_SIGNING_BUNDLE_B64, BLAISE_KEYSTORE_B64, or BLAISE_ANDROID_KEYSTORE_BASE64)" >&2; exit 2; }
 
-          NORMALIZED_SIGNING_B64="$(printf '%s' "$BLAISE_SIGNING_B64" | tr -d '[:space:]')"
-          [[ -n "$NORMALIZED_SIGNING_B64" ]] || { echo "BLOCKED: signing secret is empty after whitespace normalization" >&2; exit 2; }
-
-          payload="$RUNNER_TEMP/blaise-signing.payload"
-          if ! printf '%s' "$NORMALIZED_SIGNING_B64" | base64 --decode > "$payload"; then
-            rm -f "$payload"
-            echo "BLOCKED: signing secret is not valid Base64." >&2
-            exit 2
-          fi
-          [[ -s "$payload" ]] || { echo "BLOCKED: decoded signing payload is empty" >&2; exit 2; }
-
+          RAW_STORE_PASSWORD="${BLAISE_STORE_PASSWORD:-}"
+          RAW_KEY_ALIAS="${BLAISE_KEY_ALIAS:-}"
+          RAW_KEY_PASSWORD="${BLAISE_KEY_PASSWORD:-}"
           keystore="$RUNNER_TEMP/blaise-release.jks"
-          if tar -tzf "$payload" >/dev/null 2>&1; then
-            signing_dir="$RUNNER_TEMP/blaise-signing"
-            mkdir -p "$signing_dir"
-            tar -xzf "$payload" -C "$signing_dir" --no-same-owner --no-same-permissions
-            test -s "$signing_dir/blaise-release.jks"
-            test -s "$signing_dir/signing.properties"
-            cp "$signing_dir/blaise-release.jks" "$keystore"
+          signing_source=""
 
-            store_b64="$(sed -n 's/^BLAISE_STORE_PASSWORD_B64=//p' "$signing_dir/signing.properties")"
-            alias_b64="$(sed -n 's/^BLAISE_KEY_ALIAS_B64=//p' "$signing_dir/signing.properties")"
-            key_b64="$(sed -n 's/^BLAISE_KEY_PASSWORD_B64=//p' "$signing_dir/signing.properties")"
-            [[ -n "$store_b64" && -n "$alias_b64" && -n "$key_b64" ]] || { echo "BLOCKED: signing bundle metadata is incomplete" >&2; exit 2; }
-            BLAISE_STORE_PASSWORD="$(printf '%s' "$store_b64" | base64 --decode)"
-            BLAISE_KEY_ALIAS="$(printf '%s' "$alias_b64" | base64 --decode)"
-            BLAISE_KEY_PASSWORD="$(printf '%s' "$key_b64" | base64 --decode)"
-          else
-            mv "$payload" "$keystore"
-            missing=0
-            [[ -n "${BLAISE_STORE_PASSWORD:-}" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_STORE_PASSWORD (or BLAISE_ANDROID_KEYSTORE_PASSWORD)" >&2; missing=1; }
-            [[ -n "${BLAISE_KEY_ALIAS:-}" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_KEY_ALIAS (or BLAISE_ANDROID_KEY_ALIAS)" >&2; missing=1; }
-            [[ -n "${BLAISE_KEY_PASSWORD:-}" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_KEY_PASSWORD (or BLAISE_ANDROID_KEY_PASSWORD)" >&2; missing=1; }
-            (( missing == 0 )) || exit 2
+          decode_b64_to_file() {
+            local value="$1"
+            local output="$2"
+            local normalized
+            [[ -n "$value" ]] || return 1
+            normalized="$(printf '%s' "$value" | tr -d '[:space:]')"
+            [[ -n "$normalized" ]] || return 1
+            if printf '%s' "$normalized" | base64 --decode > "$output" 2>/dev/null && [[ -s "$output" ]]; then
+              return 0
+            fi
+            rm -f "$output"
+            return 1
+          }
+
+          # Try the optional all-in-one bundle first, but never let a stale or
+          # malformed bundle hide a valid raw keystore fallback.
+          if [[ -n "${BLAISE_SIGNING_BUNDLE_B64:-}" ]]; then
+            bundle_payload="$RUNNER_TEMP/blaise-signing-bundle.tgz"
+            if decode_b64_to_file "$BLAISE_SIGNING_BUNDLE_B64" "$bundle_payload" && tar -tzf "$bundle_payload" >/dev/null 2>&1; then
+              bundle_keystore="$RUNNER_TEMP/blaise-bundle-release.jks"
+              bundle_props="$RUNNER_TEMP/blaise-signing.properties"
+              if tar -xOzf "$bundle_payload" blaise-release.jks > "$bundle_keystore" 2>/dev/null \
+                && tar -xOzf "$bundle_payload" signing.properties > "$bundle_props" 2>/dev/null \
+                && [[ -s "$bundle_keystore" && -s "$bundle_props" ]]; then
+                store_b64="$(sed -n 's/^BLAISE_STORE_PASSWORD_B64=//p' "$bundle_props")"
+                alias_b64="$(sed -n 's/^BLAISE_KEY_ALIAS_B64=//p' "$bundle_props")"
+                key_b64="$(sed -n 's/^BLAISE_KEY_PASSWORD_B64=//p' "$bundle_props")"
+                if [[ -n "$store_b64" && -n "$alias_b64" && -n "$key_b64" ]]; then
+                  if bundle_store="$(printf '%s' "$store_b64" | base64 --decode 2>/dev/null)" \
+                    && bundle_alias="$(printf '%s' "$alias_b64" | base64 --decode 2>/dev/null)" \
+                    && bundle_key="$(printf '%s' "$key_b64" | base64 --decode 2>/dev/null)" \
+                    && [[ -n "$bundle_store" && -n "$bundle_alias" && -n "$bundle_key" ]]; then
+                    chmod 600 "$bundle_keystore"
+                    if keytool -list -keystore "$bundle_keystore" -storepass "$bundle_store" -alias "$bundle_alias" >/dev/null 2>&1; then
+                      cp "$bundle_keystore" "$keystore"
+                      BLAISE_STORE_PASSWORD="$bundle_store"
+                      BLAISE_KEY_ALIAS="$bundle_alias"
+                      BLAISE_KEY_PASSWORD="$bundle_key"
+                      signing_source="bundle"
+                      echo "::add-mask::$BLAISE_STORE_PASSWORD"
+                      echo "::add-mask::$BLAISE_KEY_PASSWORD"
+                    else
+                      echo "NOTICE: bundle credentials do not match its keystore; trying raw keystore fallback." >&2
+                    fi
+                  else
+                    echo "NOTICE: bundle metadata is not valid Base64; trying raw keystore fallback." >&2
+                  fi
+                else
+                  echo "NOTICE: bundle metadata is incomplete; trying raw keystore fallback." >&2
+                fi
+              else
+                echo "NOTICE: bundle is missing expected files; trying raw keystore fallback." >&2
+              fi
+            else
+              echo "NOTICE: BLAISE_SIGNING_BUNDLE_B64 is not a valid Base64 tar.gz bundle; trying raw keystore fallback." >&2
+            fi
           fi
 
+          if [[ -z "$signing_source" ]]; then
+            BLAISE_STORE_PASSWORD="$RAW_STORE_PASSWORD"
+            BLAISE_KEY_ALIAS="$RAW_KEY_ALIAS"
+            BLAISE_KEY_PASSWORD="$RAW_KEY_PASSWORD"
+
+            missing=0
+            [[ -n "$BLAISE_STORE_PASSWORD" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_STORE_PASSWORD (or BLAISE_ANDROID_KEYSTORE_PASSWORD)" >&2; missing=1; }
+            [[ -n "$BLAISE_KEY_ALIAS" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_KEY_ALIAS (or BLAISE_ANDROID_KEY_ALIAS)" >&2; missing=1; }
+            [[ -n "$BLAISE_KEY_PASSWORD" ]] || { echo "BLOCKED: raw keystore mode requires BLAISE_KEY_PASSWORD (or BLAISE_ANDROID_KEY_PASSWORD)" >&2; missing=1; }
+            (( missing == 0 )) || exit 2
+
+            for source_name in BLAISE_KEYSTORE_B64 BLAISE_ANDROID_KEYSTORE_BASE64; do
+              if [[ "$source_name" == "BLAISE_KEYSTORE_B64" ]]; then
+                source_value="${BLAISE_KEYSTORE_B64:-}"
+              else
+                source_value="${BLAISE_ANDROID_KEYSTORE_BASE64:-}"
+              fi
+              [[ -n "$source_value" ]] || continue
+
+              candidate="$RUNNER_TEMP/${source_name}.jks"
+              if decode_b64_to_file "$source_value" "$candidate"; then
+                chmod 600 "$candidate"
+                if keytool -list -keystore "$candidate" -storepass "$BLAISE_STORE_PASSWORD" -alias "$BLAISE_KEY_ALIAS" >/dev/null 2>&1; then
+                  cp "$candidate" "$keystore"
+                  signing_source="$source_name"
+                  break
+                fi
+                echo "NOTICE: $source_name decoded but does not match the configured credentials; trying the next source." >&2
+              else
+                echo "NOTICE: $source_name is not valid Base64; trying the next source." >&2
+              fi
+            done
+          fi
+
+          [[ -n "$signing_source" ]] || { echo "BLOCKED: no usable signing source. Checked bundle and raw keystore fallbacks." >&2; exit 2; }
+          [[ -s "$keystore" ]] || { echo "BLOCKED: resolved signing keystore is empty" >&2; exit 2; }
           chmod 600 "$keystore"
-          if ! keytool -list -keystore "$keystore" -storepass "$BLAISE_STORE_PASSWORD" -alias "$BLAISE_KEY_ALIAS" >/dev/null; then
-            echo "BLOCKED: decoded keystore could not be opened with the configured signing credentials." >&2
+
+          if ! keytool -list -keystore "$keystore" -storepass "$BLAISE_STORE_PASSWORD" -alias "$BLAISE_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "BLOCKED: resolved keystore could not be opened with the resolved signing credentials." >&2
             exit 2
           fi
 
@@ -104,6 +170,7 @@ jobs:
             echo "BLAISE_KEY_ALIAS=$BLAISE_KEY_ALIAS"
             echo "BLAISE_KEY_PASSWORD=$BLAISE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
+          echo "Signing source resolved successfully."
       - name: Signed release package gate
         env:
           BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
