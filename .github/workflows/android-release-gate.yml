@@ -2,8 +2,6 @@ name: Android Release Gate
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -14,6 +12,7 @@ env:
 
 jobs:
   release-package:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
