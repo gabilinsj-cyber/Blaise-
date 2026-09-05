@@ -2,6 +2,8 @@ name: Android Release Gate
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -12,7 +14,6 @@ env:
 
 jobs:
   release-package:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     steps:
@@ -77,8 +78,6 @@ jobs:
             return 1
           }
 
-          # Try the optional all-in-one bundle first, but never let a stale or
-          # malformed bundle hide a valid raw keystore fallback.
           if [[ -n "${BLAISE_SIGNING_BUNDLE_B64:-}" ]]; then
             bundle_payload="$RUNNER_TEMP/blaise-signing-bundle.tgz"
             if decode_b64_to_file "$BLAISE_SIGNING_BUNDLE_B64" "$bundle_payload" && tar -tzf "$bundle_payload" >/dev/null 2>&1; then
