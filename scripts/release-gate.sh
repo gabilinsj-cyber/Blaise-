@@ -11,12 +11,17 @@ required=(
   BLAISE_ANNUAL_PRODUCT_ID
   BLAISE_ENTITLEMENT_VERIFY_URL
 )
+missing=()
 for name in "${required[@]}"; do
   if [[ -z "${!name:-}" ]]; then
-    echo "BLOCKED: required production value $name is missing." >&2
-    exit 2
+    missing+=("$name")
   fi
 done
+if (( ${#missing[@]} > 0 )); then
+  echo "BLOCKED: missing required production values:" >&2
+  printf ' - %s\n' "${missing[@]}" >&2
+  exit 2
+fi
 
 if [[ "$BLAISE_ENTITLEMENT_VERIFY_URL" != https://* ]]; then
   echo "BLOCKED: BLAISE_ENTITLEMENT_VERIFY_URL must use HTTPS." >&2
