@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
+
+EVIDENCE_DIR="${BLAISE_RELEASE_EVIDENCE_DIR:-evidence/release}"
+mkdir -p "$EVIDENCE_DIR"
+GATE_FILE="$EVIDENCE_DIR/gate.txt"
+: > "$GATE_FILE"
+
+block() {
+  local reason="$1"
+  shift || true
+  {
+    echo 'RELEASE_PACKAGE_GATE=BLOCKED'
+    echo "reason=$reason"
+    for detail in "$@"; do
+      printf '%s\n' "$detail"
+    done
+  } > "$GATE_FILE"
+  echo "BLOCKED: $reason" >&2
+  exit 2
+}
 
 required=(
   BLAISE_KEYSTORE_PATH
@@ -22,51 +42,45 @@ for name in "${required[@]}"; do
   fi
 done
 if (( ${#missing[@]} > 0 )); then
-  echo "BLOCKED: missing required production values:" >&2
+  printf 'BLOCKED: missing required production values:\n' >&2
   printf ' - %s\n' "${missing[@]}" >&2
-  exit 2
+  block 'missing_required_production_values' "missing=${missing[*]}"
 fi
 
-if [[ "$BLAISE_ENTITLEMENT_VERIFY_URL" != https://* ]]; then
-  echo "BLOCKED: BLAISE_ENTITLEMENT_VERIFY_URL must use HTTPS." >&2
-  exit 2
-fi
-if [[ "$BLAISE_MONTHLY_PRODUCT_ID" == "$BLAISE_ANNUAL_PRODUCT_ID" ]]; then
-  echo "BLOCKED: monthly and annual Google Play product IDs must differ." >&2
-  exit 2
-fi
-if [[ "$BLAISE_FIREBASE_APPLICATION_ID" != 1:*:android:* ]]; then
-  echo "BLOCKED: BLAISE_FIREBASE_APPLICATION_ID is not an Android Firebase app id." >&2
-  exit 2
-fi
-if [[ ! "$BLAISE_FIREBASE_SENDER_ID" =~ ^[0-9]+$ ]]; then
-  echo "BLOCKED: BLAISE_FIREBASE_SENDER_ID must be numeric." >&2
-  exit 2
-fi
-if [[ "$BLAISE_FIREBASE_PROJECT_ID" =~ [[:space:]] || "$BLAISE_FIREBASE_API_KEY" =~ [[:space:]] ]]; then
-  echo "BLOCKED: Firebase production values must not contain whitespace." >&2
-  exit 2
-fi
+[[ "$BLAISE_ENTITLEMENT_VERIFY_URL" == https://* ]] || block 'entitlement_verify_url_must_be_https'
+[[ "$BLAISE_MONTHLY_PRODUCT_ID" != "$BLAISE_ANNUAL_PRODUCT_ID" ]] || block 'billing_product_ids_must_differ'
+[[ "$BLAISE_FIREBASE_APPLICATION_ID" == 1:*:android:* ]] || block 'firebase_application_id_invalid'
+[[ "$BLAISE_FIREBASE_SENDER_ID" =~ ^[0-9]+$ ]] || block 'firebase_sender_id_invalid'
+[[ ! "$BLAISE_FIREBASE_PROJECT_ID" =~ [[:space:]] ]] || block 'firebase_project_id_contains_whitespace'
+[[ ! "$BLAISE_FIREBASE_API_KEY" =~ [[:space:]] ]] || block 'firebase_api_key_contains_whitespace'
+[[ -s "$BLAISE_KEYSTORE_PATH" ]] || block 'keystore_missing_or_empty'
+[[ -s "$BUNDLETOOL_JAR" ]] || block 'bundletool_missing_or_empty'
 
 ./gradlew --no-daemon clean lintRelease testReleaseUnitTest assembleRelease bundleRelease
 
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+[[ -n "$sdk_root" ]] || block 'android_sdk_root_missing'
 build_tools="${sdk_root}/build-tools/35.0.0"
 apk="app/build/outputs/apk/release/app-release.apk"
 aab="app/build/outputs/bundle/release/app-release.aab"
-mkdir -p evidence/release
 
-test -s "$apk"
-test -s "$aab"
-"${build_tools}/zipalign" -c -P 16 -v 4 "$apk" > evidence/release/zipalign.txt
-"${build_tools}/apksigner" verify --verbose --print-certs "$apk" > evidence/release/apksigner.txt
-jarsigner -verify -verbose -certs "$aab" > evidence/release/jarsigner-aab.txt
-java -jar "$BUNDLETOOL_JAR" validate --bundle "$aab" > evidence/release/bundletool.txt
-sha256sum "$apk" "$aab" > evidence/release/SHA256SUMS
+[[ -x "${build_tools}/zipalign" ]] || block 'zipalign_missing'
+[[ -x "${build_tools}/apksigner" ]] || block 'apksigner_missing'
+[[ -s "$apk" ]] || block 'release_apk_missing_or_empty'
+[[ -s "$aab" ]] || block 'release_aab_missing_or_empty'
+
+"${build_tools}/zipalign" -c -P 16 -v 4 "$apk" > "$EVIDENCE_DIR/zipalign.txt" || block 'zipalign_verification_failed'
+"${build_tools}/apksigner" verify --verbose --print-certs "$apk" > "$EVIDENCE_DIR/apksigner.txt" || block 'apk_signature_verification_failed'
+jarsigner -verify -verbose -certs "$aab" > "$EVIDENCE_DIR/jarsigner-aab.txt" || block 'aab_signature_verification_failed'
+java -jar "$BUNDLETOOL_JAR" validate --bundle "$aab" > "$EVIDENCE_DIR/bundletool.txt" || block 'bundletool_validation_failed'
+sha256sum "$apk" "$aab" > "$EVIDENCE_DIR/SHA256SUMS"
 printf '%s\n' \
   'RELEASE_PACKAGE_GATE=PASS' \
   'billing_products=CONFIGURED' \
   'entitlement_backend=HTTPS_CONFIGURED' \
   'fcm_p0=CONFIGURED' \
+  'apk_signature=VERIFIED' \
+  'aab_signature=VERIFIED' \
+  'bundle_validation=PASS' \
   'play_console_upload=BLOCKED_UNTIL_EXPLICITLY_CONFIGURED' \
-  > evidence/release/gate.txt
+  > "$GATE_FILE"
