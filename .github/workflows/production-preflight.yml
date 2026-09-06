@@ -1,0 +1,38 @@
+name: Production Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Validate production configuration and HTTPS readiness
+        env:
+          BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
+          BLAISE_ANNUAL_PRODUCT_ID: ${{ vars.BLAISE_ANNUAL_PRODUCT_ID }}
+          BLAISE_ENTITLEMENT_VERIFY_URL: ${{ vars.BLAISE_ENTITLEMENT_VERIFY_URL }}
+          BLAISE_BACKEND_BASE_URL: ${{ vars.BLAISE_BACKEND_BASE_URL }}
+          BLAISE_FIREBASE_APPLICATION_ID: ${{ vars.BLAISE_FIREBASE_APPLICATION_ID }}
+          BLAISE_FIREBASE_API_KEY: ${{ vars.BLAISE_FIREBASE_API_KEY }}
+          BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+          BLAISE_FIREBASE_SENDER_ID: ${{ vars.BLAISE_FIREBASE_SENDER_ID }}
+          BLAISE_PUBSUB_AUDIENCE: ${{ vars.BLAISE_PUBSUB_AUDIENCE }}
+          BLAISE_PUBSUB_SERVICE_ACCOUNT: ${{ vars.BLAISE_PUBSUB_SERVICE_ACCOUNT }}
+          BLAISE_P0_AUDIENCE: ${{ vars.BLAISE_P0_AUDIENCE }}
+          BLAISE_P0_SERVICE_ACCOUNT: ${{ vars.BLAISE_P0_SERVICE_ACCOUNT }}
+          BLAISE_OBSERVABILITY_AUDIENCE: ${{ vars.BLAISE_OBSERVABILITY_AUDIENCE }}
+          BLAISE_OBSERVABILITY_SERVICE_ACCOUNT: ${{ vars.BLAISE_OBSERVABILITY_SERVICE_ACCOUNT }}
+          BLAISE_PREFLIGHT_LIVE_PROBE: 'true'
+        run: bash scripts/production-preflight.sh
+      - name: Upload preflight evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-production-preflight-evidence
+          path: evidence/production-preflight/
