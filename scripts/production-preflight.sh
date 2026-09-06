@@ -49,12 +49,18 @@ fail() {
 }
 
 https_url() {
-  [[ "$1" == https://* && "$1" != *[[:space:]]* ]]
+  [[ "$1" =~ ^https://[^/[:space:]]+(/[^[:space:]]*)?$ ]]
 }
 
 service_account() {
   [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]
 }
+
+live_probe="${BLAISE_PREFLIGHT_LIVE_PROBE:-false}"
+case "$live_probe" in
+  true|false) ;;
+  *) fail 'live_probe_mode_must_be_true_or_false' ;;
+esac
 
 [[ "$BLAISE_MONTHLY_PRODUCT_ID" != "$BLAISE_ANNUAL_PRODUCT_ID" ]] || fail 'billing_product_ids_must_differ'
 [[ "$BLAISE_MONTHLY_PRODUCT_ID" != *[[:space:]]* ]] || fail 'monthly_product_id_contains_whitespace'
@@ -81,10 +87,10 @@ printf '%s\n' \
   'observability_identity=CONFIGURED' \
   > "$GATE_FILE"
 
-if [[ "${BLAISE_PREFLIGHT_LIVE_PROBE:-false}" != 'true' ]]; then
+if [[ "$live_probe" == 'false' ]]; then
   printf '%s\n' \
     'PRODUCTION_PREFLIGHT_LIVE=NOT_RUN' \
-    'reason=set_BLAISE_PREFLIGHT_LIVE_PROBE_true_for_external_https_probe' \
+    'reason=live_probe_disabled' \
     >> "$GATE_FILE"
   exit 0
 fi

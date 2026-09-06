@@ -13,7 +13,9 @@ O script `scripts/production-preflight.sh` falha fechado se faltar qualquer conf
 - audience + service account do canal interno P0;
 - audience + service account da observabilidade interna.
 
-Quando `BLAISE_PREFLIGHT_LIVE_PROBE=true`, ele também verifica externamente `GET /healthz` e `GET /readyz` do backend HTTPS. Se a URL de verificação seguir o contrato padrão `/v1/entitlements/verify`, a URL-base é derivada automaticamente; caso contrário, definir `BLAISE_BACKEND_BASE_URL`.
+`BLAISE_PREFLIGHT_LIVE_PROBE` aceita somente `true` ou `false`; qualquer outro valor bloqueia o gate em vez de desativar silenciosamente a verificação externa.
+
+Quando `BLAISE_PREFLIGHT_LIVE_PROBE=true`, o gate também verifica externamente `GET /healthz` e `GET /readyz` do backend HTTPS. Se a URL de verificação seguir o contrato padrão `/v1/entitlements/verify`, a URL-base é derivada automaticamente; caso contrário, definir `BLAISE_BACKEND_BASE_URL`.
 
 ## Variáveis GitHub esperadas
 
@@ -33,6 +35,12 @@ Quando `BLAISE_PREFLIGHT_LIVE_PROBE=true`, ele também verifica externamente `GE
 - `BLAISE_OBSERVABILITY_SERVICE_ACCOUNT`
 
 Não usar placeholders para obter PASS.
+
+## Auto-teste no CI
+
+`scripts/test-production-preflight.sh` executa no Android CI com valores de teste isolados e **sem probe externa**. Ele comprova o comportamento fail-closed do script para configuração válida, URL HTTP inválida, IDs duplicados, service account inválida e modo de probe inválido. Também verifica que o arquivo de evidência não contém os valores de teste sensíveis usados na execução.
+
+O resultado `PRODUCTION_PREFLIGHT_TESTS=PASS` é preservado em `evidence/production-preflight-selftest.txt`. Isso é evidência de comportamento do gate, não evidência de produção.
 
 ## Estados de evidência
 

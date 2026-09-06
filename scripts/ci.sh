@@ -6,6 +6,8 @@ for script in scripts/*.sh; do
 done
 
 mkdir -p evidence
+BLAISE_PREFLIGHT_TEST_RESULT_FILE=evidence/production-preflight-selftest.txt \
+  bash scripts/test-production-preflight.sh
 
 test "$(node --version)" = "v24.20.0"
 test "$(npm --version)" = "11.19.0"
