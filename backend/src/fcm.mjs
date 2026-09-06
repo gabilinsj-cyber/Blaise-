@@ -1,5 +1,6 @@
 import { ClientInputError } from './core.mjs';
 import { retryTransient } from './resilience.mjs';
+import { findRjMunicipality } from './rio-municipalities.mjs';
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 export const DEFAULT_P0_TOPIC = 'blaise-rj-p0';
@@ -102,6 +103,9 @@ export function validateP0Alert(alert, nowMillis = Date.now()) {
     cityName = boundedString(alert.cityName, 120, 'invalid_p0_city_name');
     cityIbge = String(alert.cityIbge || '').trim();
     if (!/^33\d{5}$/.test(cityIbge)) throw new ClientInputError('invalid_p0_city_ibge');
+    const canonical = findRjMunicipality(cityIbge);
+    if (!canonical) throw new ClientInputError('invalid_p0_city_ibge');
+    if (canonical.name !== cityName) throw new ClientInputError('invalid_p0_city_pair');
   }
 
   return { id, title, source, issuedAt, expiresAt, issuedMillis, expiresMillis, cityName, cityIbge };

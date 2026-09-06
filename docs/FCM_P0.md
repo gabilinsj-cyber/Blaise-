@@ -16,13 +16,15 @@ O canal FCM de produção é reservado aqui para alertas P0 oficiais. P0 continu
 
 ## Publicação backend preparada
 
-`backend/src/fcm.mjs` prepara a mensagem data-only de alta prioridade para o tópico P0 e usa OAuth/ADC com o escopo Firebase Messaging. Não existe endpoint público para publicar P0: uma futura ingestão oficial deverá chamar o gateway somente depois de verificar a origem oficial e reconciliar o evento.
+`backend/src/fcm.mjs` prepara a mensagem data-only de alta prioridade para o tópico P0 e usa OAuth/ADC com o escopo Firebase Messaging. O endpoint interno de publicação permanece serviço-a-serviço e protegido por OIDC.
+
+Quando um alerta P0 inclui município, o backend agora exige o par exato `cityName` + `cityIbge` do catálogo canônico dos 92 municípios do RJ, em paridade com o parser Android. Um teste de regressão compara integralmente o catálogo backend com `RioMunicipalities.kt`; código com prefixo RJ mas inexistente e nome/código divergentes falham fechados antes do fanout FCM.
 
 O backend não incorpora chave JSON de service account, token FCM, purchase token ou identificador de usuário no payload P0.
 
 ## Gate de release
 
-O pacote de produção agora exige também:
+O pacote de produção exige:
 
 - `BLAISE_FIREBASE_APPLICATION_ID`
 - `BLAISE_FIREBASE_API_KEY`
