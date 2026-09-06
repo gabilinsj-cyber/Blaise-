@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { processRtdnPayload, verifyPurchasePayload } from '../src/server.mjs';
+import {
+  createRtdnReplayGuard,
+  processRtdnPayload,
+  verifyPurchasePayload,
+} from '../src/server.mjs';
 
 const config = {
   packageName: 'br.com.blaise.rj',
@@ -23,6 +27,23 @@ const payload = {
   purchaseToken: 'token-12345678',
   productIds: ['monthly.test'],
 };
+
+function rtdnPayload(messageId = 'msg-1') {
+  return {
+    message: {
+      messageId,
+      data: Buffer.from(JSON.stringify({
+        version: '1.0',
+        packageName: config.packageName,
+        subscriptionNotification: {
+          version: '1.0',
+          notificationType: 4,
+          purchaseToken: payload.purchaseToken,
+        },
+      })).toString('base64'),
+    },
+  };
+}
 
 test('verified active purchase returns only active=true', async () => {
   const gateway = {
@@ -79,20 +100,67 @@ test('RTDN subscription refreshes Google state and acknowledges when necessary',
     async getSubscription() { return activeSubscription('ACKNOWLEDGEMENT_STATE_PENDING'); },
     async acknowledge() { acked = true; },
   };
-  const rtdn = {
-    message: {
-      messageId: 'msg-1',
-      data: Buffer.from(JSON.stringify({
-        version: '1.0',
-        packageName: config.packageName,
-        subscriptionNotification: {
-          version: '1.0',
-          notificationType: 4,
-          purchaseToken: payload.purchaseToken,
-        },
-      })).toString('base64'),
-    },
-  };
-  assert.equal(await processRtdnPayload(rtdn, { config, gateway, nowMillis }), 'subscription');
+  assert.equal(await processRtdnPayload(rtdnPayload(), { config, gateway, nowMillis }), 'subscription');
   assert.equal(acked, true);
+});
+
+test('duplicate RTDN message id is processed only once inside one instance', async () => {
+  let lookups = 0;
+  const gateway = {
+    async getSubscription() {
+      lookups += 1;
+      return activeSubscription();
+    },
+    async acknowledge() {},
+  };
+  const replayGuard = createRtdnReplayGuard();
+  const event = rtdnPayload('msg-dedupe');
+
+  assert.equal(
+    await processRtdnPayload(event, { config, gateway, nowMillis, replayGuard }),
+    'subscription',
+  );
+  assert.equal(
+    await processRtdnPayload(event, { config, gateway, nowMillis, replayGuard }),
+    'duplicate',
+  );
+  assert.equal(lookups, 1);
+  assert.equal(replayGuard.size, 1);
+});
+
+test('failed RTDN processing is not marked so Pub/Sub retry can recover', async () => {
+  let lookups = 0;
+  const gateway = {
+    async getSubscription() {
+      lookups += 1;
+      if (lookups === 1) throw new Error('temporary_lookup_failure');
+      return activeSubscription();
+    },
+    async acknowledge() {},
+  };
+  const replayGuard = createRtdnReplayGuard();
+  const event = rtdnPayload('msg-retry');
+
+  await assert.rejects(
+    processRtdnPayload(event, { config, gateway, nowMillis, replayGuard }),
+    /temporary_lookup_failure/,
+  );
+  assert.equal(replayGuard.size, 0);
+  assert.equal(
+    await processRtdnPayload(event, { config, gateway, nowMillis, replayGuard }),
+    'subscription',
+  );
+  assert.equal(lookups, 2);
+});
+
+test('replay guard expires and bounds instance-local message ids', () => {
+  const guard = createRtdnReplayGuard({ maxEntries: 2, ttlMillis: 1_000 });
+  guard.mark('a', 0);
+  guard.mark('b', 0);
+  guard.mark('c', 0);
+  assert.equal(guard.has('a', 0), false);
+  assert.equal(guard.has('b', 0), true);
+  assert.equal(guard.has('c', 0), true);
+  assert.equal(guard.has('b', 1_001), false);
+  assert.equal(guard.size, 0);
 });

@@ -38,13 +38,66 @@ jobs:
           docker image inspect blaise-entitlement-backend:ci --format '{{.Config.User}}' > backend/evidence/container-user.txt
           test "$(cat backend/evidence/container-user.txt)" = "node"
           (cd backend && npm ls --all) > backend/evidence/npm-tree.txt
+      - name: Runtime smoke production backend container
+        run: |
+          set -euo pipefail
+          mkdir -p backend/evidence
+          name="blaise-backend-ci-${GITHUB_RUN_ID}"
+          cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          docker run -d --name "$name" \
+            -p 127.0.0.1::8080 \
+            -e BLAISE_MONTHLY_PRODUCT_ID=ci.monthly \
+            -e BLAISE_ANNUAL_PRODUCT_ID=ci.annual \
+            blaise-entitlement-backend:ci >/dev/null
+
+          mapping="$(docker port "$name" 8080/tcp)"
+          port="${mapping##*:}"
+          [[ "$port" =~ ^[0-9]+$ ]]
+          base="http://127.0.0.1:${port}"
+
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -fsS "$base/healthz" > backend/evidence/backend-health.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if (( ready == 0 )); then
+            docker logs "$name" > backend/evidence/backend-runtime.log 2>&1 || true
+            exit 1
+          fi
+
+          grep -F '"status":"ok"' backend/evidence/backend-health.json
+          docker inspect "$name" --format '{{.Config.User}}' > backend/evidence/backend-runtime-user.txt
+          grep -Fx 'node' backend/evidence/backend-runtime-user.txt
+
+          curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST --data '{}' "$base/v1/entitlements/verify" \
+            > backend/evidence/backend-content-type-status.txt
+          grep -Fx '415' backend/evidence/backend-content-type-status.txt
+
+          curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' --data '{' \
+            "$base/v1/entitlements/verify" \
+            > backend/evidence/backend-invalid-json-status.txt
+          grep -Fx '400' backend/evidence/backend-invalid-json-status.txt
+
+          docker logs "$name" > backend/evidence/backend-runtime.log 2>&1
           printf '%s\n' \
             'BACKEND_GATE=PASS' \
             'syntax=PASS' \
             'unit_tests=PASS' \
             'container_build=PASS' \
             'container_non_root_user=PASS' \
+            'container_runtime_health=PASS' \
+            'content_type_fail_closed=PASS' \
+            'invalid_json_fail_closed=PASS' \
+            'rtdn_instance_replay_guard=PASS_UNIT' \
             'google_play_live_credentials=BLOCKED_EXTERNAL' \
+            'firebase_live_credentials=BLOCKED_EXTERNAL' \
             > backend/evidence/backend-gate.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

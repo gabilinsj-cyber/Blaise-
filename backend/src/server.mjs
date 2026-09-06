@@ -10,6 +10,8 @@ import {
 
 const ANDROID_PUBLISHER_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 const MAX_REQUEST_BYTES = 16_384;
+const DEFAULT_REPLAY_TTL_MILLIS = 24 * 60 * 60 * 1_000;
+const DEFAULT_REPLAY_MAX_ENTRIES = 4_096;
 
 export function loadConfig(env = process.env) {
   const packageName = (env.BLAISE_ANDROID_PACKAGE || 'br.com.blaise.rj').trim();
@@ -26,6 +28,42 @@ export function loadConfig(env = process.env) {
     pubsubAudience: (env.BLAISE_PUBSUB_AUDIENCE || '').trim(),
     pubsubServiceAccount: (env.BLAISE_PUBSUB_SERVICE_ACCOUNT || '').trim(),
     port: Number.parseInt(env.PORT || '8080', 10),
+  };
+}
+
+export function createRtdnReplayGuard({
+  maxEntries = DEFAULT_REPLAY_MAX_ENTRIES,
+  ttlMillis = DEFAULT_REPLAY_TTL_MILLIS,
+} = {}) {
+  if (!Number.isInteger(maxEntries) || maxEntries < 1 || !Number.isFinite(ttlMillis) || ttlMillis < 1) {
+    throw new Error('invalid_replay_guard_configuration');
+  }
+
+  const seen = new Map();
+  const prune = (nowMillis) => {
+    for (const [messageId, expiresAt] of seen) {
+      if (expiresAt <= nowMillis) seen.delete(messageId);
+    }
+  };
+
+  return {
+    has(messageId, nowMillis = Date.now()) {
+      prune(nowMillis);
+      return seen.has(messageId);
+    },
+    mark(messageId, nowMillis = Date.now()) {
+      prune(nowMillis);
+      if (seen.has(messageId)) seen.delete(messageId);
+      while (seen.size >= maxEntries) {
+        const oldest = seen.keys().next().value;
+        if (oldest === undefined) break;
+        seen.delete(oldest);
+      }
+      seen.set(messageId, nowMillis + ttlMillis);
+    },
+    get size() {
+      return seen.size;
+    },
   };
 }
 
@@ -115,9 +153,17 @@ export async function verifyPurchasePayload(payload, { config, gateway, nowMilli
   return { active: true };
 }
 
-export async function processRtdnPayload(payload, { config, gateway, nowMillis = Date.now() }) {
+export async function processRtdnPayload(
+  payload,
+  { config, gateway, nowMillis = Date.now(), replayGuard = null },
+) {
   const event = decodeRtdnEnvelope(payload, config.packageName);
-  if (event.kind !== 'subscription') return event.kind;
+  if (replayGuard?.has(event.messageId, nowMillis)) return 'duplicate';
+
+  if (event.kind !== 'subscription') {
+    replayGuard?.mark(event.messageId, nowMillis);
+    return event.kind;
+  }
 
   const subscription = await gateway.getSubscription(event.purchaseToken);
   const decision = evaluateSubscription(subscription, {
@@ -143,10 +189,17 @@ export async function processRtdnPayload(payload, { config, gateway, nowMillis =
       }
     }
   }
+
+  replayGuard?.mark(event.messageId, nowMillis);
   return 'subscription';
 }
 
-export function createHttpHandler({ config, gateway, oidcVerifier }) {
+export function createHttpHandler({
+  config,
+  gateway,
+  oidcVerifier,
+  replayGuard = createRtdnReplayGuard(),
+}) {
   return async (req, res) => {
     setCommonHeaders(res);
     try {
@@ -156,6 +209,10 @@ export function createHttpHandler({ config, gateway, oidcVerifier }) {
       }
 
       if (req.method === 'POST' && req.url === '/v1/entitlements/verify') {
+        if (!isJsonContentType(req)) {
+          sendJson(res, 415, { error: 'unsupported_media_type' });
+          return;
+        }
         const payload = await readJson(req, MAX_REQUEST_BYTES);
         const result = await verifyPurchasePayload(payload, { config, gateway });
         sendJson(res, 200, result);
@@ -171,8 +228,12 @@ export function createHttpHandler({ config, gateway, oidcVerifier }) {
           sendJson(res, 401, { error: 'unauthorized' });
           return;
         }
+        if (!isJsonContentType(req)) {
+          sendJson(res, 415, { error: 'unsupported_media_type' });
+          return;
+        }
         const payload = await readJson(req, MAX_REQUEST_BYTES * 4);
-        await processRtdnPayload(payload, { config, gateway });
+        await processRtdnPayload(payload, { config, gateway, replayGuard });
         res.statusCode = 204;
         res.end();
         return;
@@ -188,6 +249,12 @@ export function createHttpHandler({ config, gateway, oidcVerifier }) {
       }
     }
   };
+}
+
+function isJsonContentType(req) {
+  const value = req.headers['content-type'];
+  if (typeof value !== 'string') return false;
+  return value.split(';', 1)[0].trim().toLowerCase() === 'application/json';
 }
 
 async function readJson(req, limit) {
@@ -209,6 +276,9 @@ function setCommonHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 }
 
 function sendJson(res, statusCode, body) {
@@ -221,7 +291,8 @@ async function main() {
   const config = loadConfig();
   const gateway = await createGooglePlayGateway(config);
   const oidcVerifier = await createPubSubOidcVerifier(config);
-  const server = http.createServer(createHttpHandler({ config, gateway, oidcVerifier }));
+  const replayGuard = createRtdnReplayGuard();
+  const server = http.createServer(createHttpHandler({ config, gateway, oidcVerifier, replayGuard }));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
