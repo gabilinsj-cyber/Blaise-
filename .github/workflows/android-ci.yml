@@ -13,6 +13,45 @@ env:
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
   ANDROID_HOME: /usr/local/lib/android/sdk
 jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Backend syntax and unit tests
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          npm run check
+          npm test
+      - name: Build production backend container
+        run: |
+          set -euo pipefail
+          docker build --tag blaise-entitlement-backend:ci backend
+          mkdir -p backend/evidence
+          docker image inspect blaise-entitlement-backend:ci --format '{{.Config.User}}' > backend/evidence/container-user.txt
+          test "$(cat backend/evidence/container-user.txt)" = "node"
+          (cd backend && npm ls --all) > backend/evidence/npm-tree.txt
+          printf '%s\n' \
+            'BACKEND_GATE=PASS' \
+            'syntax=PASS' \
+            'unit_tests=PASS' \
+            'container_build=PASS' \
+            'container_non_root_user=PASS' \
+            'google_play_live_credentials=BLOCKED_EXTERNAL' \
+            > backend/evidence/backend-gate.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-backend-evidence
+          path: backend/evidence/
+
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
