@@ -20,10 +20,17 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
-      - name: Install backend dependencies
+          node-version: '24.20.0'
+      - name: Verify and install locked backend dependencies
         working-directory: backend
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.20.0"
+          test "$(npm --version)" = "11.19.0"
+          rm -f package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          sha256sum -c package-lock.sha256
+          npm ci --ignore-scripts --no-audit --no-fund
       - name: Backend syntax and unit tests
         working-directory: backend
         run: |
@@ -47,6 +54,8 @@ jobs:
           docker image inspect blaise-entitlement-backend:ci --format '{{.Config.User}}' > backend/evidence/container-user.txt
           test "$(cat backend/evidence/container-user.txt)" = "node"
           (cd backend && npm ls --all) > backend/evidence/npm-tree.txt
+          sha256sum backend/package-lock.json > backend/evidence/package-lock-sha256.txt
+          grep -F '1aa4a2e088571b8b04c4d7c1d9492e024196c8164342ff0041cafb2c35b498d6' backend/evidence/package-lock-sha256.txt
       - name: Runtime smoke production backend container
         run: |
           set -euo pipefail
@@ -118,6 +127,9 @@ jobs:
           docker logs "$name" > backend/evidence/backend-runtime.log 2>&1
           printf '%s\n' \
             'BACKEND_GATE=PASS' \
+            'dependency_graph_digest=PASS' \
+            'node_runtime_pin=PASS' \
+            'container_base_digest_pin=PASS' \
             'syntax=PASS' \
             'unit_tests=PASS' \
             'container_build=PASS' \
@@ -152,6 +164,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
