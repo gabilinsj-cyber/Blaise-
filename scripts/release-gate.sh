@@ -5,7 +5,7 @@ umask 077
 EVIDENCE_DIR="${BLAISE_RELEASE_EVIDENCE_DIR:-evidence/release}"
 mkdir -p "$EVIDENCE_DIR"
 GATE_FILE="$EVIDENCE_DIR/gate.txt"
-: > "$GATE_FILE"
+printf '%s\n' 'RELEASE_PACKAGE_GATE=IN_PROGRESS' > "$GATE_FILE"
 
 block() {
   local reason="$1"
@@ -13,6 +13,7 @@ block() {
   {
     echo 'RELEASE_PACKAGE_GATE=BLOCKED'
     echo "reason=$reason"
+    echo 'secrets=REDACTED'
     for detail in "$@"; do
       printf '%s\n' "$detail"
     done
@@ -56,7 +57,9 @@ fi
 [[ -s "$BLAISE_KEYSTORE_PATH" ]] || block 'keystore_missing_or_empty'
 [[ -s "$BUNDLETOOL_JAR" ]] || block 'bundletool_missing_or_empty'
 
-./gradlew --no-daemon clean lintRelease testReleaseUnitTest assembleRelease bundleRelease
+if ! ./gradlew --no-daemon clean lintRelease testReleaseUnitTest assembleRelease bundleRelease; then
+  block 'gradle_release_build_failed'
+fi
 
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 [[ -n "$sdk_root" ]] || block 'android_sdk_root_missing'
