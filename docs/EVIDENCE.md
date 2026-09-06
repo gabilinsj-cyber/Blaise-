@@ -1,36 +1,36 @@
 # Evidências — Blaise V6 RJ 6.0.0-rc.1
 
-Política: `PASS` somente com execução registrada; `FAIL` para execução malsucedida; `BLOCKED` para dependência externa comprovada; `NOT_RUN` para o que não foi executado.
+Política: `PASS` somente com execução registrada; `FAIL` para execução malsucedida; `BLOCKED` para dependência externa comprovada; `NOT_RUN` para o que não foi executado. Uma preparação `PASS` não é promovida para produção sem a evidência da etapa seguinte.
 
-## Ciclos executados
+## Baseline validado atual
 
-1. Run `33784726808`: `FAIL` em 1/4 testes. Causa: comparação Unicode não representava a ordenação pt-BR.
-2. Run `33785243817`: build, lint, 4/4 testes, APK e AAB passaram; `FAIL` posterior no SBOM porque a configuração foi consultada no projeto raiz.
-3. Run `33785698507`: pipeline completo `PASS`; commit `1b045c95832bf51875847b27b695f3d7721f2e79`.
-4. Run `33786338714`: pipeline completo e APK de instrumentation `PASS`; commit de artefato `e276237afcf87955c1b3a2d9d760eed4af8247b7`.
+Código validado: `d2e3ff5d06022461a09e84d2436997d7cef216ed` (`feat: add fail-closed Google Play entitlement backend foundation`).
 
-## Evidência final executada
+- Android CI run `34009691574`: `PASS` no mesmo SHA. Incluiu validação de scripts, instalação/verificação/testes do backend de entitlement, lint Debug/Release, testes unitários Android Debug/Release, APKs, AAB, SBOM, bundletool, alinhamento/assinatura de artefatos de CI e secret scan.
+- Artefato CI `blaise-v6-evidence`, id `9982104796`: digest `sha256:891e2cfccac1b52b1d40e7391c7d8c46fba6b6225d46cff246d5ace3f0316274`.
+- Android Runtime run `34009691557`: `PASS` no mesmo SHA. Setup, JDK 17, SDK/Build Tools 35, wrapper, KVM, instrumentation, smoke e upload das evidências concluíram com sucesso.
+- Backend de entitlement: testes de CI `PASS`; contrato fail-closed, consulta Google Play Developer API, estados de assinatura, acknowledgement e RTDN estão implementados como fundação executável. Isso não significa backend de produção implantado.
 
-- GitHub Actions: <https://github.com/gabilinsj-cyber/Blaise-/actions/runs/33786338714>
-- Gradle Wrapper validado: SHA-256 `498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17`.
-- `lintDebug`: `PASS`.
-- `testDebugUnitTest`: `PASS`, 4/4.
-- `assembleDebug`: `PASS`.
-- `bundleRelease`: `PASS`.
-- APK: 9.487.553 bytes; SHA-256 `83eb5e96d5acbbea5828642083e2f9097f78d1ed2dea524b1f8e65e3593ea01c`.
-- APK de instrumentation: 961.346 bytes; SHA-256 `e341ddc138dcf1a404bb6e694cf6853a7f74dbde4d9592874fb5bd374d444d26`.
-- AAB: 1.517.475 bytes; SHA-256 `0e905cfeb3fa1786c6077621c82360b1201bfe5fc8015c00775adcab1a9e54e1`.
-- `zipalign -c -P 16 -v 4`: `PASS`.
-- `apksigner verify`: `PASS`, assinatura de debug RSA 2048, APK Signature Scheme v2.
-- `bundletool validate`: `PASS` (exit code 0).
-- SBOM CycloneDX 1.5: `PASS`, 157 componentes resolvidos.
-- Secret scan de padrões de alta confiança: `PASS`.
+## Assinatura de produção
 
-## Limites e gates externos
+Release Gate run `33982986792` (`workflow_dispatch`, baseline `cbd874fb2b787b40a18981e2bbb5613bdf80355a`) comprovou:
 
-- O AAB é real e validado, mas está sem assinatura de produção: assinatura Play App Signing `BLOCKED` por ausência de keystore/credencial de produção.
-- Instrumentation/E2E em dispositivo: configuração Firebase Test Lab presente; execução remota `BLOCKED` por ausência de projeto e credencial Firebase.
-- Carga de 3 milhões de instalações/9 milhões de consultas: somente arquitetura e plano documentados; teste real `NOT_RUN` porque não há backend/ambiente de carga autorizado.
-- Canary, rollout e rollback: plano preparado; execução Play Console `BLOCKED` por ausência de aplicação/credencial de produção.
-- RC: `BLOCKED` enquanto o gate de runtime instrumentado não passar.
-- Release: `BLOCKED`; não aprovado sem assinatura e evidência de produção.
+- preparação da assinatura de produção: `PASS`;
+- keystore PKCS12/alias/senhas do GitHub Actions: combinação válida, sem exposição dos valores;
+- build do APK/AAB assinado: `BLOCKED` antes da compilação porque as variáveis reais `BLAISE_MONTHLY_PRODUCT_ID`, `BLAISE_ANNUAL_PRODUCT_ID` e `BLAISE_ENTITLEMENT_VERIFY_URL` não estavam configuradas.
+
+Portanto, não é correto registrar ausência de keystore como bloqueio atual. O bloqueio atual do pacote assinado é a configuração externa real de Google Play Billing/backend. O Release Gate permanece manual e fail-closed.
+
+## Dependências externas ainda bloqueadas
+
+- Conta pessoal do Google Play Console: cadastro enviado e em análise pelo Google; `BLOCKED` até aprovação.
+- Assinaturas Play: IDs reais, base plans/ofertas, R$ 3,93 mensal, R$ 35,00 anual e trial de 72 h: `BLOCKED` até acesso ao Play Console; nenhum ID fictício será usado.
+- Backend de entitlement em produção: código/testes `PASS`, mas Google Cloud project, Play Developer API, service account vinculada ao Play Console, implantação HTTPS e RTDN/Pub/Sub reais: `BLOCKED`.
+- Release Gate com APK/AAB assinados, zipalign, apksigner, jarsigner, bundletool e hashes: `BLOCKED` até os três valores reais acima estarem disponíveis.
+- Firebase Test Lab remoto: configuração presente; execução real `BLOCKED` por ausência de projeto/credencial autorizada.
+- Carga de 3 milhões de instalações/9 milhões de consultas: teste real `NOT_RUN` enquanto não houver backend/ambiente de carga autorizado.
+- Fontes meteorológicas/alertas P0 em produção, FCM, TTS editorial de produção, canary, rollout/rollback e upload Play Console: `BLOCKED`/`NOT_RUN` conforme dependências externas.
+
+## Regra de release
+
+P0 oficial permanece independente da assinatura. `RC/Release PASS` só poderá ser declarado depois de evidência executada de pacote assinado, backend real, configuração Play, runtime/dispositivo e gates externos aplicáveis; nenhum placeholder transforma gate bloqueado em sucesso.
