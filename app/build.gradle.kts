@@ -16,6 +16,10 @@ val releaseSigningReady = listOf(
 val monthlyProductId = System.getenv("BLAISE_MONTHLY_PRODUCT_ID").orEmpty().trim()
 val annualProductId = System.getenv("BLAISE_ANNUAL_PRODUCT_ID").orEmpty().trim()
 val entitlementVerifyUrl = System.getenv("BLAISE_ENTITLEMENT_VERIFY_URL").orEmpty().trim()
+val firebaseApplicationId = System.getenv("BLAISE_FIREBASE_APPLICATION_ID").orEmpty().trim()
+val firebaseApiKey = System.getenv("BLAISE_FIREBASE_API_KEY").orEmpty().trim()
+val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().trim()
+val firebaseSenderId = System.getenv("BLAISE_FIREBASE_SENDER_ID").orEmpty().trim()
 
 android {
     namespace = "br.com.blaise.rj"
@@ -31,6 +35,10 @@ android {
         buildConfigField("String", "BLAISE_MONTHLY_PRODUCT_ID", buildConfigString(monthlyProductId))
         buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
         buildConfigField("String", "BLAISE_ENTITLEMENT_VERIFY_URL", buildConfigString(entitlementVerifyUrl))
+        buildConfigField("String", "BLAISE_FIREBASE_APPLICATION_ID", buildConfigString(firebaseApplicationId))
+        buildConfigField("String", "BLAISE_FIREBASE_API_KEY", buildConfigString(firebaseApiKey))
+        buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
+        buildConfigField("String", "BLAISE_FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
     }
     signingConfigs {
         if (releaseSigningReady) {
@@ -68,6 +76,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.play.billing)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)

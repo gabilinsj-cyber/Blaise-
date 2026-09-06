@@ -10,6 +10,10 @@ required=(
   BLAISE_MONTHLY_PRODUCT_ID
   BLAISE_ANNUAL_PRODUCT_ID
   BLAISE_ENTITLEMENT_VERIFY_URL
+  BLAISE_FIREBASE_APPLICATION_ID
+  BLAISE_FIREBASE_API_KEY
+  BLAISE_FIREBASE_PROJECT_ID
+  BLAISE_FIREBASE_SENDER_ID
 )
 missing=()
 for name in "${required[@]}"; do
@@ -29,6 +33,18 @@ if [[ "$BLAISE_ENTITLEMENT_VERIFY_URL" != https://* ]]; then
 fi
 if [[ "$BLAISE_MONTHLY_PRODUCT_ID" == "$BLAISE_ANNUAL_PRODUCT_ID" ]]; then
   echo "BLOCKED: monthly and annual Google Play product IDs must differ." >&2
+  exit 2
+fi
+if [[ "$BLAISE_FIREBASE_APPLICATION_ID" != 1:*:android:* ]]; then
+  echo "BLOCKED: BLAISE_FIREBASE_APPLICATION_ID is not an Android Firebase app id." >&2
+  exit 2
+fi
+if [[ ! "$BLAISE_FIREBASE_SENDER_ID" =~ ^[0-9]+$ ]]; then
+  echo "BLOCKED: BLAISE_FIREBASE_SENDER_ID must be numeric." >&2
+  exit 2
+fi
+if [[ "$BLAISE_FIREBASE_PROJECT_ID" =~ [[:space:]] || "$BLAISE_FIREBASE_API_KEY" =~ [[:space:]] ]]; then
+  echo "BLOCKED: Firebase production values must not contain whitespace." >&2
   exit 2
 fi
 
@@ -51,5 +67,6 @@ printf '%s\n' \
   'RELEASE_PACKAGE_GATE=PASS' \
   'billing_products=CONFIGURED' \
   'entitlement_backend=HTTPS_CONFIGURED' \
+  'fcm_p0=CONFIGURED' \
   'play_console_upload=BLOCKED_UNTIL_EXPLICITLY_CONFIGURED' \
   > evidence/release/gate.txt
