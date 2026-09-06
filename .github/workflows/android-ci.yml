@@ -61,6 +61,12 @@ jobs:
             -e BLAISE_ANNUAL_PRODUCT_ID=ci.annual \
             -e BLAISE_VERIFY_MAX_CONCURRENT=128 \
             -e BLAISE_RTDN_MAX_CONCURRENT=64 \
+            -e BLAISE_P0_MAX_CONCURRENT=32 \
+            -e BLAISE_FIREBASE_PROJECT_ID=ci-project \
+            -e BLAISE_P0_AUDIENCE=https://ci.invalid/v1/internal/p0 \
+            -e BLAISE_P0_SERVICE_ACCOUNT=p0-ci@ci-project.iam.gserviceaccount.com \
+            -e BLAISE_OBSERVABILITY_AUDIENCE=https://ci.invalid/internal/metrics \
+            -e BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=metrics-ci@ci-project.iam.gserviceaccount.com \
             blaise-entitlement-backend:ci >/dev/null
 
           mapping="$(docker port "$name" 8080/tcp)"
@@ -82,6 +88,8 @@ jobs:
           fi
 
           grep -F '"status":"ok"' backend/evidence/backend-health.json
+          curl -fsS "$base/readyz" > backend/evidence/backend-ready.json
+          grep -F '"status":"ready"' backend/evidence/backend-ready.json
           docker inspect "$name" --format '{{.Config.User}}' > backend/evidence/backend-runtime-user.txt
           grep -Fx 'node' backend/evidence/backend-runtime-user.txt
 
@@ -96,6 +104,17 @@ jobs:
             > backend/evidence/backend-invalid-json-status.txt
           grep -Fx '400' backend/evidence/backend-invalid-json-status.txt
 
+          curl -sS -o /dev/null -w '%{http_code}' \
+            "$base/internal/metrics" \
+            > backend/evidence/backend-metrics-auth-status.txt
+          grep -Fx '401' backend/evidence/backend-metrics-auth-status.txt
+
+          curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' --data '{}' \
+            "$base/v1/internal/p0" \
+            > backend/evidence/backend-p0-auth-status.txt
+          grep -Fx '401' backend/evidence/backend-p0-auth-status.txt
+
           docker logs "$name" > backend/evidence/backend-runtime.log 2>&1
           printf '%s\n' \
             'BACKEND_GATE=PASS' \
@@ -104,16 +123,23 @@ jobs:
             'container_build=PASS' \
             'container_non_root_user=PASS' \
             'container_runtime_health=PASS' \
+            'container_runtime_readiness=PASS' \
             'content_type_fail_closed=PASS' \
             'invalid_json_fail_closed=PASS' \
             'rtdn_instance_replay_guard=PASS_UNIT' \
             'transient_upstream_retry=PASS_UNIT' \
             'bounded_concurrency=PASS_SMOKE' \
             'overload_fail_closed=PASS_SMOKE' \
+            'operational_metrics_allowlist=PASS_UNIT' \
+            'observability_oidc_fail_closed=PASS_SMOKE' \
+            'p0_service_identity_fail_closed=PASS_SMOKE' \
+            'p0_publish_idempotency=PASS_UNIT' \
             'scale_3m_9m=BLOCKED_EXTERNAL_LOAD_ENVIRONMENT' \
             'multi_region_failover=BLOCKED_EXTERNAL_INFRA' \
+            'production_observability_export=BLOCKED_EXTERNAL' \
             'google_play_live_credentials=BLOCKED_EXTERNAL' \
             'firebase_live_credentials=BLOCKED_EXTERNAL' \
+            'fcm_live_delivery=BLOCKED_EXTERNAL' \
             > backend/evidence/backend-gate.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()

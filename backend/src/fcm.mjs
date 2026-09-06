@@ -44,7 +44,7 @@ export function buildP0TopicMessage(alert, config, nowMillis = Date.now()) {
   };
 }
 
-export async function createFcmGateway(config) {
+export async function createFcmGateway(config, { onRetry = () => {} } = {}) {
   if (!config?.firebaseProjectId) throw new Error('fcm_not_configured');
   const { GoogleAuth } = await import('google-auth-library');
   const auth = new GoogleAuth({ scopes: [FCM_SCOPE] });
@@ -64,7 +64,7 @@ export async function createFcmGateway(config) {
             data: body,
             timeout: 7_000,
           }),
-          { onRetry: () => console.warn('fcm_publish_retry') },
+          { onRetry },
         );
         return typeof response.data?.name === 'string' ? response.data.name : 'accepted';
       } catch {
@@ -74,7 +74,7 @@ export async function createFcmGateway(config) {
   };
 }
 
-function validateP0Alert(alert, nowMillis) {
+export function validateP0Alert(alert, nowMillis = Date.now()) {
   if (!alert || typeof alert !== 'object' || Array.isArray(alert)) {
     throw new ClientInputError('invalid_p0_alert');
   }
