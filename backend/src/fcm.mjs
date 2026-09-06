@@ -1,4 +1,5 @@
 import { ClientInputError } from './core.mjs';
+import { retryTransient } from './resilience.mjs';
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 export const DEFAULT_P0_TOPIC = 'blaise-rj-p0';
@@ -56,12 +57,15 @@ export async function createFcmGateway(config) {
       const client = await authClient();
       const body = buildP0TopicMessage(alert, config);
       try {
-        const response = await client.request({
-          url: endpoint,
-          method: 'POST',
-          data: body,
-          timeout: 7_000,
-        });
+        const response = await retryTransient(
+          () => client.request({
+            url: endpoint,
+            method: 'POST',
+            data: body,
+            timeout: 7_000,
+          }),
+          { onRetry: () => console.warn('fcm_publish_retry') },
+        );
         return typeof response.data?.name === 'string' ? response.data.name : 'accepted';
       } catch {
         throw new Error('fcm_publish_failed');

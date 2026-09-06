@@ -7,11 +7,18 @@ import {
   evaluateSubscription,
   validateVerifyPayload,
 } from './core.mjs';
+import {
+  ServiceBusyError,
+  createConcurrencyGate,
+  retryTransient,
+} from './resilience.mjs';
 
 const ANDROID_PUBLISHER_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 const MAX_REQUEST_BYTES = 16_384;
 const DEFAULT_REPLAY_TTL_MILLIS = 24 * 60 * 60 * 1_000;
 const DEFAULT_REPLAY_MAX_ENTRIES = 4_096;
+const DEFAULT_VERIFY_MAX_CONCURRENT = 128;
+const DEFAULT_RTDN_MAX_CONCURRENT = 64;
 
 export function loadConfig(env = process.env) {
   const packageName = (env.BLAISE_ANDROID_PACKAGE || 'br.com.blaise.rj').trim();
@@ -27,8 +34,27 @@ export function loadConfig(env = process.env) {
     allowTestPurchases: env.BLAISE_ALLOW_TEST_PURCHASES === 'true',
     pubsubAudience: (env.BLAISE_PUBSUB_AUDIENCE || '').trim(),
     pubsubServiceAccount: (env.BLAISE_PUBSUB_SERVICE_ACCOUNT || '').trim(),
-    port: Number.parseInt(env.PORT || '8080', 10),
+    verifyMaxConcurrent: positiveIntEnv(
+      env.BLAISE_VERIFY_MAX_CONCURRENT,
+      DEFAULT_VERIFY_MAX_CONCURRENT,
+      'invalid_verify_concurrency',
+    ),
+    rtdnMaxConcurrent: positiveIntEnv(
+      env.BLAISE_RTDN_MAX_CONCURRENT,
+      DEFAULT_RTDN_MAX_CONCURRENT,
+      'invalid_rtdn_concurrency',
+    ),
+    port: positiveIntEnv(env.PORT, 8080, 'invalid_port', 65_535),
   };
+}
+
+function positiveIntEnv(value, fallback, errorCode, max = 10_000) {
+  if (value == null || String(value).trim() === '') return fallback;
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isInteger(parsed) || String(parsed) !== String(value).trim() || parsed < 1 || parsed > max) {
+    throw new Error(errorCode);
+  }
+  return parsed;
 }
 
 export function createRtdnReplayGuard({
@@ -78,7 +104,10 @@ export async function createGooglePlayGateway(config) {
       const client = await authClient();
       const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(config.packageName)}/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`;
       try {
-        const response = await client.request({ url, method: 'GET', timeout: 7_000 });
+        const response = await retryTransient(
+          () => client.request({ url, method: 'GET', timeout: 7_000 }),
+          { onRetry: () => console.warn('google_play_lookup_retry') },
+        );
         return response.data;
       } catch (error) {
         const status = error?.response?.status;
@@ -91,7 +120,10 @@ export async function createGooglePlayGateway(config) {
       const client = await authClient();
       const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(config.packageName)}/purchases/subscriptions/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`;
       try {
-        await client.request({ url, method: 'POST', data: {}, timeout: 7_000 });
+        await retryTransient(
+          () => client.request({ url, method: 'POST', data: {}, timeout: 7_000 }),
+          { onRetry: () => console.warn('google_play_acknowledge_retry') },
+        );
       } catch {
         throw new Error('google_play_acknowledge_failed');
       }
@@ -199,6 +231,8 @@ export function createHttpHandler({
   gateway,
   oidcVerifier,
   replayGuard = createRtdnReplayGuard(),
+  verifyGate = createConcurrencyGate({ maxConcurrent: config.verifyMaxConcurrent ?? DEFAULT_VERIFY_MAX_CONCURRENT }),
+  rtdnGate = createConcurrencyGate({ maxConcurrent: config.rtdnMaxConcurrent ?? DEFAULT_RTDN_MAX_CONCURRENT }),
 }) {
   return async (req, res) => {
     setCommonHeaders(res);
@@ -214,7 +248,7 @@ export function createHttpHandler({
           return;
         }
         const payload = await readJson(req, MAX_REQUEST_BYTES);
-        const result = await verifyPurchasePayload(payload, { config, gateway });
+        const result = await verifyGate.run(() => verifyPurchasePayload(payload, { config, gateway }));
         sendJson(res, 200, result);
         return;
       }
@@ -233,7 +267,7 @@ export function createHttpHandler({
           return;
         }
         const payload = await readJson(req, MAX_REQUEST_BYTES * 4);
-        await processRtdnPayload(payload, { config, gateway, replayGuard });
+        await rtdnGate.run(() => processRtdnPayload(payload, { config, gateway, replayGuard }));
         res.statusCode = 204;
         res.end();
         return;
@@ -243,6 +277,9 @@ export function createHttpHandler({
     } catch (error) {
       if (error instanceof ClientInputError || error?.message === 'invalid_json' || error?.message === 'request_too_large') {
         sendJson(res, 400, { error: 'invalid_request' });
+      } else if (error instanceof ServiceBusyError) {
+        res.setHeader('Retry-After', '1');
+        sendJson(res, 503, { error: 'temporarily_unavailable' });
       } else {
         console.error('request_failed');
         sendJson(res, 503, { error: 'verification_unavailable' });

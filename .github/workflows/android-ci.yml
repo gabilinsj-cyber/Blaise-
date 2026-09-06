@@ -30,6 +30,15 @@ jobs:
           set -euo pipefail
           npm run check
           npm test
+      - name: Backend concurrency and backpressure smoke
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          npm run load-smoke | tee evidence/load-smoke.txt
+          grep -F 'LOAD_SMOKE=PASS' evidence/load-smoke.txt
+          grep -F 'BACKPRESSURE_SMOKE=PASS' evidence/load-smoke.txt
+          grep -F 'SCALE_3M_9M=NOT_RUN_EXTERNAL_ENVIRONMENT_REQUIRED' evidence/load-smoke.txt
       - name: Build production backend container
         run: |
           set -euo pipefail
@@ -50,6 +59,8 @@ jobs:
             -p 127.0.0.1::8080 \
             -e BLAISE_MONTHLY_PRODUCT_ID=ci.monthly \
             -e BLAISE_ANNUAL_PRODUCT_ID=ci.annual \
+            -e BLAISE_VERIFY_MAX_CONCURRENT=128 \
+            -e BLAISE_RTDN_MAX_CONCURRENT=64 \
             blaise-entitlement-backend:ci >/dev/null
 
           mapping="$(docker port "$name" 8080/tcp)"
@@ -96,6 +107,11 @@ jobs:
             'content_type_fail_closed=PASS' \
             'invalid_json_fail_closed=PASS' \
             'rtdn_instance_replay_guard=PASS_UNIT' \
+            'transient_upstream_retry=PASS_UNIT' \
+            'bounded_concurrency=PASS_SMOKE' \
+            'overload_fail_closed=PASS_SMOKE' \
+            'scale_3m_9m=BLOCKED_EXTERNAL_LOAD_ENVIRONMENT' \
+            'multi_region_failover=BLOCKED_EXTERNAL_INFRA' \
             'google_play_live_credentials=BLOCKED_EXTERNAL' \
             'firebase_live_credentials=BLOCKED_EXTERNAL' \
             > backend/evidence/backend-gate.txt
