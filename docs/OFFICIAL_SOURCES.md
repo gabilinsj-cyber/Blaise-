@@ -18,13 +18,15 @@ O segundo contrato conecta a página pública atual de **Dados Pluviométricos**
 
 O adaptador usa somente HTTPS e allowlist do host `websempre.rio.rj.gov.br`, rejeita redirects, resposta não HTML, corpo acima do limite e falhas de transporte. O parser é deliberadamente fail-closed: exige os marcadores do contrato, exatamente **33 linhas de estação**, 18 colunas por linha (`N°`, estação, localização, hora e 14 campos pluviométricos), código/nome únicos, timestamp válido e valores numéricos não negativos dentro de limites defensivos.
 
-Os campos normalizados são: 5 min, 10 min, 15 min, 30 min, 1 h, 2 h, 3 h, 4 h, 6 h, 12 h, 24 h, 96 h, acumulado do mês e `TX-15`. O snapshot produz SHA-256 determinístico e preserva o horário oficial de leitura normalizado. Mudança de estrutura, coluna, quantidade de estações ou valor inválido faz o gate falhar; o Blaise não converte erro de fonte em “sem chuva”.
+Os campos normalizados são: 5 min, 10 min, 15 min, 30 min, 1 h, 2 h, 3 h, 4 h, 6 h, 12 h, 24 h, 96 h, acumulado do mês e `TX-15`. O valor oficial `ND` significa dado não disponível e é preservado como `null`; ele nunca é convertido em zero. A evidência registra apenas a contagem total desses valores ausentes, sem expor a série por estação. Qualquer outro marcador textual desconhecido continua falhando fechado.
+
+O snapshot produz SHA-256 determinístico e preserva o horário oficial de leitura normalizado. Mudança de estrutura, coluna, quantidade de estações ou valor inválido faz o gate falhar; o Blaise não converte erro, atraso ou dado ausente em “sem chuva”.
 
 ## Execução e evidência
 
 A execução externa permanece **manual-only** em `.github/workflows/official-source-probe.yml`. Por padrão `execute_live_probe=false`, portanto nenhum acesso externo ocorre. Quando explicitamente habilitado, o workflow verifica o inventário e a chuva ao vivo no mesmo ciclo.
 
-A evidência persistida contém somente status, hosts, contagens, digests, horário da checagem e janela de horários observados. Nomes de estação e valores individuais de chuva não são gravados no artefato do gate.
+A evidência persistida contém somente status, hosts, contagens, digests, horário da checagem, contagem de valores ausentes e janela de horários observados. Nomes de estação e valores individuais de chuva não são gravados no artefato do gate.
 
 ## Limite atual
 
