@@ -172,6 +172,8 @@ function parseObservedAt(value) {
 
 function parseRainMm(value) {
   const trimmed = String(value).trim();
+  if (trimmed.toUpperCase() === 'ND') return null;
+
   let normalized;
   if (/^\d{1,3}(?:\.\d{3})*,\d+$/.test(trimmed) || /^\d+,\d+$/.test(trimmed)) {
     normalized = trimmed.replace(/\./g, '').replace(',', '.');
@@ -244,11 +246,16 @@ export function validateAlertaRioLiveRainfallHtml(html) {
   }
 
   const observed = stations.map((station) => station.observedAt).sort();
+  const missingValueCount = stations.reduce(
+    (total, station) => total + LIVE_RAIN_KEYS.filter((key) => station[key] === null).length,
+    0,
+  );
   const canonical = JSON.stringify(stations);
   return Object.freeze({
     sourceId: ALERTA_RIO_LIVE_SOURCE_ID,
     sourceHost: ALERTA_RIO_LIVE_HOST,
     stationCount: stations.length,
+    missingValueCount,
     oldestObservedAt: observed[0],
     freshestObservedAt: observed.at(-1),
     snapshotSha256: createHash('sha256').update(canonical).digest('hex'),

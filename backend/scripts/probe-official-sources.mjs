@@ -39,6 +39,7 @@ const evidence = {
         status: 'PASS',
         sourceHost: rainfallProbe.value.sourceHost,
         stationCount: rainfallProbe.value.stationCount,
+        missingValueCount: rainfallProbe.value.missingValueCount,
         oldestObservedAt: rainfallProbe.value.oldestObservedAt,
         freshestObservedAt: rainfallProbe.value.freshestObservedAt,
         snapshotSha256: rainfallProbe.value.snapshotSha256,
