@@ -1,0 +1,203 @@
+name: Cloud Run Candidate Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_deploy:
+        description: 'Build, push and deploy a zero-traffic Cloud Run candidate revision after fail-closed validation'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_REGION: ${{ vars.BLAISE_CLOUDRUN_REGION }}
+      BLAISE_CLOUDRUN_SERVICE: ${{ vars.BLAISE_CLOUDRUN_SERVICE }}
+      BLAISE_ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.BLAISE_ARTIFACT_REGISTRY_REPOSITORY }}
+      BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
+      BLAISE_ANNUAL_PRODUCT_ID: ${{ vars.BLAISE_ANNUAL_PRODUCT_ID }}
+      BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+      BLAISE_PUBSUB_AUDIENCE: ${{ vars.BLAISE_PUBSUB_AUDIENCE }}
+      BLAISE_PUBSUB_SERVICE_ACCOUNT: ${{ vars.BLAISE_PUBSUB_SERVICE_ACCOUNT }}
+      BLAISE_P0_AUDIENCE: ${{ vars.BLAISE_P0_AUDIENCE }}
+      BLAISE_P0_SERVICE_ACCOUNT: ${{ vars.BLAISE_P0_SERVICE_ACCOUNT }}
+      BLAISE_OBSERVABILITY_AUDIENCE: ${{ vars.BLAISE_OBSERVABILITY_AUDIENCE }}
+      BLAISE_OBSERVABILITY_SERVICE_ACCOUNT: ${{ vars.BLAISE_OBSERVABILITY_SERVICE_ACCOUNT }}
+      BLAISE_FCM_P0_TOPIC: ${{ vars.BLAISE_FCM_P0_TOPIC }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Fail-closed Cloud Run production configuration preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLAISE_CLOUDRUN_PREFLIGHT_RESULT_FILE=evidence/cloudrun/preflight.txt \
+            bash scripts/cloudrun-preflight.sh
+
+      - name: Record external deployment not requested
+        if: ${{ !inputs.execute_deploy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun
+          printf '%s\n' \
+            'CLOUDRUN_CANDIDATE_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'deployment=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'traffic=PRESERVED' \
+            > evidence/cloudrun/gate.txt
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.execute_deploy }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.execute_deploy }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Build and push immutable backend image
+        if: ${{ inputs.execute_deploy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun
+          gcloud version | tee evidence/cloudrun/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun/gcloud-version.txt
+          registry="${BLAISE_CLOUDRUN_REGION}-docker.pkg.dev"
+          image="${registry}/${BLAISE_GCP_PROJECT_ID}/${BLAISE_ARTIFACT_REGISTRY_REPOSITORY}/blaise-entitlement-backend:${GITHUB_SHA}"
+          gcloud auth configure-docker "$registry" --quiet
+          docker build --file backend/Dockerfile --tag "$image" backend
+          docker push "$image"
+          printf 'BLAISE_CLOUDRUN_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
+          printf '%s\n' "image=${image}" > evidence/cloudrun/image.txt
+
+      - name: Deploy tagged candidate with zero production traffic
+        if: ${{ inputs.execute_deploy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="candidate-${GITHUB_SHA:0:8}"
+          iam_args=()
+          if ! gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+              --project="$BLAISE_GCP_PROJECT_ID" \
+              --region="$BLAISE_CLOUDRUN_REGION" >/dev/null 2>&1; then
+            iam_args+=(--no-allow-unauthenticated)
+          fi
+
+          runtime_env="BLAISE_ANDROID_PACKAGE=br.com.blaise.rj,BLAISE_MONTHLY_PRODUCT_ID=${BLAISE_MONTHLY_PRODUCT_ID},BLAISE_ANNUAL_PRODUCT_ID=${BLAISE_ANNUAL_PRODUCT_ID},BLAISE_ALLOW_TEST_PURCHASES=false,BLAISE_FIREBASE_PROJECT_ID=${BLAISE_FIREBASE_PROJECT_ID},BLAISE_FCM_P0_TOPIC=${BLAISE_FCM_P0_TOPIC:-blaise-rj-p0},BLAISE_PUBSUB_AUDIENCE=${BLAISE_PUBSUB_AUDIENCE},BLAISE_PUBSUB_SERVICE_ACCOUNT=${BLAISE_PUBSUB_SERVICE_ACCOUNT},BLAISE_P0_AUDIENCE=${BLAISE_P0_AUDIENCE},BLAISE_P0_SERVICE_ACCOUNT=${BLAISE_P0_SERVICE_ACCOUNT},BLAISE_OBSERVABILITY_AUDIENCE=${BLAISE_OBSERVABILITY_AUDIENCE},BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=${BLAISE_OBSERVABILITY_SERVICE_ACCOUNT}"
+
+          gcloud run deploy "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --platform=managed \
+            --image="$BLAISE_CLOUDRUN_IMAGE" \
+            --service-account="$BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" \
+            --port=8080 \
+            --cpu=1 \
+            --memory=512Mi \
+            --concurrency=80 \
+            --timeout=15s \
+            --min-instances=0 \
+            --max-instances=50 \
+            --no-traffic \
+            --tag="$tag" \
+            --set-env-vars="$runtime_env" \
+            "${iam_args[@]}" \
+            --quiet
+
+          tmp_service="$RUNNER_TEMP/cloudrun-service.json"
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$tmp_service"
+          BLAISE_CLOUDRUN_CANDIDATE_TAG="$tag" python3 - "$tmp_service" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          service = json.loads(Path(sys.argv[1]).read_text())
+          tag = os.environ['BLAISE_CLOUDRUN_CANDIDATE_TAG']
+          match = next((x for x in service.get('status', {}).get('traffic', []) if x.get('tag') == tag), None)
+          if not match or not match.get('url') or not match.get('revisionName'):
+              raise SystemExit('candidate tag/revision not found after deploy')
+          out = Path('evidence/cloudrun/candidate.txt')
+          out.write_text(
+              'CLOUDRUN_CANDIDATE_DEPLOY=PASS\n'
+              'traffic=ZERO_PERCENT_PRODUCTION_TRAFFIC\n'
+              f"tag={tag}\n"
+              f"revision={match['revisionName']}\n"
+              f"url={match['url']}\n"
+          )
+          with Path(os.environ['GITHUB_ENV']).open('a') as fh:
+              fh.write(f"BLAISE_CLOUDRUN_CANDIDATE_URL={match['url']}\n")
+              fh.write(f"BLAISE_CLOUDRUN_CANDIDATE_REVISION={match['revisionName']}\n")
+          PY
+
+      - name: Smoke tagged candidate before any traffic migration
+        if: ${{ inputs.execute_deploy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(gcloud auth print-identity-token)"
+          test -n "$token"
+          curl --fail --silent --show-error --retry 2 \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/healthz" \
+            | tee evidence/cloudrun/healthz.json
+          curl --fail --silent --show-error --retry 2 \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
+            | tee evidence/cloudrun/readyz.json
+          grep -F '"status":"ok"' evidence/cloudrun/healthz.json
+          grep -F '"status":"ready"' evidence/cloudrun/readyz.json
+          printf '%s\n' \
+            'CLOUDRUN_CANDIDATE_GATE=PASS' \
+            'candidate_smoke=PASS' \
+            'production_traffic=NOT_MIGRATED' \
+            'promotion=BLOCKED_SEPARATE_EXPLICIT_GATE_REQUIRED' \
+            > evidence/cloudrun/gate.txt
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun
+          if [[ ! -s evidence/cloudrun/gate.txt ]]; then
+            printf '%s\n' \
+              'CLOUDRUN_CANDIDATE_GATE=BLOCKED' \
+              'reason=workflow_failed_before_candidate_gate' \
+              'production_traffic=UNCHANGED_OR_NOT_PROVEN' \
+              > evidence/cloudrun/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-cloudrun-candidate-evidence
+          path: evidence/cloudrun/
