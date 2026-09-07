@@ -6,6 +6,10 @@ ACT="br.com.blaise.rj.MainActivity"
 OUT_DIR="evidence/runtime"
 mkdir -p "$OUT_DIR"
 
+# Bounded transport retries only. Assertions remain fail-closed after capture.
+# shellcheck source=scripts/runtime-adb-retry.sh
+source scripts/runtime-adb-retry.sh
+
 adb wait-for-device
 until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do sleep 2; done
 
@@ -45,24 +49,28 @@ test -n "$pid2"
 
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS
 P0_TITLE="BLAISE_P0_TEST"
-p0_broadcast="$(adb shell am broadcast -W --user 0 \
-  -n "$PKG/br.com.blaise.rj.debug.RuntimeDebugReceiver" \
-  -a br.com.blaise.rj.debug.RUNTIME_P0 \
-  --es title "$P0_TITLE")"
-printf '%s\n' "$p0_broadcast" | tee "$OUT_DIR/p0-broadcast.txt"
-printf '%s\n' "$p0_broadcast" | grep -q "Broadcast completed: result=-1"
+adb_capture_retry "$OUT_DIR/p0-broadcast.txt" \
+  adb shell am broadcast -W --user 0 \
+    -n "$PKG/br.com.blaise.rj.debug.RuntimeDebugReceiver" \
+    -a br.com.blaise.rj.debug.RUNTIME_P0 \
+    --es title "$P0_TITLE"
+cat "$OUT_DIR/p0-broadcast.txt"
+grep -q "Broadcast completed: result=-1" "$OUT_DIR/p0-broadcast.txt"
 sleep 1
-adb shell dumpsys notification --noredact > "$OUT_DIR/notifications.txt"
+
+adb_capture_retry "$OUT_DIR/notifications.txt" \
+  adb shell dumpsys notification --noredact
 grep -q "$PKG" "$OUT_DIR/notifications.txt"
 grep -q "blaise_p0" "$OUT_DIR/notifications.txt"
 grep -q "$P0_TITLE" "$OUT_DIR/notifications.txt"
 
-adb shell dumpsys activity activities > "$OUT_DIR/activity-dumpsys.txt"
+adb_capture_retry "$OUT_DIR/activity-dumpsys.txt" \
+  adb shell dumpsys activity activities
 grep -q "$PKG/$ACT" "$OUT_DIR/activity-dumpsys.txt"
 
 adb shell screencap -p /sdcard/blaise-runtime.png
 adb pull /sdcard/blaise-runtime.png "$OUT_DIR/blaise-runtime.png" >/dev/null
-adb logcat -d -t 700 > "$OUT_DIR/logcat.txt"
+adb_capture_retry "$OUT_DIR/logcat.txt" adb logcat -d -t 700
 if grep -E "FATAL EXCEPTION|ANR in ${PKG}" "$OUT_DIR/logcat.txt"; then
   echo "Runtime fatal signal detected" >&2
   exit 1
@@ -75,6 +83,7 @@ offline_start=PASS
 airplane_mode_restore=PASS
 p0_notification=PASS
 process_restart=PASS
+adb_transport_capture_retry=PASS_BOUNDED_5
 pid_initial=$pid1
 pid_after_restart=$pid2
 EOF
