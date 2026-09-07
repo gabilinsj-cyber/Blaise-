@@ -15,6 +15,7 @@ test "$(npm --version)" = "11.19.0"
   cd backend
   rm -f package-lock.json
   npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+  sha256sum package-lock.json
   sha256sum -c package-lock.sha256
   npm ci --ignore-scripts --no-audit --no-fund
   npm run check
