@@ -10,13 +10,27 @@ Endpoint de contrato:
 
 `https://pgeo3.rio.rj.gov.br/arcgis/rest/services/Geotecnia/Estacoes_AlertaRio/FeatureServer/0`
 
-A execução externa permanece **manual-only** em `.github/workflows/official-source-probe.yml`. Por padrão `execute_live_probe=false`, portanto nenhum acesso externo ocorre. Quando explicitamente habilitado, a evidência contém somente identificador/host da fonte, contagem, digest do catálogo, horário da checagem e status; nomes/endereço/coordenadas não são gravados no artefato.
+## Alerta Rio — chuva ao vivo
+
+O segundo contrato conecta a página pública atual de **Dados Pluviométricos** do Sistema Alerta Rio:
+
+`https://websempre.rio.rj.gov.br/estacoes/`
+
+O adaptador usa somente HTTPS e allowlist do host `websempre.rio.rj.gov.br`, rejeita redirects, resposta não HTML, corpo acima do limite e falhas de transporte. O parser é deliberadamente fail-closed: exige os marcadores do contrato, exatamente **33 linhas de estação**, 18 colunas por linha (`N°`, estação, localização, hora e 14 campos pluviométricos), código/nome únicos, timestamp válido e valores numéricos não negativos dentro de limites defensivos.
+
+Os campos normalizados são: 5 min, 10 min, 15 min, 30 min, 1 h, 2 h, 3 h, 4 h, 6 h, 12 h, 24 h, 96 h, acumulado do mês e `TX-15`. O snapshot produz SHA-256 determinístico e preserva o horário oficial de leitura normalizado. Mudança de estrutura, coluna, quantidade de estações ou valor inválido faz o gate falhar; o Blaise não converte erro de fonte em “sem chuva”.
+
+## Execução e evidência
+
+A execução externa permanece **manual-only** em `.github/workflows/official-source-probe.yml`. Por padrão `execute_live_probe=false`, portanto nenhum acesso externo ocorre. Quando explicitamente habilitado, o workflow verifica o inventário e a chuva ao vivo no mesmo ciclo.
+
+A evidência persistida contém somente status, hosts, contagens, digests, horário da checagem e janela de horários observados. Nomes de estação e valores individuais de chuva não são gravados no artefato do gate.
 
 ## Limite atual
 
-Este gate prova somente a estrutura e disponibilidade do **inventário de estações**. Ele **não** prova ingestão de chuva, temperatura, vento, radar ou ausência de alertas. A documentação pública do COR informa que dados de chuva do Alerta Rio podem ser disponibilizados em tempo real em JSON, porém o Blaise não conecta esse fluxo até que o endpoint/contrato público atual seja verificado separadamente.
+A implementação de ingestão da chuva ao vivo está presente e coberta por testes determinísticos, mas **não deve ser tratada como prova LIVE até existir uma execução manual bem-sucedida do workflow no mesmo SHA**. Além disso, este contrato ainda não publica dados para o app nem implementa cache/freshness operacional de 15 min/1 min.
 
-Consequentemente, `rainfallLiveIngestion` permanece `NOT_IMPLEMENTED` e a UI continua fail-closed. Nenhum resultado deste gate pode ser convertido em “tempo estável”, “sem chuva” ou “sem alerta”.
+Temperatura, vento, radar, estágio operacional, alertas P0 originados de fonte oficial e reconciliação multi-fonte continuam contratos separados. Até serem validados, a UI permanece fail-closed para esses campos.
 
 ## Próximos contratos
 

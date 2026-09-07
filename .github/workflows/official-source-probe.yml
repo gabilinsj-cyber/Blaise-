@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the public Alerta Rio station inventory contract'
+        description: 'Query the public Alerta Rio station inventory and live rainfall contracts'
         required: true
         default: false
         type: boolean
@@ -31,11 +31,12 @@ jobs:
           mkdir -p evidence/official-sources
           cat > evidence/official-sources/alerta-rio.json <<'JSON'
           {
-            "sourceId": "alerta-rio-stations",
-            "contract": "active_station_inventory",
+            "sourceId": "alerta-rio",
+            "contract": "station_inventory+live_rainfall_snapshot",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "rainfallLiveIngestion": "NOT_IMPLEMENTED"
+            "stationCatalog": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "rainfallLiveIngestion": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED"
           }
           JSON
 
@@ -44,7 +45,7 @@ jobs:
         with:
           node-version: '24.20.0'
 
-      - name: Probe official Alerta Rio station contract
+      - name: Probe official Alerta Rio station and rainfall contracts
         if: ${{ inputs.execute_live_probe }}
         shell: bash
         run: |
