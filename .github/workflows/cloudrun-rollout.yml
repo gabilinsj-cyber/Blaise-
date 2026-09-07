@@ -1,0 +1,323 @@
+name: Cloud Run Rollout Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'plan, bootstrap-private, candidate, canary, promote, or rollback'
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - bootstrap-private
+          - candidate
+          - canary
+          - promote
+          - rollback
+      revision:
+        description: 'Exact Cloud Run revision for canary/promote/rollback'
+        required: false
+        type: string
+      canary_percent:
+        description: 'Traffic percentage for canary (1-25)'
+        required: true
+        default: '5'
+        type: string
+      confirm_production_change:
+        description: 'Explicit approval for an external Google Cloud production change'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-rollout-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+      BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_REGION: ${{ vars.BLAISE_CLOUDRUN_REGION }}
+      BLAISE_CLOUDRUN_SERVICE: ${{ vars.BLAISE_CLOUDRUN_SERVICE }}
+      BLAISE_ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.BLAISE_ARTIFACT_REGISTRY_REPOSITORY }}
+      BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
+      BLAISE_ANNUAL_PRODUCT_ID: ${{ vars.BLAISE_ANNUAL_PRODUCT_ID }}
+      BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+      BLAISE_FCM_P0_TOPIC: ${{ vars.BLAISE_FCM_P0_TOPIC }}
+      BLAISE_PUBSUB_AUDIENCE: ${{ vars.BLAISE_PUBSUB_AUDIENCE }}
+      BLAISE_PUBSUB_SERVICE_ACCOUNT: ${{ vars.BLAISE_PUBSUB_SERVICE_ACCOUNT }}
+      BLAISE_P0_AUDIENCE: ${{ vars.BLAISE_P0_AUDIENCE }}
+      BLAISE_P0_SERVICE_ACCOUNT: ${{ vars.BLAISE_P0_SERVICE_ACCOUNT }}
+      BLAISE_OBSERVABILITY_AUDIENCE: ${{ vars.BLAISE_OBSERVABILITY_AUDIENCE }}
+      BLAISE_OBSERVABILITY_SERVICE_ACCOUNT: ${{ vars.BLAISE_OBSERVABILITY_SERVICE_ACCOUNT }}
+      BLAISE_ROLLOUT_OPERATION: ${{ inputs.operation }}
+      BLAISE_ROLLOUT_REVISION: ${{ inputs.revision }}
+      BLAISE_ROLLOUT_CANARY_PERCENT: ${{ inputs.canary_percent }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Initialize rollout evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun
+          printf '%s\n' \
+            "operation=$BLAISE_ROLLOUT_OPERATION" \
+            "commit=$GITHUB_SHA" \
+            'external_change=NOT_RUN' \
+            > evidence/cloudrun/gate.txt
+
+      - name: Plan only - no Google authentication or production mutation
+        if: ${{ inputs.operation == 'plan' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'CLOUD_RUN_ROLLOUT_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'external_change=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            >> evidence/cloudrun/gate.txt
+
+      - name: Fail closed on missing approval and deployment configuration
+        if: ${{ inputs.operation != 'plan' }}
+        shell: bash
+        env:
+          CONFIRM_PRODUCTION_CHANGE: ${{ inputs.confirm_production_change }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRM_PRODUCTION_CHANGE" == 'true' ]] || { echo 'BLOCKED: explicit production-change approval is required' >&2; exit 2; }
+          for name in \
+            BLAISE_GCP_PROJECT_ID \
+            BLAISE_GCP_WIF_PROVIDER \
+            BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT \
+            BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT \
+            BLAISE_CLOUDRUN_REGION \
+            BLAISE_CLOUDRUN_SERVICE \
+            BLAISE_ARTIFACT_REGISTRY_REPOSITORY; do
+            [[ -n "${!name:-}" ]] || { echo "BLOCKED: missing repository variable $name" >&2; exit 2; }
+          done
+          [[ "$BLAISE_GCP_PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || { echo 'BLOCKED: invalid GCP project id' >&2; exit 2; }
+          [[ "$BLAISE_GCP_WIF_PROVIDER" =~ ^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9._-]+/providers/[A-Za-z0-9._-]+$ ]] || { echo 'BLOCKED: invalid WIF provider resource' >&2; exit 2; }
+          [[ "$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]] || { echo 'BLOCKED: invalid deploy service account' >&2; exit 2; }
+          [[ "$BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]] || { echo 'BLOCKED: invalid runtime service account' >&2; exit 2; }
+          [[ "$BLAISE_CLOUDRUN_REGION" =~ ^[a-z0-9-]+$ ]] || { echo 'BLOCKED: invalid Cloud Run region' >&2; exit 2; }
+          [[ "$BLAISE_CLOUDRUN_SERVICE" =~ ^[a-z][a-z0-9-]{0,62}$ ]] || { echo 'BLOCKED: invalid Cloud Run service name' >&2; exit 2; }
+          [[ "$BLAISE_ARTIFACT_REGISTRY_REPOSITORY" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'BLOCKED: invalid Artifact Registry repository name' >&2; exit 2; }
+
+          case "$BLAISE_ROLLOUT_OPERATION" in
+            bootstrap-private|candidate)
+              for name in \
+                BLAISE_MONTHLY_PRODUCT_ID BLAISE_ANNUAL_PRODUCT_ID \
+                BLAISE_FIREBASE_PROJECT_ID BLAISE_FCM_P0_TOPIC \
+                BLAISE_PUBSUB_AUDIENCE BLAISE_PUBSUB_SERVICE_ACCOUNT \
+                BLAISE_P0_AUDIENCE BLAISE_P0_SERVICE_ACCOUNT \
+                BLAISE_OBSERVABILITY_AUDIENCE BLAISE_OBSERVABILITY_SERVICE_ACCOUNT; do
+                [[ -n "${!name:-}" ]] || { echo "BLOCKED: missing production runtime variable $name" >&2; exit 2; }
+              done
+              [[ "$BLAISE_MONTHLY_PRODUCT_ID" != "$BLAISE_ANNUAL_PRODUCT_ID" ]] || { echo 'BLOCKED: billing product ids must differ' >&2; exit 2; }
+              [[ "$BLAISE_MONTHLY_PRODUCT_ID" != *[[:space:]]* && "$BLAISE_ANNUAL_PRODUCT_ID" != *[[:space:]]* ]] || { echo 'BLOCKED: billing product ids contain whitespace' >&2; exit 2; }
+              for audience in BLAISE_PUBSUB_AUDIENCE BLAISE_P0_AUDIENCE BLAISE_OBSERVABILITY_AUDIENCE; do
+                [[ "${!audience}" =~ ^https:// ]] || { echo "BLOCKED: $audience must be HTTPS" >&2; exit 2; }
+              done
+              ;;
+            canary)
+              [[ -n "$BLAISE_ROLLOUT_REVISION" ]] || { echo 'BLOCKED: revision is required for canary' >&2; exit 2; }
+              [[ "$BLAISE_ROLLOUT_CANARY_PERCENT" =~ ^[0-9]+$ ]] || { echo 'BLOCKED: canary percent must be an integer' >&2; exit 2; }
+              (( BLAISE_ROLLOUT_CANARY_PERCENT >= 1 && BLAISE_ROLLOUT_CANARY_PERCENT <= 25 )) || { echo 'BLOCKED: canary percent must be 1..25' >&2; exit 2; }
+              ;;
+            promote|rollback)
+              [[ -n "$BLAISE_ROLLOUT_REVISION" ]] || { echo "BLOCKED: revision is required for $BLAISE_ROLLOUT_OPERATION" >&2; exit 2; }
+              ;;
+            *) echo 'BLOCKED: unsupported rollout operation' >&2; exit 2 ;;
+          esac
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.operation != 'plan' }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.operation != 'plan' }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Capture Cloud Run pre-change state
+        if: ${{ inputs.operation != 'plan' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud version | tee evidence/cloudrun/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun/gcloud-version.txt
+          if gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format=json > evidence/cloudrun/service-before.json 2>/dev/null; then
+            echo 'service_before=EXISTS' >> evidence/cloudrun/gate.txt
+          else
+            rm -f evidence/cloudrun/service-before.json
+            echo 'service_before=ABSENT' >> evidence/cloudrun/gate.txt
+          fi
+          if [[ "$BLAISE_ROLLOUT_OPERATION" == 'bootstrap-private' ]]; then
+            [[ ! -s evidence/cloudrun/service-before.json ]] || { echo 'BLOCKED: bootstrap-private requires the service to be absent' >&2; exit 2; }
+          elif [[ "$BLAISE_ROLLOUT_OPERATION" == 'candidate' || "$BLAISE_ROLLOUT_OPERATION" == 'canary' || "$BLAISE_ROLLOUT_OPERATION" == 'promote' || "$BLAISE_ROLLOUT_OPERATION" == 'rollback' ]]; then
+            [[ -s evidence/cloudrun/service-before.json ]] || { echo 'BLOCKED: Cloud Run service does not exist; use bootstrap-private first' >&2; exit 2; }
+          fi
+
+      - name: Build and push immutable backend image
+        if: ${{ inputs.operation == 'bootstrap-private' || inputs.operation == 'candidate' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="${BLAISE_CLOUDRUN_REGION}-docker.pkg.dev"
+          image_tag="$registry/$BLAISE_GCP_PROJECT_ID/$BLAISE_ARTIFACT_REGISTRY_REPOSITORY/blaise-backend:$GITHUB_SHA"
+          gcloud auth configure-docker "$registry" --quiet
+          docker build --pull --no-cache -f backend/Dockerfile -t "$image_tag" backend
+          docker push "$image_tag"
+          image_ref="$(docker inspect --format='{{index .RepoDigests 0}}' "$image_tag")"
+          [[ "$image_ref" == *@sha256:* ]] || { echo 'BLOCKED: pushed image digest was not resolved' >&2; exit 2; }
+          printf '%s\n' "$image_ref" > evidence/cloudrun/image-ref.txt
+          echo "BLAISE_CLOUDRUN_IMAGE_REF=$image_ref" >> "$GITHUB_ENV"
+
+      - name: Deploy private bootstrap revision
+        if: ${{ inputs.operation == 'bootstrap-private' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          suffix="${GITHUB_SHA::10}"
+          gcloud run deploy "$BLAISE_CLOUDRUN_SERVICE" \
+            --image="$BLAISE_CLOUDRUN_IMAGE_REF" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --platform=managed \
+            --service-account="$BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" \
+            --revision-suffix="$suffix" \
+            --set-env-vars="BLAISE_ALLOW_TEST_PURCHASES=false,BLAISE_MONTHLY_PRODUCT_ID=$BLAISE_MONTHLY_PRODUCT_ID,BLAISE_ANNUAL_PRODUCT_ID=$BLAISE_ANNUAL_PRODUCT_ID,BLAISE_FIREBASE_PROJECT_ID=$BLAISE_FIREBASE_PROJECT_ID,BLAISE_FCM_P0_TOPIC=$BLAISE_FCM_P0_TOPIC,BLAISE_PUBSUB_AUDIENCE=$BLAISE_PUBSUB_AUDIENCE,BLAISE_PUBSUB_SERVICE_ACCOUNT=$BLAISE_PUBSUB_SERVICE_ACCOUNT,BLAISE_P0_AUDIENCE=$BLAISE_P0_AUDIENCE,BLAISE_P0_SERVICE_ACCOUNT=$BLAISE_P0_SERVICE_ACCOUNT,BLAISE_OBSERVABILITY_AUDIENCE=$BLAISE_OBSERVABILITY_AUDIENCE,BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=$BLAISE_OBSERVABILITY_SERVICE_ACCOUNT" \
+            --quiet
+          echo "BLAISE_DEPLOYED_REVISION=${BLAISE_CLOUDRUN_SERVICE}-${suffix}" >> "$GITHUB_ENV"
+
+      - name: Deploy tagged candidate with zero service traffic
+        if: ${{ inputs.operation == 'candidate' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          suffix="${GITHUB_SHA::10}"
+          tag="candidate-${GITHUB_SHA::7}"
+          gcloud run deploy "$BLAISE_CLOUDRUN_SERVICE" \
+            --image="$BLAISE_CLOUDRUN_IMAGE_REF" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --platform=managed \
+            --service-account="$BLAISE_GCP_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" \
+            --revision-suffix="$suffix" \
+            --no-traffic \
+            --tag="$tag" \
+            --set-env-vars="BLAISE_ALLOW_TEST_PURCHASES=false,BLAISE_MONTHLY_PRODUCT_ID=$BLAISE_MONTHLY_PRODUCT_ID,BLAISE_ANNUAL_PRODUCT_ID=$BLAISE_ANNUAL_PRODUCT_ID,BLAISE_FIREBASE_PROJECT_ID=$BLAISE_FIREBASE_PROJECT_ID,BLAISE_FCM_P0_TOPIC=$BLAISE_FCM_P0_TOPIC,BLAISE_PUBSUB_AUDIENCE=$BLAISE_PUBSUB_AUDIENCE,BLAISE_PUBSUB_SERVICE_ACCOUNT=$BLAISE_PUBSUB_SERVICE_ACCOUNT,BLAISE_P0_AUDIENCE=$BLAISE_P0_AUDIENCE,BLAISE_P0_SERVICE_ACCOUNT=$BLAISE_P0_SERVICE_ACCOUNT,BLAISE_OBSERVABILITY_AUDIENCE=$BLAISE_OBSERVABILITY_AUDIENCE,BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=$BLAISE_OBSERVABILITY_SERVICE_ACCOUNT" \
+            --quiet
+          echo "BLAISE_DEPLOYED_REVISION=${BLAISE_CLOUDRUN_SERVICE}-${suffix}" >> "$GITHUB_ENV"
+          echo "BLAISE_CANDIDATE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Validate deployed revision and application readiness
+        if: ${{ inputs.operation == 'bootstrap-private' || inputs.operation == 'candidate' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready="$(gcloud run revisions describe "$BLAISE_DEPLOYED_REVISION" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format='value(status.conditions[?type=Ready].status)')"
+          [[ "$ready" == 'True' ]] || { echo "BLOCKED: revision not Ready ($ready)" >&2; exit 2; }
+          service_url="$(gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format='value(status.url)')"
+          [[ "$service_url" =~ ^https:// ]] || { echo 'BLOCKED: service URL missing' >&2; exit 2; }
+          target_url="$service_url"
+          if [[ "$BLAISE_ROLLOUT_OPERATION" == 'candidate' ]]; then
+            target_url="$(gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format="value(status.traffic[?tag=$BLAISE_CANDIDATE_TAG].url)")"
+            [[ "$target_url" =~ ^https:// ]] || { echo 'BLOCKED: tagged candidate URL missing' >&2; exit 2; }
+          fi
+          token="$(gcloud auth print-identity-token --audiences="$service_url")"
+          [[ -n "$token" ]] || { echo 'BLOCKED: identity token unavailable' >&2; exit 2; }
+          curl --fail --silent --show-error --max-time 10 -H "Authorization: Bearer $token" "$target_url/healthz" > evidence/cloudrun/healthz.json
+          curl --fail --silent --show-error --max-time 10 -H "Authorization: Bearer $token" "$target_url/readyz" > evidence/cloudrun/readyz.json
+          grep -F '"status":"ok"' evidence/cloudrun/healthz.json
+          grep -F '"status":"ready"' evidence/cloudrun/readyz.json
+          printf '%s\n' "$BLAISE_DEPLOYED_REVISION" > evidence/cloudrun/deployed-revision.txt
+
+      - name: Validate requested traffic revision is ready
+        if: ${{ inputs.operation == 'canary' || inputs.operation == 'promote' || inputs.operation == 'rollback' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BLAISE_ROLLOUT_REVISION" =~ ^[a-z][a-z0-9-]{0,62}$ ]] || { echo 'BLOCKED: invalid revision name' >&2; exit 2; }
+          ready="$(gcloud run revisions describe "$BLAISE_ROLLOUT_REVISION" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format='value(status.conditions[?type=Ready].status)')"
+          [[ "$ready" == 'True' ]] || { echo "BLOCKED: requested revision is not Ready ($ready)" >&2; exit 2; }
+
+      - name: Shift bounded canary traffic
+        if: ${{ inputs.operation == 'canary' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$BLAISE_CLOUDRUN_SERVICE" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --to-revisions="$BLAISE_ROLLOUT_REVISION=$BLAISE_ROLLOUT_CANARY_PERCENT" \
+            --quiet
+
+      - name: Promote selected revision to 100 percent
+        if: ${{ inputs.operation == 'promote' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$BLAISE_CLOUDRUN_SERVICE" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --to-revisions="$BLAISE_ROLLOUT_REVISION=100" \
+            --quiet
+
+      - name: Roll back to selected known-good revision
+        if: ${{ inputs.operation == 'rollback' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$BLAISE_CLOUDRUN_SERVICE" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --to-revisions="$BLAISE_ROLLOUT_REVISION=100" \
+            --quiet
+
+      - name: Capture post-change state and gate result
+        if: ${{ inputs.operation != 'plan' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" --region="$BLAISE_CLOUDRUN_REGION" --project="$BLAISE_GCP_PROJECT_ID" --format=json > evidence/cloudrun/service-after.json
+          printf '%s\n' \
+            'CLOUD_RUN_ROLLOUT_GATE=PASS' \
+            "external_change=PASS_EXPLICITLY_APPROVED_$BLAISE_ROLLOUT_OPERATION" \
+            >> evidence/cloudrun/gate.txt
+
+      - name: Ensure fail-closed evidence on incomplete run
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun
+          if [[ ! -s evidence/cloudrun/gate.txt ]]; then
+            printf '%s\n' 'CLOUD_RUN_ROLLOUT_GATE=BLOCKED' 'external_change=NOT_CONFIRMED' > evidence/cloudrun/gate.txt
+          elif ! grep -Eq '^CLOUD_RUN_ROLLOUT_GATE=' evidence/cloudrun/gate.txt; then
+            printf '%s\n' 'CLOUD_RUN_ROLLOUT_GATE=BLOCKED' 'reason=workflow_failed_before_gate_completion' >> evidence/cloudrun/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-cloudrun-rollout-evidence
+          path: evidence/cloudrun/
