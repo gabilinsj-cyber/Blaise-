@@ -59,12 +59,7 @@ async function readBoundedBody(response, maxBytes, signal) {
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
 }
 
-export async function fetchJsonContract(rawUrl, {
-  allowedHosts,
-  fetchImpl = globalThis.fetch,
-  timeoutMs = 5_000,
-  maxBytes = 256 * 1024,
-} = {}) {
+function validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes }) {
   if (!allowedHosts || typeof allowedHosts[Symbol.iterator] !== 'function') {
     throw new SourceContractError('source_allowlist_required');
   }
@@ -75,7 +70,17 @@ export async function fetchJsonContract(rawUrl, {
   if (!Number.isInteger(maxBytes) || maxBytes < 64 || maxBytes > 2 * 1024 * 1024) {
     throw new SourceContractError('source_invalid_body_limit');
   }
+}
 
+async function fetchContractText(rawUrl, {
+  allowedHosts,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 5_000,
+  maxBytes = 256 * 1024,
+  accept,
+  acceptsContentType,
+} = {}) {
+  validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes });
   const url = assertPublicHttpsUrl(rawUrl, allowedHosts);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -86,7 +91,7 @@ export async function fetchJsonContract(rawUrl, {
       method: 'GET',
       redirect: 'manual',
       signal: controller.signal,
-      headers: { accept: 'application/json' },
+      headers: { accept },
     });
   } catch {
     clearTimeout(timeout);
@@ -101,25 +106,44 @@ export async function fetchJsonContract(rawUrl, {
     if (!response.ok) throw new SourceContractError('source_http_error');
 
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.includes('application/json') && !contentType.includes('+json')) {
+    if (!acceptsContentType(contentType)) {
       throw new SourceContractError('source_content_type_rejected');
     }
 
-    let text;
     try {
-      text = await readBoundedBody(response, maxBytes, controller.signal);
+      return await readBoundedBody(response, maxBytes, controller.signal);
     } catch (error) {
       if (error instanceof SourceContractError) throw error;
       if (controller.signal.aborted) throw new SourceContractError('source_timeout');
       throw new SourceContractError('source_read_error');
     }
-
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new SourceContractError('source_invalid_json');
-    }
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+export async function fetchTextContract(rawUrl, options = {}) {
+  return fetchContractText(rawUrl, {
+    ...options,
+    accept: 'text/html,application/xhtml+xml;q=0.9',
+    acceptsContentType: (contentType) => (
+      contentType.includes('text/html') || contentType.includes('application/xhtml+xml')
+    ),
+  });
+}
+
+export async function fetchJsonContract(rawUrl, options = {}) {
+  const text = await fetchContractText(rawUrl, {
+    ...options,
+    accept: 'application/json',
+    acceptsContentType: (contentType) => (
+      contentType.includes('application/json') || contentType.includes('+json')
+    ),
+  });
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new SourceContractError('source_invalid_json');
   }
 }
