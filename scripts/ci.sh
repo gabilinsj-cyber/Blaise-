@@ -12,6 +12,10 @@ bash scripts/test-testlab-workflow.sh | tee evidence/firebase-testlab-workflow-s
 bash scripts/test-cloudrun-workflow.sh | tee evidence/cloudrun-workflow-selftest.txt
 bash scripts/test-cloudrun-promotion-workflow.sh | tee evidence/cloudrun-promotion-workflow-selftest.txt
 bash scripts/test-runtime-adb-retry.sh | tee evidence/runtime-adb-retry-selftest.txt
+bash scripts/test-official-source-workflow.sh | tee evidence/official-source-workflow-selftest.txt
+node --check backend/src/source-contract.mjs
+node --check backend/src/alerta-rio-source.mjs
+node --check backend/scripts/probe-official-sources.mjs
 
 test "$(node --version)" = "v24.20.0"
 test "$(npm --version)" = "11.19.0"

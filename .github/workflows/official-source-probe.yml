@@ -1,0 +1,61 @@
+name: Official Source Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_live_probe:
+        description: 'Query the public Alerta Rio station inventory contract'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: official-source-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Record external probe not requested
+        if: ${{ !inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/official-sources
+          cat > evidence/official-sources/alerta-rio.json <<'JSON'
+          {
+            "sourceId": "alerta-rio-stations",
+            "contract": "active_station_inventory",
+            "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
+            "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "rainfallLiveIngestion": "NOT_IMPLEMENTED"
+          }
+          JSON
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v5
+        if: ${{ inputs.execute_live_probe }}
+        with:
+          node-version: '24.20.0'
+
+      - name: Probe official Alerta Rio station contract
+        if: ${{ inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.20.0"
+          node backend/scripts/probe-official-sources.mjs
+
+      - name: Upload official source evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-official-source-evidence
+          if-no-files-found: error
+          path: evidence/official-sources/
