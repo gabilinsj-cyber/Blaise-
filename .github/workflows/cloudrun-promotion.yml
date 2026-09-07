@@ -1,0 +1,323 @@
+name: Cloud Run Promotion Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_promotion:
+        description: 'Advance the validated candidate by exactly one bounded canary stage'
+        required: true
+        default: false
+        type: boolean
+      candidate_revision:
+        description: 'Exact Cloud Run revision from the zero-traffic candidate evidence'
+        required: false
+        type: string
+      candidate_tag:
+        description: 'Exact candidate-xxxxxxxx traffic tag from the candidate evidence'
+        required: false
+        type: string
+      target_percent:
+        description: 'Next canary stage only; progression is enforced live'
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '5'
+          - '10'
+          - '25'
+          - '50'
+          - '100'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-promotion-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_REGION: ${{ vars.BLAISE_CLOUDRUN_REGION }}
+      BLAISE_CLOUDRUN_SERVICE: ${{ vars.BLAISE_CLOUDRUN_SERVICE }}
+      BLAISE_CLOUDRUN_EXECUTE_PROMOTION: ${{ inputs.execute_promotion }}
+      BLAISE_CLOUDRUN_CANDIDATE_REVISION: ${{ inputs.candidate_revision }}
+      BLAISE_CLOUDRUN_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+      BLAISE_CLOUDRUN_TARGET_PERCENT: ${{ inputs.target_percent }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Fail-closed promotion preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLAISE_CLOUDRUN_PROMOTION_PREFLIGHT_RESULT_FILE=evidence/cloudrun-promotion/preflight.txt \
+            bash scripts/cloudrun-promotion-preflight.sh
+
+      - name: Record external traffic change not requested
+        if: ${{ !inputs.execute_promotion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-promotion
+          printf '%s\n' \
+            'CLOUDRUN_PROMOTION_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'traffic_change=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'rollback=NOT_NEEDED' \
+            > evidence/cloudrun-promotion/gate.txt
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.execute_promotion }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.execute_promotion }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Bind candidate and enforce next canary stage
+        if: ${{ inputs.execute_promotion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-promotion
+          gcloud version | tee evidence/cloudrun-promotion/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun-promotion/gcloud-version.txt
+
+          before="$RUNNER_TEMP/cloudrun-before.json"
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$before"
+          cp "$before" evidence/cloudrun-promotion/traffic-before.json
+
+          python3 - "$before" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          service = json.loads(Path(sys.argv[1]).read_text())
+          candidate = os.environ['BLAISE_CLOUDRUN_CANDIDATE_REVISION']
+          tag = os.environ['BLAISE_CLOUDRUN_CANDIDATE_TAG']
+          requested = int(os.environ['BLAISE_CLOUDRUN_TARGET_PERCENT'])
+          traffic = service.get('status', {}).get('traffic', [])
+          tagged = next((x for x in traffic if x.get('tag') == tag), None)
+          if not tagged:
+              raise SystemExit('candidate tag not found on service')
+          if tagged.get('revisionName') != candidate:
+              raise SystemExit('candidate tag/revision mismatch')
+          if not tagged.get('url'):
+              raise SystemExit('candidate tagged URL missing')
+
+          candidate_percent = int(tagged.get('percent') or 0)
+          positive_other = [
+              x for x in traffic
+              if x.get('revisionName') != candidate and int(x.get('percent') or 0) > 0
+          ]
+          if len(positive_other) != 1:
+              raise SystemExit('expected exactly one non-candidate revision carrying production traffic')
+          stable = positive_other[0].get('revisionName')
+          stable_percent = int(positive_other[0].get('percent') or 0)
+          if not stable:
+              raise SystemExit('stable revision missing')
+          if candidate_percent + stable_percent != 100:
+              raise SystemExit('unexpected production traffic topology')
+
+          next_stage = {0: 1, 1: 5, 5: 10, 10: 25, 25: 50, 50: 100}
+          expected = next_stage.get(candidate_percent)
+          if expected is None:
+              raise SystemExit(f'candidate current percent is not promotable: {candidate_percent}')
+          if requested != expected:
+              raise SystemExit(f'canary stage jump rejected: current={candidate_percent} expected={expected} requested={requested}')
+
+          service_url = service.get('status', {}).get('url')
+          if not service_url:
+              raise SystemExit('canonical service URL missing')
+
+          with Path(os.environ['GITHUB_ENV']).open('a') as fh:
+              fh.write(f"BLAISE_CLOUDRUN_STABLE_REVISION={stable}\n")
+              fh.write(f"BLAISE_CLOUDRUN_PREVIOUS_CANDIDATE_PERCENT={candidate_percent}\n")
+              fh.write(f"BLAISE_CLOUDRUN_PREVIOUS_STABLE_PERCENT={stable_percent}\n")
+              fh.write(f"BLAISE_CLOUDRUN_CANDIDATE_URL={tagged['url']}\n")
+              fh.write(f"BLAISE_CLOUDRUN_SERVICE_URL={service_url}\n")
+
+          Path('evidence/cloudrun-promotion/plan.txt').write_text(
+              'CLOUDRUN_PROMOTION_PLAN=PASS\n'
+              f'candidate_revision={candidate}\n'
+              f'candidate_tag={tag}\n'
+              f'previous_candidate_percent={candidate_percent}\n'
+              f'previous_stable_percent={stable_percent}\n'
+              f'target_percent={requested}\n'
+              f'stable_revision={stable}\n'
+          )
+          PY
+
+      - name: Smoke candidate before traffic mutation
+        if: ${{ inputs.execute_promotion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(gcloud auth print-identity-token)"
+          test -n "$token"
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/healthz" \
+            | tee evidence/cloudrun-promotion/candidate-healthz-before.json
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
+            | tee evidence/cloudrun-promotion/candidate-readyz-before.json
+          grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
+          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.json
+
+      - name: Advance one canary stage with automatic rollback
+        if: ${{ inputs.execute_promotion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set_traffic() {
+            local candidate_percent="$1"
+            local stable_percent="$2"
+            local spec
+            if [[ "$candidate_percent" == '0' ]]; then
+              spec="${BLAISE_CLOUDRUN_STABLE_REVISION}=100"
+            elif [[ "$stable_percent" == '0' ]]; then
+              spec="${BLAISE_CLOUDRUN_CANDIDATE_REVISION}=100"
+            else
+              spec="${BLAISE_CLOUDRUN_CANDIDATE_REVISION}=${candidate_percent},${BLAISE_CLOUDRUN_STABLE_REVISION}=${stable_percent}"
+            fi
+            gcloud run services update-traffic "$BLAISE_CLOUDRUN_SERVICE" \
+              --project="$BLAISE_GCP_PROJECT_ID" \
+              --region="$BLAISE_CLOUDRUN_REGION" \
+              --to-revisions="$spec" \
+              --quiet
+          }
+
+          rollback_on_error() {
+            local rc=$?
+            trap - ERR
+            set +e
+            set_traffic "$BLAISE_CLOUDRUN_PREVIOUS_CANDIDATE_PERCENT" "$BLAISE_CLOUDRUN_PREVIOUS_STABLE_PERCENT"
+            rollback_rc=$?
+            if [[ "$rollback_rc" -eq 0 ]]; then
+              printf '%s\n' \
+                'CLOUDRUN_PROMOTION_GATE=FAILED_ROLLED_BACK' \
+                'rollback=PASS_PREVIOUS_TRAFFIC_RESTORED' \
+                "target_percent=${BLAISE_CLOUDRUN_TARGET_PERCENT}" \
+                > evidence/cloudrun-promotion/gate.txt
+            else
+              printf '%s\n' \
+                'CLOUDRUN_PROMOTION_GATE=FAILED_ROLLBACK_NOT_PROVEN' \
+                'rollback=FAIL' \
+                "target_percent=${BLAISE_CLOUDRUN_TARGET_PERCENT}" \
+                > evidence/cloudrun-promotion/gate.txt
+            fi
+            exit "$rc"
+          }
+          trap rollback_on_error ERR
+
+          target="$BLAISE_CLOUDRUN_TARGET_PERCENT"
+          stable_target=$((100 - target))
+          set_traffic "$target" "$stable_target"
+
+          after="$RUNNER_TEMP/cloudrun-after.json"
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$after"
+          cp "$after" evidence/cloudrun-promotion/traffic-after.json
+
+          python3 - "$after" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          service = json.loads(Path(sys.argv[1]).read_text())
+          candidate = os.environ['BLAISE_CLOUDRUN_CANDIDATE_REVISION']
+          stable = os.environ['BLAISE_CLOUDRUN_STABLE_REVISION']
+          target = int(os.environ['BLAISE_CLOUDRUN_TARGET_PERCENT'])
+          expected = {candidate: target}
+          if target < 100:
+              expected[stable] = 100 - target
+
+          actual = {}
+          for entry in service.get('status', {}).get('traffic', []):
+              pct = int(entry.get('percent') or 0)
+              revision = entry.get('revisionName')
+              if revision and pct > 0:
+                  actual[revision] = actual.get(revision, 0) + pct
+          if actual != expected:
+              raise SystemExit(f'traffic verification failed: expected={expected} actual={actual}')
+          PY
+
+          token="$(gcloud auth print-identity-token)"
+          test -n "$token"
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/healthz" \
+            | tee evidence/cloudrun-promotion/candidate-healthz-after.json
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
+            | tee evidence/cloudrun-promotion/candidate-readyz-after.json
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/healthz" \
+            | tee evidence/cloudrun-promotion/service-healthz-after.json
+          curl --fail --silent --show-error --retry 2 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/readyz" \
+            | tee evidence/cloudrun-promotion/service-readyz-after.json
+          grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-after.json
+          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-after.json
+          grep -F '"status":"ok"' evidence/cloudrun-promotion/service-healthz-after.json
+          grep -F '"status":"ready"' evidence/cloudrun-promotion/service-readyz-after.json
+
+          trap - ERR
+          printf '%s\n' \
+            'CLOUDRUN_PROMOTION_GATE=PASS' \
+            "candidate_percent=${BLAISE_CLOUDRUN_TARGET_PERCENT}" \
+            'candidate_smoke=PASS_BEFORE_AND_AFTER' \
+            'service_smoke=PASS_AFTER' \
+            'rollback=READY_NOT_EXECUTED' \
+            'next_stage=REQUIRES_SEPARATE_EXPLICIT_WORKFLOW_DISPATCH' \
+            > evidence/cloudrun-promotion/gate.txt
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-promotion
+          if [[ ! -s evidence/cloudrun-promotion/gate.txt ]]; then
+            printf '%s\n' \
+              'CLOUDRUN_PROMOTION_GATE=BLOCKED' \
+              'reason=workflow_failed_before_gate_or_rollback_evidence' \
+              'traffic_state=NOT_PROVEN' \
+              > evidence/cloudrun-promotion/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-cloudrun-promotion-evidence
+          path: evidence/cloudrun-promotion/
