@@ -1,0 +1,209 @@
+name: Firebase Test Lab Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_test:
+        description: 'Run the external Test Lab matrix after live catalog validation'
+        required: true
+        default: false
+        type: boolean
+      model_id:
+        description: 'Android MODEL_ID from the current Test Lab catalog (required when execute_test=true)'
+        required: false
+        type: string
+      version_id:
+        description: 'Android OS_VERSION_ID supported by the selected model (required when execute_test=true)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firebase-testlab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  testlab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BLAISE_TESTLAB_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_TESTLAB_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_TESTLAB_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_TESTLAB_SERVICE_ACCOUNT }}
+      BLAISE_TESTLAB_MODEL_ID: ${{ inputs.model_id }}
+      BLAISE_TESTLAB_VERSION_ID: ${{ inputs.version_id }}
+      BLAISE_TESTLAB_LOCALE: pt_BR
+      BLAISE_TESTLAB_ORIENTATION: portrait
+      BLAISE_TESTLAB_APP_APK: app/build/outputs/apk/debug/app-debug.apk
+      BLAISE_TESTLAB_TEST_APK: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Fail closed on missing WIF configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${BLAISE_TESTLAB_PROJECT_ID:?missing repository variable BLAISE_GCP_PROJECT_ID}"
+          : "${BLAISE_TESTLAB_WIF_PROVIDER:?missing repository variable BLAISE_GCP_WIF_PROVIDER}"
+          : "${BLAISE_TESTLAB_SERVICE_ACCOUNT:?missing repository variable BLAISE_GCP_TESTLAB_SERVICE_ACCOUNT}"
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_TESTLAB_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_TESTLAB_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_TESTLAB_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_TESTLAB_PROJECT_ID }}
+
+      - name: Capture live Firebase Test Lab catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/testlab
+          gcloud version | tee evidence/testlab/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/testlab/gcloud-version.txt
+          gcloud firebase test android models list \
+            --filter=virtual \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            > evidence/testlab/models.txt
+          gcloud firebase test android versions list \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            > evidence/testlab/versions.txt
+          gcloud firebase test android locales list \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            > evidence/testlab/locales.txt
+          test -s evidence/testlab/models.txt
+          test -s evidence/testlab/versions.txt
+          test -s evidence/testlab/locales.txt
+
+      - name: Validate selected device against the live catalog
+        if: ${{ inputs.execute_test }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${BLAISE_TESTLAB_MODEL_ID:?model_id is required when execute_test=true}"
+          : "${BLAISE_TESTLAB_VERSION_ID:?version_id is required when execute_test=true}"
+
+          gcloud firebase test android models describe "$BLAISE_TESTLAB_MODEL_ID" \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            --format=json > evidence/testlab/model.json
+          gcloud firebase test android versions describe "$BLAISE_TESTLAB_VERSION_ID" \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            --format=json > evidence/testlab/version.json
+          gcloud firebase test android locales describe "$BLAISE_TESTLAB_LOCALE" \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            --format=json > evidence/testlab/locale.json
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          model = json.loads(Path('evidence/testlab/model.json').read_text())
+          requested = os.environ['BLAISE_TESTLAB_VERSION_ID']
+          supported = {str(v) for v in model.get('supportedVersionIds', [])}
+          if requested not in supported:
+              raise SystemExit(f'unsupported model/version pair: {requested}')
+
+          serialized = json.dumps(model, sort_keys=True).lower()
+          for rejected in ('deprecated', 'reduced_stability'):
+              if rejected in serialized:
+                  raise SystemExit(f'model rejected by stability policy: {rejected}')
+          print('TESTLAB_LIVE_CATALOG_VALIDATION=PASS')
+          PY
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: ${{ inputs.execute_test }}
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Prepare Android SDK CLI
+        if: ${{ inputs.execute_test }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/build-tools/35.0.0" >> "$GITHUB_PATH"
+          "$SDKMANAGER" --version
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        if: ${{ inputs.execute_test }}
+
+      - name: Install Android 35 toolchain
+        if: ${{ inputs.execute_test }}
+        shell: bash
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+
+      - name: Build instrumentation artifacts
+        if: ${{ inputs.execute_test }}
+        shell: bash
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+          test -s "$BLAISE_TESTLAB_APP_APK"
+          test -s "$BLAISE_TESTLAB_TEST_APK"
+
+      - name: Execute explicitly approved Test Lab matrix
+        if: ${{ inputs.execute_test }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud firebase test android run \
+            --type=instrumentation \
+            --app="$BLAISE_TESTLAB_APP_APK" \
+            --test="$BLAISE_TESTLAB_TEST_APK" \
+            --device="model=${BLAISE_TESTLAB_MODEL_ID},version=${BLAISE_TESTLAB_VERSION_ID},locale=${BLAISE_TESTLAB_LOCALE},orientation=${BLAISE_TESTLAB_ORIENTATION}" \
+            --project="$BLAISE_TESTLAB_PROJECT_ID" \
+            --timeout=15m \
+            --client-details="matrixLabel=Blaise-${GITHUB_SHA::12}"
+          printf '%s\n' \
+            'FIREBASE_TESTLAB_GATE=PASS' \
+            'execution=PASS_EXPLICITLY_APPROVED' \
+            'device_selection=PASS_LIVE_CATALOG_VALIDATED' \
+            > evidence/testlab/gate.txt
+
+      - name: Record catalog-only result
+        if: ${{ !inputs.execute_test }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'FIREBASE_TESTLAB_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'execution=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'catalog=PASS_LIVE_QUERY' \
+            > evidence/testlab/gate.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-firebase-testlab-evidence
+          path: evidence/testlab/

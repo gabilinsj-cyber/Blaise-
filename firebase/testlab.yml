@@ -1,9 +1,21 @@
+# Blaise V6 Firebase Test Lab policy.
+# This file is policy metadata, not a gcloud flags file. Device IDs are never pinned here.
+schema: blaise-testlab-policy-v1
 type: instrumentation
 app: app/build/outputs/apk/debug/app-debug.apk
 test: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+selection: live_catalog_required
 device:
-  - model: Pixel2
-    version: 30
-    locale: pt_BR
-    orientation: portrait
-
+  model: workflow_dispatch_required_for_execution
+  version: workflow_dispatch_required_for_execution
+  locale: pt_BR
+  orientation: portrait
+  reject_tags:
+    - deprecated
+    - reduced_stability
+execution:
+  default: catalog_only
+  explicit_execute_input_required: true
+authentication:
+  mode: github_oidc_workload_identity_federation
+  long_lived_service_account_key: forbidden
