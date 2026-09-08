@@ -6,9 +6,11 @@ import { spawnSync } from 'node:child_process';
 import {
   INEA_RADAR_CADENCE_MINUTES,
   INEA_RADAR_HOST,
+  INEA_RADAR_MAX_MEDIA_CANDIDATES,
   INEA_RADAR_SOURCE_ID,
   INEA_RADAR_TOOL_URL,
   IneaRadarContractError,
+  discoverIneaRadarMediaCandidates,
   extractIneaRadarViewerUrl,
   probeIneaRadarTool,
   validateIneaRadarToolHtml,
@@ -21,9 +23,18 @@ function fixture({
 } = {}) {
   return `<!doctype html><html lang="pt-BR"><body>
     <header><h1>${title}</h1></header>
-    <main><h2>${tool}</h2><p>Monitoramento oficial.</p>${iframe}</main>
+    <main><h2>${tool}</h2><p>Monitoramento oficial do radar meteorológico e dados operacionais do INEA.</p>${iframe}</main>
     <footer>INEA - Instituto Estadual do Ambiente</footer>
   </body></html>`;
+}
+
+function viewerFixture({ media = '' } = {}) {
+  const defaultMedia = [
+    '<img src="frames/guaratiba-20260908-1230.png" alt="Radar Guaratiba">',
+    '<img data-src="https://alertadecheias.inea.rj.gov.br/frames/macae-20260908-1235.jpg?cache=1" alt="Radar Macaé">',
+    '<img src="https://example.com/external.png" alt="external">',
+  ].join('');
+  return `<!doctype html><html><body><main>${media || defaultMedia}</main><footer>INEA radar viewer</footer></body></html>`;
 }
 
 test('accepts the bounded official INEA radar gateway and resolves the embedded viewer', () => {
@@ -37,6 +48,7 @@ test('accepts the bounded official INEA radar gateway and resolves the embedded 
   assert.equal(result.viewerHost, INEA_RADAR_HOST);
   assert.equal(result.viewerContract, 'OFFICIAL_HTTPS_IFRAME_RESOLVED');
   assert.match(result.viewerUrlSha256, /^[a-f0-9]{64}$/);
+  assert.equal(result.mediaCandidateDiscovery, 'NOT_PROBED');
   assert.equal(result.frameIngestion, 'NOT_IMPLEMENTED');
   assert.match(result.gatewaySha256, /^[a-f0-9]{64}$/);
   assert.equal('viewerUrl' in result, false);
@@ -50,6 +62,48 @@ test('resolves only HTTPS viewer URLs under the official INEA domain', () => {
   assert.equal(viewer.protocol, 'https:');
   assert.equal(viewer.hash, '');
   assert.equal(viewer.search, '?layer=chuva');
+});
+
+test('discovers only bounded official HTTPS image candidates and redacts raw URLs', () => {
+  const result = discoverIneaRadarMediaCandidates(
+    viewerFixture(),
+    'https://alertadecheias.inea.rj.gov.br/viewer.html',
+  );
+  assert.equal(result.contract, 'OFFICIAL_HTTPS_RADAR_MEDIA_CANDIDATES_DISCOVERED');
+  assert.equal(result.viewerHost, INEA_RADAR_HOST);
+  assert.equal(result.mediaCandidateCount, 2);
+  assert.deepEqual(result.mediaCandidateHosts, [INEA_RADAR_HOST]);
+  assert.match(result.mediaCandidateSetSha256, /^[a-f0-9]{64}$/);
+  assert.equal(result.rawMediaUrls, 'REDACTED');
+  assert.equal(result.frameTimestampValidation, 'NOT_IMPLEMENTED');
+  assert.equal(result.frameFreshnessValidation, 'NOT_IMPLEMENTED');
+  assert.equal(result.frameIngestion, 'NOT_IMPLEMENTED');
+  const serialized = JSON.stringify(result);
+  assert.doesNotMatch(serialized, /guaratiba-20260908|macae-20260908|cache=1/);
+});
+
+test('fails closed when the viewer exposes no official image candidate', () => {
+  assert.throws(
+    () => discoverIneaRadarMediaCandidates(
+      viewerFixture({ media: '<img src="https://example.com/frame.png"><script>const x = 1;</script>' }),
+      'https://alertadecheias.inea.rj.gov.br/viewer.html',
+    ),
+    (error) => error instanceof IneaRadarContractError && error.code === 'inea_radar_media_candidate_missing',
+  );
+});
+
+test('fails closed when media candidate count exceeds the defensive bound', () => {
+  const media = Array.from(
+    { length: INEA_RADAR_MAX_MEDIA_CANDIDATES + 1 },
+    (_, index) => `<img src="frames/frame-${String(index).padStart(3, '0')}.png">`,
+  ).join('');
+  assert.throws(
+    () => discoverIneaRadarMediaCandidates(
+      viewerFixture({ media }),
+      'https://alertadecheias.inea.rj.gov.br/viewer.html',
+    ),
+    (error) => error instanceof IneaRadarContractError && error.code === 'inea_radar_media_candidate_count_invalid',
+  );
 });
 
 test('fails closed when the radar identity marker drifts', () => {
@@ -97,23 +151,30 @@ test('viewer query details stay out of the public contract result', () => {
   assert.doesNotMatch(serialized, /viewer\.html/);
 });
 
-test('radar probe fetches only the pinned official INEA Radar Tool URL', async () => {
-  let observedUrl = null;
+test('radar probe fetches gateway then the resolved official viewer and discovers media candidates', async () => {
+  const observed = [];
   const result = await probeIneaRadarTool({
     fetchImpl: async (url) => {
-      observedUrl = String(url);
-      return new Response(fixture(), {
+      const href = String(url);
+      observed.push(href);
+      const body = href === INEA_RADAR_TOOL_URL ? fixture() : viewerFixture();
+      return new Response(body, {
         status: 200,
         headers: { 'content-type': 'text/html; charset=utf-8' },
       });
     },
   });
-  assert.equal(observedUrl, INEA_RADAR_TOOL_URL);
+  assert.deepEqual(observed, [INEA_RADAR_TOOL_URL, 'https://alertadecheias.inea.rj.gov.br/viewer.html']);
   assert.equal(result.sourceId, INEA_RADAR_SOURCE_ID);
   assert.equal(result.viewerContract, 'OFFICIAL_HTTPS_IFRAME_RESOLVED');
+  assert.equal(result.mediaCandidateDiscovery, 'OFFICIAL_HTTPS_RADAR_MEDIA_CANDIDATES_DISCOVERED');
+  assert.equal(result.mediaCandidateCount, 2);
+  assert.equal(result.frameTimestampValidation, 'NOT_IMPLEMENTED');
+  assert.equal(result.frameFreshnessValidation, 'NOT_IMPLEMENTED');
+  assert.equal(result.frameIngestion, 'NOT_IMPLEMENTED');
 });
 
-test('maps transport rejection to a stable INEA radar error code', async () => {
+test('maps gateway transport rejection to a stable INEA radar error code', async () => {
   await assert.rejects(
     () => probeIneaRadarTool({
       fetchImpl: async () => new Response('redirect', {
@@ -122,6 +183,28 @@ test('maps transport rejection to a stable INEA radar error code', async () => {
       }),
     }),
     (error) => error instanceof IneaRadarContractError && error.code === 'inea_radar_source_redirect_rejected',
+  );
+});
+
+test('maps viewer transport rejection to a stable INEA radar error code', async () => {
+  let request = 0;
+  await assert.rejects(
+    () => probeIneaRadarTool({
+      fetchImpl: async () => {
+        request += 1;
+        if (request === 1) {
+          return new Response(fixture(), {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          });
+        }
+        return new Response('redirect', {
+          status: 302,
+          headers: { location: 'https://example.com/' },
+        });
+      },
+    }),
+    (error) => error instanceof IneaRadarContractError && error.code === 'inea_radar_viewer_source_redirect_rejected',
   );
 });
 
@@ -134,14 +217,19 @@ test('manual radar workflow stays fail-closed and credential-free', () => {
   assert.doesNotMatch(workflow, /id-token:\s*write|service_account|workload_identity_provider/);
   assert.match(workflow, /NOT_RUN_EXPLICIT_APPROVAL_REQUIRED/);
   assert.match(workflow, /embeddedViewerResolution/);
+  assert.match(workflow, /mediaCandidateDiscovery/);
+  assert.match(workflow, /frameTimestampValidation/);
+  assert.match(workflow, /frameFreshnessValidation/);
   assert.match(workflow, /liveRadarFrameIngestion/);
   assert.match(workflow, /NOT_IMPLEMENTED/);
 });
 
-test('radar probe script parses under the pinned Node runtime', () => {
-  const result = spawnSync(process.execPath, ['--check', 'scripts/probe-inea-radar.mjs'], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+test('radar source and probe script parse under the pinned Node runtime', () => {
+  for (const file of ['src/inea-radar-source.mjs', 'scripts/probe-inea-radar.mjs']) {
+    const result = spawnSync(process.execPath, ['--check', file], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
 });
