@@ -5,7 +5,10 @@ import {
   probeAlertaRioStationCatalog,
 } from '../src/alerta-rio-source.mjs';
 import { probeIneaHydrometDiscovery, probeIneaStationSnapshot } from '../src/inea-source.mjs';
-import { createAlertaRioRainfallCache } from '../src/official-source-cache.mjs';
+import {
+  createAlertaRioRainfallCache,
+  createIneaHydrometStationCache,
+} from '../src/official-source-cache.mjs';
 
 const evidenceDir = new URL('../../evidence/official-sources/', import.meta.url);
 await mkdir(evidenceDir, { recursive: true });
@@ -93,12 +96,32 @@ const alertaRioEvidence = {
 };
 
 const stationConfigured = ineaStationUrl.length > 0;
-const stationOperationalPass = !stationConfigured || ineaStationProbe.status === 'fulfilled';
-const ineaOverallPass = ineaProbe.status === 'fulfilled' && stationOperationalPass;
+let ineaStationFreshness = null;
+let ineaStationFreshnessError = null;
+if (stationConfigured && ineaStationProbe.status === 'fulfilled') {
+  try {
+    const cache = createIneaHydrometStationCache({ now: () => checkedAt.getTime() });
+    cache.recordSuccess(ineaStationProbe.value, { fetchedAt: checkedAt });
+    ineaStationFreshness = {
+      normal: summarizeFreshness(cache.read({ at: checkedAt, mode: 'normal' })),
+      severe: summarizeFreshness(cache.read({ at: checkedAt, mode: 'severe' })),
+    };
+  } catch (error) {
+    ineaStationFreshnessError = errorCode(error);
+  }
+}
+
+const ineaStationOperationalPass = !stationConfigured || (
+  ineaStationProbe.status === 'fulfilled'
+  && ineaStationFreshnessError === null
+  && ineaStationFreshness?.normal?.state === 'CURRENT'
+  && ineaStationFreshness?.severe?.state === 'CURRENT'
+);
+const ineaOverallPass = ineaProbe.status === 'fulfilled' && ineaStationOperationalPass;
 
 const ineaEvidence = {
   sourceId: 'inea',
-  contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot',
+  contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot+operational_freshness',
   status: ineaOverallPass ? 'PASS' : 'FAIL',
   checkedAt: checkedAt.toISOString(),
   discoveryContract: ineaProbe.status === 'fulfilled'
@@ -123,7 +146,7 @@ const ineaEvidence = {
       }
     : ineaStationProbe.status === 'fulfilled'
       ? {
-          status: 'PASS',
+          status: ineaStationOperationalPass ? 'PASS' : 'FAIL',
           sourceHost: ineaStationProbe.value.sourceHost,
           stationId: ineaStationProbe.value.stationId,
           observedDate: ineaStationProbe.value.observedDate,
@@ -132,6 +155,9 @@ const ineaEvidence = {
           telemetryCadenceMinutes: ineaStationProbe.value.telemetryCadenceMinutes,
           missingValueCount: ineaStationProbe.value.missingValueCount,
           snapshotSha256: ineaStationProbe.value.snapshotSha256,
+          operationalFreshness: ineaStationFreshnessError === null
+            ? ineaStationFreshness
+            : { status: 'FAIL', errorCode: ineaStationFreshnessError },
         }
       : {
           status: 'FAIL',

@@ -22,7 +22,7 @@ Os campos normalizados são: 5 min, 10 min, 15 min, 30 min, 1 h, 2 h, 3 h, 4 h, 
 
 O snapshot produz SHA-256 determinístico e preserva o horário oficial de leitura normalizado. Mudança de estrutura, coluna, quantidade de estações ou valor inválido faz o gate falhar; o Blaise não converte erro, atraso ou dado ausente em “sem chuva”.
 
-## Cache e freshness operacional
+## Cache e freshness operacional — Alerta Rio
 
 O backend possui uma camada de cache operacional **somente em memória**, limitada a um snapshot imutável do contrato de chuva do Alerta Rio. O snapshot aceito continua exigindo 33 estações, digest SHA-256 válido, janela temporal coerente e payload limitado a 256 KiB. Nenhum snapshot de chuva é persistido em disco por essa camada.
 
@@ -38,7 +38,7 @@ O contrato rejeita HTTP, redirects, credenciais embutidas, porta não padrão, h
 
 ## INEA — snapshot hidrometeorológico de estação
 
-O backend agora também possui um contrato mínimo para páginas oficiais de estação no formato exato:
+O backend possui um contrato mínimo para páginas oficiais de estação no formato exato:
 
 `https://alertadecheias.inea.rj.gov.br/alertadecheias/<ID_NUMERICO>.html`
 
@@ -48,21 +48,31 @@ O parser normaliza somente os campos necessários ao Blaise: nome da estação, 
 
 Todos os números passam por validação de não negatividade e limites defensivos. O resultado contém somente metadados normalizados e SHA-256 determinístico. A evidência do workflow não persiste os valores individuais de chuva/nível; registra apenas host, ID da estação, horário observado, contagem de valores ausentes e digest do snapshot.
 
-A implementação do parser e do transporte está coberta por testes determinísticos. Isso **não equivale a prova LIVE**: o estado só pode ser promovido para PASS real depois de uma execução manual bem-sucedida do workflow no mesmo SHA com uma URL de estação oficial explicitamente fornecida.
+## Cache e freshness operacional — INEA
+
+O snapshot hidrometeorológico do INEA também passa por uma camada de cache **somente em memória** antes de poder ser classificado como operacional. O cache exige o `sourceId` e host oficiais, ID numérico de estação, cadência declarada de 15 minutos, timezone `America/Sao_Paulo`, digest SHA-256 válido e chuva de 15 minutos numérica/não negativa. O payload é limitado a 32 KiB e é clonado/congelado para que o chamador não consiga alterar o estado armazenado depois da validação.
+
+A data/hora publicada pela estação é convertida de forma determinística para o instante correspondente de Brasília/Rio de Janeiro (`UTC-03:00`, vigente para o período operacional atual). Datas inexistentes, timezone inesperado, cadência divergente ou observações mais de 2 minutos no futuro são rejeitadas. A idade máxima operacional da observação é **20 minutos**: os 15 minutos da cadência oficial mais uma tolerância de 5 minutos para publicação/transporte. O fetch armazenado continua limitado a 15 minutos; ultrapassada qualquer janela, o snapshot vira `STALE` e o payload deixa de ser servido.
+
+A política de rechecagem é a mesma do restante da camada oficial: **15 minutos** em modo normal e **1 minuto** em modo severo. O modo severo aumenta a frequência de consulta, não inventa uma frequência de publicação da fonte. Uma falha posterior pode produzir `CURRENT_DEGRADED` somente enquanto o snapshot anterior ainda estiver dentro da janela operacional; depois disso o estado é `STALE` e o dado é retirado.
+
+O workflow de fontes oficiais aplica esse freshness gate imediatamente após um probe de estação. Assim, uma página que responda HTTP 200 mas esteja atrasada não recebe `PASS`: `liveHydrometValueIngestion` falha e registra apenas o resumo sanitizado de freshness.
+
+A implementação do parser, transporte e freshness está coberta por testes determinísticos. Isso **não equivale a prova LIVE**: o estado só pode ser promovido para PASS real depois de uma execução manual bem-sucedida do workflow no mesmo SHA com uma URL de estação oficial explicitamente fornecida.
 
 ## Execução e evidência
 
 A execução externa permanece **manual-only** em `.github/workflows/official-source-probe.yml`. Por padrão `execute_live_probe=false`, portanto nenhum acesso externo ocorre. Quando explicitamente habilitado, o workflow verifica o inventário e a chuva ao vivo do Alerta Rio, o contrato de descoberta do INEA e, opcionalmente, o snapshot hidrometeorológico de uma estação se `inea_station_url` for informado.
 
-Sem `inea_station_url`, a descoberta do INEA pode passar e `liveHydrometValueIngestion` permanece `NOT_RUN_STATION_URL_NOT_CONFIGURED`; isso não é convertido artificialmente em PASS. Se a URL for fornecida e o contrato da estação falhar, o gate INEA falha.
+Sem `inea_station_url`, a descoberta do INEA pode passar e `liveHydrometValueIngestion` permanece `NOT_RUN_STATION_URL_NOT_CONFIGURED`; isso não é convertido artificialmente em PASS. Se a URL for fornecida, tanto o contrato estrutural quanto o freshness operacional precisam estar `CURRENT` nos modos normal e severo. Qualquer falha mantém o gate INEA fechado.
 
 A evidência persistida contém somente status, hosts, contagens, digests, horário da checagem, contagem de valores ausentes, janela de horários observados e resumo do estado de freshness/cadência. Nomes de estação e valores individuais de chuva/nível não são gravados no artefato do gate.
 
 ## Limite atual
 
-A ingestão de chuva do Alerta Rio, o cache/freshness operacional e o parser de snapshot de estação do INEA estão presentes e cobertos por testes determinísticos, mas **não devem ser tratados como prova LIVE até existir execução manual bem-sucedida no mesmo SHA**. Ainda não existe um scheduler de longa duração publicando automaticamente esses snapshots para o app.
+A ingestão de chuva do Alerta Rio, os caches/freshness operacionais e o parser de snapshot de estação do INEA estão presentes e cobertos por testes determinísticos, mas **não devem ser tratados como prova LIVE até existir execução manual bem-sucedida no mesmo SHA**. Ainda não existe um scheduler de longa duração publicando automaticamente esses snapshots para o app.
 
-A ingestão de frames de radar INEA continua `NOT_IMPLEMENTED`. Temperatura, vento, estágio operacional, alertas P0 originados de fonte oficial e reconciliação multi-fonte continuam contratos separados. Até serem validados, a UI permanece fail-closed para esses campos.
+A ingestão de frames de radar INEA continua `NOT_IMPLEMENTED`. A descoberta automática do catálogo completo de estações/municípios do INEA ainda é uma etapa separada; atualmente o probe LIVE de estação exige uma URL oficial explícita. Temperatura, vento, estágio operacional, alertas P0 originados de fonte oficial e reconciliação multi-fonte continuam contratos separados. Até serem validados, a UI permanece fail-closed para esses campos.
 
 ## Próximos contratos
 

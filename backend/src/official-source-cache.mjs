@@ -2,12 +2,19 @@ import {
   ALERTA_RIO_EXPECTED_ACTIVE_STATIONS,
   ALERTA_RIO_LIVE_SOURCE_ID,
 } from './alerta-rio-source.mjs';
+import {
+  INEA_ALERT_HOST,
+  INEA_STATION_SOURCE_ID,
+  INEA_TELEMETRY_CADENCE_MINUTES,
+} from './inea-source.mjs';
 
 export const OFFICIAL_SOURCE_NORMAL_REFRESH_MS = 15 * 60 * 1000;
 export const OFFICIAL_SOURCE_SEVERE_REFRESH_MS = 60 * 1000;
 export const OFFICIAL_SOURCE_MAX_DATA_AGE_MS = 15 * 60 * 1000;
 export const OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
 export const OFFICIAL_SOURCE_MAX_SNAPSHOT_BYTES = 256 * 1024;
+export const INEA_STATION_MAX_DATA_AGE_MS = 20 * 60 * 1000;
+export const INEA_STATION_MAX_SNAPSHOT_BYTES = 32 * 1024;
 
 export class OfficialSourceCacheError extends Error {
   constructor(code) {
@@ -34,6 +41,16 @@ function immutableClone(value) {
   return deepFreeze(structuredClone(value));
 }
 
+function serializedSize(value, code) {
+  let serialized;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new OfficialSourceCacheError(code);
+  }
+  return Buffer.byteLength(serialized, 'utf8');
+}
+
 function validateSnapshot(snapshot, referenceNowMs) {
   if (!snapshot || typeof snapshot !== 'object') {
     throw new OfficialSourceCacheError('official_source_invalid_snapshot');
@@ -55,14 +72,7 @@ function validateSnapshot(snapshot, referenceNowMs) {
   if (!/^[0-9a-f]{64}$/.test(snapshot.snapshotSha256 || '')) {
     throw new OfficialSourceCacheError('official_source_invalid_snapshot_digest');
   }
-
-  let serialized;
-  try {
-    serialized = JSON.stringify(snapshot);
-  } catch {
-    throw new OfficialSourceCacheError('official_source_unserializable_snapshot');
-  }
-  if (Buffer.byteLength(serialized, 'utf8') > OFFICIAL_SOURCE_MAX_SNAPSHOT_BYTES) {
+  if (serializedSize(snapshot, 'official_source_unserializable_snapshot') > OFFICIAL_SOURCE_MAX_SNAPSHOT_BYTES) {
     throw new OfficialSourceCacheError('official_source_snapshot_too_large');
   }
 
@@ -208,6 +218,189 @@ export function createAlertaRioRainfallCache({ now = () => Date.now() } = {}) {
       state: failedAfterSnapshot ? 'CURRENT_DEGRADED' : 'CURRENT',
       reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache' : 'fresh_snapshot',
       fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
+      dataAgeMs,
+      cacheAgeMs,
+      snapshot: entry.snapshot,
+    });
+  }
+
+  function clear() {
+    entry = null;
+    lastAttemptAtMs = null;
+    lastErrorCode = null;
+  }
+
+  return Object.freeze({ recordSuccess, recordFailure, read, clear });
+}
+
+function ineaObservationEpochMs(snapshot) {
+  if (snapshot.timezone !== 'America/Sao_Paulo') {
+    throw new OfficialSourceCacheError('inea_station_invalid_timezone');
+  }
+  const dateMatch = String(snapshot.observedDate || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const timeMatch = String(snapshot.observedTime || '').match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) throw new OfficialSourceCacheError('inea_station_invalid_observed_at');
+  const [, day, month, year] = dateMatch;
+  const [, hour, minute] = timeMatch;
+  const iso = `${year}-${month}-${day}T${hour}:${minute}:00-03:00`;
+  const observedAtMs = Date.parse(iso);
+  if (!Number.isFinite(observedAtMs)) throw new OfficialSourceCacheError('inea_station_invalid_observed_at');
+  const roundTrip = new Date(observedAtMs - 3 * 60 * 60 * 1000);
+  if (
+    roundTrip.getUTCFullYear() !== Number(year)
+    || roundTrip.getUTCMonth() + 1 !== Number(month)
+    || roundTrip.getUTCDate() !== Number(day)
+    || roundTrip.getUTCHours() !== Number(hour)
+    || roundTrip.getUTCMinutes() !== Number(minute)
+  ) {
+    throw new OfficialSourceCacheError('inea_station_invalid_observed_at');
+  }
+  return observedAtMs;
+}
+
+function validateIneaStationSnapshot(snapshot, referenceNowMs) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    throw new OfficialSourceCacheError('inea_station_invalid_snapshot');
+  }
+  if (snapshot.sourceId !== INEA_STATION_SOURCE_ID) {
+    throw new OfficialSourceCacheError('inea_station_invalid_source_id');
+  }
+  if (snapshot.sourceHost !== INEA_ALERT_HOST) {
+    throw new OfficialSourceCacheError('inea_station_invalid_source_host');
+  }
+  if (!/^\d{8,20}$/.test(snapshot.stationId || '')) {
+    throw new OfficialSourceCacheError('inea_station_invalid_station_id');
+  }
+  if (snapshot.telemetryCadenceMinutes !== INEA_TELEMETRY_CADENCE_MINUTES) {
+    throw new OfficialSourceCacheError('inea_station_cadence_drift');
+  }
+  if (!snapshot.rainfall || typeof snapshot.rainfall !== 'object'
+      || !Number.isFinite(snapshot.rainfall.last15mMm)
+      || snapshot.rainfall.last15mMm < 0) {
+    throw new OfficialSourceCacheError('inea_station_invalid_latest_rainfall');
+  }
+  if (!Number.isInteger(snapshot.missingValueCount)
+      || snapshot.missingValueCount < 0
+      || snapshot.missingValueCount > 7) {
+    throw new OfficialSourceCacheError('inea_station_invalid_missing_value_count');
+  }
+  if (!/^[0-9a-f]{64}$/.test(snapshot.snapshotSha256 || '')) {
+    throw new OfficialSourceCacheError('inea_station_invalid_snapshot_digest');
+  }
+  if (serializedSize(snapshot, 'inea_station_unserializable_snapshot') > INEA_STATION_MAX_SNAPSHOT_BYTES) {
+    throw new OfficialSourceCacheError('inea_station_snapshot_too_large');
+  }
+  const observedAtMs = ineaObservationEpochMs(snapshot);
+  if (observedAtMs > referenceNowMs + OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS) {
+    throw new OfficialSourceCacheError('inea_station_future_observation');
+  }
+  return observedAtMs;
+}
+
+export function createIneaHydrometStationCache({ now = () => Date.now() } = {}) {
+  if (typeof now !== 'function') throw new OfficialSourceCacheError('inea_station_invalid_clock');
+
+  let entry = null;
+  let lastAttemptAtMs = null;
+  let lastErrorCode = null;
+
+  function recordSuccess(snapshot, { fetchedAt = now() } = {}) {
+    const currentMs = epochMs(now(), 'inea_station_invalid_clock_value');
+    const fetchedAtMs = epochMs(fetchedAt, 'inea_station_invalid_fetched_at');
+    if (fetchedAtMs > currentMs + OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS) {
+      throw new OfficialSourceCacheError('inea_station_future_fetch');
+    }
+    const observedAtMs = validateIneaStationSnapshot(snapshot, fetchedAtMs);
+    entry = {
+      snapshot: immutableClone(snapshot),
+      fetchedAtMs,
+      observedAtMs,
+    };
+    lastAttemptAtMs = fetchedAtMs;
+    lastErrorCode = null;
+  }
+
+  function recordFailure(code, { attemptedAt = now() } = {}) {
+    const attemptedAtMs = epochMs(attemptedAt, 'inea_station_invalid_attempted_at');
+    const currentMs = epochMs(now(), 'inea_station_invalid_clock_value');
+    if (attemptedAtMs > currentMs + OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS) {
+      throw new OfficialSourceCacheError('inea_station_future_attempt');
+    }
+    lastAttemptAtMs = attemptedAtMs;
+    lastErrorCode = validateErrorCode(code);
+  }
+
+  function read({ at = now(), mode = 'normal' } = {}) {
+    const atMs = epochMs(at, 'inea_station_invalid_read_at');
+    const refreshIntervalMs = refreshIntervalFor(mode);
+    const nextRefreshDueAtMs = lastAttemptAtMs === null ? null : lastAttemptAtMs + refreshIntervalMs;
+    const refreshDue = nextRefreshDueAtMs === null || atMs >= nextRefreshDueAtMs;
+    const base = {
+      sourceId: INEA_STATION_SOURCE_ID,
+      mode,
+      refreshIntervalMs,
+      refreshDue,
+      nextRefreshDueAt: nextRefreshDueAtMs === null ? null : new Date(nextRefreshDueAtMs).toISOString(),
+      lastAttemptAt: lastAttemptAtMs === null ? null : new Date(lastAttemptAtMs).toISOString(),
+      lastErrorCode,
+    };
+
+    if (!entry) {
+      return Object.freeze({
+        ...base,
+        state: 'UNAVAILABLE',
+        reason: lastErrorCode ? 'refresh_failed_without_snapshot' : 'no_snapshot',
+        fetchedAt: null,
+        observedAt: null,
+        dataAgeMs: null,
+        cacheAgeMs: null,
+        snapshot: null,
+      });
+    }
+
+    if (entry.fetchedAtMs > atMs + OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS
+        || entry.observedAtMs > atMs + OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS) {
+      return Object.freeze({
+        ...base,
+        state: 'UNAVAILABLE',
+        reason: 'clock_skew',
+        fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
+        observedAt: new Date(entry.observedAtMs).toISOString(),
+        dataAgeMs: null,
+        cacheAgeMs: null,
+        snapshot: null,
+      });
+    }
+
+    const dataAgeMs = Math.max(0, atMs - entry.observedAtMs);
+    const cacheAgeMs = Math.max(0, atMs - entry.fetchedAtMs);
+    const fresh = dataAgeMs <= INEA_STATION_MAX_DATA_AGE_MS
+      && cacheAgeMs <= OFFICIAL_SOURCE_MAX_DATA_AGE_MS;
+    const failedAfterSnapshot = lastErrorCode !== null
+      && lastAttemptAtMs !== null
+      && lastAttemptAtMs > entry.fetchedAtMs;
+
+    if (!fresh) {
+      return Object.freeze({
+        ...base,
+        state: 'STALE',
+        reason: dataAgeMs > INEA_STATION_MAX_DATA_AGE_MS
+          ? 'observation_age_exceeded'
+          : 'cache_age_exceeded',
+        fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
+        observedAt: new Date(entry.observedAtMs).toISOString(),
+        dataAgeMs,
+        cacheAgeMs,
+        snapshot: null,
+      });
+    }
+
+    return Object.freeze({
+      ...base,
+      state: failedAfterSnapshot ? 'CURRENT_DEGRADED' : 'CURRENT',
+      reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache' : 'fresh_snapshot',
+      fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
+      observedAt: new Date(entry.observedAtMs).toISOString(),
       dataAgeMs,
       cacheAgeMs,
       snapshot: entry.snapshot,
