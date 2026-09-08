@@ -3,6 +3,7 @@ import {
   INEA_RADAR_MAX_FRAME_BYTES,
   INEA_RADAR_SOURCE_ID,
 } from './inea-radar-source.mjs';
+import { isTrustedIneaRadarMetadataBoundFrame } from './inea-radar-metadata-binding.mjs';
 
 export const INEA_RADAR_WINDOW_MINUTES = 30;
 export const INEA_RADAR_FRESHNESS_MINUTES = 10;
@@ -44,18 +45,14 @@ function sanitizeFrame(frame, nowMs) {
   if (!frame || typeof frame !== 'object' || Array.isArray(frame)) {
     throw new IneaRadarWindowError('inea_radar_frame_invalid');
   }
+  if (!isTrustedIneaRadarMetadataBoundFrame(frame)) {
+    throw new IneaRadarWindowError('inea_radar_frame_metadata_binding_untrusted');
+  }
   if (frame.sourceId !== INEA_RADAR_SOURCE_ID) {
     throw new IneaRadarWindowError('inea_radar_frame_source_invalid');
   }
   if (!INEA_RADAR_IDENTITIES.includes(frame.radarId)) {
     throw new IneaRadarWindowError('inea_radar_frame_identity_invalid');
-  }
-  if (
-    frame.provenanceValidated !== true
-    || frame.binaryValidated !== true
-    || frame.metadataBindingValidated !== true
-  ) {
-    throw new IneaRadarWindowError('inea_radar_frame_validation_chain_incomplete');
   }
 
   const observedAtMs = parseNormalizedUtc(frame.observedAt);
@@ -180,6 +177,7 @@ export class IneaRadarFrameWindow {
       storage: 'MEMORY_ONLY',
       rawMediaUrls: 'NOT_RETAINED',
       binaryContentRetention: 'NONE',
+      metadataBindingGate: 'TRUSTED_BINDER_REQUIRED',
       operational,
       animationReady,
       radars: Object.freeze(radars),

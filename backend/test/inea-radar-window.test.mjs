@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  INEA_RADAR_METADATA_BINDING_CONTRACT,
+  INEA_RADAR_METADATA_EVIDENCE_ORIGIN,
+  INEA_RADAR_BINARY_VALIDATION_CONTRACT,
+  INEA_RADAR_PROVENANCE_CONTRACT,
+  bindIneaRadarFrameMetadata,
+} from '../src/inea-radar-metadata-binding.mjs';
+import {
   INEA_RADAR_IDENTITIES,
   INEA_RADAR_WINDOW_MINUTES,
   IneaRadarFrameWindow,
@@ -14,6 +21,11 @@ const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const DIGEST_C = 'c'.repeat(64);
 const DIGEST_D = 'd'.repeat(64);
+const CANDIDATE_A = '1'.repeat(64);
+const CANDIDATE_B = '2'.repeat(64);
+const PROVENANCE = '3'.repeat(64);
+const IDENTITY_EVIDENCE = '4'.repeat(64);
+const TIMESTAMP_EVIDENCE = '5'.repeat(64);
 
 function frame({
   radarId = 'guaratiba',
@@ -21,24 +33,32 @@ function frame({
   contentSha256 = DIGEST_A,
   imageType = 'png',
   byteLength = 1024,
-  sourceId = INEA_RADAR_SOURCE_ID,
-  provenanceValidated = true,
-  binaryValidated = true,
-  metadataBindingValidated = true,
+  candidateRefSha256 = CANDIDATE_A,
 } = {}) {
-  return {
-    sourceId,
-    radarId,
-    observedAt,
-    contentSha256,
-    imageType,
-    byteLength,
-    provenanceValidated,
-    binaryValidated,
-    metadataBindingValidated,
-    rawUrl: 'https://should-not-be-retained.invalid/frame.png',
-    bytes: new Uint8Array([1, 2, 3]),
-  };
+  return bindIneaRadarFrameMetadata({
+    candidateEvidence: {
+      sourceId: INEA_RADAR_SOURCE_ID,
+      candidateRefSha256,
+      contentSha256,
+      imageType,
+      byteLength,
+      binaryValidationContract: INEA_RADAR_BINARY_VALIDATION_CONTRACT,
+    },
+    metadataEvidence: {
+      contract: INEA_RADAR_METADATA_BINDING_CONTRACT,
+      origin: INEA_RADAR_METADATA_EVIDENCE_ORIGIN,
+      ambiguityDetected: false,
+      candidateRefSha256,
+      radarId,
+      observedAt,
+      identityEvidenceSha256: IDENTITY_EVIDENCE,
+      timestampEvidenceSha256: TIMESTAMP_EVIDENCE,
+    },
+    provenanceEvidence: {
+      contract: INEA_RADAR_PROVENANCE_CONTRACT,
+      provenanceSha256: PROVENANCE,
+    },
+  });
 }
 
 function fixedWindow() {
@@ -56,10 +76,10 @@ test('uses only the two official INEA radar identities in the operational contra
 
 test('builds a fresh two-radar animation window without interpolation or raw media retention', () => {
   const window = fixedWindow();
-  window.ingest(frame({ observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_A }));
-  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B }));
-  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_C }));
-  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_D }));
+  window.ingest(frame({ observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_A, candidateRefSha256: CANDIDATE_A }));
+  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B, candidateRefSha256: CANDIDATE_B }));
+  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_C, candidateRefSha256: '6'.repeat(64) }));
+  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_D, candidateRefSha256: '7'.repeat(64) }));
 
   const snapshot = window.snapshot();
   assert.equal(snapshot.operational, true);
@@ -68,6 +88,7 @@ test('builds a fresh two-radar animation window without interpolation or raw med
   assert.equal(snapshot.storage, 'MEMORY_ONLY');
   assert.equal(snapshot.rawMediaUrls, 'NOT_RETAINED');
   assert.equal(snapshot.binaryContentRetention, 'NONE');
+  assert.equal(snapshot.metadataBindingGate, 'TRUSTED_BINDER_REQUIRED');
   assert.deepEqual(snapshot.radars.map((entry) => entry.radarId), ['guaratiba', 'macae']);
   assert.deepEqual(snapshot.radars.map((entry) => entry.frameCount), [2, 2]);
   for (const radar of snapshot.radars) {
@@ -83,24 +104,22 @@ test('builds a fresh two-radar animation window without interpolation or raw med
   }
 });
 
-test('rejects an unrecognized radar identity fail-closed', () => {
+test('rejects legacy or caller-forged validation booleans instead of trusting them', () => {
   const window = fixedWindow();
   assertCode(
-    () => window.ingest(frame({ radarId: 'unknown-radar' })),
-    'inea_radar_frame_identity_invalid',
+    () => window.ingest({
+      sourceId: INEA_RADAR_SOURCE_ID,
+      radarId: 'guaratiba',
+      observedAt: '2026-09-08T15:55:00.000Z',
+      contentSha256: DIGEST_A,
+      imageType: 'png',
+      byteLength: 1024,
+      provenanceValidated: true,
+      binaryValidated: true,
+      metadataBindingValidated: true,
+    }),
+    'inea_radar_frame_metadata_binding_untrusted',
   );
-});
-
-test('requires provenance, binary and metadata binding validation before ingestion', () => {
-  for (const missing of ['provenanceValidated', 'binaryValidated', 'metadataBindingValidated']) {
-    const window = fixedWindow();
-    const candidate = frame();
-    candidate[missing] = false;
-    assertCode(
-      () => window.ingest(candidate),
-      'inea_radar_frame_validation_chain_incomplete',
-    );
-  }
 });
 
 test('rejects frames more than two minutes in the future', () => {
@@ -121,9 +140,9 @@ test('rejects frames outside the 30 minute operational window', () => {
 
 test('rejects duplicate temporal slots for the same radar even when content differs', () => {
   const window = fixedWindow();
-  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_A }));
+  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_A, candidateRefSha256: CANDIDATE_A }));
   assertCode(
-    () => window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B })),
+    () => window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B, candidateRefSha256: CANDIDATE_B })),
     'inea_radar_frame_timestamp_duplicate',
   );
 });
@@ -147,20 +166,12 @@ test('marks stale or incomplete radar windows non-operational and prunes expired
 
 test('detects cadence gaps larger than two official five-minute intervals', () => {
   const window = fixedWindow();
-  window.ingest(frame({ observedAt: '2026-09-08T15:40:00.000Z', contentSha256: DIGEST_A }));
-  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B }));
-  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_C }));
-  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_D }));
+  window.ingest(frame({ observedAt: '2026-09-08T15:40:00.000Z', contentSha256: DIGEST_A, candidateRefSha256: CANDIDATE_A }));
+  window.ingest(frame({ observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_B, candidateRefSha256: CANDIDATE_B }));
+  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:50:00.000Z', contentSha256: DIGEST_C, candidateRefSha256: '6'.repeat(64) }));
+  window.ingest(frame({ radarId: 'macae', observedAt: '2026-09-08T15:55:00.000Z', contentSha256: DIGEST_D, candidateRefSha256: '7'.repeat(64) }));
 
   const guaratiba = window.snapshot().radars.find((entry) => entry.radarId === 'guaratiba');
   assert.equal(guaratiba.cadenceGapCount, 1);
   assert.equal(guaratiba.animationReady, false);
-});
-
-test('rejects malformed digest, image type, size, timestamp and source contracts', () => {
-  assertCode(() => fixedWindow().ingest(frame({ contentSha256: 'abc' })), 'inea_radar_frame_digest_invalid');
-  assertCode(() => fixedWindow().ingest(frame({ imageType: 'bmp' })), 'inea_radar_frame_image_type_invalid');
-  assertCode(() => fixedWindow().ingest(frame({ byteLength: 3 })), 'inea_radar_frame_size_invalid');
-  assertCode(() => fixedWindow().ingest(frame({ observedAt: '08/09/2026 15:55' })), 'inea_radar_frame_timestamp_format_invalid');
-  assertCode(() => fixedWindow().ingest(frame({ sourceId: 'spoofed-source' })), 'inea_radar_frame_source_invalid');
 });
