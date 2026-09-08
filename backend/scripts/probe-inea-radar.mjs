@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 
+import { probeIneaRadarOfficialProvenance } from '../src/inea-radar-provenance.mjs';
 import { probeIneaRadarTool } from '../src/inea-radar-source.mjs';
 
 const evidenceDir = new URL('../../evidence/official-sources/', import.meta.url);
@@ -13,12 +14,23 @@ function errorCode(reason) {
 
 let evidence;
 try {
+  const provenance = await probeIneaRadarOfficialProvenance();
   const result = await probeIneaRadarTool();
   evidence = {
     sourceId: result.sourceId,
-    contract: 'official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
+    contract: 'official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
     status: 'PASS',
     checkedAt,
+    officialProvenance: {
+      status: 'PASS',
+      contract: provenance.contract,
+      monitoringPageHost: provenance.monitoringPageHost,
+      publicRadarHost: provenance.publicRadarHost,
+      publicRadarUrlSha256: provenance.publicRadarUrlSha256,
+      rawPublicRadarUrl: 'REDACTED',
+      cadenceMinutes: provenance.cadenceMinutes,
+      provenanceSha256: provenance.provenanceSha256,
+    },
     gatewayContract: {
       status: 'PASS',
       sourceHost: result.sourceHost,
@@ -58,6 +70,7 @@ try {
     frameFreshnessValidation: result.frameFreshnessValidation,
     liveRadarFrameIngestion: result.frameIngestion,
   };
+  console.log('INEA_RADAR_OFFICIAL_PROVENANCE=PASS');
   console.log('INEA_RADAR_GATEWAY_CONTRACT=PASS');
   console.log('INEA_RADAR_EMBEDDED_VIEWER_RESOLUTION=PASS');
   console.log('INEA_RADAR_MEDIA_CANDIDATE_DISCOVERY=PASS');
@@ -69,9 +82,13 @@ try {
 } catch (error) {
   evidence = {
     sourceId: 'inea-radar-tool-gateway',
-    contract: 'official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
+    contract: 'official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
     status: 'FAIL',
     checkedAt,
+    officialProvenance: {
+      status: 'FAIL',
+      errorCode: errorCode(error),
+    },
     gatewayContract: {
       status: 'FAIL',
       errorCode: errorCode(error),
@@ -94,7 +111,7 @@ try {
     frameFreshnessValidation: 'NOT_IMPLEMENTED',
     liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
   };
-  console.error('INEA_RADAR_GATEWAY_CONTRACT=FAIL');
+  console.error('INEA_RADAR_PROBE=FAIL');
   process.exitCode = 1;
 }
 
