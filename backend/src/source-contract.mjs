@@ -24,7 +24,7 @@ export function assertPublicHttpsUrl(rawUrl, allowedHosts) {
   return url;
 }
 
-async function readBoundedBody(response, maxBytes, signal) {
+async function readBoundedBytes(response, maxBytes, signal) {
   const declaredLength = Number(response.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw new SourceContractError('source_body_too_large');
@@ -50,13 +50,14 @@ async function readBoundedBody(response, maxBytes, signal) {
     reader.releaseLock();
   }
 
+  if (total < 1) throw new SourceContractError('source_empty_body');
   const bytes = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  return bytes;
 }
 
 function validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes }) {
@@ -72,7 +73,7 @@ function validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes }) 
   }
 }
 
-async function fetchContractText(rawUrl, {
+async function fetchContractBody(rawUrl, {
   allowedHosts,
   fetchImpl = globalThis.fetch,
   timeoutMs = 5_000,
@@ -81,6 +82,9 @@ async function fetchContractText(rawUrl, {
   acceptsContentType,
 } = {}) {
   validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes });
+  if (typeof acceptsContentType !== 'function') {
+    throw new SourceContractError('source_content_type_policy_required');
+  }
   const url = assertPublicHttpsUrl(rawUrl, allowedHosts);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -111,7 +115,8 @@ async function fetchContractText(rawUrl, {
     }
 
     try {
-      return await readBoundedBody(response, maxBytes, controller.signal);
+      const bytes = await readBoundedBytes(response, maxBytes, controller.signal);
+      return Object.freeze({ bytes, contentType });
     } catch (error) {
       if (error instanceof SourceContractError) throw error;
       if (controller.signal.aborted) throw new SourceContractError('source_timeout');
@@ -119,6 +124,29 @@ async function fetchContractText(rawUrl, {
     }
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function fetchContractText(rawUrl, {
+  allowedHosts,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 5_000,
+  maxBytes = 256 * 1024,
+  accept,
+  acceptsContentType,
+} = {}) {
+  const { bytes } = await fetchContractBody(rawUrl, {
+    allowedHosts,
+    fetchImpl,
+    timeoutMs,
+    maxBytes,
+    accept,
+    acceptsContentType,
+  });
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new SourceContractError('source_read_error');
   }
 }
 
@@ -146,4 +174,30 @@ export async function fetchJsonContract(rawUrl, options = {}) {
   } catch {
     throw new SourceContractError('source_invalid_json');
   }
+}
+
+export async function fetchBinaryContract(rawUrl, {
+  allowedContentTypes,
+  accept,
+  ...options
+} = {}) {
+  if (!Array.isArray(allowedContentTypes) || allowedContentTypes.length < 1) {
+    throw new SourceContractError('source_content_type_allowlist_required');
+  }
+  const accepted = [...new Set(allowedContentTypes.map((value) => String(value).trim().toLowerCase()).filter(Boolean))];
+  if (accepted.length < 1) throw new SourceContractError('source_content_type_allowlist_required');
+
+  const result = await fetchContractBody(rawUrl, {
+    ...options,
+    accept: accept || accepted.join(','),
+    acceptsContentType: (contentType) => {
+      const mime = contentType.split(';', 1)[0].trim();
+      return accepted.includes(mime);
+    },
+  });
+
+  return Object.freeze({
+    bytes: result.bytes,
+    contentType: result.contentType.split(';', 1)[0].trim(),
+  });
 }
