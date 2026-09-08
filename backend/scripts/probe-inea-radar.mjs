@@ -1,118 +1,59 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
-import { probeIneaRadarOfficialProvenance } from '../src/inea-radar-provenance.mjs';
 import { probeIneaRadarTool } from '../src/inea-radar-source.mjs';
+import { probeIneaRadarOfficialProvenance } from '../src/inea-radar-provenance.mjs';
+import {
+  createIneaRadarProbeEvidence,
+  markIneaRadarProbeFailure,
+  markIneaRadarProvenancePass,
+  markIneaRadarToolPass,
+} from '../src/inea-radar-probe-evidence.mjs';
 
-const evidenceDir = new URL('../../evidence/official-sources/', import.meta.url);
-await mkdir(evidenceDir, { recursive: true });
-const evidenceFile = new URL('inea-radar.json', evidenceDir);
-const checkedAt = new Date().toISOString();
+const outputPath = process.env.BLAISE_INEA_RADAR_EVIDENCE_FILE
+  || 'evidence/official-sources/inea-radar.json';
 
-function errorCode(reason) {
-  return typeof reason?.code === 'string' ? reason.code : 'unexpected_error';
+function errorCode(error) {
+  if (error && typeof error.code === 'string') return error.code;
+  return 'unexpected_error';
 }
 
-let evidence;
+async function writeEvidence(evidence) {
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+}
+
+const checkedAt = new Date().toISOString();
+let evidence = createIneaRadarProbeEvidence(checkedAt);
+
 try {
   const provenance = await probeIneaRadarOfficialProvenance();
-  const result = await probeIneaRadarTool();
-  evidence = {
-    sourceId: result.sourceId,
-    contract: 'official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
-    status: 'PASS',
-    checkedAt,
-    officialProvenance: {
-      status: 'PASS',
-      contract: provenance.contract,
-      monitoringPageHost: provenance.monitoringPageHost,
-      publicRadarHost: provenance.publicRadarHost,
-      publicRadarUrlSha256: provenance.publicRadarUrlSha256,
-      rawPublicRadarUrl: 'REDACTED',
-      cadenceMinutes: provenance.cadenceMinutes,
-      provenanceSha256: provenance.provenanceSha256,
-    },
-    gatewayContract: {
-      status: 'PASS',
-      sourceHost: result.sourceHost,
-      radarCadenceMinutes: result.radarCadenceMinutes,
-      embeddedViewerDetected: result.embeddedViewerDetected,
-      iframeCount: result.iframeCount,
-      gatewaySha256: result.gatewaySha256,
-    },
-    embeddedViewerResolution: {
-      status: 'PASS',
-      contract: result.viewerContract,
-      viewerHost: result.viewerHost,
-      viewerUrlSha256: result.viewerUrlSha256,
-      rawViewerUrl: 'REDACTED',
-    },
-    mediaCandidateDiscovery: {
-      status: 'PASS',
-      contract: result.mediaCandidateDiscovery,
-      candidateCount: result.mediaCandidateCount,
-      candidateHosts: result.mediaCandidateHosts,
-      candidateSetSha256: result.mediaCandidateSetSha256,
-      rawMediaUrls: 'REDACTED',
-    },
-    frameBinaryValidation: {
-      status: 'PASS',
-      contract: result.frameBinaryValidation,
-      validatedCandidateCount: result.binaryValidatedCandidateCount,
-      imageTypes: result.binaryImageTypes,
-      totalValidatedBytes: result.binaryTotalValidatedBytes,
-      duplicateContentCount: result.binaryDuplicateContentCount,
-      binarySetSha256: result.binarySetSha256,
-      rawMediaUrls: 'REDACTED',
-      binaryContentRetention: result.binaryContentRetention,
-    },
-    radarIdentityValidation: result.radarIdentityValidation,
-    frameTimestampValidation: result.frameTimestampValidation,
-    frameFreshnessValidation: result.frameFreshnessValidation,
-    liveRadarFrameIngestion: result.frameIngestion,
-  };
+  evidence = markIneaRadarProvenancePass(evidence, provenance);
   console.log('INEA_RADAR_OFFICIAL_PROVENANCE=PASS');
+
+  const result = await probeIneaRadarTool();
+  evidence = markIneaRadarToolPass(evidence, result);
+  await writeEvidence(evidence);
+
   console.log('INEA_RADAR_GATEWAY_CONTRACT=PASS');
-  console.log('INEA_RADAR_EMBEDDED_VIEWER_RESOLUTION=PASS');
-  console.log('INEA_RADAR_MEDIA_CANDIDATE_DISCOVERY=PASS');
-  console.log('INEA_RADAR_FRAME_BINARY_VALIDATION=PASS');
-  console.log(`INEA_RADAR_IDENTITY_VALIDATION=${result.radarIdentityValidation}`);
-  console.log(`INEA_RADAR_FRAME_TIMESTAMP_VALIDATION=${result.frameTimestampValidation}`);
-  console.log(`INEA_RADAR_FRAME_FRESHNESS_VALIDATION=${result.frameFreshnessValidation}`);
-  console.log(`INEA_LIVE_RADAR_FRAME_INGESTION=${result.frameIngestion}`);
+  console.log('INEA_RADAR_EMBEDDED_VIEWER=PASS');
+  console.log('INEA_RADAR_MEDIA_CANDIDATES=PASS');
+  console.log('INEA_RADAR_BINARY_ENVELOPES=PASS');
+  console.log('INEA_RADAR_IDENTITY=NOT_IMPLEMENTED');
+  console.log('INEA_RADAR_TIMESTAMP=NOT_IMPLEMENTED');
+  console.log('INEA_RADAR_FRESHNESS=NOT_IMPLEMENTED');
+  console.log('INEA_RADAR_FRAME_INGESTION=NOT_IMPLEMENTED');
 } catch (error) {
-  evidence = {
-    sourceId: 'inea-radar-tool-gateway',
-    contract: 'official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation',
-    status: 'FAIL',
-    checkedAt,
-    officialProvenance: {
-      status: 'FAIL',
-      errorCode: errorCode(error),
-    },
-    gatewayContract: {
-      status: 'FAIL',
-      errorCode: errorCode(error),
-    },
-    embeddedViewerResolution: {
-      status: 'FAIL',
-      errorCode: errorCode(error),
-    },
-    mediaCandidateDiscovery: {
-      status: 'FAIL',
-      errorCode: errorCode(error),
-    },
-    frameBinaryValidation: {
-      status: 'FAIL',
-      errorCode: errorCode(error),
-      binaryContentRetention: 'NONE',
-    },
-    radarIdentityValidation: 'NOT_IMPLEMENTED',
-    frameTimestampValidation: 'NOT_IMPLEMENTED',
-    frameFreshnessValidation: 'NOT_IMPLEMENTED',
-    liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
-  };
-  console.error('INEA_RADAR_PROBE=FAIL');
+  const code = errorCode(error);
+  evidence = markIneaRadarProbeFailure(evidence, code);
+  await writeEvidence(evidence);
+
+  if (evidence.officialProvenance.status === 'PASS') {
+    console.log('INEA_RADAR_OFFICIAL_PROVENANCE=PASS');
+  } else {
+    console.error('INEA_RADAR_OFFICIAL_PROVENANCE=FAIL');
+  }
+  console.error(`INEA_RADAR_PROBE_ERROR=${code}`);
+  console.error('INEA_RADAR_GATEWAY_CONTRACT=FAIL');
   process.exitCode = 1;
 }
-
-await writeFile(evidenceFile, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
