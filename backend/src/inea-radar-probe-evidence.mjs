@@ -1,4 +1,4 @@
-const CONTRACT = 'official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation';
+const CONTRACT = 'official_monitoring_page_provenance+official_radar_inventory+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation';
 
 function failStage(stage, errorCode, extra = {}) {
   if (stage?.status === 'PASS') return stage;
@@ -15,6 +15,7 @@ export function createIneaRadarProbeEvidence(checkedAt) {
     status: 'IN_PROGRESS',
     checkedAt,
     officialProvenance: { status: 'NOT_RUN' },
+    officialRadarInventory: { status: 'NOT_RUN' },
     gatewayContract: { status: 'NOT_RUN' },
     embeddedViewerResolution: { status: 'NOT_RUN' },
     mediaCandidateDiscovery: { status: 'NOT_RUN' },
@@ -38,6 +39,23 @@ export function markIneaRadarProvenancePass(evidence, provenance) {
       rawPublicRadarUrl: 'REDACTED',
       cadenceMinutes: provenance.cadenceMinutes,
       provenanceSha256: provenance.provenanceSha256,
+    },
+  };
+}
+
+export function markIneaRadarInventoryPass(evidence, inventory) {
+  return {
+    ...evidence,
+    officialRadarInventory: {
+      status: 'PASS',
+      contract: inventory.contract,
+      sourceHost: inventory.sourceHost,
+      sourceUrlSha256: inventory.sourceUrlSha256,
+      rawSourceUrl: 'REDACTED',
+      identities: inventory.identities,
+      identityCount: inventory.identityCount,
+      inventorySha256: inventory.inventorySha256,
+      sameCandidateIdentityBinding: inventory.sameCandidateIdentityBinding,
     },
   };
 }
@@ -94,6 +112,7 @@ export function markIneaRadarProbeFailure(evidence, errorCode) {
     ...evidence,
     status: 'FAIL',
     officialProvenance: failStage(evidence.officialProvenance, code),
+    officialRadarInventory: failStage(evidence.officialRadarInventory, code),
     gatewayContract: failStage(evidence.gatewayContract, code),
     embeddedViewerResolution: failStage(evidence.embeddedViewerResolution, code),
     mediaCandidateDiscovery: failStage(evidence.mediaCandidateDiscovery, code),

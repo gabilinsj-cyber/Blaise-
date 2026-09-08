@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  INEA_RADAR_INVENTORY_CONTRACT,
+} from '../src/inea-radar-inventory.mjs';
+import {
   INEA_RADAR_METADATA_BINDING_CONTRACT,
   INEA_RADAR_METADATA_EVIDENCE_ORIGIN,
   INEA_RADAR_BINARY_VALIDATION_CONTRACT,
@@ -26,6 +29,7 @@ const CANDIDATE_B = '2'.repeat(64);
 const PROVENANCE = '3'.repeat(64);
 const IDENTITY_EVIDENCE = '4'.repeat(64);
 const TIMESTAMP_EVIDENCE = '5'.repeat(64);
+const INVENTORY_EVIDENCE = '8'.repeat(64);
 
 function frame({
   radarId = 'guaratiba',
@@ -58,6 +62,11 @@ function frame({
       contract: INEA_RADAR_PROVENANCE_CONTRACT,
       provenanceSha256: PROVENANCE,
     },
+    inventoryEvidence: {
+      contract: INEA_RADAR_INVENTORY_CONTRACT,
+      identities: ['guaratiba', 'macae'],
+      inventorySha256: INVENTORY_EVIDENCE,
+    },
   });
 }
 
@@ -69,7 +78,7 @@ function assertCode(fn, code) {
   assert.throws(fn, (error) => error instanceof IneaRadarWindowError && error.code === code);
 }
 
-test('uses only the two official INEA radar identities in the operational contract', () => {
+test('uses only the two officially inventoried INEA radar identities in the operational contract', () => {
   assert.deepEqual(INEA_RADAR_IDENTITIES, ['guaratiba', 'macae']);
   assert.equal(INEA_RADAR_WINDOW_MINUTES, 30);
 });
@@ -89,6 +98,7 @@ test('builds a fresh two-radar animation window without interpolation or raw med
   assert.equal(snapshot.rawMediaUrls, 'NOT_RETAINED');
   assert.equal(snapshot.binaryContentRetention, 'NONE');
   assert.equal(snapshot.metadataBindingGate, 'TRUSTED_BINDER_REQUIRED');
+  assert.equal(snapshot.identityInventoryGate, 'OFFICIAL_INEA_RADAR_INVENTORY_REQUIRED');
   assert.deepEqual(snapshot.radars.map((entry) => entry.radarId), ['guaratiba', 'macae']);
   assert.deepEqual(snapshot.radars.map((entry) => entry.frameCount), [2, 2]);
   for (const radar of snapshot.radars) {
@@ -116,6 +126,7 @@ test('rejects legacy or caller-forged validation booleans instead of trusting th
       byteLength: 1024,
       provenanceValidated: true,
       binaryValidated: true,
+      inventoryValidated: true,
       metadataBindingValidated: true,
     }),
     'inea_radar_frame_metadata_binding_untrusted',
