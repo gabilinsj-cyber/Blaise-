@@ -84,6 +84,6 @@ test('live inventory probe enforces official host and maps source-contract failu
     () => probeIneaRadarOfficialInventory({
       fetchImpl: async () => new Response('unavailable', { status: 503 }),
     }),
-    (error) => error instanceof IneaRadarInventoryError && error.code === 'inea_radar_inventory_source_http_status',
+    (error) => error instanceof IneaRadarInventoryError && error.code === 'inea_radar_inventory_source_http_error',
   );
 });
