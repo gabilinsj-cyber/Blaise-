@@ -6,8 +6,10 @@ export const INEA_RADAR_SOURCE_ID = 'inea-radar-tool-gateway';
 export const INEA_RADAR_HOST = 'alertadecheias.inea.rj.gov.br';
 export const INEA_RADAR_TOOL_URL = 'https://alertadecheias.inea.rj.gov.br/radartool.php';
 export const INEA_RADAR_CADENCE_MINUTES = 5;
+export const INEA_RADAR_MAX_MEDIA_CANDIDATES = 64;
 
 const INEA_OFFICIAL_DOMAIN = 'inea.rj.gov.br';
+const RADAR_MEDIA_EXTENSION = /\.(?:png|jpe?g|gif|webp)(?:$|[?#])/i;
 
 export class IneaRadarContractError extends Error {
   constructor(code) {
@@ -55,6 +57,10 @@ function iframeTags(html) {
   return [...String(html).matchAll(/<iframe\b[^>]*>/gi)].map((match) => match[0]);
 }
 
+function mediaTags(html) {
+  return [...String(html).matchAll(/<(?:img|source)\b[^>]*>/gi)].map((match) => match[0]);
+}
+
 function attributeValue(tag, name) {
   const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
   const match = String(tag).match(pattern);
@@ -70,6 +76,22 @@ function sha256(value) {
   return createHash('sha256').update(String(value)).digest('hex');
 }
 
+function resolveOfficialIneaUrl(rawUrl, baseUrl) {
+  if (!rawUrl) return null;
+  let url;
+  try {
+    url = new URL(rawUrl, baseUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+  if (url.username || url.password) return null;
+  if (url.port && url.port !== '443') return null;
+  if (!isOfficialIneaHost(url.hostname)) return null;
+  url.hash = '';
+  return url;
+}
+
 export function extractIneaRadarViewerUrl(html) {
   const tags = iframeTags(html);
   if (tags.length < 1) throw new IneaRadarContractError('inea_radar_viewer_missing');
@@ -77,29 +99,62 @@ export function extractIneaRadarViewerUrl(html) {
 
   const official = [];
   for (const tag of tags) {
-    const rawSrc = attributeValue(tag, 'src');
-    if (!rawSrc) continue;
-
-    let url;
-    try {
-      url = new URL(rawSrc, INEA_RADAR_TOOL_URL);
-    } catch {
-      continue;
-    }
-
-    if (url.protocol !== 'https:') continue;
-    if (url.username || url.password) continue;
-    if (url.port && url.port !== '443') continue;
-    if (!isOfficialIneaHost(url.hostname)) continue;
-
-    url.hash = '';
-    official.push(url);
+    const url = resolveOfficialIneaUrl(attributeValue(tag, 'src'), INEA_RADAR_TOOL_URL);
+    if (url) official.push(url);
   }
 
   const unique = [...new Map(official.map((url) => [url.href, url])).values()];
   if (unique.length < 1) throw new IneaRadarContractError('inea_radar_viewer_url_invalid');
   if (unique.length > 1) throw new IneaRadarContractError('inea_radar_viewer_ambiguous');
   return unique[0];
+}
+
+export function discoverIneaRadarMediaCandidates(html, viewerUrl) {
+  if (typeof html !== 'string' || html.length < 64) {
+    throw new IneaRadarContractError('inea_radar_viewer_empty_html');
+  }
+
+  const base = resolveOfficialIneaUrl(String(viewerUrl), INEA_RADAR_TOOL_URL);
+  if (!base) throw new IneaRadarContractError('inea_radar_viewer_url_invalid');
+
+  const candidates = [];
+  for (const tag of mediaTags(html)) {
+    for (const attribute of ['src', 'data-src', 'data-url']) {
+      const raw = attributeValue(tag, attribute);
+      if (!raw || !RADAR_MEDIA_EXTENSION.test(raw)) continue;
+      const url = resolveOfficialIneaUrl(raw, base);
+      if (url) candidates.push(url);
+    }
+  }
+
+  const unique = [...new Map(candidates.map((url) => [url.href, url])).values()];
+  if (unique.length < 1) {
+    throw new IneaRadarContractError('inea_radar_media_candidate_missing');
+  }
+  if (unique.length > INEA_RADAR_MAX_MEDIA_CANDIDATES) {
+    throw new IneaRadarContractError('inea_radar_media_candidate_count_invalid');
+  }
+
+  const candidateHosts = [...new Set(unique.map((url) => url.hostname))].sort();
+  const candidateHashes = unique.map((url) => sha256(url.href)).sort();
+  const canonical = JSON.stringify({
+    viewerHost: base.hostname,
+    candidateHosts,
+    candidateHashes,
+    candidateCount: unique.length,
+  });
+
+  return Object.freeze({
+    contract: 'OFFICIAL_HTTPS_RADAR_MEDIA_CANDIDATES_DISCOVERED',
+    viewerHost: base.hostname,
+    mediaCandidateCount: unique.length,
+    mediaCandidateHosts: Object.freeze(candidateHosts),
+    mediaCandidateSetSha256: sha256(canonical),
+    rawMediaUrls: 'REDACTED',
+    frameTimestampValidation: 'NOT_IMPLEMENTED',
+    frameFreshnessValidation: 'NOT_IMPLEMENTED',
+    frameIngestion: 'NOT_IMPLEMENTED',
+  });
 }
 
 export function validateIneaRadarToolHtml(html) {
@@ -128,6 +183,7 @@ export function validateIneaRadarToolHtml(html) {
     viewerHost: viewerUrl.hostname,
     viewerUrlSha256,
     viewerContract: 'OFFICIAL_HTTPS_IFRAME_RESOLVED',
+    mediaCandidateDiscovery: 'NOT_PROBED',
     frameIngestion: 'NOT_IMPLEMENTED',
   });
 
@@ -141,6 +197,7 @@ export function validateIneaRadarToolHtml(html) {
     viewerHost: viewerUrl.hostname,
     viewerUrlSha256,
     viewerContract: 'OFFICIAL_HTTPS_IFRAME_RESOLVED',
+    mediaCandidateDiscovery: 'NOT_PROBED',
     frameIngestion: 'NOT_IMPLEMENTED',
     gatewaySha256: sha256(canonical),
   });
@@ -161,5 +218,34 @@ export async function probeIneaRadarTool({ fetchImpl = globalThis.fetch } = {}) 
     }
     throw error;
   }
-  return validateIneaRadarToolHtml(html);
+
+  const gateway = validateIneaRadarToolHtml(html);
+  const viewerUrl = extractIneaRadarViewerUrl(html);
+
+  let viewerHtml;
+  try {
+    viewerHtml = await fetchTextContract(viewerUrl.href, {
+      allowedHosts: [viewerUrl.hostname],
+      fetchImpl,
+      timeoutMs: 8_000,
+      maxBytes: 1536 * 1024,
+    });
+  } catch (error) {
+    if (error instanceof SourceContractError) {
+      throw new IneaRadarContractError(`inea_radar_viewer_${error.code}`);
+    }
+    throw error;
+  }
+
+  const media = discoverIneaRadarMediaCandidates(viewerHtml, viewerUrl);
+  return Object.freeze({
+    ...gateway,
+    mediaCandidateDiscovery: media.contract,
+    mediaCandidateCount: media.mediaCandidateCount,
+    mediaCandidateHosts: media.mediaCandidateHosts,
+    mediaCandidateSetSha256: media.mediaCandidateSetSha256,
+    frameTimestampValidation: media.frameTimestampValidation,
+    frameFreshnessValidation: media.frameFreshnessValidation,
+    frameIngestion: media.frameIngestion,
+  });
 }

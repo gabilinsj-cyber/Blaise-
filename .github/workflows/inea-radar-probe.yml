@@ -1,10 +1,10 @@
-name: INEA Radar Gateway Probe
+name: INEA Radar Viewer Probe
 
 on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the public official INEA Radar Tool gateway and embedded viewer contract'
+        description: 'Query the public official INEA Radar Tool gateway, embedded viewer and media candidate contract'
         required: true
         default: false
         type: boolean
@@ -32,11 +32,14 @@ jobs:
           cat > evidence/official-sources/inea-radar.json <<'JSON'
           {
             "sourceId": "inea-radar-tool-gateway",
-            "contract": "official_radar_tool_gateway+embedded_viewer_resolution",
+            "contract": "official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "gatewayContract": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "embeddedViewerResolution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "mediaCandidateDiscovery": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "frameTimestampValidation": "NOT_IMPLEMENTED",
+            "frameFreshnessValidation": "NOT_IMPLEMENTED",
             "liveRadarFrameIngestion": "NOT_IMPLEMENTED"
           }
           JSON
@@ -46,7 +49,7 @@ jobs:
         with:
           node-version: '24.20.0'
 
-      - name: Validate and probe official INEA Radar Tool gateway
+      - name: Validate and probe official INEA Radar Tool viewer
         if: ${{ inputs.execute_live_probe }}
         shell: bash
         run: |

@@ -16,7 +16,7 @@ try {
   const result = await probeIneaRadarTool();
   evidence = {
     sourceId: result.sourceId,
-    contract: 'official_radar_tool_gateway+embedded_viewer_resolution',
+    contract: 'official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery',
     status: 'PASS',
     checkedAt,
     gatewayContract: {
@@ -34,15 +34,28 @@ try {
       viewerUrlSha256: result.viewerUrlSha256,
       rawViewerUrl: 'REDACTED',
     },
-    liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
+    mediaCandidateDiscovery: {
+      status: 'PASS',
+      contract: result.mediaCandidateDiscovery,
+      candidateCount: result.mediaCandidateCount,
+      candidateHosts: result.mediaCandidateHosts,
+      candidateSetSha256: result.mediaCandidateSetSha256,
+      rawMediaUrls: 'REDACTED',
+    },
+    frameTimestampValidation: result.frameTimestampValidation,
+    frameFreshnessValidation: result.frameFreshnessValidation,
+    liveRadarFrameIngestion: result.frameIngestion,
   };
   console.log('INEA_RADAR_GATEWAY_CONTRACT=PASS');
   console.log('INEA_RADAR_EMBEDDED_VIEWER_RESOLUTION=PASS');
-  console.log('INEA_LIVE_RADAR_FRAME_INGESTION=NOT_IMPLEMENTED');
+  console.log('INEA_RADAR_MEDIA_CANDIDATE_DISCOVERY=PASS');
+  console.log(`INEA_RADAR_FRAME_TIMESTAMP_VALIDATION=${result.frameTimestampValidation}`);
+  console.log(`INEA_RADAR_FRAME_FRESHNESS_VALIDATION=${result.frameFreshnessValidation}`);
+  console.log(`INEA_LIVE_RADAR_FRAME_INGESTION=${result.frameIngestion}`);
 } catch (error) {
   evidence = {
     sourceId: 'inea-radar-tool-gateway',
-    contract: 'official_radar_tool_gateway+embedded_viewer_resolution',
+    contract: 'official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery',
     status: 'FAIL',
     checkedAt,
     gatewayContract: {
@@ -53,6 +66,12 @@ try {
       status: 'FAIL',
       errorCode: errorCode(error),
     },
+    mediaCandidateDiscovery: {
+      status: 'FAIL',
+      errorCode: errorCode(error),
+    },
+    frameTimestampValidation: 'NOT_IMPLEMENTED',
+    frameFreshnessValidation: 'NOT_IMPLEMENTED',
     liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
   };
   console.error('INEA_RADAR_GATEWAY_CONTRACT=FAIL');
