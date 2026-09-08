@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the public Alerta Rio station inventory and live rainfall contracts'
+        description: 'Query the public Alerta Rio live contracts and INEA official discovery contract'
         required: true
         default: false
         type: boolean
@@ -32,11 +32,22 @@ jobs:
           cat > evidence/official-sources/alerta-rio.json <<'JSON'
           {
             "sourceId": "alerta-rio",
-            "contract": "station_inventory+live_rainfall_snapshot",
+            "contract": "station_inventory+live_rainfall_snapshot+operational_freshness",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "stationCatalog": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "rainfallLiveIngestion": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED"
+          }
+          JSON
+          cat > evidence/official-sources/inea.json <<'JSON'
+          {
+            "sourceId": "inea",
+            "contract": "hydromet_discovery+official_link_contract",
+            "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
+            "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "discoveryContract": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "liveRadarFrameIngestion": "NOT_IMPLEMENTED",
+            "liveHydrometValueIngestion": "NOT_IMPLEMENTED"
           }
           JSON
 
@@ -45,7 +56,7 @@ jobs:
         with:
           node-version: '24.20.0'
 
-      - name: Probe official Alerta Rio station and rainfall contracts
+      - name: Probe official Alerta Rio and INEA source contracts
         if: ${{ inputs.execute_live_probe }}
         shell: bash
         run: |
