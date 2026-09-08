@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the public official INEA Radar Tool gateway contract'
+        description: 'Query the public official INEA Radar Tool gateway and embedded viewer contract'
         required: true
         default: false
         type: boolean
@@ -32,10 +32,11 @@ jobs:
           cat > evidence/official-sources/inea-radar.json <<'JSON'
           {
             "sourceId": "inea-radar-tool-gateway",
-            "contract": "official_radar_tool_gateway",
+            "contract": "official_radar_tool_gateway+embedded_viewer_resolution",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "gatewayContract": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "embeddedViewerResolution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "liveRadarFrameIngestion": "NOT_IMPLEMENTED"
           }
           JSON
