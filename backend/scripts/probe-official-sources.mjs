@@ -4,6 +4,7 @@ import {
   probeAlertaRioLiveRainfall,
   probeAlertaRioStationCatalog,
 } from '../src/alerta-rio-source.mjs';
+import { createAlertaRioRainfallCache } from '../src/official-source-cache.mjs';
 
 const evidenceDir = new URL('../../evidence/official-sources/', import.meta.url);
 await mkdir(evidenceDir, { recursive: true });
@@ -13,16 +14,49 @@ function errorCode(reason) {
   return typeof reason?.code === 'string' ? reason.code : 'unexpected_error';
 }
 
+function summarizeFreshness(result) {
+  return {
+    state: result.state,
+    reason: result.reason,
+    refreshIntervalMs: result.refreshIntervalMs,
+    refreshDue: result.refreshDue,
+    nextRefreshDueAt: result.nextRefreshDueAt,
+    dataAgeMs: result.dataAgeMs,
+    cacheAgeMs: result.cacheAgeMs,
+  };
+}
+
+const checkedAt = new Date();
 const [catalogProbe, rainfallProbe] = await Promise.allSettled([
   probeAlertaRioStationCatalog(),
   probeAlertaRioLiveRainfall(),
 ]);
 
+let rainfallFreshness = null;
+let rainfallFreshnessError = null;
+if (rainfallProbe.status === 'fulfilled') {
+  try {
+    const cache = createAlertaRioRainfallCache({ now: () => checkedAt.getTime() });
+    cache.recordSuccess(rainfallProbe.value, { fetchedAt: checkedAt });
+    rainfallFreshness = {
+      normal: summarizeFreshness(cache.read({ at: checkedAt, mode: 'normal' })),
+      severe: summarizeFreshness(cache.read({ at: checkedAt, mode: 'severe' })),
+    };
+  } catch (error) {
+    rainfallFreshnessError = errorCode(error);
+  }
+}
+
+const rainfallOperationalPass = rainfallProbe.status === 'fulfilled'
+  && rainfallFreshnessError === null
+  && rainfallFreshness?.normal?.state === 'CURRENT'
+  && rainfallFreshness?.severe?.state === 'CURRENT';
+
 const evidence = {
   sourceId: 'alerta-rio',
-  contract: 'station_inventory+live_rainfall_snapshot',
-  status: catalogProbe.status === 'fulfilled' && rainfallProbe.status === 'fulfilled' ? 'PASS' : 'FAIL',
-  checkedAt: new Date().toISOString(),
+  contract: 'station_inventory+live_rainfall_snapshot+operational_freshness',
+  status: catalogProbe.status === 'fulfilled' && rainfallOperationalPass ? 'PASS' : 'FAIL',
+  checkedAt: checkedAt.toISOString(),
   stationCatalog: catalogProbe.status === 'fulfilled'
     ? {
         status: 'PASS',
@@ -36,13 +70,16 @@ const evidence = {
       },
   rainfallLiveIngestion: rainfallProbe.status === 'fulfilled'
     ? {
-        status: 'PASS',
+        status: rainfallOperationalPass ? 'PASS' : 'FAIL',
         sourceHost: rainfallProbe.value.sourceHost,
         stationCount: rainfallProbe.value.stationCount,
         missingValueCount: rainfallProbe.value.missingValueCount,
         oldestObservedAt: rainfallProbe.value.oldestObservedAt,
         freshestObservedAt: rainfallProbe.value.freshestObservedAt,
         snapshotSha256: rainfallProbe.value.snapshotSha256,
+        operationalFreshness: rainfallFreshnessError === null
+          ? rainfallFreshness
+          : { status: 'FAIL', errorCode: rainfallFreshnessError },
       }
     : {
         status: 'FAIL',
