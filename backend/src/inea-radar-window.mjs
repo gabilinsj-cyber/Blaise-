@@ -1,3 +1,4 @@
+import { INEA_RADAR_INVENTORY_IDENTITIES } from './inea-radar-inventory.mjs';
 import {
   INEA_RADAR_CADENCE_MINUTES,
   INEA_RADAR_MAX_FRAME_BYTES,
@@ -8,7 +9,7 @@ import { isTrustedIneaRadarMetadataBoundFrame } from './inea-radar-metadata-bind
 export const INEA_RADAR_WINDOW_MINUTES = 30;
 export const INEA_RADAR_FRESHNESS_MINUTES = 10;
 export const INEA_RADAR_MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
-export const INEA_RADAR_IDENTITIES = Object.freeze(['guaratiba', 'macae']);
+export const INEA_RADAR_IDENTITIES = INEA_RADAR_INVENTORY_IDENTITIES;
 
 const IMAGE_TYPES = new Set(['png', 'jpeg', 'gif', 'webp']);
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -178,6 +179,7 @@ export class IneaRadarFrameWindow {
       rawMediaUrls: 'NOT_RETAINED',
       binaryContentRetention: 'NONE',
       metadataBindingGate: 'TRUSTED_BINDER_REQUIRED',
+      identityInventoryGate: 'OFFICIAL_INEA_RADAR_INVENTORY_REQUIRED',
       operational,
       animationReady,
       radars: Object.freeze(radars),

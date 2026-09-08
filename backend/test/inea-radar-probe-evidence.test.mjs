@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   createIneaRadarProbeEvidence,
+  markIneaRadarInventoryPass,
   markIneaRadarProbeFailure,
   markIneaRadarProvenancePass,
   markIneaRadarToolPass,
@@ -18,6 +19,18 @@ function provenanceFixture() {
     publicRadarUrlSha256: 'a'.repeat(64),
     cadenceMinutes: 5,
     provenanceSha256: 'b'.repeat(64),
+  };
+}
+
+function inventoryFixture() {
+  return {
+    contract: 'OFFICIAL_INEA_RADAR_INVENTORY_VALIDATED',
+    sourceHost: 'www.inea.rj.gov.br',
+    sourceUrlSha256: '8'.repeat(64),
+    identities: ['guaratiba', 'macae'],
+    identityCount: 2,
+    inventorySha256: '9'.repeat(64),
+    sameCandidateIdentityBinding: 'NOT_IMPLEMENTED',
   };
 }
 
@@ -50,14 +63,18 @@ function toolFixture() {
   };
 }
 
-test('preserves a proven official provenance stage when the downstream radar gateway times out', () => {
+test('preserves proven official provenance and inventory when the downstream radar gateway times out', () => {
   let evidence = createIneaRadarProbeEvidence(checkedAt);
   evidence = markIneaRadarProvenancePass(evidence, provenanceFixture());
+  evidence = markIneaRadarInventoryPass(evidence, inventoryFixture());
   evidence = markIneaRadarProbeFailure(evidence, 'inea_radar_source_timeout');
 
   assert.equal(evidence.status, 'FAIL');
   assert.equal(evidence.officialProvenance.status, 'PASS');
   assert.equal(evidence.officialProvenance.rawPublicRadarUrl, 'REDACTED');
+  assert.equal(evidence.officialRadarInventory.status, 'PASS');
+  assert.equal(evidence.officialRadarInventory.rawSourceUrl, 'REDACTED');
+  assert.deepEqual(evidence.officialRadarInventory.identities, ['guaratiba', 'macae']);
   assert.equal(evidence.gatewayContract.status, 'FAIL');
   assert.equal(evidence.gatewayContract.errorCode, 'inea_radar_source_timeout');
   assert.equal(evidence.embeddedViewerResolution.status, 'FAIL');
@@ -68,7 +85,19 @@ test('preserves a proven official provenance stage when the downstream radar gat
   assert.equal(evidence.liveRadarFrameIngestion, 'NOT_IMPLEMENTED');
 });
 
-test('marks provenance and downstream stages failed when failure happens before provenance is proven', () => {
+test('preserves provenance but fails inventory and downstream stages when inventory validation fails', () => {
+  let evidence = createIneaRadarProbeEvidence(checkedAt);
+  evidence = markIneaRadarProvenancePass(evidence, provenanceFixture());
+  evidence = markIneaRadarProbeFailure(evidence, 'inea_radar_inventory_source_timeout');
+
+  assert.equal(evidence.status, 'FAIL');
+  assert.equal(evidence.officialProvenance.status, 'PASS');
+  assert.equal(evidence.officialRadarInventory.status, 'FAIL');
+  assert.equal(evidence.officialRadarInventory.errorCode, 'inea_radar_inventory_source_timeout');
+  assert.equal(evidence.gatewayContract.status, 'FAIL');
+});
+
+test('marks provenance, inventory and downstream stages failed when failure happens before provenance is proven', () => {
   const evidence = markIneaRadarProbeFailure(
     createIneaRadarProbeEvidence(checkedAt),
     'inea_radar_provenance_source_timeout',
@@ -76,16 +105,21 @@ test('marks provenance and downstream stages failed when failure happens before 
   assert.equal(evidence.status, 'FAIL');
   assert.equal(evidence.officialProvenance.status, 'FAIL');
   assert.equal(evidence.officialProvenance.errorCode, 'inea_radar_provenance_source_timeout');
+  assert.equal(evidence.officialRadarInventory.status, 'FAIL');
   assert.equal(evidence.gatewayContract.status, 'FAIL');
 });
 
-test('records a complete bounded tool pass without upgrading unproven frame semantics', () => {
+test('records a complete bounded tool pass while same-candidate identity and time semantics remain unproven', () => {
   let evidence = createIneaRadarProbeEvidence(checkedAt);
   evidence = markIneaRadarProvenancePass(evidence, provenanceFixture());
+  evidence = markIneaRadarInventoryPass(evidence, inventoryFixture());
   evidence = markIneaRadarToolPass(evidence, toolFixture());
 
   assert.equal(evidence.status, 'PASS');
   assert.equal(evidence.officialProvenance.status, 'PASS');
+  assert.equal(evidence.officialRadarInventory.status, 'PASS');
+  assert.equal(evidence.officialRadarInventory.identityCount, 2);
+  assert.equal(evidence.officialRadarInventory.sameCandidateIdentityBinding, 'NOT_IMPLEMENTED');
   assert.equal(evidence.gatewayContract.status, 'PASS');
   assert.equal(evidence.embeddedViewerResolution.status, 'PASS');
   assert.equal(evidence.mediaCandidateDiscovery.status, 'PASS');

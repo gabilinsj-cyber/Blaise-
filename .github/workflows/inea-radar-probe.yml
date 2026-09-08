@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the official INEA monitoring page, Radar Tool gateway, viewer, media candidates and bounded binary envelopes'
+        description: 'Query official INEA monitoring/inventory pages, Radar Tool gateway, viewer, media candidates and bounded binary envelopes'
         required: true
         default: false
         type: boolean
@@ -32,15 +32,16 @@ jobs:
           cat > evidence/official-sources/inea-radar.json <<'JSON'
           {
             "sourceId": "inea-radar-tool-gateway",
-            "contract": "official_monitoring_page_provenance+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation",
+            "contract": "official_monitoring_page_provenance+official_radar_inventory+official_radar_tool_gateway+embedded_viewer_resolution+media_candidate_discovery+binary_envelope_validation",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "officialProvenance": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "gatewayContract": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "embeddedViewerResolution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "mediaCandidateDiscovery": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "frameBinaryValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "radarIdentityValidation": "NOT_IMPLEMENTED",
+            "officialProvenance": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "officialRadarInventory": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "gatewayContract": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "embeddedViewerResolution": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "mediaCandidateDiscovery": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "frameBinaryValidation": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED", "binaryContentRetention": "NONE" },
+            "radarIdentityValidation": "NOT_IMPLEMENTED_SAME_CANDIDATE_EVIDENCE_REQUIRED",
             "frameTimestampValidation": "NOT_IMPLEMENTED",
             "frameFreshnessValidation": "NOT_IMPLEMENTED",
             "liveRadarFrameIngestion": "NOT_IMPLEMENTED"
@@ -52,7 +53,7 @@ jobs:
         with:
           node-version: '24.20.0'
 
-      - name: Validate and probe official INEA radar provenance, viewer and bounded image binaries
+      - name: Validate and probe official INEA radar provenance, inventory, viewer and bounded image binaries
         if: ${{ inputs.execute_live_probe }}
         shell: bash
         run: |
@@ -60,7 +61,9 @@ jobs:
           test "$(node --version)" = "v24.20.0"
           node --check backend/src/source-contract.mjs
           node --check backend/src/inea-radar-provenance.mjs
+          node --check backend/src/inea-radar-inventory.mjs
           node --check backend/src/inea-radar-source.mjs
+          node --check backend/src/inea-radar-probe-evidence.mjs
           node --check backend/scripts/probe-inea-radar.mjs
           node backend/scripts/probe-inea-radar.mjs
 

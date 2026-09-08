@@ -1,10 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { probeIneaRadarOfficialInventory } from '../src/inea-radar-inventory.mjs';
 import { probeIneaRadarTool } from '../src/inea-radar-source.mjs';
 import { probeIneaRadarOfficialProvenance } from '../src/inea-radar-provenance.mjs';
 import {
   createIneaRadarProbeEvidence,
+  markIneaRadarInventoryPass,
   markIneaRadarProbeFailure,
   markIneaRadarProvenancePass,
   markIneaRadarToolPass,
@@ -31,6 +33,10 @@ try {
   evidence = markIneaRadarProvenancePass(evidence, provenance);
   console.log('INEA_RADAR_OFFICIAL_PROVENANCE=PASS');
 
+  const inventory = await probeIneaRadarOfficialInventory();
+  evidence = markIneaRadarInventoryPass(evidence, inventory);
+  console.log('INEA_RADAR_OFFICIAL_INVENTORY=PASS');
+
   const result = await probeIneaRadarTool();
   evidence = markIneaRadarToolPass(evidence, result);
   await writeEvidence(evidence);
@@ -39,7 +45,7 @@ try {
   console.log('INEA_RADAR_EMBEDDED_VIEWER=PASS');
   console.log('INEA_RADAR_MEDIA_CANDIDATES=PASS');
   console.log('INEA_RADAR_BINARY_ENVELOPES=PASS');
-  console.log('INEA_RADAR_IDENTITY=NOT_IMPLEMENTED');
+  console.log('INEA_RADAR_IDENTITY=NOT_IMPLEMENTED_SAME_CANDIDATE_EVIDENCE_REQUIRED');
   console.log('INEA_RADAR_TIMESTAMP=NOT_IMPLEMENTED');
   console.log('INEA_RADAR_FRESHNESS=NOT_IMPLEMENTED');
   console.log('INEA_RADAR_FRAME_INGESTION=NOT_IMPLEMENTED');
@@ -52,6 +58,11 @@ try {
     console.log('INEA_RADAR_OFFICIAL_PROVENANCE=PASS');
   } else {
     console.error('INEA_RADAR_OFFICIAL_PROVENANCE=FAIL');
+  }
+  if (evidence.officialRadarInventory.status === 'PASS') {
+    console.log('INEA_RADAR_OFFICIAL_INVENTORY=PASS');
+  } else {
+    console.error('INEA_RADAR_OFFICIAL_INVENTORY=FAIL');
   }
   console.error(`INEA_RADAR_PROBE_ERROR=${code}`);
   console.error('INEA_RADAR_GATEWAY_CONTRACT=FAIL');

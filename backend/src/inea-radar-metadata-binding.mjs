@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import {
+  INEA_RADAR_INVENTORY_CONTRACT,
+  INEA_RADAR_INVENTORY_IDENTITIES,
+} from './inea-radar-inventory.mjs';
+import {
   INEA_RADAR_MAX_FRAME_BYTES,
   INEA_RADAR_SOURCE_ID,
 } from './inea-radar-source.mjs';
@@ -9,7 +13,7 @@ export const INEA_RADAR_METADATA_BINDING_CONTRACT = 'OFFICIAL_INEA_SAME_CANDIDAT
 export const INEA_RADAR_METADATA_EVIDENCE_ORIGIN = 'OFFICIAL_LIVE_VIEWER_SAME_CANDIDATE';
 export const INEA_RADAR_BINARY_VALIDATION_CONTRACT = 'OFFICIAL_IMAGE_BINARY_ENVELOPES_VALIDATED';
 export const INEA_RADAR_PROVENANCE_CONTRACT = 'OFFICIAL_INEA_RADAR_PROVENANCE_VALIDATED';
-export const INEA_RADAR_BOUND_IDENTITIES = Object.freeze(['guaratiba', 'macae']);
+export const INEA_RADAR_BOUND_IDENTITIES = INEA_RADAR_INVENTORY_IDENTITIES;
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const NORMALIZED_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
@@ -46,10 +50,33 @@ function sha256(value) {
   return createHash('sha256').update(String(value)).digest('hex');
 }
 
+function validateInventoryEvidence(inventoryEvidence) {
+  if (!inventoryEvidence || typeof inventoryEvidence !== 'object' || Array.isArray(inventoryEvidence)) {
+    throw new IneaRadarMetadataBindingError('inea_radar_binding_inventory_evidence_invalid');
+  }
+  if (inventoryEvidence.contract !== INEA_RADAR_INVENTORY_CONTRACT) {
+    throw new IneaRadarMetadataBindingError('inea_radar_binding_inventory_contract_invalid');
+  }
+  const inventorySha256 = requireSha256(
+    inventoryEvidence.inventorySha256,
+    'inea_radar_binding_inventory_digest_invalid',
+  );
+  if (!Array.isArray(inventoryEvidence.identities)) {
+    throw new IneaRadarMetadataBindingError('inea_radar_binding_inventory_identities_invalid');
+  }
+  const identities = inventoryEvidence.identities.map((value) => String(value)).sort();
+  const expected = [...INEA_RADAR_INVENTORY_IDENTITIES].sort();
+  if (JSON.stringify(identities) !== JSON.stringify(expected)) {
+    throw new IneaRadarMetadataBindingError('inea_radar_binding_inventory_identities_invalid');
+  }
+  return { inventorySha256, identities };
+}
+
 export function bindIneaRadarFrameMetadata({
   candidateEvidence,
   metadataEvidence,
   provenanceEvidence,
+  inventoryEvidence,
 } = {}) {
   if (!candidateEvidence || typeof candidateEvidence !== 'object' || Array.isArray(candidateEvidence)) {
     throw new IneaRadarMetadataBindingError('inea_radar_binding_candidate_evidence_invalid');
@@ -60,6 +87,8 @@ export function bindIneaRadarFrameMetadata({
   if (!provenanceEvidence || typeof provenanceEvidence !== 'object' || Array.isArray(provenanceEvidence)) {
     throw new IneaRadarMetadataBindingError('inea_radar_binding_provenance_evidence_invalid');
   }
+
+  const { inventorySha256, identities } = validateInventoryEvidence(inventoryEvidence);
 
   if (candidateEvidence.sourceId !== INEA_RADAR_SOURCE_ID) {
     throw new IneaRadarMetadataBindingError('inea_radar_binding_source_invalid');
@@ -109,7 +138,7 @@ export function bindIneaRadarFrameMetadata({
     'inea_radar_binding_timestamp_evidence_digest_invalid',
   );
 
-  if (!INEA_RADAR_BOUND_IDENTITIES.includes(metadataEvidence.radarId)) {
+  if (!identities.includes(metadataEvidence.radarId)) {
     throw new IneaRadarMetadataBindingError('inea_radar_binding_identity_invalid');
   }
   if (!IMAGE_TYPES.has(candidateEvidence.imageType)) {
@@ -131,9 +160,11 @@ export function bindIneaRadarFrameMetadata({
     radarId: metadataEvidence.radarId,
     observedAt,
     provenanceSha256,
+    inventorySha256,
     identityEvidenceSha256,
     timestampEvidenceSha256,
     metadataContract: INEA_RADAR_METADATA_BINDING_CONTRACT,
+    inventoryContract: INEA_RADAR_INVENTORY_CONTRACT,
     origin: INEA_RADAR_METADATA_EVIDENCE_ORIGIN,
   }));
 
@@ -146,6 +177,7 @@ export function bindIneaRadarFrameMetadata({
     byteLength: candidateEvidence.byteLength,
     candidateRefSha256,
     metadataBindingContract: INEA_RADAR_METADATA_BINDING_CONTRACT,
+    inventoryContract: INEA_RADAR_INVENTORY_CONTRACT,
     bindingSha256,
   });
   trustedFrames.add(frame);
