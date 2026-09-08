@@ -16,7 +16,7 @@ try {
   const result = await probeIneaRadarTool();
   evidence = {
     sourceId: result.sourceId,
-    contract: 'official_radar_tool_gateway',
+    contract: 'official_radar_tool_gateway+embedded_viewer_resolution',
     status: 'PASS',
     checkedAt,
     gatewayContract: {
@@ -27,17 +27,29 @@ try {
       iframeCount: result.iframeCount,
       gatewaySha256: result.gatewaySha256,
     },
+    embeddedViewerResolution: {
+      status: 'PASS',
+      contract: result.viewerContract,
+      viewerHost: result.viewerHost,
+      viewerUrlSha256: result.viewerUrlSha256,
+      rawViewerUrl: 'REDACTED',
+    },
     liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
   };
   console.log('INEA_RADAR_GATEWAY_CONTRACT=PASS');
+  console.log('INEA_RADAR_EMBEDDED_VIEWER_RESOLUTION=PASS');
   console.log('INEA_LIVE_RADAR_FRAME_INGESTION=NOT_IMPLEMENTED');
 } catch (error) {
   evidence = {
     sourceId: 'inea-radar-tool-gateway',
-    contract: 'official_radar_tool_gateway',
+    contract: 'official_radar_tool_gateway+embedded_viewer_resolution',
     status: 'FAIL',
     checkedAt,
     gatewayContract: {
+      status: 'FAIL',
+      errorCode: errorCode(error),
+    },
+    embeddedViewerResolution: {
       status: 'FAIL',
       errorCode: errorCode(error),
     },
