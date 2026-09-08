@@ -68,8 +68,13 @@ adb_capture_retry "$OUT_DIR/activity-dumpsys.txt" \
   adb shell dumpsys activity activities
 grep -q "$PKG/$ACT" "$OUT_DIR/activity-dumpsys.txt"
 
-adb shell screencap -p /sdcard/blaise-runtime.png
-adb pull /sdcard/blaise-runtime.png "$OUT_DIR/blaise-runtime.png" >/dev/null
+# Capture directly over adb with the same bounded transport retry policy used by
+# the other runtime evidence commands. This avoids a transient two-step
+# screencap/pull failure while keeping the assertion fail-closed.
+adb_capture_retry "$OUT_DIR/blaise-runtime.png" \
+  adb exec-out screencap -p
+test -s "$OUT_DIR/blaise-runtime.png"
+
 adb_capture_retry "$OUT_DIR/logcat.txt" adb logcat -d -t 700
 if grep -E "FATAL EXCEPTION|ANR in ${PKG}" "$OUT_DIR/logcat.txt"; then
   echo "Runtime fatal signal detected" >&2
@@ -84,6 +89,7 @@ airplane_mode_restore=PASS
 p0_notification=PASS
 process_restart=PASS
 adb_transport_capture_retry=PASS_BOUNDED_5
+screencap_transport_retry=PASS_BOUNDED_5
 pid_initial=$pid1
 pid_after_restart=$pid2
 EOF
