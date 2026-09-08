@@ -4,10 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query the public Alerta Rio live contracts and INEA official discovery contract'
+        description: 'Query the public Alerta Rio live contracts and INEA official contracts'
         required: true
         default: false
         type: boolean
+      inea_station_url:
+        description: 'Optional exact official INEA station page URL to validate live hydromet values'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -42,12 +46,12 @@ jobs:
           cat > evidence/official-sources/inea.json <<'JSON'
           {
             "sourceId": "inea",
-            "contract": "hydromet_discovery+official_link_contract",
+            "contract": "hydromet_discovery+official_link_contract+optional_live_station_snapshot",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "discoveryContract": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "liveRadarFrameIngestion": "NOT_IMPLEMENTED",
-            "liveHydrometValueIngestion": "NOT_IMPLEMENTED"
+            "liveHydrometValueIngestion": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED"
           }
           JSON
 
@@ -59,6 +63,8 @@ jobs:
       - name: Probe official Alerta Rio and INEA source contracts
         if: ${{ inputs.execute_live_probe }}
         shell: bash
+        env:
+          BLAISE_INEA_STATION_URL: ${{ inputs.inea_station_url }}
         run: |
           set -euo pipefail
           test "$(node --version)" = "v24.20.0"

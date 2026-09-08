@@ -4,7 +4,7 @@ import {
   probeAlertaRioLiveRainfall,
   probeAlertaRioStationCatalog,
 } from '../src/alerta-rio-source.mjs';
-import { probeIneaHydrometDiscovery } from '../src/inea-source.mjs';
+import { probeIneaHydrometDiscovery, probeIneaStationSnapshot } from '../src/inea-source.mjs';
 import { createAlertaRioRainfallCache } from '../src/official-source-cache.mjs';
 
 const evidenceDir = new URL('../../evidence/official-sources/', import.meta.url);
@@ -29,10 +29,12 @@ function summarizeFreshness(result) {
 }
 
 const checkedAt = new Date();
-const [catalogProbe, rainfallProbe, ineaProbe] = await Promise.allSettled([
+const ineaStationUrl = String(process.env.BLAISE_INEA_STATION_URL || '').trim();
+const [catalogProbe, rainfallProbe, ineaProbe, ineaStationProbe] = await Promise.allSettled([
   probeAlertaRioStationCatalog(),
   probeAlertaRioLiveRainfall(),
   probeIneaHydrometDiscovery(),
+  ineaStationUrl ? probeIneaStationSnapshot({ stationUrl: ineaStationUrl }) : Promise.resolve(null),
 ]);
 
 let rainfallFreshness = null;
@@ -90,31 +92,53 @@ const alertaRioEvidence = {
       },
 };
 
-const ineaEvidence = ineaProbe.status === 'fulfilled'
-  ? {
-      sourceId: 'inea',
-      contract: 'hydromet_discovery+official_link_contract',
-      status: 'PASS',
-      checkedAt: checkedAt.toISOString(),
-      sourceHost: ineaProbe.value.sourceHost,
-      alertHost: ineaProbe.value.alertHost,
-      telemetryCadenceMinutes: ineaProbe.value.telemetryCadenceMinutes,
-      radarCadenceMinutes: ineaProbe.value.radarCadenceMinutes,
-      dataPageUrl: ineaProbe.value.dataPageUrl,
-      radarPageUrl: ineaProbe.value.radarPageUrl,
-      discoverySha256: ineaProbe.value.discoverySha256,
-      liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
-      liveHydrometValueIngestion: 'NOT_IMPLEMENTED',
-    }
-  : {
-      sourceId: 'inea',
-      contract: 'hydromet_discovery+official_link_contract',
-      status: 'FAIL',
-      checkedAt: checkedAt.toISOString(),
-      errorCode: errorCode(ineaProbe.reason),
-      liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
-      liveHydrometValueIngestion: 'NOT_IMPLEMENTED',
-    };
+const stationConfigured = ineaStationUrl.length > 0;
+const stationOperationalPass = !stationConfigured || ineaStationProbe.status === 'fulfilled';
+const ineaOverallPass = ineaProbe.status === 'fulfilled' && stationOperationalPass;
+
+const ineaEvidence = {
+  sourceId: 'inea',
+  contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot',
+  status: ineaOverallPass ? 'PASS' : 'FAIL',
+  checkedAt: checkedAt.toISOString(),
+  discoveryContract: ineaProbe.status === 'fulfilled'
+    ? {
+        status: 'PASS',
+        sourceHost: ineaProbe.value.sourceHost,
+        alertHost: ineaProbe.value.alertHost,
+        telemetryCadenceMinutes: ineaProbe.value.telemetryCadenceMinutes,
+        radarCadenceMinutes: ineaProbe.value.radarCadenceMinutes,
+        dataPageUrl: ineaProbe.value.dataPageUrl,
+        radarPageUrl: ineaProbe.value.radarPageUrl,
+        discoverySha256: ineaProbe.value.discoverySha256,
+      }
+    : {
+        status: 'FAIL',
+        errorCode: errorCode(ineaProbe.reason),
+      },
+  liveHydrometValueIngestion: !stationConfigured
+    ? {
+        status: 'NOT_RUN_STATION_URL_NOT_CONFIGURED',
+        execution: 'NOT_RUN',
+      }
+    : ineaStationProbe.status === 'fulfilled'
+      ? {
+          status: 'PASS',
+          sourceHost: ineaStationProbe.value.sourceHost,
+          stationId: ineaStationProbe.value.stationId,
+          observedDate: ineaStationProbe.value.observedDate,
+          observedTime: ineaStationProbe.value.observedTime,
+          timezone: ineaStationProbe.value.timezone,
+          telemetryCadenceMinutes: ineaStationProbe.value.telemetryCadenceMinutes,
+          missingValueCount: ineaStationProbe.value.missingValueCount,
+          snapshotSha256: ineaStationProbe.value.snapshotSha256,
+        }
+      : {
+          status: 'FAIL',
+          errorCode: errorCode(ineaStationProbe.reason),
+        },
+  liveRadarFrameIngestion: 'NOT_IMPLEMENTED',
+};
 
 await Promise.all([
   writeFile(alertaRioEvidenceFile, `${JSON.stringify(alertaRioEvidence, null, 2)}\n`, { mode: 0o600 }),
@@ -129,8 +153,10 @@ if (alertaRioEvidence.status === 'PASS') {
 }
 
 if (ineaEvidence.status === 'PASS') {
-  console.log('INEA_OFFICIAL_SOURCE_DISCOVERY_CONTRACT=PASS');
+  console.log('INEA_OFFICIAL_SOURCE_CONTRACT=PASS');
+  if (stationConfigured) console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
+  else console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=NOT_RUN_STATION_URL_NOT_CONFIGURED');
 } else {
-  console.error('INEA_OFFICIAL_SOURCE_DISCOVERY_CONTRACT=FAIL');
+  console.error('INEA_OFFICIAL_SOURCE_CONTRACT=FAIL');
   process.exitCode = 1;
 }
