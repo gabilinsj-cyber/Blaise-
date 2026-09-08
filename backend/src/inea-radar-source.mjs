@@ -1,15 +1,28 @@
 import { createHash } from 'node:crypto';
 
-import { fetchTextContract, SourceContractError } from './source-contract.mjs';
+import {
+  fetchBinaryContract,
+  fetchTextContract,
+  SourceContractError,
+} from './source-contract.mjs';
 
 export const INEA_RADAR_SOURCE_ID = 'inea-radar-tool-gateway';
 export const INEA_RADAR_HOST = 'alertadecheias.inea.rj.gov.br';
 export const INEA_RADAR_TOOL_URL = 'https://alertadecheias.inea.rj.gov.br/radartool.php';
 export const INEA_RADAR_CADENCE_MINUTES = 5;
 export const INEA_RADAR_MAX_MEDIA_CANDIDATES = 64;
+export const INEA_RADAR_MAX_BINARY_CANDIDATES = 8;
+export const INEA_RADAR_MAX_FRAME_BYTES = 2 * 1024 * 1024;
 
 const INEA_OFFICIAL_DOMAIN = 'inea.rj.gov.br';
 const RADAR_MEDIA_EXTENSION = /\.(?:png|jpe?g|gif|webp)(?:$|[?#])/i;
+const RADAR_IMAGE_CONTENT_TYPES = Object.freeze([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+]);
 
 export class IneaRadarContractError extends Error {
   constructor(code) {
@@ -73,7 +86,9 @@ function isOfficialIneaHost(hostname) {
 }
 
 function sha256(value) {
-  return createHash('sha256').update(String(value)).digest('hex');
+  const hash = createHash('sha256');
+  hash.update(typeof value === 'string' ? value : value);
+  return hash.digest('hex');
 }
 
 function resolveOfficialIneaUrl(rawUrl, baseUrl) {
@@ -90,6 +105,83 @@ function resolveOfficialIneaUrl(rawUrl, baseUrl) {
   if (!isOfficialIneaHost(url.hostname)) return null;
   url.hash = '';
   return url;
+}
+
+function bytesMatch(bytes, offset, expected) {
+  if (!(bytes instanceof Uint8Array) || offset < 0 || offset + expected.length > bytes.length) return false;
+  for (let index = 0; index < expected.length; index += 1) {
+    if (bytes[offset + index] !== expected[index]) return false;
+  }
+  return true;
+}
+
+function asciiMatch(bytes, offset, value) {
+  return bytesMatch(bytes, offset, [...Buffer.from(value, 'ascii')]);
+}
+
+function uint32le(bytes, offset) {
+  return (
+    bytes[offset]
+    | (bytes[offset + 1] << 8)
+    | (bytes[offset + 2] << 16)
+    | (bytes[offset + 3] << 24)
+  ) >>> 0;
+}
+
+export function validateIneaRadarImageBinary(bytes, contentType) {
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 12) {
+    throw new IneaRadarContractError('inea_radar_binary_empty_or_truncated');
+  }
+
+  const mime = String(contentType || '').split(';', 1)[0].trim().toLowerCase();
+  let imageType = null;
+
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const pngIend = [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+  if (
+    bytes.byteLength >= 33
+    && bytesMatch(bytes, 0, pngSignature)
+    && asciiMatch(bytes, 12, 'IHDR')
+    && bytesMatch(bytes, bytes.byteLength - pngIend.length, pngIend)
+  ) {
+    imageType = 'png';
+  } else if (
+    bytes.byteLength >= 4
+    && bytesMatch(bytes, 0, [0xff, 0xd8, 0xff])
+    && bytesMatch(bytes, bytes.byteLength - 2, [0xff, 0xd9])
+  ) {
+    imageType = 'jpeg';
+  } else if (
+    bytes.byteLength >= 14
+    && (asciiMatch(bytes, 0, 'GIF87a') || asciiMatch(bytes, 0, 'GIF89a'))
+    && bytes[bytes.byteLength - 1] === 0x3b
+  ) {
+    imageType = 'gif';
+  } else if (
+    bytes.byteLength >= 16
+    && asciiMatch(bytes, 0, 'RIFF')
+    && asciiMatch(bytes, 8, 'WEBP')
+    && uint32le(bytes, 4) === bytes.byteLength - 8
+  ) {
+    imageType = 'webp';
+  }
+
+  if (!imageType) throw new IneaRadarContractError('inea_radar_binary_signature_invalid');
+
+  const mimeMatches = (
+    (imageType === 'png' && mime === 'image/png')
+    || (imageType === 'jpeg' && (mime === 'image/jpeg' || mime === 'image/jpg'))
+    || (imageType === 'gif' && mime === 'image/gif')
+    || (imageType === 'webp' && mime === 'image/webp')
+  );
+  if (!mimeMatches) throw new IneaRadarContractError('inea_radar_binary_content_type_mismatch');
+
+  return Object.freeze({
+    imageType,
+    contentType: mime,
+    byteLength: bytes.byteLength,
+    contentSha256: sha256(bytes),
+  });
 }
 
 export function extractIneaRadarViewerUrl(html) {
@@ -109,7 +201,7 @@ export function extractIneaRadarViewerUrl(html) {
   return unique[0];
 }
 
-export function discoverIneaRadarMediaCandidates(html, viewerUrl) {
+function collectIneaRadarMediaCandidateUrls(html, viewerUrl) {
   if (typeof html !== 'string' || html.length < 64) {
     throw new IneaRadarContractError('inea_radar_viewer_empty_html');
   }
@@ -134,6 +226,13 @@ export function discoverIneaRadarMediaCandidates(html, viewerUrl) {
   if (unique.length > INEA_RADAR_MAX_MEDIA_CANDIDATES) {
     throw new IneaRadarContractError('inea_radar_media_candidate_count_invalid');
   }
+  return unique;
+}
+
+export function discoverIneaRadarMediaCandidates(html, viewerUrl) {
+  const base = resolveOfficialIneaUrl(String(viewerUrl), INEA_RADAR_TOOL_URL);
+  if (!base) throw new IneaRadarContractError('inea_radar_viewer_url_invalid');
+  const unique = collectIneaRadarMediaCandidateUrls(html, base);
 
   const candidateHosts = [...new Set(unique.map((url) => url.hostname))].sort();
   const candidateHashes = unique.map((url) => sha256(url.href)).sort();
@@ -151,6 +250,73 @@ export function discoverIneaRadarMediaCandidates(html, viewerUrl) {
     mediaCandidateHosts: Object.freeze(candidateHosts),
     mediaCandidateSetSha256: sha256(canonical),
     rawMediaUrls: 'REDACTED',
+    frameBinaryValidation: 'NOT_PROBED',
+    radarIdentityValidation: 'NOT_IMPLEMENTED',
+    frameTimestampValidation: 'NOT_IMPLEMENTED',
+    frameFreshnessValidation: 'NOT_IMPLEMENTED',
+    frameIngestion: 'NOT_IMPLEMENTED',
+  });
+}
+
+export async function validateIneaRadarMediaBinaries(candidateUrls, { fetchImpl = globalThis.fetch } = {}) {
+  if (!Array.isArray(candidateUrls) || candidateUrls.length < 1) {
+    throw new IneaRadarContractError('inea_radar_binary_candidate_missing');
+  }
+
+  const resolved = [];
+  for (const candidate of candidateUrls) {
+    const url = resolveOfficialIneaUrl(String(candidate), INEA_RADAR_TOOL_URL);
+    if (!url || !RADAR_MEDIA_EXTENSION.test(url.href)) {
+      throw new IneaRadarContractError('inea_radar_binary_candidate_url_invalid');
+    }
+    resolved.push(url);
+  }
+  const unique = [...new Map(resolved.map((url) => [url.href, url])).values()];
+  if (unique.length > INEA_RADAR_MAX_BINARY_CANDIDATES) {
+    throw new IneaRadarContractError('inea_radar_binary_candidate_count_invalid');
+  }
+
+  const records = [];
+  for (const url of unique) {
+    let binary;
+    try {
+      binary = await fetchBinaryContract(url.href, {
+        allowedHosts: [url.hostname],
+        allowedContentTypes: RADAR_IMAGE_CONTENT_TYPES,
+        fetchImpl,
+        timeoutMs: 8_000,
+        maxBytes: INEA_RADAR_MAX_FRAME_BYTES,
+      });
+    } catch (error) {
+      if (error instanceof SourceContractError) {
+        throw new IneaRadarContractError(`inea_radar_binary_${error.code}`);
+      }
+      throw error;
+    }
+    records.push(validateIneaRadarImageBinary(binary.bytes, binary.contentType));
+  }
+
+  const recordFingerprints = records
+    .map((record) => JSON.stringify({
+      imageType: record.imageType,
+      byteLength: record.byteLength,
+      contentSha256: record.contentSha256,
+    }))
+    .sort();
+  const contentHashes = records.map((record) => record.contentSha256);
+  const imageTypes = [...new Set(records.map((record) => record.imageType))].sort();
+  const totalBytes = records.reduce((total, record) => total + record.byteLength, 0);
+
+  return Object.freeze({
+    contract: 'OFFICIAL_IMAGE_BINARY_ENVELOPES_VALIDATED',
+    validatedCandidateCount: records.length,
+    imageTypes: Object.freeze(imageTypes),
+    totalValidatedBytes: totalBytes,
+    duplicateContentCount: records.length - new Set(contentHashes).size,
+    binarySetSha256: sha256(JSON.stringify(recordFingerprints)),
+    rawMediaUrls: 'REDACTED',
+    binaryContentRetention: 'NONE',
+    radarIdentityValidation: 'NOT_IMPLEMENTED',
     frameTimestampValidation: 'NOT_IMPLEMENTED',
     frameFreshnessValidation: 'NOT_IMPLEMENTED',
     frameIngestion: 'NOT_IMPLEMENTED',
@@ -184,6 +350,7 @@ export function validateIneaRadarToolHtml(html) {
     viewerUrlSha256,
     viewerContract: 'OFFICIAL_HTTPS_IFRAME_RESOLVED',
     mediaCandidateDiscovery: 'NOT_PROBED',
+    frameBinaryValidation: 'NOT_PROBED',
     frameIngestion: 'NOT_IMPLEMENTED',
   });
 
@@ -198,6 +365,8 @@ export function validateIneaRadarToolHtml(html) {
     viewerUrlSha256,
     viewerContract: 'OFFICIAL_HTTPS_IFRAME_RESOLVED',
     mediaCandidateDiscovery: 'NOT_PROBED',
+    frameBinaryValidation: 'NOT_PROBED',
+    radarIdentityValidation: 'NOT_IMPLEMENTED',
     frameIngestion: 'NOT_IMPLEMENTED',
     gatewaySha256: sha256(canonical),
   });
@@ -237,15 +406,25 @@ export async function probeIneaRadarTool({ fetchImpl = globalThis.fetch } = {}) 
     throw error;
   }
 
+  const candidateUrls = collectIneaRadarMediaCandidateUrls(viewerHtml, viewerUrl);
   const media = discoverIneaRadarMediaCandidates(viewerHtml, viewerUrl);
+  const binary = await validateIneaRadarMediaBinaries(candidateUrls, { fetchImpl });
   return Object.freeze({
     ...gateway,
     mediaCandidateDiscovery: media.contract,
     mediaCandidateCount: media.mediaCandidateCount,
     mediaCandidateHosts: media.mediaCandidateHosts,
     mediaCandidateSetSha256: media.mediaCandidateSetSha256,
-    frameTimestampValidation: media.frameTimestampValidation,
-    frameFreshnessValidation: media.frameFreshnessValidation,
-    frameIngestion: media.frameIngestion,
+    frameBinaryValidation: binary.contract,
+    binaryValidatedCandidateCount: binary.validatedCandidateCount,
+    binaryImageTypes: binary.imageTypes,
+    binaryTotalValidatedBytes: binary.totalValidatedBytes,
+    binaryDuplicateContentCount: binary.duplicateContentCount,
+    binarySetSha256: binary.binarySetSha256,
+    binaryContentRetention: binary.binaryContentRetention,
+    radarIdentityValidation: binary.radarIdentityValidation,
+    frameTimestampValidation: binary.frameTimestampValidation,
+    frameFreshnessValidation: binary.frameFreshnessValidation,
+    frameIngestion: binary.frameIngestion,
   });
 }
