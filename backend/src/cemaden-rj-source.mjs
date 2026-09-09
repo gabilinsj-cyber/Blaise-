@@ -36,7 +36,7 @@ const NAMED_HTML_ENTITIES = Object.freeze({
   Agrave: 'À', agrave: 'à', Ccedil: 'Ç', ccedil: 'ç', Eacute: 'É', eacute: 'é',
   Ecirc: 'Ê', ecirc: 'ê', Iacute: 'Í', iacute: 'í', Oacute: 'Ó', oacute: 'ó',
   Ocirc: 'Ô', ocirc: 'ô', Otilde: 'Õ', otilde: 'õ', Uacute: 'Ú', uacute: 'ú',
-]);
+});
 
 const CANONICAL_BY_FOLDED_NAME = new Map(RJ_MUNICIPALITIES.map((city) => [fold(city.name), city]));
 
