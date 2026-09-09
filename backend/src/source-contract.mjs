@@ -160,6 +160,23 @@ export async function fetchTextContract(rawUrl, options = {}) {
   });
 }
 
+export async function fetchXmlContract(rawUrl, options = {}) {
+  return fetchContractText(rawUrl, {
+    ...options,
+    accept: 'application/cap+xml,application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.9',
+    acceptsContentType: (contentType) => {
+      const mime = contentType.split(';', 1)[0].trim();
+      return [
+        'application/cap+xml',
+        'application/rss+xml',
+        'application/atom+xml',
+        'application/xml',
+        'text/xml',
+      ].includes(mime) || mime.endsWith('+xml');
+    },
+  });
+}
+
 export async function fetchJsonContract(rawUrl, options = {}) {
   const text = await fetchContractText(rawUrl, {
     ...options,
