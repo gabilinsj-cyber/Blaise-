@@ -30,6 +30,7 @@ function warningsFixture({ metarea = 'METAREA V - avisos de mau tempo', identity
     <header>${identity}</header>
     <h1>Avisos de Mau Tempo</h1>
     <h2>${metarea}</h2>
+    <p>Serviço Meteorológico Marinho: página pública oficial para consulta dos avisos emitidos na METAREA V, com informações de apoio à navegação e atualização operacional do Centro de Hidrografia da Marinha.</p>
     ${warnings}
   </body></html>`;
 }
