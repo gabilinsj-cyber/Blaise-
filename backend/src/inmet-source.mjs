@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+import { findRjMunicipality } from './rio-municipalities.mjs';
 import { fetchXmlContract, SourceContractError } from './source-contract.mjs';
 
 export const INMET_SOURCE_ID = 'inmet-cap-warnings';
@@ -9,6 +10,7 @@ export const INMET_MAX_WARNING_RECORDS = 128;
 
 const CAP_SEVERITIES = new Set(['Extreme', 'Severe', 'Moderate', 'Minor', 'Unknown']);
 const CAP_URGENCIES = new Set(['Immediate', 'Expected', 'Future', 'Past', 'Unknown']);
+const CAP_CERTAINTIES = new Set(['Observed', 'Likely', 'Possible', 'Unlikely', 'Unknown']);
 const CAP_MESSAGE_TYPES = new Set(['Alert', 'Update']);
 
 export class InmetSourceContractError extends Error {
@@ -76,19 +78,40 @@ function fold(value) {
     .toLocaleLowerCase('pt-BR');
 }
 
-function rjMatchFromAreas(areaBlocks) {
+function normalizeRjScopeFromAreas(areaBlocks) {
+  const municipalityIbges = new Set();
+  let hasStateGeocode = false;
+  let hasAreaDescription = false;
+
   for (const areaBlock of areaBlocks) {
     for (const geocode of tagBlocks(areaBlock, 'geocode')) {
       for (const valueBlock of tagBlocks(geocode, 'value')) {
         const value = decodeXml(valueBlock).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (/\b33\d{5}\b/.test(value)) return 'CAP_GEOCODE_IBGE_33';
-        if (/(?:^|[\s,;])BR-RJ(?:$|[\s,;])/i.test(value)) return 'CAP_GEOCODE_BR_RJ';
+        for (const match of value.matchAll(/\b33\d{5}\b/g)) {
+          const ibge = match[0];
+          if (!findRjMunicipality(ibge)) {
+            throw new InmetSourceContractError('inmet_rj_municipality_ibge_untrusted');
+          }
+          municipalityIbges.add(ibge);
+        }
+        if (/(?:^|[\s,;])BR-RJ(?:$|[\s,;])/i.test(value)) hasStateGeocode = true;
       }
     }
     const areaDesc = tagText(areaBlock, 'areaDesc');
-    if (areaDesc && fold(areaDesc).includes('rio de janeiro')) return 'CAP_AREA_DESC_RIO_DE_JANEIRO';
+    if (areaDesc && fold(areaDesc).includes('rio de janeiro')) hasAreaDescription = true;
   }
-  return null;
+
+  const rjMunicipalityIbges = Object.freeze([...municipalityIbges].sort());
+  if (rjMunicipalityIbges.length > 0) {
+    return Object.freeze({ rjMatchMethod: 'CAP_GEOCODE_IBGE_33', rjMunicipalityIbges });
+  }
+  if (hasStateGeocode) {
+    return Object.freeze({ rjMatchMethod: 'CAP_GEOCODE_BR_RJ', rjMunicipalityIbges });
+  }
+  if (hasAreaDescription) {
+    return Object.freeze({ rjMatchMethod: 'CAP_AREA_DESC_RIO_DE_JANEIRO', rjMunicipalityIbges });
+  }
+  return Object.freeze({ rjMatchMethod: null, rjMunicipalityIbges });
 }
 
 function normalizeAreaDescriptions(areaBlocks) {
@@ -126,6 +149,8 @@ function normalizeRecord(block) {
   if (!CAP_URGENCIES.has(urgency)) throw new InmetSourceContractError('inmet_urgency_invalid');
   const severity = requiredText(info, 'severity', 'inmet_severity_missing', 32);
   if (!CAP_SEVERITIES.has(severity)) throw new InmetSourceContractError('inmet_severity_invalid');
+  const certainty = requiredText(info, 'certainty', 'inmet_certainty_missing', 32);
+  if (!CAP_CERTAINTIES.has(certainty)) throw new InmetSourceContractError('inmet_certainty_invalid');
   const onset = parseCapDate(requiredText(info, 'onset', 'inmet_onset_missing', 64), 'inmet_onset_invalid');
   const expires = parseCapDate(requiredText(info, 'expires', 'inmet_expires_missing', 64), 'inmet_expires_invalid');
 
@@ -137,7 +162,7 @@ function normalizeRecord(block) {
   }
 
   const areaDescriptions = normalizeAreaDescriptions(areaBlocks);
-  const rjMatchMethod = rjMatchFromAreas(areaBlocks);
+  const { rjMatchMethod, rjMunicipalityIbges } = normalizeRjScopeFromAreas(areaBlocks);
 
   return Object.freeze({
     identifier,
@@ -148,12 +173,14 @@ function normalizeRecord(block) {
     event,
     urgency,
     severity,
+    certainty,
     onset,
     expires,
     areaCount: areaBlocks.length,
     areaDescriptions,
     affectsRioDeJaneiro: Boolean(rjMatchMethod),
     rjMatchMethod,
+    rjMunicipalityIbges,
   });
 }
 
@@ -196,10 +223,12 @@ export function validateInmetCapFeedXml(xml) {
     event: record.event,
     urgency: record.urgency,
     severity: record.severity,
+    certainty: record.certainty,
     onset: record.onset,
     expires: record.expires,
     areaDescriptions: record.areaDescriptions,
     rjMatchMethod: record.rjMatchMethod,
+    rjMunicipalityIbges: record.rjMunicipalityIbges,
   }));
 
   return Object.freeze({
@@ -214,7 +243,7 @@ export function validateInmetCapFeedXml(xml) {
     warningInventorySha256: sha256(JSON.stringify(canonical)),
     identityValidation: 'INMET_SENDER_DOMAIN+OFFICIAL_OID_PREFIX',
     temporalValidityValidation: 'BOUNDED_CAP_ONSET_EXPIRES_MAX_7D',
-    rjGeofenceValidation: 'CAP_IBGE33_OR_BR_RJ_OR_AREA_DESC',
+    rjGeofenceValidation: 'CAP_CANONICAL_IBGE33_OR_BR_RJ_OR_AREA_DESC',
     polygonRetention: 'NONE',
     rawFeedRetention: 'NONE',
   });
