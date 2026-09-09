@@ -1,0 +1,68 @@
+name: CHM Marine Source Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_live_probe:
+        description: 'Query official Marinha/CHM METAREA V warnings and tide-publication discovery pages'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chm-marine-source-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Record external CHM probe not requested
+        if: ${{ !inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/official-sources
+          cat > evidence/official-sources/chm.json <<'JSON'
+          {
+            "sourceId": "chm-marine",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery",
+            "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
+            "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "tides": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
+            "liveWaveObservationIngestion": "NOT_IMPLEMENTED",
+            "liveTideValueIngestion": "NOT_IMPLEMENTED",
+            "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
+          }
+          JSON
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v5
+        if: ${{ inputs.execute_live_probe }}
+        with:
+          node-version: '24.20.0'
+
+      - name: Validate and probe official Marinha CHM marine source contracts
+        if: ${{ inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.20.0"
+          node --check backend/src/source-contract.mjs
+          node --check backend/src/chm-source.mjs
+          node --check backend/scripts/probe-chm.mjs
+          node backend/scripts/probe-chm.mjs
+
+      - name: Upload CHM source evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-chm-marine-evidence
+          if-no-files-found: error
+          path: evidence/official-sources/chm.json
