@@ -1,6 +1,7 @@
 package br.com.blaise.rj.push
 
 import br.com.blaise.rj.alerts.AlertNotifier
+import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.core.Entitlement
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -14,6 +15,9 @@ class BlaiseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val alert = P0PushParser.parse(message.data, Instant.now()) ?: return
+        val cityStore = CitySelectionStore(this)
+        val selectedCities = listOf(cityStore.load(1), cityStore.load(2))
+        if (!P0DeliveryPolicy.shouldDeliver(alert, selectedCities)) return
         AlertNotifier(this).notify(alert, Entitlement(active = false))
     }
 
