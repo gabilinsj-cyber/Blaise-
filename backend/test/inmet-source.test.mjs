@@ -92,6 +92,7 @@ test('supports namespace-prefixed RSS item CAP fields', () => {
     <cap:event>Chuvas Intensas</cap:event>
     <cap:urgency>Immediate</cap:urgency>
     <cap:severity>Severe</cap:severity>
+    <cap:certainty>Likely</cap:certainty>
     <cap:onset>2026-09-09T15:00:00-03:00</cap:onset>
     <cap:expires>2026-09-10T03:00:00-03:00</cap:expires>
     <cap:area><cap:areaDesc>Estado do Rio de Janeiro</cap:areaDesc></cap:area>
