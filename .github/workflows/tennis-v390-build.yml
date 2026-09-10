@@ -65,6 +65,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${PROD_KEYSTORE_B64:-}" ] && [ -n "${PROD_STORE_PASSWORD:-}" ] && [ -n "${PROD_KEY_ALIAS:-}" ] && [ -n "${PROD_KEY_PASSWORD:-}" ]; then
+            echo "::add-mask::$PROD_STORE_PASSWORD"
+            echo "::add-mask::$PROD_KEY_PASSWORD"
             KEYSTORE="$RUNNER_TEMP/blaise-upload-production.jks"
             printf '%s' "$PROD_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
             chmod 600 "$KEYSTORE"
@@ -77,6 +79,7 @@ jobs:
           else
             KEYSTORE="$RUNNER_TEMP/blaise-ci-ephemeral.jks"
             CI_PASSWORD="$(openssl rand -hex 24)"
+            echo "::add-mask::$CI_PASSWORD"
             keytool -genkeypair -noprompt \
               -keystore "$KEYSTORE" \
               -storepass "$CI_PASSWORD" \
@@ -112,7 +115,7 @@ jobs:
           test -n "$AAB"
           APKSIGNER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools/35.0.0/apksigner"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee tennis-v390-ci/evidence/APK_SIGNATURE.txt
-          jarsigner -verify -strict -verbose -certs "$AAB" > tennis-v390-ci/evidence/AAB_SIGNATURE.txt
+          jarsigner -verify -verbose -certs "$AAB" | tee tennis-v390-ci/evidence/AAB_SIGNATURE.txt
           grep -q 'jar verified' tennis-v390-ci/evidence/AAB_SIGNATURE.txt
           cp "$APK" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk
           cp "$AAB" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab
