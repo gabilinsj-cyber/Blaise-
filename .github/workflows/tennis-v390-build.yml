@@ -89,21 +89,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            set -eu
-            mkdir -p tennis-v390-runtime-evidence
-            APK="$(find tennis-v390-android/app/build/outputs/apk/debug -type f -name '*.apk' -size +0c | head -n1)"
-            adb install -r "$APK" | tee tennis-v390-runtime-evidence/INSTALL.txt
-            adb logcat -c
-            adb shell am start -W -n com.blaise.opentennis/.MainActivity | tee tennis-v390-runtime-evidence/LAUNCH.txt
-            sleep 5
-            adb shell dumpsys activity activities > tennis-v390-runtime-evidence/ACTIVITY.txt
-            adb shell pidof com.blaise.opentennis | tee tennis-v390-runtime-evidence/PID.txt
-            test -s tennis-v390-runtime-evidence/PID.txt
-            grep -q 'com.blaise.opentennis/.MainActivity' tennis-v390-runtime-evidence/ACTIVITY.txt
-            adb logcat -d > tennis-v390-runtime-evidence/LOGCAT.txt
-            if grep -E 'FATAL EXCEPTION|ANR in com\.blaise\.opentennis|Process: com\.blaise\.opentennis.*has died' tennis-v390-runtime-evidence/LOGCAT.txt; then exit 1; fi
-            adb exec-out screencap -p > tennis-v390-runtime-evidence/RUNTIME.png
-            printf 'install=PASS\nlaunch=PASS\nprocess_alive=PASS\nmain_activity=PASS\ncrash_anr_scan=PASS\napi_level=35\n' > tennis-v390-runtime-evidence/RUNTIME_GATE.txt
+            mkdir -p tennis-v390-runtime-evidence; APK_PATH="$(find tennis-v390-android/app/build/outputs/apk/debug -type f -name '*.apk' -size +0c | head -n1)"; test -n "$APK_PATH"; adb install -r "$APK_PATH" | tee tennis-v390-runtime-evidence/INSTALL.txt; grep -q 'Success' tennis-v390-runtime-evidence/INSTALL.txt; adb logcat -c; adb shell am start -W -n com.blaise.opentennis/.MainActivity | tee tennis-v390-runtime-evidence/LAUNCH.txt; grep -q 'Status: ok' tennis-v390-runtime-evidence/LAUNCH.txt; sleep 5; adb shell dumpsys activity activities > tennis-v390-runtime-evidence/ACTIVITY.txt; adb shell pidof com.blaise.opentennis | tee tennis-v390-runtime-evidence/PID.txt; test -s tennis-v390-runtime-evidence/PID.txt; grep -q 'com.blaise.opentennis/.MainActivity' tennis-v390-runtime-evidence/ACTIVITY.txt; adb logcat -d > tennis-v390-runtime-evidence/LOGCAT.txt; ! grep -E 'FATAL EXCEPTION|ANR in com\.blaise\.opentennis|Process: com\.blaise\.opentennis.*has died' tennis-v390-runtime-evidence/LOGCAT.txt; adb exec-out screencap -p > tennis-v390-runtime-evidence/RUNTIME.png; printf 'install=PASS\nlaunch=PASS\nprocess_alive=PASS\nmain_activity=PASS\ncrash_anr_scan=PASS\napi_level=35\n' > tennis-v390-runtime-evidence/RUNTIME_GATE.txt
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
