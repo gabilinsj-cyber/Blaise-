@@ -14,10 +14,16 @@ class BlaiseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val alert = P0PushParser.parse(message.data, Instant.now()) ?: return
+        val now = Instant.now()
+        val alert = P0PushParser.parse(message.data, now) ?: return
         val cityStore = CitySelectionStore(this)
         val selectedCities = listOf(cityStore.load(1), cityStore.load(2))
         if (!P0DeliveryPolicy.shouldDeliver(alert, selectedCities)) return
+
+        val firstDelivery = runCatching { P0ReplayStore(this).accept(alert.id, now) }
+            .getOrDefault(true)
+        if (!firstDelivery) return
+
         AlertNotifier(this).notify(alert, Entitlement(active = false))
     }
 
