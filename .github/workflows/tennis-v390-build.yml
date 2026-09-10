@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - tennis-v390-build-main-4
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
