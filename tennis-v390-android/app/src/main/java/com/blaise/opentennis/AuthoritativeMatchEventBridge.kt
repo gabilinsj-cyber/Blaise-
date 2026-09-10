@@ -1,9 +1,8 @@
 package com.blaise.opentennis
 
 /**
- * Boundary between the authenticated competitive transport and presentation.
- * Only server-originated envelopes accepted by the transport may enter here.
- * This class does not expose a client command that can create memorable credit.
+ * Boundary between authenticated competitive transport and presentation.
+ * Telemetry is diagnostic only and never authorizes punishment by itself.
  */
 class AuthoritativeMatchEventBridge(
     private val expectedMatchId: String,
@@ -20,6 +19,10 @@ class AuthoritativeMatchEventBridge(
         val total: Int,
         val localCount: Int,
         val opponentCount: Int,
+        val localTick: Long? = null,
+        val authoritativeTick: Long? = null,
+        val rttMs: Long? = null,
+        val serverError: Boolean = false,
     )
 
     enum class Origin { AUTHORITATIVE_SERVER, CLIENT }
@@ -28,8 +31,19 @@ class AuthoritativeMatchEventBridge(
     private val deliveredSequenceIds = LinkedHashSet<String>()
 
     fun accept(envelope: ServerEnvelope): Boolean {
-        if (envelope.origin != Origin.AUTHORITATIVE_SERVER) return false
-        if (expectedMatchId.isBlank() || envelope.matchId != expectedMatchId) return false
+        if (envelope.origin != Origin.AUTHORITATIVE_SERVER) {
+            view.recordRiskSignal(strong = false)
+            return false
+        }
+        if (expectedMatchId.isBlank() || envelope.matchId != expectedMatchId) {
+            view.recordRiskSignal(strong = false)
+            return false
+        }
+        envelope.rttMs?.let { view.recordNetworkSample(it, envelope.serverError) }
+        if (envelope.serverError && envelope.rttMs == null) view.recordNetworkSample(-1L, true)
+        if (envelope.localTick != null && envelope.authoritativeTick != null) {
+            view.recordAuthoritativeTick(envelope.localTick, envelope.authoritativeTick)
+        }
         if (envelope.type != "MEMORABLE_CONFIRMED") return false
         if (envelope.eventId.isBlank() || envelope.sequenceId.isBlank()) return false
         if (envelope.similarity < 0.95 || envelope.similarity > 1.0) return false
@@ -39,16 +53,10 @@ class AuthoritativeMatchEventBridge(
         if (scorerCount < 1) return false
         if (envelope.eventId in deliveredEventIds || envelope.sequenceId in deliveredSequenceIds) return false
 
-        // Reserve IDs before presentation so retransmissions cannot double-count.
         deliveredEventIds.add(envelope.eventId)
         deliveredSequenceIds.add(envelope.sequenceId)
         return try {
-            view.onMemorableConfirmed(
-                player = envelope.player,
-                total = envelope.total,
-                localCount = envelope.localCount,
-                opponentCount = envelope.opponentCount,
-            )
+            view.onMemorableConfirmed(envelope.player, envelope.total, envelope.localCount, envelope.opponentCount)
             true
         } catch (_: IllegalArgumentException) {
             deliveredEventIds.remove(envelope.eventId)
