@@ -53,6 +53,46 @@ jobs:
           test -f tennis-v390-android/app/build.gradle.kts
           test -f tennis-v390-android/app/src/main/AndroidManifest.xml
           grep -q '^android.useAndroidX=true$' tennis-v390-android/gradle.properties
+          grep -q 'BLAISE_SIGNING_STORE_FILE' tennis-v390-android/app/build.gradle.kts
+
+      - name: Prepare release signing material
+        shell: bash
+        env:
+          PROD_KEYSTORE_B64: ${{ secrets.BLAISE_UPLOAD_KEYSTORE_B64 }}
+          PROD_STORE_PASSWORD: ${{ secrets.BLAISE_UPLOAD_STORE_PASSWORD }}
+          PROD_KEY_ALIAS: ${{ secrets.BLAISE_UPLOAD_KEY_ALIAS }}
+          PROD_KEY_PASSWORD: ${{ secrets.BLAISE_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PROD_KEYSTORE_B64:-}" ] && [ -n "${PROD_STORE_PASSWORD:-}" ] && [ -n "${PROD_KEY_ALIAS:-}" ] && [ -n "${PROD_KEY_PASSWORD:-}" ]; then
+            KEYSTORE="$RUNNER_TEMP/blaise-upload-production.jks"
+            printf '%s' "$PROD_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+            chmod 600 "$KEYSTORE"
+            echo "BLAISE_SIGNING_MODE=production-upload-key" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_STORE_PASSWORD=$PROD_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_KEY_ALIAS=$PROD_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_KEY_PASSWORD=$PROD_KEY_PASSWORD" >> "$GITHUB_ENV"
+            keytool -list -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" -alias "$PROD_KEY_ALIAS" >/dev/null
+          else
+            KEYSTORE="$RUNNER_TEMP/blaise-ci-ephemeral.jks"
+            CI_PASSWORD="$(openssl rand -hex 24)"
+            keytool -genkeypair -noprompt \
+              -keystore "$KEYSTORE" \
+              -storepass "$CI_PASSWORD" \
+              -keypass "$CI_PASSWORD" \
+              -alias blaise-ci \
+              -keyalg RSA \
+              -keysize 3072 \
+              -validity 365 \
+              -dname 'CN=Blaise Open Tennis CI,O=Blaise,C=BR'
+            chmod 600 "$KEYSTORE"
+            echo "BLAISE_SIGNING_MODE=ci-ephemeral" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_STORE_PASSWORD=$CI_PASSWORD" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_KEY_ALIAS=blaise-ci" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_KEY_PASSWORD=$CI_PASSWORD" >> "$GITHUB_ENV"
+          fi
 
       - name: Build APK and AAB
         shell: bash
@@ -61,51 +101,48 @@ jobs:
           set -euo pipefail
           gradle --no-daemon --stacktrace clean :app:assembleRelease :app:bundleRelease
 
-      - name: Verify artifacts and hashes
+      - name: Verify artifacts signatures and hashes
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p tennis-v390-ci/evidence
+          mkdir -p tennis-v390-ci/evidence tennis-v390-ci/artifacts
           APK="$(find tennis-v390-android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -size +0c | head -n1)"
           AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -size +0c | head -n1)"
           test -n "$APK"
           test -n "$AAB"
-          printf 'APK=%s\nAAB=%s\n' "$APK" "$AAB" | tee tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
-          sha256sum "$APK" "$AAB" | tee tennis-v390-ci/evidence/SHA256SUMS.txt
-          ls -lh "$APK" "$AAB"
-
-      - name: Upload APK and AAB evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: blaise-open-tennis-v3.9.0-android-artifacts
-          path: |
-            tennis-v390-android/app/build/outputs/apk/release/*.apk
-            tennis-v390-android/app/build/outputs/bundle/release/*.aab
-            tennis-v390-ci/evidence/SHA256SUMS.txt
-            tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Release Gate - require verified signatures
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="$(find tennis-v390-android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -size +0c | head -n1)"
-          AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -size +0c | head -n1)"
           APKSIGNER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools/35.0.0/apksigner"
-          apk_status=BLOCKED
-          aab_status=BLOCKED
-          if "$APKSIGNER" verify --verbose "$APK" >/dev/null 2>&1; then apk_status=PASS; fi
-          if jarsigner -verify -strict "$AAB" >/dev/null 2>&1; then aab_status=PASS; fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee tennis-v390-ci/evidence/APK_SIGNATURE.txt
+          jarsigner -verify -strict -verbose -certs "$AAB" > tennis-v390-ci/evidence/AAB_SIGNATURE.txt
+          grep -q 'jar verified' tennis-v390-ci/evidence/AAB_SIGNATURE.txt
+          cp "$APK" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk
+          cp "$AAB" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab
+          printf 'APK=%s\nAAB=%s\n' "$APK" "$AAB" | tee tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
+          sha256sum tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk \
+                    tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab \
+                    | tee tennis-v390-ci/evidence/SHA256SUMS.txt
+          if [ "${BLAISE_SIGNING_MODE:-}" = 'production-upload-key' ]; then
+            promotion=READY_FOR_PLAY_UPLOAD_KEY_VALIDATION
+          else
+            promotion=BLOCKED_PENDING_PRODUCTION_UPLOAD_KEY
+          fi
           cat > tennis-v390-ci/evidence/RELEASE_GATE.txt <<EOF
           artifact_version=3.9.0
-          apk_signature=$apk_status
-          aab_signature=$aab_status
-          guardian_release_gate=$([ "$apk_status" = PASS ] && [ "$aab_status" = PASS ] && echo PASS || echo BLOCKED)
-          promotion=NOT_AUTHORIZED
+          apk_signature=PASS
+          aab_signature=PASS
+          signing_mode=${BLAISE_SIGNING_MODE:-unknown}
+          signing_pipeline=PASS
+          production_promotion=$promotion
           EOF
           cat tennis-v390-ci/evidence/RELEASE_GATE.txt
-          if [ "$apk_status" != PASS ] || [ "$aab_status" != PASS ]; then
-            echo 'Release Gate BLOCKED: signed, verifiable APK and AAB are required before promotion.' >&2
-            exit 1
-          fi
+          ls -lh tennis-v390-ci/artifacts/*
+
+      - name: Upload signed APK AAB and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: blaise-open-tennis-v3.9.0-signed-android-artifacts
+          path: |
+            tennis-v390-ci/artifacts/*.apk
+            tennis-v390-ci/artifacts/*.aab
+            tennis-v390-ci/evidence/*.txt
+          if-no-files-found: error
+          retention-days: 7
