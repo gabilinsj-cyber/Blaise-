@@ -8,7 +8,10 @@ data class MemorableUiState(
     val cameraBadgeTotal: Int = 0,
     val localCount: Int = 0,
     val opponentCount: Int = 0,
+    val lastPlayer: MemorablePlayer? = null,
+    val overlayStartedMs: Long = 0L,
     val overlayUntilMs: Long = 0L,
+    val standingOvationStartedMs: Long = 0L,
     val standingOvationUntilMs: Long = 0L,
     val applauseCuePending: Boolean = false,
 )
@@ -34,7 +37,10 @@ class MemorablePresentationController {
             cameraBadgeTotal = total,
             localCount = localCount,
             opponentCount = opponentCount,
+            lastPlayer = player,
+            overlayStartedMs = nowMs,
             overlayUntilMs = nowMs + 1200L,
+            standingOvationStartedMs = nowMs,
             standingOvationUntilMs = nowMs + 2200L,
             applauseCuePending = true,
         )
