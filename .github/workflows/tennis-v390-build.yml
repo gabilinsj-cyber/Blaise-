@@ -85,3 +85,27 @@ jobs:
             tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
           if-no-files-found: error
           retention-days: 7
+
+      - name: Release Gate - require verified signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find tennis-v390-android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -size +0c | head -n1)"
+          AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -size +0c | head -n1)"
+          APKSIGNER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools/35.0.0/apksigner"
+          apk_status=BLOCKED
+          aab_status=BLOCKED
+          if "$APKSIGNER" verify --verbose "$APK" >/dev/null 2>&1; then apk_status=PASS; fi
+          if jarsigner -verify -strict "$AAB" >/dev/null 2>&1; then aab_status=PASS; fi
+          cat > tennis-v390-ci/evidence/RELEASE_GATE.txt <<EOF
+          artifact_version=3.9.0
+          apk_signature=$apk_status
+          aab_signature=$aab_status
+          guardian_release_gate=$([ "$apk_status" = PASS ] && [ "$aab_status" = PASS ] && echo PASS || echo BLOCKED)
+          promotion=NOT_AUTHORIZED
+          EOF
+          cat tennis-v390-ci/evidence/RELEASE_GATE.txt
+          if [ "$apk_status" != PASS ] || [ "$aab_status" != PASS ]; then
+            echo 'Release Gate BLOCKED: signed, verifiable APK and AAB are required before promotion.' >&2
+            exit 1
+          fi
