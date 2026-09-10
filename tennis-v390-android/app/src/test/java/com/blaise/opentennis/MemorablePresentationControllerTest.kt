@@ -25,6 +25,9 @@ class MemorablePresentationControllerTest {
         assertEquals(11_200L, controller.state.overlayUntilMs)
         assertEquals(10_000L, controller.state.standingOvationStartedMs)
         assertEquals(12_200L, controller.state.standingOvationUntilMs)
+        assertFalse(controller.state.replayAvailable)
+        assertFalse(controller.state.replayPanelVisible)
+        assertFalse(controller.openReplayPanel())
         assertTrue(controller.consumeApplauseCue())
         assertFalse(controller.consumeApplauseCue())
     }
@@ -49,9 +52,52 @@ class MemorablePresentationControllerTest {
     }
 
     @Test
+    fun setBreakUnlocksReplayAndShowsPerPlayerCounts() {
+        val controller = MemorablePresentationController()
+        controller.onAuthoritativeConfirmed(MemorablePlayer.LOCAL, 4, 3, 1, 10_000L)
+
+        controller.onSetBreakStarted()
+
+        assertTrue(controller.state.replayAvailable)
+        assertTrue(controller.state.replayPanelVisible)
+        assertEquals(4, controller.state.cameraBadgeTotal)
+        assertEquals(3, controller.state.localCount)
+        assertEquals(1, controller.state.opponentCount)
+        assertEquals(MemorableReplayFilter.ALL, controller.state.replayFilter)
+        assertEquals(0L, controller.state.overlayUntilMs)
+        assertEquals(0L, controller.state.standingOvationUntilMs)
+    }
+
+    @Test
+    fun replayFiltersAreOnlySelectableWhenClipsExist() {
+        val controller = MemorablePresentationController()
+        controller.onAuthoritativeConfirmed(MemorablePlayer.LOCAL, 2, 2, 0, 0L)
+        controller.onSetBreakStarted()
+
+        assertTrue(controller.selectReplayFilter(MemorableReplayFilter.LOCAL))
+        assertEquals(MemorableReplayFilter.LOCAL, controller.state.replayFilter)
+        assertFalse(controller.selectReplayFilter(MemorableReplayFilter.OPPONENT))
+        assertEquals(MemorableReplayFilter.LOCAL, controller.state.replayFilter)
+        controller.closeReplayPanel()
+        assertFalse(controller.state.replayPanelVisible)
+        assertTrue(controller.openReplayPanel())
+        assertTrue(controller.state.replayPanelVisible)
+    }
+
+    @Test
+    fun emptySetDoesNotUnlockReplay() {
+        val controller = MemorablePresentationController()
+        controller.onSetBreakStarted()
+        assertFalse(controller.state.replayAvailable)
+        assertFalse(controller.state.replayPanelVisible)
+        assertFalse(controller.openReplayPanel())
+    }
+
+    @Test
     fun resetForNewSetClearsAllPresentationCounters() {
         val controller = MemorablePresentationController()
         controller.onAuthoritativeConfirmed(MemorablePlayer.OPPONENT, 1, 0, 1, 0L)
+        controller.onSetBreakStarted()
         controller.resetForNewSet()
         assertEquals(MemorableUiState(), controller.state)
     }
