@@ -35,8 +35,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=${ANDROID_HOME:-}"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
           SDKMANAGER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}" -type f -name sdkmanager -perm -111 2>/dev/null | head -n1 || true)"
@@ -62,20 +60,31 @@ jobs:
           PROD_STORE_PASSWORD: ${{ secrets.BLAISE_UPLOAD_STORE_PASSWORD }}
           PROD_KEY_ALIAS: ${{ secrets.BLAISE_UPLOAD_KEY_ALIAS }}
           PROD_KEY_PASSWORD: ${{ secrets.BLAISE_UPLOAD_KEY_PASSWORD }}
+          PROD_CERT_SHA256: ${{ secrets.BLAISE_UPLOAD_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          if [ -n "${PROD_KEYSTORE_B64:-}" ] && [ -n "${PROD_STORE_PASSWORD:-}" ] && [ -n "${PROD_KEY_ALIAS:-}" ] && [ -n "${PROD_KEY_PASSWORD:-}" ]; then
+          if [ -n "${PROD_KEYSTORE_B64:-}" ] || [ -n "${PROD_STORE_PASSWORD:-}" ] || [ -n "${PROD_KEY_ALIAS:-}" ] || [ -n "${PROD_KEY_PASSWORD:-}" ] || [ -n "${PROD_CERT_SHA256:-}" ]; then
+            test -n "${PROD_KEYSTORE_B64:-}"
+            test -n "${PROD_STORE_PASSWORD:-}"
+            test -n "${PROD_KEY_ALIAS:-}"
+            test -n "${PROD_KEY_PASSWORD:-}"
+            test -n "${PROD_CERT_SHA256:-}"
             echo "::add-mask::$PROD_STORE_PASSWORD"
             echo "::add-mask::$PROD_KEY_PASSWORD"
+            echo "::add-mask::$PROD_CERT_SHA256"
             KEYSTORE="$RUNNER_TEMP/blaise-upload-production.jks"
             printf '%s' "$PROD_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
             chmod 600 "$KEYSTORE"
+            keytool -list -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" -alias "$PROD_KEY_ALIAS" >/dev/null
+            ACTUAL_CERT_SHA256="$(keytool -exportcert -rfc -alias "$PROD_KEY_ALIAS" -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            EXPECTED_CERT_SHA256="$(printf '%s' "$PROD_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+            test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
             echo "BLAISE_SIGNING_MODE=production-upload-key" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_CERT_SHA256=$ACTUAL_CERT_SHA256" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_STORE_PASSWORD=$PROD_STORE_PASSWORD" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_KEY_ALIAS=$PROD_KEY_ALIAS" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_KEY_PASSWORD=$PROD_KEY_PASSWORD" >> "$GITHUB_ENV"
-            keytool -list -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" -alias "$PROD_KEY_ALIAS" >/dev/null
           else
             KEYSTORE="$RUNNER_TEMP/blaise-ci-ephemeral.jks"
             CI_PASSWORD="$(openssl rand -hex 24)"
@@ -90,7 +99,9 @@ jobs:
               -validity 365 \
               -dname 'CN=Blaise Open Tennis CI,O=Blaise,C=BR'
             chmod 600 "$KEYSTORE"
+            CI_CERT_SHA256="$(keytool -exportcert -rfc -alias blaise-ci -keystore "$KEYSTORE" -storepass "$CI_PASSWORD" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
             echo "BLAISE_SIGNING_MODE=ci-ephemeral" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_CERT_SHA256=$CI_CERT_SHA256" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_STORE_PASSWORD=$CI_PASSWORD" >> "$GITHUB_ENV"
             echo "BLAISE_SIGNING_KEY_ALIAS=blaise-ci" >> "$GITHUB_ENV"
@@ -117,6 +128,9 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee tennis-v390-ci/evidence/APK_SIGNATURE.txt
           jarsigner -verify -verbose -certs "$AAB" | tee tennis-v390-ci/evidence/AAB_SIGNATURE.txt
           grep -q 'jar verified' tennis-v390-ci/evidence/AAB_SIGNATURE.txt
+          APK_CERT_SHA256="$("$APKSIGNER" verify --print-certs "$APK" | awk -F': ' '/certificate SHA-256 digest/{print $2; exit}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          test -n "$APK_CERT_SHA256"
+          test "$APK_CERT_SHA256" = "${BLAISE_SIGNING_CERT_SHA256:-}"
           cp "$APK" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk
           cp "$AAB" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab
           printf 'APK=%s\nAAB=%s\n' "$APK" "$AAB" | tee tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
@@ -133,6 +147,7 @@ jobs:
           apk_signature=PASS
           aab_signature=PASS
           signing_mode=${BLAISE_SIGNING_MODE:-unknown}
+          signing_certificate_sha256=${BLAISE_SIGNING_CERT_SHA256:-unknown}
           signing_pipeline=PASS
           production_promotion=$promotion
           EOF
