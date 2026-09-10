@@ -10,32 +10,39 @@ import android.view.View
 import kotlin.math.max
 import kotlin.math.min
 
+enum class MemorablePlayer { LOCAL, OPPONENT }
+
 class TennisGameView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var aimX = 0f
     private var aimY = 0f
     private var hasAim = false
 
-    // Presentation-only state. Competitive authority must call confirmMemorable
-    // only after the authoritative >=95% sequence verdict is received.
+    // Presentation state only. Competitive authority must emit the confirmed
+    // >=95% sequence verdict; the Android client cannot create the verdict.
     private val memorableIds = LinkedHashSet<String>()
-    private var memorableCount = 0
+    private val memorableByPlayer = mutableMapOf(
+        MemorablePlayer.LOCAL to 0,
+        MemorablePlayer.OPPONENT to 0,
+    )
     private var memorableUntilMs = 0L
     private var crowdStandingUntilMs = 0L
 
-    fun confirmMemorable(eventId: String): Boolean {
+    fun confirmMemorable(eventId: String, player: MemorablePlayer = MemorablePlayer.LOCAL): Boolean {
         if (eventId.isBlank() || !memorableIds.add(eventId)) return false
-        memorableCount += 1
+        memorableByPlayer[player] = (memorableByPlayer[player] ?: 0) + 1
         val now = SystemClock.uptimeMillis()
         memorableUntilMs = now + 1200L
         crowdStandingUntilMs = now + 1800L
+        // Deliberately presentation-only: no pause, scoring mutation or input lock.
         invalidate()
         postInvalidateDelayed(1250L)
         postInvalidateDelayed(1850L)
         return true
     }
 
-    fun memorableReplayCount(): Int = memorableCount
+    fun memorableReplayCount(): Int = memorableByPlayer.values.sum()
+    fun memorableReplayCount(player: MemorablePlayer): Int = memorableByPlayer[player] ?: 0
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -85,8 +92,8 @@ class TennisGameView(context: Context) : View(context) {
         canvas.drawText("Toque na quadra adversária para mirar", w * .02f, h * .12f, paint)
         canvas.drawText("0  0   |   0  0", w * .78f, h * .07f, paint)
 
-        // Camera/replay indicator. Replays remain unavailable during live set;
-        // this badge only reports how many authoritative clips are waiting.
+        // Camera/replay indicator. It reports queued clips but never opens them
+        // during the live set. Set-break/post-match UI owns playback.
         val cameraX = w * .93f
         val cameraY = h * .84f
         paint.color = 0xCC0E2948.toInt()
@@ -94,6 +101,7 @@ class TennisGameView(context: Context) : View(context) {
         paint.color = 0xFFFFFFFF.toInt()
         paint.textSize = max(11f, h * .022f)
         canvas.drawText("CAM", cameraX - h * .027f, cameraY + h * .008f, paint)
+        val memorableCount = memorableReplayCount()
         if (memorableCount > 0) {
             val badgeX = cameraX + h * .052f
             val badgeY = cameraY - h * .038f
@@ -105,15 +113,18 @@ class TennisGameView(context: Context) : View(context) {
             canvas.drawText(badge, badgeX - h * .010f, badgeY + h * .007f, paint)
         }
 
-        // Lightweight standing-crowd presentation; never blocks controls or scoring.
+        // Lightweight standing-crowd animation. Audio is intentionally supplied
+        // by the licensed/original audio layer reacting to the same event.
         if (now < crowdStandingUntilMs) {
             paint.color = 0xCCF5F3E8.toInt()
             val crowdY = h * .16f
             for (i in 0 until 18) {
                 val x = w * .16f + i * (w * .68f / 17f)
-                canvas.drawCircle(x, crowdY, h * .010f, paint)
-                canvas.drawRect(x - h * .006f, crowdY + h * .010f, x + h * .006f, crowdY + h * .040f, paint)
+                val lift = if (i % 2 == 0) h * .006f else 0f
+                canvas.drawCircle(x, crowdY - lift, h * .010f, paint)
+                canvas.drawRect(x - h * .006f, crowdY + h * .010f - lift, x + h * .006f, crowdY + h * .040f - lift, paint)
             }
+            postInvalidateDelayed(90L)
         }
 
         if (now < memorableUntilMs) {
