@@ -2,6 +2,7 @@ package com.blaise.opentennis
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import kotlin.math.PI
 import kotlin.math.sin
@@ -48,7 +49,13 @@ class MemorableAudioEngine {
             .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
             .build()
         val bytes = pcm.size * 2
-        val created = AudioTrack(attributes, format, bytes, AudioTrack.MODE_STATIC, AudioTrack.AUDIO_SESSION_ID_GENERATE)
+        val created = AudioTrack(
+            attributes,
+            format,
+            bytes,
+            AudioTrack.MODE_STATIC,
+            AudioManager.AUDIO_SESSION_ID_GENERATE,
+        )
         created.write(pcm, 0, pcm.size)
         created.setVolume(0.72f)
         track = created
