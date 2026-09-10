@@ -65,11 +65,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="tennis-v390-android/app/build/outputs/apk/release/app-release.apk"
-          AAB="tennis-v390-android/app/build/outputs/bundle/release/app-release.aab"
-          test -s "$APK"
-          test -s "$AAB"
           mkdir -p tennis-v390-ci/evidence
+          APK="$(find tennis-v390-android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -size +0c | head -n1)"
+          AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -size +0c | head -n1)"
+          test -n "$APK"
+          test -n "$AAB"
+          printf 'APK=%s\nAAB=%s\n' "$APK" "$AAB" | tee tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
           sha256sum "$APK" "$AAB" | tee tennis-v390-ci/evidence/SHA256SUMS.txt
           ls -lh "$APK" "$AAB"
 
@@ -78,8 +79,9 @@ jobs:
         with:
           name: blaise-open-tennis-v3.9.0-android-artifacts
           path: |
-            tennis-v390-android/app/build/outputs/apk/release/app-release.apk
-            tennis-v390-android/app/build/outputs/bundle/release/app-release.aab
+            tennis-v390-android/app/build/outputs/apk/release/*.apk
+            tennis-v390-android/app/build/outputs/bundle/release/*.aab
             tennis-v390-ci/evidence/SHA256SUMS.txt
+            tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
           if-no-files-found: error
           retention-days: 7
