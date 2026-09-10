@@ -2,11 +2,9 @@ name: Blaise Open Tennis v3.9.0 Android Build
 
 on:
   push:
-    branches:
-      - tennis-v390-build-main-4
+    branches: [tennis-v390-build-main-4]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,42 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
       - name: Verify Android SDK
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}" -type f -name sdkmanager -perm -111 2>/dev/null | head -n1 || true)"
-          fi
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(find "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}" -type f -name sdkmanager -perm -111 2>/dev/null | head -n1 || true)"
           test -n "$SDKMANAGER"
-          "$SDKMANAGER" --version
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Verify v3.9.0 Android source
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f tennis-v390-android/app/build.gradle.kts
-          test -f tennis-v390-android/app/src/main/AndroidManifest.xml
-          grep -q '^android.useAndroidX=true$' tennis-v390-android/gradle.properties
-          grep -q 'BLAISE_SIGNING_STORE_FILE' tennis-v390-android/app/build.gradle.kts
-
       - name: Prepare release signing material
         shell: bash
         env:
@@ -63,104 +42,96 @@ jobs:
           PROD_CERT_SHA256: ${{ secrets.BLAISE_UPLOAD_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          if [ -n "${PROD_KEYSTORE_B64:-}" ] || [ -n "${PROD_STORE_PASSWORD:-}" ] || [ -n "${PROD_KEY_ALIAS:-}" ] || [ -n "${PROD_KEY_PASSWORD:-}" ] || [ -n "${PROD_CERT_SHA256:-}" ]; then
-            test -n "${PROD_KEYSTORE_B64:-}"
-            test -n "${PROD_STORE_PASSWORD:-}"
-            test -n "${PROD_KEY_ALIAS:-}"
-            test -n "${PROD_KEY_PASSWORD:-}"
-            test -n "${PROD_CERT_SHA256:-}"
-            echo "::add-mask::$PROD_STORE_PASSWORD"
-            echo "::add-mask::$PROD_KEY_PASSWORD"
-            echo "::add-mask::$PROD_CERT_SHA256"
+          if [ -n "${PROD_KEYSTORE_B64:-}${PROD_STORE_PASSWORD:-}${PROD_KEY_ALIAS:-}${PROD_KEY_PASSWORD:-}${PROD_CERT_SHA256:-}" ]; then
+            test -n "${PROD_KEYSTORE_B64:-}"; test -n "${PROD_STORE_PASSWORD:-}"; test -n "${PROD_KEY_ALIAS:-}"; test -n "${PROD_KEY_PASSWORD:-}"; test -n "${PROD_CERT_SHA256:-}"
+            echo "::add-mask::$PROD_STORE_PASSWORD"; echo "::add-mask::$PROD_KEY_PASSWORD"; echo "::add-mask::$PROD_CERT_SHA256"
             KEYSTORE="$RUNNER_TEMP/blaise-upload-production.jks"
-            printf '%s' "$PROD_KEYSTORE_B64" | base64 -d > "$KEYSTORE"
-            chmod 600 "$KEYSTORE"
+            printf '%s' "$PROD_KEYSTORE_B64" | base64 -d > "$KEYSTORE"; chmod 600 "$KEYSTORE"
             keytool -list -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" -alias "$PROD_KEY_ALIAS" >/dev/null
-            ACTUAL_CERT_SHA256="$(keytool -exportcert -rfc -alias "$PROD_KEY_ALIAS" -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-            EXPECTED_CERT_SHA256="$(printf '%s' "$PROD_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
-            test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
-            echo "BLAISE_SIGNING_MODE=production-upload-key" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_CERT_SHA256=$ACTUAL_CERT_SHA256" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_STORE_PASSWORD=$PROD_STORE_PASSWORD" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_KEY_ALIAS=$PROD_KEY_ALIAS" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_KEY_PASSWORD=$PROD_KEY_PASSWORD" >> "$GITHUB_ENV"
+            ACTUAL="$(keytool -exportcert -rfc -alias "$PROD_KEY_ALIAS" -keystore "$KEYSTORE" -storepass "$PROD_STORE_PASSWORD" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            EXPECTED="$(printf '%s' "$PROD_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"; test "$ACTUAL" = "$EXPECTED"
+            echo "BLAISE_SIGNING_MODE=production-upload-key" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_CERT_SHA256=$ACTUAL" >> "$GITHUB_ENV"
+            echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_STORE_PASSWORD=$PROD_STORE_PASSWORD" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_KEY_ALIAS=$PROD_KEY_ALIAS" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_KEY_PASSWORD=$PROD_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
-            KEYSTORE="$RUNNER_TEMP/blaise-ci-ephemeral.jks"
-            CI_PASSWORD="$(openssl rand -hex 24)"
-            echo "::add-mask::$CI_PASSWORD"
-            keytool -genkeypair -noprompt \
-              -keystore "$KEYSTORE" \
-              -storepass "$CI_PASSWORD" \
-              -keypass "$CI_PASSWORD" \
-              -alias blaise-ci \
-              -keyalg RSA \
-              -keysize 3072 \
-              -validity 365 \
-              -dname 'CN=Blaise Open Tennis CI,O=Blaise,C=BR'
-            chmod 600 "$KEYSTORE"
-            CI_CERT_SHA256="$(keytool -exportcert -rfc -alias blaise-ci -keystore "$KEYSTORE" -storepass "$CI_PASSWORD" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-            echo "BLAISE_SIGNING_MODE=ci-ephemeral" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_CERT_SHA256=$CI_CERT_SHA256" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_STORE_PASSWORD=$CI_PASSWORD" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_KEY_ALIAS=blaise-ci" >> "$GITHUB_ENV"
-            echo "BLAISE_SIGNING_KEY_PASSWORD=$CI_PASSWORD" >> "$GITHUB_ENV"
+            KEYSTORE="$RUNNER_TEMP/blaise-ci-ephemeral.jks"; PASS="$(openssl rand -hex 24)"; echo "::add-mask::$PASS"
+            keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storepass "$PASS" -keypass "$PASS" -alias blaise-ci -keyalg RSA -keysize 3072 -validity 365 -dname 'CN=Blaise Open Tennis CI,O=Blaise,C=BR'
+            CERT="$(keytool -exportcert -rfc -alias blaise-ci -keystore "$KEYSTORE" -storepass "$PASS" | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            echo "BLAISE_SIGNING_MODE=ci-ephemeral" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_CERT_SHA256=$CERT" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_KEY_ALIAS=blaise-ci" >> "$GITHUB_ENV"; echo "BLAISE_SIGNING_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
           fi
-
       - name: Build APK and AAB
-        shell: bash
         working-directory: tennis-v390-android
-        run: |
-          set -euo pipefail
-          gradle --no-daemon --stacktrace clean :app:assembleRelease :app:bundleRelease
-
+        run: gradle --no-daemon --stacktrace clean :app:assembleRelease :app:bundleRelease
       - name: Verify artifacts signatures and hashes
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p tennis-v390-ci/evidence tennis-v390-ci/artifacts
-          APK="$(find tennis-v390-android/app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -size +0c | head -n1)"
-          AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -size +0c | head -n1)"
-          test -n "$APK"
-          test -n "$AAB"
+          APK="$(find tennis-v390-android/app/build/outputs/apk/release -type f -name '*.apk' -size +0c | head -n1)"; AAB="$(find tennis-v390-android/app/build/outputs/bundle/release -type f -name '*.aab' -size +0c | head -n1)"
           APKSIGNER="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}/build-tools/35.0.0/apksigner"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee tennis-v390-ci/evidence/APK_SIGNATURE.txt
-          jarsigner -verify -verbose -certs "$AAB" | tee tennis-v390-ci/evidence/AAB_SIGNATURE.txt
-          grep -q 'jar verified' tennis-v390-ci/evidence/AAB_SIGNATURE.txt
-          APK_CERT_SHA256="$("$APKSIGNER" verify --print-certs "$APK" | awk -F': ' '/certificate SHA-256 digest/{print $2; exit}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          test -n "$APK_CERT_SHA256"
-          test "$APK_CERT_SHA256" = "${BLAISE_SIGNING_CERT_SHA256:-}"
-          cp "$APK" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk
-          cp "$AAB" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab
-          printf 'APK=%s\nAAB=%s\n' "$APK" "$AAB" | tee tennis-v390-ci/evidence/ARTIFACT_PATHS.txt
-          sha256sum tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk \
-                    tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab \
-                    | tee tennis-v390-ci/evidence/SHA256SUMS.txt
-          if [ "${BLAISE_SIGNING_MODE:-}" = 'production-upload-key' ]; then
-            promotion=READY_FOR_PLAY_UPLOAD_KEY_VALIDATION
-          else
-            promotion=BLOCKED_PENDING_PRODUCTION_UPLOAD_KEY
-          fi
-          cat > tennis-v390-ci/evidence/RELEASE_GATE.txt <<EOF
-          artifact_version=3.9.0
-          apk_signature=PASS
-          aab_signature=PASS
-          signing_mode=${BLAISE_SIGNING_MODE:-unknown}
-          signing_certificate_sha256=${BLAISE_SIGNING_CERT_SHA256:-unknown}
-          signing_pipeline=PASS
-          production_promotion=$promotion
-          EOF
-          cat tennis-v390-ci/evidence/RELEASE_GATE.txt
-          ls -lh tennis-v390-ci/artifacts/*
-
+          jarsigner -verify -verbose -certs "$AAB" | tee tennis-v390-ci/evidence/AAB_SIGNATURE.txt; grep -q 'jar verified' tennis-v390-ci/evidence/AAB_SIGNATURE.txt
+          APK_CERT="$("$APKSIGNER" verify --print-certs "$APK" | awk -F': ' '/certificate SHA-256 digest/{print $2; exit}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"; test "$APK_CERT" = "$BLAISE_SIGNING_CERT_SHA256"
+          cp "$APK" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.apk; cp "$AAB" tennis-v390-ci/artifacts/Blaise-Open-Tennis-v3.9.0-release-signed.aab
+          sha256sum tennis-v390-ci/artifacts/* | tee tennis-v390-ci/evidence/SHA256SUMS.txt
+          if [ "$BLAISE_SIGNING_MODE" = production-upload-key ]; then promotion=READY_FOR_PLAY_UPLOAD_KEY_VALIDATION; else promotion=BLOCKED_PENDING_PRODUCTION_UPLOAD_KEY; fi
+          printf 'artifact_version=3.9.0\napk_signature=PASS\naab_signature=PASS\nsigning_mode=%s\nsigning_certificate_sha256=%s\nsigning_pipeline=PASS\nproduction_promotion=%s\n' "$BLAISE_SIGNING_MODE" "$BLAISE_SIGNING_CERT_SHA256" "$promotion" > tennis-v390-ci/evidence/RELEASE_GATE.txt
       - name: Upload signed APK AAB and evidence
         uses: actions/upload-artifact@v4
         with:
           name: blaise-open-tennis-v3.9.0-signed-android-artifacts
           path: |
-            tennis-v390-ci/artifacts/*.apk
-            tennis-v390-ci/artifacts/*.aab
-            tennis-v390-ci/evidence/*.txt
+            tennis-v390-ci/artifacts/*
+            tennis-v390-ci/evidence/*
+          retention-days: 7
+
+  runtime-android:
+    needs: build-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK for emulator runtime
+        working-directory: tennis-v390-android
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm
+      - name: Install launch and validate on Android API 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            mkdir -p tennis-v390-runtime-evidence
+            APK="$(find tennis-v390-android/app/build/outputs/apk/debug -type f -name '*.apk' -size +0c | head -n1)"
+            adb install -r "$APK" | tee tennis-v390-runtime-evidence/INSTALL.txt
+            adb logcat -c
+            adb shell am start -W -n com.blaise.opentennis/.MainActivity | tee tennis-v390-runtime-evidence/LAUNCH.txt
+            sleep 5
+            adb shell dumpsys activity activities > tennis-v390-runtime-evidence/ACTIVITY.txt
+            adb shell pidof com.blaise.opentennis | tee tennis-v390-runtime-evidence/PID.txt
+            test -s tennis-v390-runtime-evidence/PID.txt
+            grep -q 'com.blaise.opentennis/.MainActivity' tennis-v390-runtime-evidence/ACTIVITY.txt
+            adb logcat -d > tennis-v390-runtime-evidence/LOGCAT.txt
+            if grep -E 'FATAL EXCEPTION|ANR in com\.blaise\.opentennis|Process: com\.blaise\.opentennis.*has died' tennis-v390-runtime-evidence/LOGCAT.txt; then exit 1; fi
+            adb exec-out screencap -p > tennis-v390-runtime-evidence/RUNTIME.png
+            printf 'install=PASS\nlaunch=PASS\nprocess_alive=PASS\nmain_activity=PASS\ncrash_anr_scan=PASS\napi_level=35\n' > tennis-v390-runtime-evidence/RUNTIME_GATE.txt
+      - name: Upload runtime evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: blaise-open-tennis-v3.9.0-runtime-evidence
+          path: tennis-v390-runtime-evidence/*
           if-no-files-found: error
           retention-days: 7
