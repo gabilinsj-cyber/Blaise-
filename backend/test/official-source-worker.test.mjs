@@ -152,7 +152,7 @@ test('optional INEA station task is explicit and honors severe cadence', async (
 
   worker.start();
   const launched = await worker.tick();
-  assert.deepEqual(launched.sort(), [ALERTA_RIO_RAINFALL_TASK_ID, INEA_STATION_TASK_ID].sort());
+  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, INEA_STATION_TASK_ID].sort());
   assert.equal(ineaCalls, 1);
   assert.equal(worker.status().mode, 'severe');
   assert.equal(worker.status().scheduler.refreshIntervalMs, 60_000);
