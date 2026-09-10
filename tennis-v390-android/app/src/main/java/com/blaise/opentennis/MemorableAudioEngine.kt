@@ -4,20 +4,38 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
  * Lightweight, original procedural applause for MEMORABLE_CONFIRMED.
- * No broadcast/third-party recording is bundled. The competitive event remains
- * authoritative; this class is presentation-only and never affects scoring.
+ * No broadcast/third-party recording is bundled. Audio synthesis and playback setup
+ * run off the UI thread so a memorable point never stalls controls or the next serve.
+ * The competitive event remains authoritative; this class is presentation-only.
  */
 class MemorableAudioEngine {
-    private var track: AudioTrack? = null
+    private val executor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "blaise-memorable-audio").apply { isDaemon = true }
+    }
+    private val generation = AtomicInteger(0)
+    @Volatile private var released = false
+    @Volatile private var track: AudioTrack? = null
 
     fun playStandingOvation() {
-        release()
+        if (released) return
+        val ticket = generation.incrementAndGet()
+        executor.execute {
+            if (released || ticket != generation.get()) return@execute
+            val pcm = synthesizeStandingOvation()
+            if (released || ticket != generation.get()) return@execute
+            replaceTrackAndPlay(pcm)
+        }
+    }
+
+    private fun synthesizeStandingOvation(): ShortArray {
         val sampleRate = 22050
         val seconds = 1.65
         val frames = (sampleRate * seconds).toInt()
@@ -34,11 +52,17 @@ class MemorableAudioEngine {
             val body = sin(2.0 * PI * 170.0 * t) * 0.10
             val value = ((noise * 0.54 * clapPulse + body) * envelope * Short.MAX_VALUE * 0.52)
                 .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            // Slight stereo asymmetry gives width without claiming physical 3D positioning.
             pcm[i * 2] = value
             pcm[i * 2 + 1] = (value * 0.92).toInt().toShort()
         }
+        return pcm
+    }
 
+    @Synchronized
+    private fun replaceTrackAndPlay(pcm: ShortArray) {
+        if (released) return
+        releaseTrackOnly()
+        val sampleRate = 22050
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -56,17 +80,29 @@ class MemorableAudioEngine {
             AudioTrack.MODE_STATIC,
             AudioManager.AUDIO_SESSION_ID_GENERATE,
         )
+        if (released) {
+            created.release()
+            return
+        }
         created.write(pcm, 0, pcm.size)
         created.setVolume(0.72f)
         track = created
         created.play()
     }
 
-    fun release() {
+    @Synchronized
+    private fun releaseTrackOnly() {
         track?.let {
             runCatching { it.stop() }
             runCatching { it.release() }
         }
         track = null
+    }
+
+    fun release() {
+        released = true
+        generation.incrementAndGet()
+        executor.shutdownNow()
+        releaseTrackOnly()
     }
 }
