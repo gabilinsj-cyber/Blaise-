@@ -34,6 +34,9 @@ class TennisGameView(context: Context) : View(context) {
         invalidate(); postInvalidateDelayed(1250L); postInvalidateDelayed(2250L)
     }
 
+    /** Called by match flow after the final point of a set. */
+    fun onSetBreakStarted() { memorable.onSetBreakStarted(); invalidate() }
+    fun closeMemorableReplayPanel() { memorable.closeReplayPanel(); invalidate() }
     fun memorableReplayCount(): Int = memorable.state.cameraBadgeTotal
     fun memorableReplayCount(player: MemorablePlayer): Int = if (player == MemorablePlayer.LOCAL) memorable.state.localCount else memorable.state.opponentCount
     fun resetMemorablePresentationForNewSet() { memorable.resetForNewSet(); invalidate() }
@@ -83,9 +86,49 @@ class TennisGameView(context: Context) : View(context) {
         val count=state.cameraBadgeTotal;if(count>0){val bx=cameraX+h*.052f;val by=cameraY-h*.038f;paint.color=0xFFE32636.toInt();canvas.drawCircle(bx,by,h*.022f,paint);paint.color=0xFFFFFFFF.toInt();paint.textAlign=Paint.Align.CENTER;paint.textSize=max(10f,h*.020f);canvas.drawText(if(count>99)"99+" else count.toString(),bx,by+h*.007f,paint);paint.textAlign=Paint.Align.LEFT}
         val buttons=listOf("Forehand","Backhand","Topspin","Slice","Lob","Drop","Volley");val gap=w*.006f;val bw=(w*.72f-gap*(buttons.size-1))/buttons.size;val by=h*.90f;buttons.forEachIndexed{i,text->val left=w*.14f+i*(bw+gap);paint.color=0xCC0E2948.toInt();canvas.drawRoundRect(left,by,left+bw,h*.985f,12f,12f,paint);paint.color=0xFFFFFFFF.toInt();paint.textSize=max(11f,h*.024f);canvas.drawText(text,left+bw*.08f,by+h*.052f,paint)}
         val joyX=w*.065f;val joyY=h*.88f;paint.style=Paint.Style.STROKE;paint.strokeWidth=max(3f,h*.006f);paint.color=0x88FFFFFF.toInt();canvas.drawCircle(joyX,joyY,h*.065f,paint);canvas.drawCircle(joyX,joyY,h*.025f,paint);paint.style=Paint.Style.FILL
+
+        if(state.replayPanelVisible){
+            drawReplayPanel(canvas,w,h,state)
+        }
+    }
+
+    private fun drawReplayPanel(canvas: Canvas, w: Float, h: Float, state: MemorableUiState) {
+        paint.color=0xE607172D.toInt();canvas.drawRoundRect(w*.20f,h*.18f,w*.80f,h*.78f,28f,28f,paint)
+        paint.style=Paint.Style.STROKE;paint.strokeWidth=max(2f,h*.004f);paint.color=0xFFE8C04B.toInt();canvas.drawRoundRect(w*.20f,h*.18f,w*.80f,h*.78f,28f,28f,paint);paint.style=Paint.Style.FILL
+        paint.textAlign=Paint.Align.CENTER;paint.typeface=android.graphics.Typeface.DEFAULT_BOLD;paint.color=0xFFFFD55A.toInt();paint.textSize=max(24f,h*.052f);canvas.drawText("JOGADAS MEMORÁVEIS",w*.50f,h*.29f,paint)
+        paint.typeface=android.graphics.Typeface.DEFAULT;paint.color=0xFFFFFFFF.toInt();paint.textSize=max(16f,h*.032f);canvas.drawText("Você: ${state.localCount}   |   Adversário: ${state.opponentCount}   |   Total: ${state.cameraBadgeTotal}",w*.50f,h*.38f,paint)
+        canvas.drawText("Disponíveis somente no intervalo/final do set",w*.50f,h*.45f,paint)
+        val labels=listOf("TODAS" to MemorableReplayFilter.ALL,"SUAS" to MemorableReplayFilter.LOCAL,"ADVERSÁRIO" to MemorableReplayFilter.OPPONENT)
+        labels.forEachIndexed { i,(label,filter) ->
+            val left=w*(.27f+i*.17f);val right=left+w*.14f;val top=h*.53f;val bottom=h*.62f
+            val enabled=when(filter){MemorableReplayFilter.ALL->state.cameraBadgeTotal>0;MemorableReplayFilter.LOCAL->state.localCount>0;MemorableReplayFilter.OPPONENT->state.opponentCount>0}
+            paint.color=when{!enabled->0x663A4658;state.replayFilter==filter->0xFFE8C04B.toInt();else->0xCC0E2948.toInt()};canvas.drawRoundRect(left,top,right,bottom,18f,18f,paint)
+            paint.color=if(state.replayFilter==filter&&enabled)0xFF07172D.toInt() else 0xFFFFFFFF.toInt();paint.textSize=max(12f,h*.024f);canvas.drawText(label,(left+right)/2f,top+h*.055f,paint)
+        }
+        paint.color=0xCCE32636.toInt();canvas.drawRoundRect(w*.43f,h*.67f,w*.57f,h*.74f,18f,18f,paint);paint.color=0xFFFFFFFF.toInt();paint.textSize=max(12f,h*.024f);canvas.drawText("FECHAR",w*.50f,h*.715f,paint)
+        paint.textAlign=Paint.Align.LEFT
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if(event.action!=MotionEvent.ACTION_DOWN&&event.action!=MotionEvent.ACTION_MOVE&&event.action!=MotionEvent.ACTION_UP)return super.onTouchEvent(event)
+        val state=memorable.state
+        if(event.action==MotionEvent.ACTION_DOWN&&state.replayPanelVisible){
+            val x=event.x/width.toFloat();val y=event.y/height.toFloat()
+            when {
+                x in .27f..41f && y in .53f..62f -> memorable.selectReplayFilter(MemorableReplayFilter.ALL)
+                x in .44f..58f && y in .53f..62f -> memorable.selectReplayFilter(MemorableReplayFilter.LOCAL)
+                x in .61f..75f && y in .53f..62f -> memorable.selectReplayFilter(MemorableReplayFilter.OPPONENT)
+                x in .43f..57f && y in .67f..74f -> memorable.closeReplayPanel()
+            }
+            invalidate();return true
+        }
+        if(event.action==MotionEvent.ACTION_DOWN){
+            val cameraX=width*.93f;val cameraY=height*.84f
+            if(event.x in (cameraX-height*.07f)..(cameraX+height*.07f)&&event.y in (cameraY-height*.06f)..(cameraY+height*.06f)){
+                if(memorable.openReplayPanel()) invalidate()
+                return true
+            }
+        }
         if(event.action==MotionEvent.ACTION_DOWN||event.action==MotionEvent.ACTION_MOVE){competitiveTelemetry.onInput(event.eventTime*1_000_000L);val upper=height*.50f;if(event.y in (height*.08f)..upper){aimX=min(max(event.x,width*.14f),width*.86f);aimY=min(max(event.y,height*.08f),upper);hasAim=true;invalidate()};return true}
         return event.action==MotionEvent.ACTION_UP||super.onTouchEvent(event)
     }
