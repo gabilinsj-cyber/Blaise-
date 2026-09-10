@@ -3,6 +3,10 @@ import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
+  createOfficialSourceWorker,
+  loadOfficialSourceWorkerConfig,
+} from './official-source-worker.mjs';
+import {
   createGooglePlayGateway,
   createHttpHandler,
   createRtdnReplayGuard,
@@ -100,6 +104,19 @@ export function createGracefulShutdown(
   };
 }
 
+export function createCoordinatedShutdown(serverShutdown, sourceWorker) {
+  if (typeof serverShutdown !== 'function') throw new Error('invalid_server_shutdown');
+  if (!sourceWorker || typeof sourceWorker.stop !== 'function') throw new Error('invalid_source_worker');
+  let started = false;
+  return () => {
+    if (started) return false;
+    started = true;
+    sourceWorker.stop();
+    serverShutdown();
+    return true;
+  };
+}
+
 function setRuntimeHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -118,6 +135,7 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
+  const sourceWorkerConfig = loadOfficialSourceWorkerConfig(process.env);
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
@@ -150,12 +168,20 @@ async function main() {
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const shutdown = createGracefulShutdown(server, readiness, {
+  const sourceWorker = createOfficialSourceWorker({ config: sourceWorkerConfig });
+  if (sourceWorker.start()) {
+    console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
+  } else {
+    console.log('blaise_official_source_worker_disabled');
+  }
+
+  const serverShutdown = createGracefulShutdown(server, readiness, {
     onFinished: (outcome) => {
       console.log(`blaise_entitlement_backend_shutdown:${outcome}`);
       if (outcome !== 'graceful') process.exitCode = 1;
     },
   });
+  const shutdown = createCoordinatedShutdown(serverShutdown, sourceWorker);
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 

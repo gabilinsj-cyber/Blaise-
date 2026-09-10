@@ -2,6 +2,7 @@ import http from 'node:http';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  createCoordinatedShutdown,
   createDrainingHandler,
   createGracefulShutdown,
   createReadinessState,
@@ -102,6 +103,26 @@ test('graceful shutdown is idempotent, drains first and closes idle connections'
   assert.equal(forceCloses, 0);
 });
 
+test('coordinated shutdown stops source polling before server drain and is idempotent', () => {
+  const order = [];
+  const sourceWorker = {
+    stop() {
+      order.push('source-worker-stop');
+      return true;
+    },
+  };
+  const serverShutdown = () => {
+    order.push('server-shutdown');
+    return true;
+  };
+
+  const shutdown = createCoordinatedShutdown(serverShutdown, sourceWorker);
+  assert.equal(shutdown(), true);
+  assert.deepEqual(order, ['source-worker-stop', 'server-shutdown']);
+  assert.equal(shutdown(), false);
+  assert.deepEqual(order, ['source-worker-stop', 'server-shutdown']);
+});
+
 test('graceful shutdown configuration fails closed', () => {
   const readiness = createReadinessState();
   const server = { close() {} };
@@ -112,5 +133,13 @@ test('graceful shutdown configuration fails closed', () => {
   assert.throws(
     () => createDrainingHandler(null, readiness),
     /invalid_runtime_handler_configuration/,
+  );
+  assert.throws(
+    () => createCoordinatedShutdown(null, { stop() {} }),
+    /invalid_server_shutdown/,
+  );
+  assert.throws(
+    () => createCoordinatedShutdown(() => {}, null),
+    /invalid_source_worker/,
   );
 });
