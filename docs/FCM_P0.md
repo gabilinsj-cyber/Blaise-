@@ -26,6 +26,25 @@ Quando um alerta P0 inclui município, o backend exige o par exato `cityName` + 
 
 O backend não incorpora chave JSON de service account, token FCM, purchase token ou identificador de usuário no payload P0.
 
+## INMET CAP → P0
+
+A ingestão oficial INMET CAP já produz candidatos P0 somente quando a política fail-closed aceita severidade `Severe`/`Extreme`, urgência `Immediate`/`Expected`, certeza `Observed`/`Likely`, validade temporal de até 24h e escopo RJ canônico.
+
+`backend/src/inmet-p0-publish.mjs` acrescenta a etapa de publicação controlada:
+
+- cria lote determinístico com SHA-256, limite de 256 candidatos e IDs P0 únicos;
+- revalida cada alerta imediatamente antes da publicação para impedir envio de evento expirado ou adulterado;
+- rejeita lote com digest divergente antes de qualquer chamada ao backend;
+- publica sequencialmente pelo endpoint protegido `/v1/internal/p0`, preservando o replay guard/backpressure já existente no backend;
+- considera `202 accepted` o único contrato HTTP de sucesso e não expõe o nome interno retornado pelo FCM;
+- exige HTTPS e token Bearer OIDC; erros externos são reduzidos a códigos fixos.
+
+O workflow `INMET P0 Publish Gate` é exclusivamente manual. O estado padrão não consulta fonte externa nem publica. Uma publicação real exige simultaneamente `execute_live_probe=true`, `execute_publish=true`, confirmação textual exata `PUBLISH_OFFICIAL_P0`, backend HTTPS real, audiência P0 real e autenticação GitHub OIDC → Workload Identity Federation usando a service account P0 configurada. Não é usada chave JSON permanente.
+
+O token ID gerado pelo gate inclui o e-mail da service account porque o backend valida audiência e identidade exatas. O lote completo fica apenas em arquivo temporário do runner; a evidência persistida contém somente estado, contagens e digest do lote.
+
+Mesmo quando o backend responde `202`, a evidência registra somente aceitação pelo endpoint. Entrega FCM real em aparelho continua exigindo evidência separada e não recebe PASS por inferência.
+
 ## Gate de release
 
 O pacote de produção exige:
@@ -39,4 +58,4 @@ Enquanto o projeto Firebase real não existir, esses itens permanecem `BLOCKED_E
 
 ## Limites atuais
 
-A infraestrutura real Firebase/Google Cloud, credenciais ADC/Workload Identity, envio FCM real, entrega em aparelho real e ingestão de fonte oficial P0 ainda exigem configuração externa e evidência executada. A presença do código e dos testes não equivale a push de produção ativo.
+A infraestrutura real Firebase/Google Cloud, credenciais ADC/Workload Identity, envio FCM real, entrega em aparelho real e execução de publicação INMET P0 ainda exigem configuração externa e evidência executada. A presença do código e dos testes não equivale a push de produção ativo.

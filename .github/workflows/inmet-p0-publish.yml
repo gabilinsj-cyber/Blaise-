@@ -1,0 +1,217 @@
+name: INMET P0 Publish Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_live_probe:
+        description: 'Read the live public INMET CAP feed and stage validated RJ P0 candidates'
+        required: true
+        default: false
+        type: boolean
+      execute_publish:
+        description: 'Send the staged candidates to the protected production /v1/internal/p0 endpoint'
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'Required for publication: type PUBLISH_OFFICIAL_P0 exactly'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: inmet-p0-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BLAISE_EXECUTE_LIVE_PROBE: ${{ inputs.execute_live_probe }}
+      BLAISE_EXECUTE_PUBLISH: ${{ inputs.execute_publish }}
+      BLAISE_PUBLISH_CONFIRMATION: ${{ inputs.confirmation }}
+      BLAISE_BACKEND_BASE_URL: ${{ vars.BLAISE_BACKEND_BASE_URL }}
+      BLAISE_P0_AUDIENCE: ${{ vars.BLAISE_P0_AUDIENCE }}
+      BLAISE_P0_SERVICE_ACCOUNT: ${{ vars.BLAISE_P0_SERVICE_ACCOUNT }}
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4
+        with:
+          node-version: '24.20.0'
+
+      - name: Enforce explicit publication interlocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$BLAISE_EXECUTE_PUBLISH" == "true" && "$BLAISE_EXECUTE_LIVE_PROBE" != "true" ]]; then
+            echo 'BLOCKED: execute_publish requires execute_live_probe=true' >&2
+            exit 2
+          fi
+          if [[ "$BLAISE_EXECUTE_PUBLISH" == "true" && "$BLAISE_PUBLISH_CONFIRMATION" != "PUBLISH_OFFICIAL_P0" ]]; then
+            echo 'BLOCKED: publication confirmation does not match' >&2
+            exit 2
+          fi
+
+      - name: Record no-external-execution state
+        if: ${{ !inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backend/evidence/official-sources
+          cat > backend/evidence/official-sources/inmet-p0-publication.json <<'JSON'
+          {
+            "gate": "INMET_CAP_TO_P0",
+            "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
+            "sourceProbe": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "publication": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "fcmDelivery": "NOT_PROVEN"
+          }
+          JSON
+
+      - name: Stage live INMET CAP candidates without publishing
+        if: ${{ inputs.execute_live_probe }}
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.20.0"
+          export BLAISE_P0_BATCH_FILE="$RUNNER_TEMP/inmet-p0-batch.json"
+          echo "BLAISE_P0_BATCH_FILE=$BLAISE_P0_BATCH_FILE" >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import { probeInmetCapWarnings, InmetSourceContractError } from './src/inmet-source.mjs';
+          import { InmetP0PolicyError } from './src/inmet-p0-policy.mjs';
+          import { InmetP0PublishError, stageInmetP0Batch } from './src/inmet-p0-publish.mjs';
+
+          const evidencePath = 'evidence/official-sources/inmet-p0-publication.json';
+          await mkdir('evidence/official-sources', { recursive: true });
+          try {
+            const snapshot = await probeInmetCapWarnings();
+            const batch = stageInmetP0Batch(snapshot);
+            await writeFile(process.env.BLAISE_P0_BATCH_FILE, `${JSON.stringify(batch)}\n`, { mode: 0o600 });
+            await writeFile(evidencePath, `${JSON.stringify({
+              gate: 'INMET_CAP_TO_P0',
+              status: 'PASS_SOURCE_CONTRACT_STAGED_NOT_PUBLISHED',
+              sourceProbe: 'PASS_LIVE_PUBLIC_SOURCE_CONTRACT',
+              policyId: batch.policyId,
+              candidateCount: batch.candidateCount,
+              blockedCount: batch.blockedCount,
+              ineligibleCount: batch.ineligibleCount,
+              batchSha256: batch.batchSha256,
+              publication: 'NOT_YET_PERFORMED',
+              fcmDelivery: 'NOT_PROVEN',
+              rawFeedRetention: 'NONE',
+            }, null, 2)}\n`, { mode: 0o600 });
+            console.log(`INMET_P0_STAGE=PASS:candidates=${batch.candidateCount}:sha256=${batch.batchSha256}`);
+          } catch (error) {
+            const code = error instanceof InmetSourceContractError || error instanceof InmetP0PolicyError || error instanceof InmetP0PublishError
+              ? error.code
+              : 'inmet_p0_stage_unexpected_error';
+            await writeFile(evidencePath, `${JSON.stringify({
+              gate: 'INMET_CAP_TO_P0',
+              status: 'BLOCKED_SOURCE_OR_POLICY_CONTRACT',
+              errorCode: code,
+              publication: 'NOT_PERFORMED',
+              fcmDelivery: 'NOT_PROVEN',
+            }, null, 2)}\n`, { mode: 0o600 });
+            throw error;
+          }
+          NODE
+
+      - name: Fail closed on missing production WIF/backend configuration
+        if: ${{ inputs.execute_publish }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${BLAISE_BACKEND_BASE_URL:?missing BLAISE_BACKEND_BASE_URL}"
+          : "${BLAISE_P0_AUDIENCE:?missing BLAISE_P0_AUDIENCE}"
+          : "${BLAISE_P0_SERVICE_ACCOUNT:?missing BLAISE_P0_SERVICE_ACCOUNT}"
+          : "${BLAISE_GCP_PROJECT_ID:?missing BLAISE_GCP_PROJECT_ID}"
+          : "${BLAISE_GCP_WIF_PROVIDER:?missing BLAISE_GCP_WIF_PROVIDER}"
+          [[ "$BLAISE_BACKEND_BASE_URL" == https://* ]] || { echo 'BLOCKED: backend URL must be HTTPS' >&2; exit 2; }
+          [[ "$BLAISE_P0_AUDIENCE" == https://* ]] || { echo 'BLOCKED: P0 audience must be HTTPS' >&2; exit 2; }
+          [[ "$BLAISE_P0_SERVICE_ACCOUNT" == *@*.iam.gserviceaccount.com ]] || { echo 'BLOCKED: invalid P0 service account' >&2; exit 2; }
+          [[ -s "$BLAISE_P0_BATCH_FILE" ]] || { echo 'BLOCKED: staged P0 batch missing' >&2; exit 2; }
+
+      - name: Authenticate publication identity through OIDC WIF
+        id: gcp-auth
+        if: ${{ inputs.execute_publish }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_P0_SERVICE_ACCOUNT }}
+          token_format: id_token
+          id_token_audience: ${{ env.BLAISE_P0_AUDIENCE }}
+          id_token_include_email: true
+          create_credentials_file: false
+
+      - name: Publish staged official P0 candidates through protected backend
+        if: ${{ inputs.execute_publish }}
+        working-directory: backend
+        shell: bash
+        env:
+          BLAISE_P0_AUTHORIZATION: Bearer ${{ steps.gcp-auth.outputs.id_token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
+          import {
+            createInternalP0HttpSender,
+            publishStagedInmetP0Batch,
+          } from './src/inmet-p0-publish.mjs';
+
+          const batch = JSON.parse(await readFile(process.env.BLAISE_P0_BATCH_FILE, 'utf8'));
+          const sendAlert = createInternalP0HttpSender({
+            baseUrl: process.env.BLAISE_BACKEND_BASE_URL,
+            authorization: process.env.BLAISE_P0_AUTHORIZATION,
+          });
+          const result = await publishStagedInmetP0Batch(batch, { sendAlert });
+          await writeFile('evidence/official-sources/inmet-p0-publication.json', `${JSON.stringify({
+            gate: 'INMET_CAP_TO_P0',
+            status: 'PASS_BACKEND_ACCEPTED',
+            sourceProbe: 'PASS_LIVE_PUBLIC_SOURCE_CONTRACT',
+            batchSha256: result.batchSha256,
+            acceptedCount: result.acceptedCount,
+            duplicateCount: result.duplicateCount,
+            newlyAcceptedCount: result.newlyAcceptedCount,
+            publication: result.delivery,
+            fcmDelivery: 'BACKEND_ACCEPTANCE_ONLY_DEVICE_DELIVERY_REQUIRES_SEPARATE_EVIDENCE',
+            credentials: 'OIDC_WIF_NO_LONG_LIVED_JSON_KEY',
+          }, null, 2)}\n`, { mode: 0o600 });
+          console.log(`INMET_P0_PUBLISH=PASS:accepted=${result.acceptedCount}:duplicates=${result.duplicateCount}`);
+          NODE
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backend/evidence/official-sources
+          if [[ ! -s backend/evidence/official-sources/inmet-p0-publication.json ]]; then
+            cat > backend/evidence/official-sources/inmet-p0-publication.json <<'JSON'
+          {
+            "gate": "INMET_CAP_TO_P0",
+            "status": "BLOCKED_WORKFLOW_FAILED_BEFORE_EVIDENCE",
+            "publication": "NOT_PROVEN",
+            "fcmDelivery": "NOT_PROVEN",
+            "secrets": "REDACTED"
+          }
+          JSON
+          fi
+
+      - name: Upload sanitized P0 publication evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-inmet-p0-publication-evidence
+          if-no-files-found: error
+          path: backend/evidence/official-sources/inmet-p0-publication.json
