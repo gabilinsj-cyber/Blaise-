@@ -20,7 +20,10 @@ class MemorablePresentationControllerTest {
         assertEquals(4, controller.state.cameraBadgeTotal)
         assertEquals(3, controller.state.localCount)
         assertEquals(1, controller.state.opponentCount)
+        assertEquals(MemorablePlayer.LOCAL, controller.state.lastPlayer)
+        assertEquals(10_000L, controller.state.overlayStartedMs)
         assertEquals(11_200L, controller.state.overlayUntilMs)
+        assertEquals(10_000L, controller.state.standingOvationStartedMs)
         assertEquals(12_200L, controller.state.standingOvationUntilMs)
         assertTrue(controller.consumeApplauseCue())
         assertFalse(controller.consumeApplauseCue())
@@ -35,6 +38,14 @@ class MemorablePresentationControllerTest {
             opponentCount = 1,
             nowMs = 0L,
         )
+    }
+
+    @Test
+    fun opponentConfirmationPreservesScorerForPresentationPlacement() {
+        val controller = MemorablePresentationController()
+        controller.onAuthoritativeConfirmed(MemorablePlayer.OPPONENT, 2, 1, 1, 500L)
+        assertEquals(MemorablePlayer.OPPONENT, controller.state.lastPlayer)
+        assertEquals(2, controller.state.cameraBadgeTotal)
     }
 
     @Test
