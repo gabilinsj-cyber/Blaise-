@@ -46,19 +46,17 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Restore v3.9.0 Android source
+      - name: Verify v3.9.0 Android source
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p tennis-v390-ci/work
-          base64 -d tennis-v390-ci/android-src.tar.gz.b64 > tennis-v390-ci/work/android-src.tar.gz
-          tar -xzf tennis-v390-ci/work/android-src.tar.gz -C tennis-v390-ci/work
-          test -f tennis-v390-ci/work/android/app/build.gradle.kts
-          test -f tennis-v390-ci/work/android/app/src/main/AndroidManifest.xml
+          test -f tennis-v390-android/app/build.gradle.kts
+          test -f tennis-v390-android/app/src/main/AndroidManifest.xml
+          grep -q '^android.useAndroidX=true$' tennis-v390-android/gradle.properties
 
       - name: Build APK and AAB
         shell: bash
-        working-directory: tennis-v390-ci/work/android
+        working-directory: tennis-v390-android
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace clean :app:assembleRelease :app:bundleRelease
@@ -67,11 +65,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="tennis-v390-ci/work/android/app/build/outputs/apk/release/app-release.apk"
-          AAB="tennis-v390-ci/work/android/app/build/outputs/bundle/release/app-release.aab"
+          APK="tennis-v390-android/app/build/outputs/apk/release/app-release.apk"
+          AAB="tennis-v390-android/app/build/outputs/bundle/release/app-release.aab"
           test -s "$APK"
           test -s "$AAB"
-          sha256sum "$APK" "$AAB" | tee tennis-v390-ci/work/SHA256SUMS.txt
+          mkdir -p tennis-v390-ci/evidence
+          sha256sum "$APK" "$AAB" | tee tennis-v390-ci/evidence/SHA256SUMS.txt
           ls -lh "$APK" "$AAB"
 
       - name: Upload APK and AAB evidence
@@ -79,8 +78,8 @@ jobs:
         with:
           name: blaise-open-tennis-v3.9.0-android-artifacts
           path: |
-            tennis-v390-ci/work/android/app/build/outputs/apk/release/app-release.apk
-            tennis-v390-ci/work/android/app/build/outputs/bundle/release/app-release.aab
-            tennis-v390-ci/work/SHA256SUMS.txt
+            tennis-v390-android/app/build/outputs/apk/release/app-release.apk
+            tennis-v390-android/app/build/outputs/bundle/release/app-release.aab
+            tennis-v390-ci/evidence/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
