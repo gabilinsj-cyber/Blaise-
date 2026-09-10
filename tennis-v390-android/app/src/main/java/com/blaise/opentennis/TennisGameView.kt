@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.max
@@ -15,10 +16,33 @@ class TennisGameView(context: Context) : View(context) {
     private var aimY = 0f
     private var hasAim = false
 
+    // Presentation-only state. Competitive authority must call confirmMemorable
+    // only after the authoritative >=95% sequence verdict is received.
+    private val memorableIds = LinkedHashSet<String>()
+    private var memorableCount = 0
+    private var memorableUntilMs = 0L
+    private var crowdStandingUntilMs = 0L
+
+    fun confirmMemorable(eventId: String): Boolean {
+        if (eventId.isBlank() || !memorableIds.add(eventId)) return false
+        memorableCount += 1
+        val now = SystemClock.uptimeMillis()
+        memorableUntilMs = now + 1200L
+        crowdStandingUntilMs = now + 1800L
+        invalidate()
+        postInvalidateDelayed(1250L)
+        postInvalidateDelayed(1850L)
+        return true
+    }
+
+    fun memorableReplayCount(): Int = memorableCount
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
+        val now = SystemClock.uptimeMillis()
+        paint.style = Paint.Style.FILL
         paint.color = 0xFF07172D.toInt()
         canvas.drawRect(0f, 0f, w, h, paint)
 
@@ -40,7 +64,6 @@ class TennisGameView(context: Context) : View(context) {
 
         paint.color = 0xFF111111.toInt()
         canvas.drawRect(court.left, midY - 2f, court.right, midY + 2f, paint)
-
         paint.color = 0xFFE8C04B.toInt()
         canvas.drawCircle(court.centerX(), court.bottom - court.height() * .12f, h * .018f, paint)
         paint.color = 0xFFF2F2F2.toInt()
@@ -61,6 +84,45 @@ class TennisGameView(context: Context) : View(context) {
         paint.color = 0xFFFFFFFF.toInt()
         canvas.drawText("Toque na quadra adversária para mirar", w * .02f, h * .12f, paint)
         canvas.drawText("0  0   |   0  0", w * .78f, h * .07f, paint)
+
+        // Camera/replay indicator. Replays remain unavailable during live set;
+        // this badge only reports how many authoritative clips are waiting.
+        val cameraX = w * .93f
+        val cameraY = h * .84f
+        paint.color = 0xCC0E2948.toInt()
+        canvas.drawRoundRect(cameraX - h * .055f, cameraY - h * .04f, cameraX + h * .055f, cameraY + h * .04f, 12f, 12f, paint)
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.textSize = max(11f, h * .022f)
+        canvas.drawText("CAM", cameraX - h * .027f, cameraY + h * .008f, paint)
+        if (memorableCount > 0) {
+            val badgeX = cameraX + h * .052f
+            val badgeY = cameraY - h * .038f
+            paint.color = 0xFFE32636.toInt()
+            canvas.drawCircle(badgeX, badgeY, h * .022f, paint)
+            paint.color = 0xFFFFFFFF.toInt()
+            paint.textSize = max(10f, h * .020f)
+            val badge = if (memorableCount > 99) "99+" else memorableCount.toString()
+            canvas.drawText(badge, badgeX - h * .010f, badgeY + h * .007f, paint)
+        }
+
+        // Lightweight standing-crowd presentation; never blocks controls or scoring.
+        if (now < crowdStandingUntilMs) {
+            paint.color = 0xCCF5F3E8.toInt()
+            val crowdY = h * .16f
+            for (i in 0 until 18) {
+                val x = w * .16f + i * (w * .68f / 17f)
+                canvas.drawCircle(x, crowdY, h * .010f, paint)
+                canvas.drawRect(x - h * .006f, crowdY + h * .010f, x + h * .006f, crowdY + h * .040f, paint)
+            }
+        }
+
+        if (now < memorableUntilMs) {
+            paint.textSize = max(28f, h * .075f)
+            paint.color = 0xFFE8C04B.toInt()
+            val label = "MEMORABLE"
+            val tw = paint.measureText(label)
+            canvas.drawText(label, (w - tw) / 2f, h * .30f, paint)
+        }
 
         val buttons = listOf("Forehand", "Backhand", "Topspin", "Slice", "Lob", "Drop", "Volley")
         val gap = w * .006f
