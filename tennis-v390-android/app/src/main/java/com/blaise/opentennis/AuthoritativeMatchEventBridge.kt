@@ -3,11 +3,11 @@ package com.blaise.opentennis
 /**
  * Boundary between the authenticated competitive transport and presentation.
  * Only server-originated envelopes accepted by the transport may enter here.
- * This class does not expose a generic client command for memorable events.
+ * This class does not expose a client command that can create memorable credit.
  */
 class AuthoritativeMatchEventBridge(
     private val expectedMatchId: String,
-    private val view: TennisGameView
+    private val view: TennisGameView,
 ) {
     data class ServerEnvelope(
         val origin: Origin,
@@ -15,7 +15,11 @@ class AuthoritativeMatchEventBridge(
         val type: String,
         val eventId: String,
         val sequenceId: String,
-        val similarity: Double
+        val similarity: Double,
+        val player: MemorablePlayer,
+        val total: Int,
+        val localCount: Int,
+        val opponentCount: Int,
     )
 
     enum class Origin { AUTHORITATIVE_SERVER, CLIENT }
@@ -29,16 +33,27 @@ class AuthoritativeMatchEventBridge(
         if (envelope.type != "MEMORABLE_CONFIRMED") return false
         if (envelope.eventId.isBlank() || envelope.sequenceId.isBlank()) return false
         if (envelope.similarity < 0.95 || envelope.similarity > 1.0) return false
+        if (envelope.total < 1 || envelope.localCount < 0 || envelope.opponentCount < 0) return false
+        if (envelope.localCount + envelope.opponentCount != envelope.total) return false
+        val scorerCount = if (envelope.player == MemorablePlayer.LOCAL) envelope.localCount else envelope.opponentCount
+        if (scorerCount < 1) return false
         if (envelope.eventId in deliveredEventIds || envelope.sequenceId in deliveredSequenceIds) return false
 
-        // Reserve both IDs before presentation so retries cannot double count.
+        // Reserve IDs before presentation so retransmissions cannot double-count.
         deliveredEventIds.add(envelope.eventId)
         deliveredSequenceIds.add(envelope.sequenceId)
-        val accepted = view.confirmMemorable(envelope.eventId)
-        if (!accepted) {
+        return try {
+            view.onMemorableConfirmed(
+                player = envelope.player,
+                total = envelope.total,
+                localCount = envelope.localCount,
+                opponentCount = envelope.opponentCount,
+            )
+            true
+        } catch (_: IllegalArgumentException) {
             deliveredEventIds.remove(envelope.eventId)
             deliveredSequenceIds.remove(envelope.sequenceId)
+            false
         }
-        return accepted
     }
 }
