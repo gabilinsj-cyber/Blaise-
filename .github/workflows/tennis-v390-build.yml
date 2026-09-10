@@ -1,0 +1,78 @@
+name: Blaise Open Tennis v3.9.0 Android Build
+
+on:
+  push:
+    branches:
+      - tennis-v390-build-main-4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
+          sdkmanager --version
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Restore v3.9.0 Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tennis-v390-ci/work
+          base64 -d tennis-v390-ci/android-src.tar.gz.b64 > tennis-v390-ci/work/android-src.tar.gz
+          tar -xzf tennis-v390-ci/work/android-src.tar.gz -C tennis-v390-ci/work
+          test -f tennis-v390-ci/work/android/app/build.gradle.kts
+          test -f tennis-v390-ci/work/android/app/src/main/AndroidManifest.xml
+
+      - name: Build APK and AAB
+        shell: bash
+        working-directory: tennis-v390-ci/work/android
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace clean :app:assembleRelease :app:bundleRelease
+
+      - name: Verify artifacts and hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="tennis-v390-ci/work/android/app/build/outputs/apk/release/app-release.apk"
+          AAB="tennis-v390-ci/work/android/app/build/outputs/bundle/release/app-release.aab"
+          test -s "$APK"
+          test -s "$AAB"
+          sha256sum "$APK" "$AAB" | tee tennis-v390-ci/work/SHA256SUMS.txt
+          ls -lh "$APK" "$AAB"
+
+      - name: Upload APK and AAB evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: blaise-open-tennis-v3.9.0-android-artifacts
+          path: |
+            tennis-v390-ci/work/android/app/build/outputs/apk/release/app-release.apk
+            tennis-v390-ci/work/android/app/build/outputs/bundle/release/app-release.aab
+            tennis-v390-ci/work/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
