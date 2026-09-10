@@ -14,6 +14,8 @@ O canal FCM de produção é reservado aqui para alertas P0 oficiais. P0 continu
 - Alertas expirados, com horário futuro além da tolerância, validade superior a 24h ou município RJ não canônico são rejeitados.
 - P0 estadual, sem município, continua elegível para todos os assinantes do tópico.
 - P0 com município canônico é filtrado no cliente depois do parsing e antes da notificação: só é entregue quando o IBGE afetado corresponde à Cidade 1 ou Cidade 2 atualmente selecionada. Isso evita que um alerta municipal recebido pelo tópico estadual gere notificação em aparelho que monitora outros municípios.
+- Depois da validação territorial, o cliente mantém uma janela local de replay de 24h, limitada a 256 entradas, para impedir notificações repetidas do mesmo `alertId`. A persistência guarda somente SHA-256 do identificador + expiração; o identificador oficial bruto não é retido.
+- Falha inesperada do armazenamento de replay não bloqueia um P0 válido: a política prefere possível duplicata a perder um alerta oficial.
 - O P0 aceito e compatível com o escopo territorial é entregue pelo `AlertNotifier` com `Entitlement(active=false)`, exercitando explicitamente o bypass P0 existente.
 
 ## Publicação backend preparada
