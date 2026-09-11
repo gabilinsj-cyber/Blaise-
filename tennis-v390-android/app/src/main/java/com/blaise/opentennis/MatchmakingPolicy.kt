@@ -110,6 +110,17 @@ object MatchmakingPolicy {
         Room.PRIVATE -> emptySet()
     }
 
+    /**
+     * Server supplies randomIndex from its CSPRNG/secure matchmaking RNG.
+     * Basic/Intermediate rooms therefore get a random B/I AI; Advanced gets A only.
+     */
+    fun chooseAiSkill(room: Room, randomIndex: Int): Skill {
+        require(randomIndex >= 0)
+        val eligible = allowedAiSkills(room).toList().sortedBy { it.ordinal }
+        require(eligible.isNotEmpty()) { "AI is forbidden in private rooms" }
+        return eligible[randomIndex % eligible.size]
+    }
+
     /** Human-first invariant: AI is considered only when no eligible human exists. */
     fun chooseOpponentKind(eligibleHumanAvailable: Boolean, room: Room = Room.GENERAL): OpponentKind {
         if (eligibleHumanAvailable) return OpponentKind.REAL
