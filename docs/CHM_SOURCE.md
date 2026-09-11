@@ -5,6 +5,7 @@ This integration is fail-closed and intentionally separates **official source pa
 ## Official sources
 
 - METAREA V warnings: `https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo`
+- 24-hour METAREA V forecast / area-boundary labels: `https://www.marinha.mil.br/chm/dados-do-smm-meteoromarinha/previsao-24-horas`
 - Tide tables publication: `https://www.marinha.mil.br/chm/dados-do-segnav-publicacoes/tabuas-das-mares`
 
 Only HTTPS responses from `www.marinha.mil.br` are accepted by the shared source-contract layer. Redirects, unexpected hosts, oversized bodies, unsupported content types and network/HTTP errors fail closed.
@@ -27,23 +28,32 @@ Only HTTPS responses from `www.marinha.mil.br` are accepted by the shared source
 - explicit `NIL` / `NÃO HÁ AVISOS` as the only accepted zero-warning state;
 - annual `Tábuas das Marés` publication year and `Página de Dados de Maré` discovery marker.
 
+`backend/src/chm-area-definition.mjs` separately validates the official METAREA V boundary-label prerequisites required before RJ geofencing can be implemented. It currently requires the official 24-hour forecast page to expose, consistently across repeated forecast periods:
+
+- `BRAVO`: Laguna → Arraial do Cabo, `OCEÂNICA`;
+- `CHARLIE`: Laguna → Arraial do Cabo, `COSTEIRA`;
+- `DELTA`: Arraial do Cabo → Caravelas, with no coast/ocean qualifier asserted when the heading does not provide one.
+
+Any missing or conflicting boundary label fails closed. The resulting digest binds the three official labels only. This contract deliberately returns `municipalityGeofenceValidation=NOT_IMPLEMENTED`, `rjApplicability=UNRESOLVED_WITHOUT_GEOSPATIAL_MAPPING`, and `p0Eligibility=BLOCKED_UNTIL_RJ_GEOFENCE_PROVEN`; it does not infer municipality applicability from textual endpoints alone.
+
 The warning inventory digest is bound to identity, areas, type and the validated temporal interval. The evidence/cache layer stores only bounded metadata and SHA-256 digests. It does **not** retain raw warning text.
 
-The cache semantic marker is `SOURCE_INVENTORY_TEMPORAL_VALIDITY_NOT_RJ_GEOFENCED`: temporal chronology is now validated, but a warning is **not** yet promoted to an RJ coastal alert solely because it appears in the METAREA V inventory.
+The cache semantic marker is `SOURCE_INVENTORY_TEMPORAL_VALIDITY_NOT_RJ_GEOFENCED`: temporal chronology is validated, but a warning is **not** promoted to an RJ coastal alert solely because it appears in the METAREA V inventory.
 
 ## Explicitly not yet proven
 
 This stage does not claim:
 
-- geofencing of METAREA V warnings to the Rio de Janeiro coast / selected municipalities;
-- current applicability to a selected municipality based on coordinates or official area geometry;
+- municipality-level geofencing of METAREA V warnings to the Rio de Janeiro coast;
+- current applicability to a selected municipality based on coordinates or official polygon geometry;
+- that a textual endpoint such as Arraial do Cabo alone is sufficient to resolve a municipal boundary case;
 - observed wave height or confirmation that a forecast warning actually produced coastal ressaca;
 - live tide values for Rio/Niterói/São Gonçalo ports;
 - wave-direction/current/surf operational values;
 - automatic P0 severity mapping or P0 publication from CHM warnings.
 
-Those remain fail-closed until their exact official live contracts are implemented and evidenced.
+Those remain fail-closed until their exact official live/geospatial contracts are implemented and evidenced.
 
 ## Execution policy
 
-`.github/workflows/chm-source-probe.yml` is manual-only. With `execute_live_probe=false` it records `NOT_RUN_EXPLICIT_APPROVAL_REQUIRED`; it never fabricates a live PASS. With explicit live execution it queries only the two pinned public CHM pages and uploads sanitized evidence as `blaise-chm-marine-evidence`.
+`.github/workflows/chm-source-probe.yml` is manual-only. With `execute_live_probe=false` it records `NOT_RUN_EXPLICIT_APPROVAL_REQUIRED`; it never fabricates a live PASS. Existing live execution remains limited to explicitly approved public CHM probes. The new area-definition parser is covered by deterministic source-contract tests; a future live probe should be added only with the same explicit-execution and sanitized-evidence policy.
