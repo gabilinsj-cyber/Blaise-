@@ -4,7 +4,9 @@ import {
   CHM_HOST,
   CHM_MAX_WARNING_AREAS,
   CHM_MAX_WARNING_RECORDS,
+  CHM_MAX_WARNING_VALIDITY_MS,
   CHM_SOURCE_ID,
+  CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_WARNINGS_URL,
 } from './chm-source.mjs';
 import {
@@ -15,7 +17,7 @@ import {
 
 export const CHM_WARNINGS_MAX_CACHE_AGE_MS = 30 * 60 * 1000;
 export const CHM_WARNINGS_MAX_SNAPSHOT_BYTES = 64 * 1024;
-export const CHM_WARNINGS_SEMANTIC_VALIDITY = 'SOURCE_INVENTORY_ONLY_NOT_ALERT_VALIDITY';
+export const CHM_WARNINGS_SEMANTIC_VALIDITY = 'SOURCE_INVENTORY_TEMPORAL_VALIDITY_NOT_RJ_GEOFENCED';
 
 export class ChmWarningsCacheError extends Error {
   constructor(code) {
@@ -30,6 +32,15 @@ function epochMs(value, code) {
   const parsed = value instanceof Date ? value.getTime() : Date.parse(String(value));
   if (!Number.isFinite(parsed)) throw new ChmWarningsCacheError(code);
   return parsed;
+}
+
+function canonicalIsoMs(value, code) {
+  if (typeof value !== 'string') throw new ChmWarningsCacheError(code);
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms) || new Date(ms).toISOString() !== value) {
+    throw new ChmWarningsCacheError(code);
+  }
+  return ms;
 }
 
 function refreshIntervalFor(mode) {
@@ -72,6 +83,9 @@ function digestWarnings(warnings) {
     areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
+    issuedAt: warning.issuedAt,
+    validUntil: warning.validUntil,
+    validityDurationMs: warning.validityDurationMs,
   }));
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
@@ -126,6 +140,21 @@ function validateWarning(warning, seen) {
   if (!/^(?:[01]\d|2[0-3])[0-5]\dZ$/.test(warning.issuedZuluClock || '')) {
     throw new ChmWarningsCacheError('chm_warnings_cache_warning_clock_invalid');
   }
+
+  const issuedAtMs = canonicalIsoMs(warning.issuedAt, 'chm_warnings_cache_warning_issued_at_invalid');
+  const validUntilMs = canonicalIsoMs(warning.validUntil, 'chm_warnings_cache_warning_valid_until_invalid');
+  const issuedDate = new Date(issuedAtMs);
+  const expectedClock = `${String(issuedDate.getUTCHours()).padStart(2, '0')}${String(issuedDate.getUTCMinutes()).padStart(2, '0')}Z`;
+  if (expectedClock !== warning.issuedZuluClock || issuedDate.getUTCFullYear() !== warning.year) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_temporal_identity_mismatch');
+  }
+  const durationMs = validUntilMs - issuedAtMs;
+  if (!Number.isInteger(warning.validityDurationMs)
+      || warning.validityDurationMs !== durationMs
+      || durationMs < 1
+      || durationMs > CHM_MAX_WARNING_VALIDITY_MS) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_validity_window_invalid');
+  }
 }
 
 function validateSnapshot(snapshot) {
@@ -150,7 +179,7 @@ function validateSnapshot(snapshot) {
     throw new ChmWarningsCacheError('chm_warnings_cache_no_warning_marker_invalid');
   }
   if (snapshot.rawWarningTextRetention !== 'NONE'
-      || snapshot.temporalValidityValidation !== 'NOT_IMPLEMENTED'
+      || snapshot.temporalValidityValidation !== CHM_TEMPORAL_VALIDITY_CONTRACT
       || snapshot.rjCoastGeofenceValidation !== 'NOT_IMPLEMENTED') {
     throw new ChmWarningsCacheError('chm_warnings_cache_semantic_contract_drift');
   }

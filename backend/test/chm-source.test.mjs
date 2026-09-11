@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   CHM_HOST,
   CHM_SOURCE_ID,
+  CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_TIDES_URL,
   CHM_WARNINGS_URL,
   ChmSourceContractError,
@@ -45,7 +46,7 @@ function tidesFixture({ year = 2026, dataMarker = 'Página de Dados de Maré', i
   </body></html>`;
 }
 
-test('normalizes bounded official CHM METAREA V warning inventory without retaining raw warning text', () => {
+test('normalizes bounded official CHM METAREA V warning inventory with validated temporal intervals', () => {
   const result = validateChmWarningsHtml(warningsFixture());
   assert.equal(result.sourceId, CHM_SOURCE_ID);
   assert.equal(result.sourceHost, CHM_HOST);
@@ -59,10 +60,25 @@ test('normalizes bounded official CHM METAREA V warning inventory without retain
   assert.deepEqual(result.warnings[0].areas, ['BRAVO']);
   assert.equal(result.warnings[0].warningType, 'AVISO DE VENTO FORTE/MUITO FORTE');
   assert.equal(result.warnings[0].issuedZuluClock, '1200Z');
+  assert.equal(result.warnings[0].issuedAt, '2026-09-08T12:00:00.000Z');
+  assert.equal(result.warnings[0].validUntil, '2026-09-11T00:00:00.000Z');
+  assert.equal(result.warnings[0].validityDurationMs, 60 * 60 * 60 * 1000);
   assert.equal(result.rawWarningTextRetention, 'NONE');
-  assert.equal(result.temporalValidityValidation, 'NOT_IMPLEMENTED');
+  assert.equal(result.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
   assert.equal(result.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
   assert.match(result.warningInventorySha256, /^[a-f0-9]{64}$/);
+});
+
+test('resolves CHM valid-until day/time across a month boundary', () => {
+  const result = validateChmWarningsHtml(warningsFixture({ body: `
+    <p>ÁREA CHARLIE AVISO NR 700/2026</p>
+    <p>AVISO DE VENTO FORTE</p>
+    <p>EMITIDO ÀS 2300Z - QUA - 30/SET/2026</p>
+    <p>VÁLIDO ATÉ 010600Z.</p>
+  ` }));
+  assert.equal(result.warnings[0].issuedAt, '2026-09-30T23:00:00.000Z');
+  assert.equal(result.warnings[0].validUntil, '2026-10-01T06:00:00.000Z');
+  assert.equal(result.warnings[0].validityDurationMs, 7 * 60 * 60 * 1000);
 });
 
 test('does not duplicate Portuguese warnings from the English mirror text', () => {
@@ -89,7 +105,8 @@ test('collapses the same warning rendered twice when one copy adds the CHM area 
   assert.equal(result.warnings[0].area, 'CHARLIE');
   assert.deepEqual(result.warnings[0].areas, ['CHARLIE']);
   assert.equal(result.warnings[0].warningType, 'AVISO DE VENTO FORTE/MUITO FORTE');
-  assert.equal(result.warnings[0].issuedZuluClock, '1200Z');
+  assert.equal(result.warnings[0].issuedAt, '2026-09-10T12:00:00.000Z');
+  assert.equal(result.warnings[0].validUntil, '2026-09-12T12:00:00.000Z');
 });
 
 test('preserves distinct CHM area labels for one compatible warning id', () => {
@@ -111,18 +128,56 @@ test('preserves distinct CHM area labels for one compatible warning id', () => {
   assert.equal(Object.isFrozen(result.warnings[0].areas), true);
 });
 
-test('fails closed when duplicate warning renderings disagree on core metadata', () => {
+test('fails closed when duplicate warning renderings disagree on core or temporal metadata', () => {
   assert.throws(
     () => validateChmWarningsHtml(warningsFixture({ body: `
       <p>AVISO NR 666/2026</p>
       <p>AVISO DE VENTO FORTE/MUITO FORTE</p>
       <p>EMITIDO ÀS 1200Z - QUI - 10/SET/2026</p>
+      <p>VÁLIDO ATÉ 121200Z.</p>
       <p>ÁREA CHARLIE AVISO NR 666/2026</p>
-      <p>AVISO DE MAR GROSSO</p>
+      <p>AVISO DE VENTO FORTE/MUITO FORTE</p>
       <p>EMITIDO ÀS 1200Z - QUI - 10/SET/2026</p>
+      <p>VÁLIDO ATÉ 131200Z.</p>
     ` })),
     (error) => error instanceof ChmSourceContractError
       && error.code === 'chm_warning_duplicate_conflict',
+  );
+});
+
+test('fails closed when a rendered warning omits issue date or valid-until metadata', () => {
+  assert.throws(
+    () => validateChmWarningsHtml(warningsFixture({ body: `
+      <p>ÁREA CHARLIE AVISO NR 667/2026</p>
+      <p>AVISO DE VENTO FORTE</p>
+      <p>EMITIDO ÀS 1200Z</p>
+      <p>VÁLIDO ATÉ 121200Z.</p>
+    ` })),
+    (error) => error instanceof ChmSourceContractError
+      && error.code === 'chm_warning_issue_date_missing',
+  );
+
+  assert.throws(
+    () => validateChmWarningsHtml(warningsFixture({ body: `
+      <p>ÁREA CHARLIE AVISO NR 668/2026</p>
+      <p>AVISO DE VENTO FORTE</p>
+      <p>EMITIDO ÀS 1200Z - QUI - 10/SET/2026</p>
+    ` })),
+    (error) => error instanceof ChmSourceContractError
+      && error.code === 'chm_warning_valid_until_missing',
+  );
+});
+
+test('fails closed on implausibly long CHM validity windows', () => {
+  assert.throws(
+    () => validateChmWarningsHtml(warningsFixture({ body: `
+      <p>ÁREA CHARLIE AVISO NR 669/2026</p>
+      <p>AVISO DE VENTO FORTE</p>
+      <p>EMITIDO ÀS 0000Z - TER - 01/SET/2026</p>
+      <p>VÁLIDO ATÉ 200000Z.</p>
+    ` })),
+    (error) => error instanceof ChmSourceContractError
+      && error.code === 'chm_warning_validity_window_invalid',
   );
 });
 
@@ -132,6 +187,7 @@ test('accepts an explicit CHM no-warning marker without fabricating warnings', (
   assert.equal(result.duplicateRenderCount, 0);
   assert.equal(result.noWarningMarker, true);
   assert.deepEqual(result.warnings, []);
+  assert.equal(result.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
 });
 
 test('fails closed when METAREA V identity drifts', () => {

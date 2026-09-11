@@ -15,6 +15,7 @@ import { CHM_WARNINGS_SEMANTIC_VALIDITY } from '../src/chm-warning-cache.mjs';
 import {
   CHM_HOST,
   CHM_SOURCE_ID,
+  CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_WARNINGS_URL,
 } from '../src/chm-source.mjs';
 import {
@@ -68,6 +69,9 @@ function chmSnapshot() {
       areas: Object.freeze(['SUL']),
       warningType: 'AVISO DE VENTO FORTE',
       issuedZuluClock: '1200Z',
+      issuedAt: '2026-09-10T12:00:00.000Z',
+      validUntil: '2026-09-12T12:00:00.000Z',
+      validityDurationMs: 48 * 60 * 60 * 1000,
     }),
   ]);
   const canonical = warnings.map((warning) => ({
@@ -76,6 +80,9 @@ function chmSnapshot() {
     areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
+    issuedAt: warning.issuedAt,
+    validUntil: warning.validUntil,
+    validityDurationMs: warning.validityDurationMs,
   }));
   return Object.freeze({
     sourceId: CHM_SOURCE_ID,
@@ -87,7 +94,7 @@ function chmSnapshot() {
     warnings,
     warningInventorySha256: createHash('sha256').update(JSON.stringify(canonical)).digest('hex'),
     rawWarningTextRetention: 'NONE',
-    temporalValidityValidation: 'NOT_IMPLEMENTED',
+    temporalValidityValidation: CHM_TEMPORAL_VALIDITY_CONTRACT,
     rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
   });
 }
@@ -205,7 +212,7 @@ test('optional INEA station task is explicit and honors severe cadence', async (
   assert.equal(worker.readSource(INEA_STATION_TASK_ID).state, 'CURRENT');
 });
 
-test('optional CHM warnings task is explicit and never promotes inventory freshness to alert validity', async () => {
+test('optional CHM warnings task is explicit and never promotes temporally validated inventory to RJ alert validity', async () => {
   let chmCalls = 0;
   const worker = createOfficialSourceWorker({
     config: {
@@ -233,7 +240,8 @@ test('optional CHM warnings task is explicit and never promotes inventory freshn
   assert.equal(reading.state, 'CURRENT');
   assert.equal(reading.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
   assert.equal(reading.snapshot.activeWarningCount, 1);
-  assert.equal(reading.snapshot.temporalValidityValidation, 'NOT_IMPLEMENTED');
+  assert.equal(reading.snapshot.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
+  assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
 
   const status = worker.status();
   assert.equal(status.chmWarningsConfigured, true);
