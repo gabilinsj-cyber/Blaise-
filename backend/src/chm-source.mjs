@@ -229,7 +229,7 @@ export function validateChmWarningsHtml(html) {
       : null;
     const areas = Object.freeze(area ? [area] : []);
 
-    const typeMatch = segment.match(/AVISO\s+DE\s+(.{3,96}?)\s+EMITIDO\s+[ÀA]S\s+(\d{4}Z)/iu);
+    const typeMatch = segment.match(/(AVISO\s+DE\s+.{3,96}?)\s+EMITIDO\s+[ÀA]S\s+(\d{4}Z)/iu);
     if (!typeMatch) throw new ChmSourceContractError('chm_warning_core_metadata_missing');
     const warningType = normalizeBoundedLabel(typeMatch[1], 'chm_warning_type_invalid', 96);
     const issuedZuluClock = typeMatch[2].toUpperCase();
