@@ -20,6 +20,7 @@ function digestWarnings(warnings) {
   const canonical = warnings.map((warning) => ({
     id: warning.id,
     area: warning.area,
+    areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
   }));
@@ -33,6 +34,7 @@ function warningSnapshot() {
       warningNumber: 321,
       year: 2026,
       area: 'SUL',
+      areas: Object.freeze(['SUL', 'SUDESTE']),
       warningType: 'AVISO DE VENTO FORTE',
       issuedZuluClock: '1200Z',
     }),
@@ -72,10 +74,12 @@ test('CHM warnings cache keeps a bounded memory-only inventory without claiming 
   assert.equal(reading.dataAgeMs, null);
   assert.equal(reading.cacheAgeMs, 0);
   assert.equal(reading.snapshot.activeWarningCount, 1);
+  assert.deepEqual(reading.snapshot.warnings[0].areas, ['SUL', 'SUDESTE']);
   assert.equal(reading.snapshot.temporalValidityValidation, 'NOT_IMPLEMENTED');
   assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
   assert.equal(Object.isFrozen(reading.snapshot), true);
   assert.equal(Object.isFrozen(reading.snapshot.warnings), true);
+  assert.equal(Object.isFrozen(reading.snapshot.warnings[0].areas), true);
 });
 
 test('CHM warnings cache becomes stale from fetch age alone', () => {
@@ -99,13 +103,28 @@ test('CHM warnings cache contains later failures and redacts stale upstream bodi
   assert.equal(reading.snapshot.activeWarningCount, 1);
 });
 
-test('CHM warnings cache rejects inventory digest drift and semantic promotion', () => {
+test('CHM warnings cache rejects inventory digest drift, area compatibility drift and semantic promotion', () => {
   const cache = createChmWarningsInventoryCache({ now: () => NOW });
   const invalidDigest = { ...warningSnapshot(), warningInventorySha256: '0'.repeat(64) };
   assert.throws(
     () => cache.recordSuccess(invalidDigest, { fetchedAt: NOW }),
     (error) => error instanceof ChmWarningsCacheError
       && error.code === 'chm_warnings_cache_digest_invalid',
+  );
+
+  const compatibilityWarnings = warningSnapshot().warnings.map((warning) => ({
+    ...warning,
+    area: 'SUDESTE',
+  }));
+  const compatibilityDrift = {
+    ...warningSnapshot(),
+    warnings: compatibilityWarnings,
+    warningInventorySha256: digestWarnings(compatibilityWarnings),
+  };
+  assert.throws(
+    () => cache.recordSuccess(compatibilityDrift, { fetchedAt: NOW }),
+    (error) => error instanceof ChmWarningsCacheError
+      && error.code === 'chm_warnings_cache_warning_area_compatibility_mismatch',
   );
 
   const invalidSemantics = { ...warningSnapshot(), temporalValidityValidation: 'PASS' };
