@@ -4,6 +4,8 @@ import { probeCemadenRjHydrologicalRisk } from './cemaden-rj-source.mjs';
 import { createChmWarningsInventoryCache } from './chm-warning-cache.mjs';
 import { probeChmWarnings } from './chm-source.mjs';
 import { probeIneaStationSnapshot } from './inea-source.mjs';
+import { createInmetCapWarningsCache } from './inmet-warning-cache.mjs';
+import { probeInmetCapWarnings } from './inmet-source.mjs';
 import {
   createAlertaRioRainfallCache,
   createIneaHydrometStationCache,
@@ -15,6 +17,7 @@ export const ALERTA_RIO_RAINFALL_TASK_ID = 'alerta-rio-rainfall';
 export const INEA_STATION_TASK_ID = 'inea-station';
 export const CEMADEN_RJ_TASK_ID = 'cemaden-rj-hydrological-risk';
 export const CHM_WARNINGS_TASK_ID = 'chm-marine-warnings';
+export const INMET_WARNINGS_TASK_ID = 'inmet-cap-warnings';
 
 const INEA_STATION_URL = /^https:\/\/alertadecheias\.inea\.rj\.gov\.br\/alertadecheias\/\d{8,20}\.html$/;
 
@@ -68,6 +71,10 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     defaultValue: false,
     code: 'official_source_worker_invalid_chm_warnings_enabled_flag',
   });
+  const inmetWarningsEnabled = parseBoolean(env.BLAISE_INMET_WARNINGS_ENABLED, {
+    defaultValue: false,
+    code: 'official_source_worker_invalid_inmet_warnings_enabled_flag',
+  });
 
   const config = {
     enabled,
@@ -83,6 +90,11 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_CHM_WARNINGS_ENABLED !== null
       && env.BLAISE_CHM_WARNINGS_ENABLED !== '') {
     config.chmWarningsEnabled = chmWarningsEnabled;
+  }
+  if (env.BLAISE_INMET_WARNINGS_ENABLED !== undefined
+      && env.BLAISE_INMET_WARNINGS_ENABLED !== null
+      && env.BLAISE_INMET_WARNINGS_ENABLED !== '') {
+    config.inmetWarningsEnabled = inmetWarningsEnabled;
   }
   return Object.freeze(config);
 }
@@ -118,6 +130,7 @@ export function createOfficialSourceWorker({
   probeIneaStation = probeIneaStationSnapshot,
   probeCemadenRj = probeCemadenRjHydrologicalRisk,
   probeChmWarningsLive = probeChmWarnings,
+  probeInmetWarningsLive = probeInmetCapWarnings,
 } = {}) {
   if (!config || typeof config !== 'object') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_config');
@@ -131,11 +144,15 @@ export function createOfficialSourceWorker({
   const ineaStationUrl = validateIneaStationUrl(config.ineaStationUrl);
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = config.chmWarningsEnabled ?? false;
+  const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
   if (typeof cemadenRjEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');
   }
   if (typeof chmWarningsEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_chm_warnings_enabled_flag');
+  }
+  if (typeof inmetWarningsEnabled !== 'boolean') {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_warnings_enabled_flag');
   }
   if (typeof now !== 'function' || typeof fetchImpl !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_runtime');
@@ -143,7 +160,8 @@ export function createOfficialSourceWorker({
   if (typeof probeAlertaRio !== 'function'
       || typeof probeIneaStation !== 'function'
       || typeof probeCemadenRj !== 'function'
-      || typeof probeChmWarningsLive !== 'function') {
+      || typeof probeChmWarningsLive !== 'function'
+      || typeof probeInmetWarningsLive !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_probe');
   }
   if (typeof onEvent !== 'function') {
@@ -154,6 +172,7 @@ export function createOfficialSourceWorker({
   const ineaCache = ineaStationUrl ? createIneaHydrometStationCache({ now }) : null;
   const cemadenRjCache = cemadenRjEnabled ? createCemadenRjHydrologicalRiskCache({ now }) : null;
   const chmWarningsCache = chmWarningsEnabled ? createChmWarningsInventoryCache({ now }) : null;
+  const inmetWarningsCache = inmetWarningsEnabled ? createInmetCapWarningsCache({ now }) : null;
 
   const tasks = [{
     id: ALERTA_RIO_RAINFALL_TASK_ID,
@@ -213,6 +232,21 @@ export function createOfficialSourceWorker({
     });
   }
 
+  if (inmetWarningsEnabled) {
+    tasks.push({
+      id: INMET_WARNINGS_TASK_ID,
+      run: async ({ startedAt }) => {
+        try {
+          const snapshot = await probeInmetWarningsLive({ fetchImpl });
+          inmetWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        } catch (error) {
+          inmetWarningsCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+          throw error;
+        }
+      },
+    });
+  }
+
   const scheduler = createOfficialSourceScheduler({
     tasks,
     now,
@@ -248,6 +282,9 @@ export function createOfficialSourceWorker({
     if (taskId === CHM_WARNINGS_TASK_ID && chmWarningsCache) {
       return chmWarningsCache.read({ mode: scheduler.snapshot().mode });
     }
+    if (taskId === INMET_WARNINGS_TASK_ID && inmetWarningsCache) {
+      return inmetWarningsCache.read({ mode: scheduler.snapshot().mode });
+    }
     throw new OfficialSourceWorkerError('official_source_worker_unknown_source');
   }
 
@@ -265,6 +302,9 @@ export function createOfficialSourceWorker({
     if (chmWarningsCache) {
       sourceStates.push(sourceStateWithoutPayload(chmWarningsCache.read({ mode: schedulerStatus.mode })));
     }
+    if (inmetWarningsCache) {
+      sourceStates.push(sourceStateWithoutPayload(inmetWarningsCache.read({ mode: schedulerStatus.mode })));
+    }
 
     return Object.freeze({
       contract: OFFICIAL_SOURCE_WORKER_CONTRACT,
@@ -276,6 +316,7 @@ export function createOfficialSourceWorker({
       ineaStationConfigured: Boolean(ineaStationUrl),
       cemadenRjConfigured: cemadenRjEnabled,
       chmWarningsConfigured: chmWarningsEnabled,
+      inmetWarningsConfigured: inmetWarningsEnabled,
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
       statusPayloads: 'REDACTED',
       externalPolling: config.enabled ? 'EXPLICITLY_ENABLED' : 'DISABLED_FAIL_CLOSED',

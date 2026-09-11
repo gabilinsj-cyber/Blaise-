@@ -27,6 +27,14 @@ A warning is classified as affecting Estado do Rio de Janeiro only when at least
 
 RJ-looking seven-digit IBGE codes that are not in the canonical 92-city catalog fail closed. Exact municipality codes are normalized and retained only as canonical IBGE identifiers for downstream routing; CAP polygons remain unretained.
 
+## Runtime polling and cache
+
+The production official-source worker can poll the validated CAP feed only when both the global source worker and the dedicated INMET switch are explicitly enabled. The dedicated switch is `BLAISE_INMET_WARNINGS_ENABLED=true`; it defaults to disabled and invalid values fail startup closed.
+
+`backend/src/inmet-warning-cache.mjs` keeps only the normalized CAP inventory in memory. It independently revalidates source identity, bounded CAP fields, exact canonical RJ municipality identifiers, RJ inventory consistency and the canonical SHA-256 digest before accepting a snapshot. The cache is capped at 2 MiB, becomes stale after 30 minutes, follows the shared 15-minute normal / 1-minute severe refresh cadence, and never exposes warning payloads through worker status.
+
+A `CURRENT` cache means only that a recently fetched normalized INMET inventory passed the source/cache contracts. Its semantic marker is `CAP_CONTRACT_VALIDATED_P0_POLICY_NOT_EVALUATED`: runtime cache freshness does **not** mean that any warning passed the P0 threshold, remains unexpired at decision time, was published to FCM, or reached a device.
+
 ## P0 normalization policy
 
 `backend/src/inmet-p0-policy.mjs` implements a deterministic, fail-closed policy but does not send FCM messages by itself.
@@ -50,8 +58,8 @@ Every candidate is passed through the same `validateP0Alert` contract used by FC
 
 The live probe does **not** publish to FCM. It records candidate, blocked and ineligible counts plus reason histograms so source behavior can be audited without creating a real alert.
 
-Deterministic parser/fail-closed tests run in normal backend CI through `backend/test/inmet-source.test.mjs` and `backend/test/inmet-p0-policy.test.mjs`.
+Deterministic parser/fail-closed tests run in normal backend CI through `backend/test/inmet-source.test.mjs`, `backend/test/inmet-warning-cache.test.mjs`, `backend/test/official-source-worker-inmet.test.mjs` and `backend/test/inmet-p0-policy.test.mjs`.
 
 ## Not yet proven
 
-This change does **not** claim live INMET-to-FCM delivery, Android rendering, or a production P0 alert path. Those remain blocked until a live INMET source probe passes on the same release candidate and the explicitly controlled publisher is wired and validated with real Firebase/FCM evidence. No warning is promoted merely from a deterministic test or dry-run policy evaluation.
+This change does **not** claim live INMET-to-FCM delivery, Android rendering, or a production P0 alert path. Those remain blocked until a live INMET source probe passes on the same release candidate and the explicitly controlled publisher is wired and validated with real Firebase/FCM evidence. No warning is promoted merely from a deterministic test, a fresh runtime cache, or dry-run policy evaluation.
