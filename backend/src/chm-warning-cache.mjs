@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   CHM_HOST,
+  CHM_MAX_WARNING_AREAS,
   CHM_MAX_WARNING_RECORDS,
   CHM_SOURCE_ID,
   CHM_WARNINGS_URL,
@@ -68,10 +69,20 @@ function digestWarnings(warnings) {
   const canonical = warnings.map((warning) => ({
     id: warning.id,
     area: warning.area,
+    areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
   }));
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+}
+
+function validateArea(area) {
+  if (typeof area !== 'string'
+      || area.length < 2
+      || area.length > 48
+      || /[\u0000-\u001f\u007f]/.test(area)) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_area_invalid');
+  }
 }
 
 function validateWarning(warning, seen) {
@@ -92,9 +103,20 @@ function validateWarning(warning, seen) {
   if (`${warning.warningNumber}/${warning.year}` !== warning.id) {
     throw new ChmWarningsCacheError('chm_warnings_cache_warning_identity_mismatch');
   }
-  if (warning.area !== null
-      && (typeof warning.area !== 'string' || warning.area.length < 2 || warning.area.length > 48)) {
-    throw new ChmWarningsCacheError('chm_warnings_cache_warning_area_invalid');
+  if (warning.area !== null) validateArea(warning.area);
+  if (!Array.isArray(warning.areas) || warning.areas.length > CHM_MAX_WARNING_AREAS) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_areas_invalid');
+  }
+  const uniqueAreas = new Set();
+  for (const area of warning.areas) {
+    validateArea(area);
+    if (uniqueAreas.has(area)) {
+      throw new ChmWarningsCacheError('chm_warnings_cache_warning_area_duplicate');
+    }
+    uniqueAreas.add(area);
+  }
+  if (warning.area !== (warning.areas[0] ?? null)) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_area_compatibility_mismatch');
   }
   if (typeof warning.warningType !== 'string'
       || warning.warningType.length < 3
