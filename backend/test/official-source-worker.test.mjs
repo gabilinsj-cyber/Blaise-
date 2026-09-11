@@ -4,11 +4,17 @@ import assert from 'node:assert/strict';
 import {
   ALERTA_RIO_RAINFALL_TASK_ID,
   createOfficialSourceWorker,
+  DEFESA_CIVIL_RIO_ASSETS_TASK_ID,
   INEA_STATION_TASK_ID,
   loadOfficialSourceWorkerConfig,
   OfficialSourceWorkerError,
 } from '../src/official-source-worker.mjs';
 import { ALERTA_RIO_LIVE_SOURCE_ID } from '../src/alerta-rio-source.mjs';
+import {
+  DEFESA_CIVIL_RIO_ASSETS_HOST,
+  DEFESA_CIVIL_RIO_ASSETS_SOURCE_ID,
+  DEFESA_CIVIL_RIO_SERVICE_ITEM_ID,
+} from '../src/defesa-civil-rio-assets.mjs';
 import {
   INEA_ALERT_HOST,
   INEA_STATION_SOURCE_ID,
@@ -34,6 +40,25 @@ function alertaRioSnapshot() {
   });
 }
 
+function defesaCivilRioAssetsSnapshot() {
+  return Object.freeze({
+    sourceId: DEFESA_CIVIL_RIO_ASSETS_SOURCE_ID,
+    sourceHost: DEFESA_CIVIL_RIO_ASSETS_HOST,
+    serviceItemId: DEFESA_CIVIL_RIO_SERVICE_ITEM_ID,
+    spatialReference: 4326,
+    sirens: Object.freeze({
+      count: 1,
+      sha256: 'c'.repeat(64),
+      items: Object.freeze([Object.freeze({ objectId: 1, name: 'Sirene teste' })]),
+    }),
+    supportPoints: Object.freeze({
+      count: 1,
+      sha256: 'd'.repeat(64),
+      items: Object.freeze([Object.freeze({ objectId: 2, name: 'Ponto teste' })]),
+    }),
+  });
+}
+
 function ineaSnapshot() {
   return Object.freeze({
     sourceId: INEA_STATION_SOURCE_ID,
@@ -54,6 +79,7 @@ test('worker configuration is disabled fail-closed by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
+    defesaCivilRioAssetsEnabled: false,
     ineaStationUrl: null,
   });
 
@@ -61,6 +87,10 @@ test('worker configuration is disabled fail-closed by default', () => {
     () => loadOfficialSourceWorkerConfig({ BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED: 'yes' }),
     (error) => error instanceof OfficialSourceWorkerError
       && error.code === 'official_source_worker_invalid_enabled_flag',
+  );
+  assert.throws(
+    () => loadOfficialSourceWorkerConfig({ BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED: '1' }),
+    (error) => error.code === 'official_source_worker_invalid_defesa_civil_rio_assets_flag',
   );
   assert.throws(
     () => loadOfficialSourceWorkerConfig({ BLAISE_INEA_STATION_URL: 'https://example.com/station' }),
@@ -112,6 +142,46 @@ test('enabled worker refreshes Alerta Rio into memory-only cache', async () => {
   assert.equal(status.sources[0].state, 'CURRENT');
   assert.equal(Object.hasOwn(status.sources[0], 'snapshot'), false);
   assert.equal(JSON.stringify(status).includes('stations'), false);
+});
+
+test('Defesa Civil Rio map assets require explicit opt-in and remain redacted from worker status', async () => {
+  let calls = 0;
+  const worker = createOfficialSourceWorker({
+    config: {
+      enabled: true,
+      initialMode: 'normal',
+      defesaCivilRioAssetsEnabled: true,
+      ineaStationUrl: null,
+    },
+    now: () => NOW,
+    autoSchedule: false,
+    maxConcurrency: 2,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    probeDefesaCivilRioAssets: async () => {
+      calls += 1;
+      return defesaCivilRioAssetsSnapshot();
+    },
+  });
+
+  worker.start();
+  const launched = await worker.tick();
+  assert.deepEqual(
+    [...launched].sort(),
+    [ALERTA_RIO_RAINFALL_TASK_ID, DEFESA_CIVIL_RIO_ASSETS_TASK_ID].sort(),
+  );
+  assert.equal(calls, 1);
+
+  const reading = worker.readSource(DEFESA_CIVIL_RIO_ASSETS_TASK_ID);
+  assert.equal(reading.state, 'CURRENT');
+  assert.equal(reading.snapshot.sirens.count, 1);
+  assert.equal(reading.snapshot.supportPoints.count, 1);
+
+  const status = worker.status();
+  assert.equal(status.defesaCivilRioAssetsConfigured, true);
+  assert.equal(status.sources.some((source) => source.sourceId === DEFESA_CIVIL_RIO_ASSETS_SOURCE_ID), true);
+  assert.equal(JSON.stringify(status).includes('Sirene teste'), false);
+  assert.equal(JSON.stringify(status).includes('Ponto teste'), false);
+  assert.equal(JSON.stringify(status).includes('items'), false);
 });
 
 test('source failures are contained and exposed only as bounded error codes', async () => {
