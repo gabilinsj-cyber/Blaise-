@@ -67,7 +67,13 @@ function inmetP0Status({
   blockedCount = null,
   ineligibleCount = null,
   batchSha256 = null,
+  acceptedCount = null,
+  duplicateCount = null,
+  newlyAcceptedCount = null,
   delivery = configured ? 'NOT_PERFORMED_AWAITING_SOURCE' : 'NOT_CONFIGURED',
+  publication = 'NOT_PERFORMED',
+  fcmDelivery = 'NOT_PROVEN',
+  automaticPublication = 'DISABLED',
 } = {}) {
   return Object.freeze({
     contract: INMET_P0_RUNTIME_STATUS_CONTRACT,
@@ -81,15 +87,18 @@ function inmetP0Status({
     blockedCount,
     ineligibleCount,
     batchSha256,
+    acceptedCount,
+    duplicateCount,
+    newlyAcceptedCount,
     delivery,
-    publication: 'NOT_PERFORMED',
-    fcmDelivery: 'NOT_PROVEN',
-    automaticPublication: 'DISABLED',
+    publication,
+    fcmDelivery,
+    automaticPublication,
     candidatePayloadRetention: 'NONE_AFTER_STATUS_PROJECTION',
   });
 }
 
-function projectInmetP0BatchStatus(batch, startedAt) {
+function projectInmetP0BatchStatus(batch, startedAt, automaticPublication) {
   if (!batch || typeof batch !== 'object' || Array.isArray(batch)
       || batch.policyId !== INMET_P0_POLICY_ID
       || batch.delivery !== 'STAGED_NOT_PUBLISHED'
@@ -110,6 +119,39 @@ function projectInmetP0BatchStatus(batch, startedAt) {
     ineligibleCount: batch.ineligibleCount,
     batchSha256: batch.batchSha256,
     delivery: batch.delivery,
+    automaticPublication,
+  });
+}
+
+function projectInmetP0PublishStatus(batch, result, startedAt) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)
+      || result.schema !== batch.schema
+      || result.batchSha256 !== batch.batchSha256
+      || result.delivery !== 'BACKEND_P0_ENDPOINT_ACCEPTED'
+      || !Number.isInteger(result.acceptedCount) || result.acceptedCount < 0
+      || !Number.isInteger(result.duplicateCount) || result.duplicateCount < 0
+      || !Number.isInteger(result.newlyAcceptedCount) || result.newlyAcceptedCount < 0
+      || result.acceptedCount !== batch.candidateCount
+      || result.duplicateCount > result.acceptedCount
+      || result.newlyAcceptedCount !== result.acceptedCount - result.duplicateCount) {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_p0_publish_result');
+  }
+  return inmetP0Status({
+    configured: true,
+    status: 'BACKEND_ACCEPTED',
+    lastAttemptAt: startedAt,
+    evaluatedAt: batch.evaluatedAt,
+    candidateCount: batch.candidateCount,
+    blockedCount: batch.blockedCount,
+    ineligibleCount: batch.ineligibleCount,
+    batchSha256: batch.batchSha256,
+    acceptedCount: result.acceptedCount,
+    duplicateCount: result.duplicateCount,
+    newlyAcceptedCount: result.newlyAcceptedCount,
+    delivery: result.delivery,
+    publication: 'PERFORMED',
+    fcmDelivery: 'BACKEND_ACCEPTED_NOT_DEVICE_PROVEN',
+    automaticPublication: 'ENABLED_EXPLICIT',
   });
 }
 
@@ -138,6 +180,13 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     defaultValue: false,
     code: 'official_source_worker_invalid_inmet_warnings_enabled_flag',
   });
+  const inmetP0PublishEnabled = parseBoolean(env.BLAISE_INMET_P0_PUBLISH_ENABLED, {
+    defaultValue: false,
+    code: 'official_source_worker_invalid_inmet_p0_publish_enabled_flag',
+  });
+  if (inmetP0PublishEnabled && !inmetWarningsEnabled) {
+    throw new OfficialSourceWorkerError('official_source_worker_inmet_p0_publish_requires_warnings');
+  }
   const defesaCivilRioAssetsEnabled = parseBoolean(env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED, {
     defaultValue: false,
     code: 'official_source_worker_invalid_defesa_civil_rio_assets_enabled_flag',
@@ -162,6 +211,11 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_INMET_WARNINGS_ENABLED !== null
       && env.BLAISE_INMET_WARNINGS_ENABLED !== '') {
     config.inmetWarningsEnabled = inmetWarningsEnabled;
+  }
+  if (env.BLAISE_INMET_P0_PUBLISH_ENABLED !== undefined
+      && env.BLAISE_INMET_P0_PUBLISH_ENABLED !== null
+      && env.BLAISE_INMET_P0_PUBLISH_ENABLED !== '') {
+    config.inmetP0PublishEnabled = inmetP0PublishEnabled;
   }
   if (env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== undefined
       && env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== null
@@ -204,6 +258,7 @@ export function createOfficialSourceWorker({
   probeChmWarningsLive = probeChmWarnings,
   probeInmetWarningsLive = probeInmetCapWarnings,
   stageInmetP0 = stageInmetP0Batch,
+  publishInmetP0 = null,
   probeDefesaCivilRioAssetsLive = probeDefesaCivilRioMapAssets,
 } = {}) {
   if (!config || typeof config !== 'object') {
@@ -219,6 +274,7 @@ export function createOfficialSourceWorker({
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = config.chmWarningsEnabled ?? false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
+  const inmetP0PublishEnabled = config.inmetP0PublishEnabled ?? false;
   const defesaCivilRioAssetsEnabled = config.defesaCivilRioAssetsEnabled ?? false;
   if (typeof cemadenRjEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');
@@ -228,6 +284,15 @@ export function createOfficialSourceWorker({
   }
   if (typeof inmetWarningsEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_warnings_enabled_flag');
+  }
+  if (typeof inmetP0PublishEnabled !== 'boolean') {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_p0_publish_enabled_flag');
+  }
+  if (inmetP0PublishEnabled && !inmetWarningsEnabled) {
+    throw new OfficialSourceWorkerError('official_source_worker_inmet_p0_publish_requires_warnings');
+  }
+  if (inmetP0PublishEnabled && typeof publishInmetP0 !== 'function') {
+    throw new OfficialSourceWorkerError('official_source_worker_inmet_p0_publisher_missing');
   }
   if (typeof defesaCivilRioAssetsEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_defesa_civil_rio_assets_enabled_flag');
@@ -254,7 +319,11 @@ export function createOfficialSourceWorker({
   const chmWarningsCache = chmWarningsEnabled ? createChmWarningsInventoryCache({ now }) : null;
   const inmetWarningsCache = inmetWarningsEnabled ? createInmetCapWarningsCache({ now }) : null;
   const defesaCivilRioAssetsCache = defesaCivilRioAssetsEnabled ? createDefesaCivilRioAssetsCache({ now }) : null;
-  let inmetP0Evaluation = inmetP0Status({ configured: inmetWarningsEnabled });
+  const inmetAutomaticPublication = inmetP0PublishEnabled ? 'ENABLED_EXPLICIT' : 'DISABLED';
+  let inmetP0Evaluation = inmetP0Status({
+    configured: inmetWarningsEnabled,
+    automaticPublication: inmetAutomaticPublication,
+  });
 
   const tasks = [{
     id: ALERTA_RIO_RAINFALL_TASK_ID,
@@ -331,17 +400,19 @@ export function createOfficialSourceWorker({
             lastAttemptAt: startedAt,
             lastErrorCode: errorCode,
             delivery: 'NOT_PERFORMED_SOURCE_UNAVAILABLE',
+            automaticPublication: inmetAutomaticPublication,
           });
           throw error;
         }
 
+        const nowMillis = Date.parse(startedAt);
+        let batch;
         try {
-          const nowMillis = Date.parse(startedAt);
           if (!Number.isFinite(nowMillis)) {
             throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_p0_clock');
           }
-          const batch = stageInmetP0(snapshot, nowMillis);
-          inmetP0Evaluation = projectInmetP0BatchStatus(batch, startedAt);
+          batch = stageInmetP0(snapshot, nowMillis);
+          inmetP0Evaluation = projectInmetP0BatchStatus(batch, startedAt, inmetAutomaticPublication);
         } catch (error) {
           inmetP0Evaluation = inmetP0Status({
             configured: true,
@@ -349,7 +420,32 @@ export function createOfficialSourceWorker({
             lastAttemptAt: startedAt,
             lastErrorCode: safeSourceErrorCode(error),
             delivery: 'NOT_PERFORMED_POLICY_BLOCKED',
+            automaticPublication: inmetAutomaticPublication,
           });
+          return;
+        }
+
+        if (!inmetP0PublishEnabled) return;
+
+        try {
+          const result = await publishInmetP0(batch, { nowMillis });
+          inmetP0Evaluation = projectInmetP0PublishStatus(batch, result, startedAt);
+        } catch (error) {
+          inmetP0Evaluation = inmetP0Status({
+            configured: true,
+            status: 'BLOCKED_PUBLICATION_FAILED',
+            lastAttemptAt: startedAt,
+            lastErrorCode: safeSourceErrorCode(error),
+            evaluatedAt: batch.evaluatedAt,
+            candidateCount: batch.candidateCount,
+            blockedCount: batch.blockedCount,
+            ineligibleCount: batch.ineligibleCount,
+            batchSha256: batch.batchSha256,
+            delivery: 'PUBLICATION_FAILED',
+            publication: 'FAILED',
+            automaticPublication: 'ENABLED_EXPLICIT',
+          });
+          throw error;
         }
       },
     });
@@ -446,6 +542,7 @@ export function createOfficialSourceWorker({
       cemadenRjConfigured: cemadenRjEnabled,
       chmWarningsConfigured: chmWarningsEnabled,
       inmetWarningsConfigured: inmetWarningsEnabled,
+      inmetP0PublishEnabled,
       inmetP0Evaluation,
       defesaCivilRioAssetsConfigured: defesaCivilRioAssetsEnabled,
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',

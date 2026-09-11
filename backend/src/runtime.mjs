@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
+import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
   createOfficialSourceWorker,
@@ -168,7 +169,19 @@ async function main() {
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const sourceWorker = createOfficialSourceWorker({ config: sourceWorkerConfig });
+  let publishInmetP0 = null;
+  if (sourceWorkerConfig.inmetP0PublishEnabled === true) {
+    publishInmetP0 = await createInmetP0RuntimePublisher({
+      baseUrl: process.env.BLAISE_INMET_P0_BACKEND_BASE_URL,
+      audience: config.p0Audience,
+      serviceAccount: config.p0ServiceAccount,
+    });
+  }
+
+  const sourceWorker = createOfficialSourceWorker({
+    config: sourceWorkerConfig,
+    publishInmetP0,
+  });
   if (sourceWorker.start()) {
     console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
   } else {
