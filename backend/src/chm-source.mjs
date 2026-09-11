@@ -8,6 +8,23 @@ export const CHM_WARNINGS_URL = 'https://www.marinha.mil.br/chm/dados-do-smm-avi
 export const CHM_TIDES_URL = 'https://www.marinha.mil.br/chm/dados-do-segnav-publicacoes/tabuas-das-mares';
 export const CHM_MAX_WARNING_RECORDS = 64;
 export const CHM_MAX_WARNING_AREAS = 8;
+export const CHM_MAX_WARNING_VALIDITY_MS = 14 * 24 * 60 * 60 * 1000;
+export const CHM_TEMPORAL_VALIDITY_CONTRACT = 'PARSED_ISSUED_AND_VALID_UNTIL_CHRONOLOGY';
+
+const CHM_MONTH_BY_TOKEN = Object.freeze({
+  JAN: 0,
+  FEV: 1,
+  MAR: 2,
+  ABR: 3,
+  MAI: 4,
+  JUN: 5,
+  JUL: 6,
+  AGO: 7,
+  SET: 8,
+  OUT: 9,
+  NOV: 10,
+  DEZ: 11,
+});
 
 export class ChmSourceContractError extends Error {
   constructor(code) {
@@ -68,9 +85,89 @@ function normalizeBoundedLabel(value, code, maxLength) {
   return normalized;
 }
 
+function parseClockParts(clock, code) {
+  const match = /^(\d{2})(\d{2})Z$/.exec(clock || '');
+  if (!match) throw new ChmSourceContractError(code);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new ChmSourceContractError(code);
+  }
+  return { hour, minute };
+}
+
+function canonicalUtcMs(year, month, day, hour, minute, code) {
+  const ms = Date.UTC(year, month, day, hour, minute, 0, 0);
+  const date = new Date(ms);
+  if (date.getUTCFullYear() !== year
+      || date.getUTCMonth() !== month
+      || date.getUTCDate() !== day
+      || date.getUTCHours() !== hour
+      || date.getUTCMinutes() !== minute) {
+    throw new ChmSourceContractError(code);
+  }
+  return ms;
+}
+
+function parseIssuedAt({ dayToken, monthToken, yearToken, clock }) {
+  const year = Number(yearToken);
+  const day = Number(dayToken);
+  const monthKey = String(monthToken)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+  const month = CHM_MONTH_BY_TOKEN[monthKey];
+  if (!Number.isInteger(year) || year < 2020 || year > 2100 || !Number.isInteger(day) || month === undefined) {
+    throw new ChmSourceContractError('chm_warning_issue_date_invalid');
+  }
+  const { hour, minute } = parseClockParts(clock, 'chm_warning_issue_clock_invalid');
+  const ms = canonicalUtcMs(year, month, day, hour, minute, 'chm_warning_issue_date_invalid');
+  return Object.freeze({ ms, iso: new Date(ms).toISOString(), year, month });
+}
+
+function resolveValidUntil({ issued, token }) {
+  const match = /^(\d{2})(\d{2})(\d{2})Z$/.exec(token || '');
+  if (!match) throw new ChmSourceContractError('chm_warning_valid_until_invalid');
+  const day = Number(match[1]);
+  const hour = Number(match[2]);
+  const minute = Number(match[3]);
+  if (day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new ChmSourceContractError('chm_warning_valid_until_invalid');
+  }
+
+  const candidates = [];
+  for (const monthOffset of [0, 1]) {
+    const absoluteMonth = issued.month + monthOffset;
+    const year = issued.year + Math.floor(absoluteMonth / 12);
+    const month = absoluteMonth % 12;
+    try {
+      const ms = canonicalUtcMs(year, month, day, hour, minute, 'chm_warning_valid_until_invalid');
+      if (ms > issued.ms) candidates.push(ms);
+    } catch (error) {
+      if (!(error instanceof ChmSourceContractError)) throw error;
+    }
+  }
+
+  if (candidates.length < 1) {
+    throw new ChmSourceContractError('chm_warning_valid_until_not_after_issue');
+  }
+  const validUntilMs = Math.min(...candidates);
+  const validityDurationMs = validUntilMs - issued.ms;
+  if (validityDurationMs < 1 || validityDurationMs > CHM_MAX_WARNING_VALIDITY_MS) {
+    throw new ChmSourceContractError('chm_warning_validity_window_invalid');
+  }
+  return Object.freeze({
+    iso: new Date(validUntilMs).toISOString(),
+    durationMs: validityDurationMs,
+  });
+}
+
 function mergeDuplicateWarning(existing, candidate) {
   if (existing.warningType !== candidate.warningType
-      || existing.issuedZuluClock !== candidate.issuedZuluClock) {
+      || existing.issuedZuluClock !== candidate.issuedZuluClock
+      || existing.issuedAt !== candidate.issuedAt
+      || existing.validUntil !== candidate.validUntil
+      || existing.validityDurationMs !== candidate.validityDurationMs) {
     throw new ChmSourceContractError('chm_warning_duplicate_conflict');
   }
 
@@ -106,10 +203,17 @@ export function validateChmWarningsHtml(html) {
     throw new ChmSourceContractError('chm_identity_marker_missing');
   }
 
+  const headerPattern = /(?:ÁREA\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ ]{2,48})\s+)?AVISO\s+NR\s+(\d{1,4})\/(\d{4})/giu;
+  const headers = [...text.matchAll(headerPattern)];
   const recordsById = new Map();
   let duplicateRenderCount = 0;
-  const pattern = /(?:ÁREA\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ ]{2,48})\s+)?AVISO\s+NR\s+(\d{1,4})\/(\d{4})\s+(AVISO\s+DE\s+.{3,96}?)\s+EMITIDO\s+[ÀA]S\s+(\d{4}Z)/giu;
-  for (const match of text.matchAll(pattern)) {
+
+  for (let index = 0; index < headers.length; index += 1) {
+    const match = headers[index];
+    const start = match.index;
+    const end = index + 1 < headers.length ? headers[index + 1].index : text.length;
+    const segment = text.slice(start, end);
+
     const warningNumber = Number(match[2]);
     const year = Number(match[3]);
     if (!Number.isInteger(warningNumber) || warningNumber < 1 || warningNumber > 9999) {
@@ -124,11 +228,31 @@ export function validateChmWarningsHtml(html) {
       ? normalizeBoundedLabel(match[1], 'chm_warning_area_invalid', 48)
       : null;
     const areas = Object.freeze(area ? [area] : []);
-    const warningType = normalizeBoundedLabel(match[4], 'chm_warning_type_invalid', 96);
-    const issuedZuluClock = match[5].toUpperCase();
-    if (!/^(?:[01]\d|2[0-3])[0-5]\dZ$/.test(issuedZuluClock)) {
-      throw new ChmSourceContractError('chm_warning_issue_clock_invalid');
+
+    const typeMatch = segment.match(/AVISO\s+DE\s+(.{3,96}?)\s+EMITIDO\s+[ÀA]S\s+(\d{4}Z)/iu);
+    if (!typeMatch) throw new ChmSourceContractError('chm_warning_core_metadata_missing');
+    const warningType = normalizeBoundedLabel(typeMatch[1], 'chm_warning_type_invalid', 96);
+    const issuedZuluClock = typeMatch[2].toUpperCase();
+    parseClockParts(issuedZuluClock, 'chm_warning_issue_clock_invalid');
+
+    const issuedMatch = segment.match(/EMITIDO\s+[ÀA]S\s+(\d{4}Z)(?:\s*-\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,12}\s*-\s*)?\s*(\d{2})\/([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3})\/(\d{4})/iu);
+    if (!issuedMatch) throw new ChmSourceContractError('chm_warning_issue_date_missing');
+    if (issuedMatch[1].toUpperCase() !== issuedZuluClock) {
+      throw new ChmSourceContractError('chm_warning_issue_clock_conflict');
     }
+    const issued = parseIssuedAt({
+      dayToken: issuedMatch[2],
+      monthToken: issuedMatch[3],
+      yearToken: issuedMatch[4],
+      clock: issuedZuluClock,
+    });
+    if (issued.year !== year) {
+      throw new ChmSourceContractError('chm_warning_issue_year_mismatch');
+    }
+
+    const validMatch = segment.match(/V[ÁA]LIDO\s+AT[ÉE]\s+(\d{6}Z)/iu);
+    if (!validMatch) throw new ChmSourceContractError('chm_warning_valid_until_missing');
+    const validity = resolveValidUntil({ issued, token: validMatch[1].toUpperCase() });
 
     const candidate = Object.freeze({
       id,
@@ -138,6 +262,9 @@ export function validateChmWarningsHtml(html) {
       areas,
       warningType,
       issuedZuluClock,
+      issuedAt: issued.iso,
+      validUntil: validity.iso,
+      validityDurationMs: validity.durationMs,
     });
     const existing = recordsById.get(id);
     if (existing) {
@@ -163,6 +290,9 @@ export function validateChmWarningsHtml(html) {
     areas: record.areas,
     warningType: record.warningType,
     issuedZuluClock: record.issuedZuluClock,
+    issuedAt: record.issuedAt,
+    validUntil: record.validUntil,
+    validityDurationMs: record.validityDurationMs,
   }));
 
   return Object.freeze({
@@ -176,7 +306,7 @@ export function validateChmWarningsHtml(html) {
     warnings: Object.freeze(records),
     warningInventorySha256: sha256(JSON.stringify(canonicalRecords)),
     rawWarningTextRetention: 'NONE',
-    temporalValidityValidation: 'NOT_IMPLEMENTED',
+    temporalValidityValidation: CHM_TEMPORAL_VALIDITY_CONTRACT,
     rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
   });
 }
