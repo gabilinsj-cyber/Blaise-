@@ -17,6 +17,8 @@ Only HTTPS responses from `www.marinha.mil.br` are accepted by the shared source
 - METAREA V warning-page marker;
 - bounded Portuguese `AVISO NR n/yyyy` warning inventory;
 - warning type and issue Z-clock as bounded metadata;
+- duplicate map/detail renderings of the same warning ID are collapsed only when core warning type and issue time agree; if both copies provide an area it must also agree, otherwise parsing fails closed;
+- `duplicateRenderCount` records only how many compatible duplicate renderings were collapsed and does not retain duplicated warning text;
 - explicit `NIL` / `NÃO HÁ AVISOS` as the only accepted zero-warning state;
 - annual `Tábuas das Marés` publication year and `Página de Dados de Maré` discovery marker.
 
