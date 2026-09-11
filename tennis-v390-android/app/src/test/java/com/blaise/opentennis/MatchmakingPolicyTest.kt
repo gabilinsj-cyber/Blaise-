@@ -74,8 +74,9 @@ class MatchmakingPolicyTest {
     @Test fun basicPromotionRequiresExperienceAndAchievement() {
         assertTrue(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(15, 3, 0)))
         assertTrue(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(15, 0, 1)))
+        assertTrue(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(15, 1, 4)))
         assertFalse(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(14, 3, 1)))
-        assertFalse(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(15, 1, 4)))
+        assertFalse(MatchmakingPolicy.qualifiesForIntermediate(MatchmakingPolicy.Progress(15, 2, 0)))
     }
 
     @Test fun advancedPromotionRequiresThirtyMatchesAndGrandSlamTitle() {
