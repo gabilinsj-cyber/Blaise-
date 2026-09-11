@@ -1,4 +1,6 @@
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
+import { probeDefesaCivilRioMapAssets } from './defesa-civil-rio-assets.mjs';
+import { createDefesaCivilRioAssetsCache } from './defesa-civil-rio-assets-cache.mjs';
 import { probeIneaStationSnapshot } from './inea-source.mjs';
 import {
   createAlertaRioRainfallCache,
@@ -8,6 +10,7 @@ import { createOfficialSourceScheduler } from './official-source-scheduler.mjs';
 
 export const OFFICIAL_SOURCE_WORKER_CONTRACT = 'OFFICIAL_SOURCE_FAIL_CLOSED_WORKER';
 export const ALERTA_RIO_RAINFALL_TASK_ID = 'alerta-rio-rainfall';
+export const DEFESA_CIVIL_RIO_ASSETS_TASK_ID = 'defesa-civil-rio-map-assets';
 export const INEA_STATION_TASK_ID = 'inea-station';
 
 const INEA_STATION_URL = /^https:\/\/alertadecheias\.inea\.rj\.gov\.br\/alertadecheias\/\d{8,20}\.html$/;
@@ -53,11 +56,16 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     defaultValue: false,
     code: 'official_source_worker_invalid_severe_flag',
   });
+  const defesaCivilRioAssetsEnabled = parseBoolean(env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED, {
+    defaultValue: false,
+    code: 'official_source_worker_invalid_defesa_civil_rio_assets_flag',
+  });
   const ineaStationUrl = validateIneaStationUrl(env.BLAISE_INEA_STATION_URL);
 
   return Object.freeze({
     enabled,
     initialMode: severe ? 'severe' : 'normal',
+    defesaCivilRioAssetsEnabled,
     ineaStationUrl,
   });
 }
@@ -89,6 +97,7 @@ export function createOfficialSourceWorker({
   maxConcurrency = 2,
   onEvent = () => {},
   probeAlertaRio = probeAlertaRioLiveRainfall,
+  probeDefesaCivilRioAssets = probeDefesaCivilRioMapAssets,
   probeIneaStation = probeIneaStationSnapshot,
 } = {}) {
   if (!config || typeof config !== 'object') {
@@ -100,6 +109,12 @@ export function createOfficialSourceWorker({
   if (!['normal', 'severe'].includes(config.initialMode)) {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_mode');
   }
+  const defesaCivilRioAssetsEnabled = config.defesaCivilRioAssetsEnabled === undefined
+    ? false
+    : config.defesaCivilRioAssetsEnabled;
+  if (typeof defesaCivilRioAssetsEnabled !== 'boolean') {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_defesa_civil_rio_assets_flag');
+  }
   const ineaStationUrl = validateIneaStationUrl(config.ineaStationUrl);
   if (typeof now !== 'function' || typeof fetchImpl !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_runtime');
@@ -107,11 +122,17 @@ export function createOfficialSourceWorker({
   if (typeof probeAlertaRio !== 'function' || typeof probeIneaStation !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_probe');
   }
+  if (defesaCivilRioAssetsEnabled && typeof probeDefesaCivilRioAssets !== 'function') {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_defesa_civil_rio_assets_probe');
+  }
   if (typeof onEvent !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_event_handler');
   }
 
   const alertaRioCache = createAlertaRioRainfallCache({ now });
+  const defesaCivilRioAssetsCache = defesaCivilRioAssetsEnabled
+    ? createDefesaCivilRioAssetsCache({ now })
+    : null;
   const ineaCache = ineaStationUrl ? createIneaHydrometStationCache({ now }) : null;
 
   const tasks = [{
@@ -126,6 +147,21 @@ export function createOfficialSourceWorker({
       }
     },
   }];
+
+  if (defesaCivilRioAssetsCache) {
+    tasks.push({
+      id: DEFESA_CIVIL_RIO_ASSETS_TASK_ID,
+      run: async ({ startedAt }) => {
+        try {
+          const snapshot = await probeDefesaCivilRioAssets({ fetchImpl });
+          defesaCivilRioAssetsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        } catch (error) {
+          defesaCivilRioAssetsCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+          throw error;
+        }
+      },
+    });
+  }
 
   if (ineaStationUrl) {
     tasks.push({
@@ -165,11 +201,15 @@ export function createOfficialSourceWorker({
   }
 
   function readSource(taskId) {
+    const mode = scheduler.snapshot().mode;
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
-      return alertaRioCache.read({ mode: scheduler.snapshot().mode });
+      return alertaRioCache.read({ mode });
+    }
+    if (taskId === DEFESA_CIVIL_RIO_ASSETS_TASK_ID && defesaCivilRioAssetsCache) {
+      return defesaCivilRioAssetsCache.read({ mode });
     }
     if (taskId === INEA_STATION_TASK_ID && ineaCache) {
-      return ineaCache.read({ mode: scheduler.snapshot().mode });
+      return ineaCache.read({ mode });
     }
     throw new OfficialSourceWorkerError('official_source_worker_unknown_source');
   }
@@ -179,6 +219,9 @@ export function createOfficialSourceWorker({
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
+    if (defesaCivilRioAssetsCache) {
+      sourceStates.push(sourceStateWithoutPayload(defesaCivilRioAssetsCache.read({ mode: schedulerStatus.mode })));
+    }
     if (ineaCache) {
       sourceStates.push(sourceStateWithoutPayload(ineaCache.read({ mode: schedulerStatus.mode })));
     }
@@ -190,6 +233,7 @@ export function createOfficialSourceWorker({
       mode: schedulerStatus.mode,
       taskCount: schedulerStatus.taskCount,
       maxConcurrency: schedulerStatus.maxConcurrency,
+      defesaCivilRioAssetsConfigured: defesaCivilRioAssetsEnabled,
       ineaStationConfigured: Boolean(ineaStationUrl),
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
       statusPayloads: 'REDACTED',
