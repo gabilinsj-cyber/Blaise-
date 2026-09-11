@@ -28,11 +28,19 @@ O parser exige:
 
 O resultado normalizado mantém somente os campos necessários para mapa, autoria e orientação do usuário. Cada camada recebe SHA-256 determinístico para detectar mudança de inventário sem depender de histórico de localização do usuário.
 
+## Runtime integrado
+
+O worker de fontes oficiais pode incluir esta fonte somente quando `BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED=true`. O padrão continua desabilitado, fail-closed. Quando habilitado, o runtime consulta as duas camadas pelo mesmo contrato, revalida identidade, geometria, limites, unicidade e SHA-256 antes de aceitar o snapshot e o mantém apenas em memória.
+
+A cadência segue o worker comum: 15 minutos em modo normal e 1 minuto em modo severo. O cache é considerado utilizável por no máximo 30 minutos; após esse limite o payload deixa de ser exposto e o estado passa para `STALE`. Se uma tentativa nova falhar enquanto o snapshot ainda estiver dentro da janela, o estado é `CURRENT_DEGRADED` e o último erro é reduzido a um código limitado.
+
+O status operacional do worker nunca inclui o inventário completo. Ele expõe somente estado, horários, idade do cache e a semântica `MAP_ASSET_INVENTORY_ONLY_OPERATIONAL_STATUS_NOT_VALIDATED`. Portanto, inventário presente não significa sirene funcionando, sirene acionada, ponto de apoio aberto ou alerta P0 vigente.
+
 ## Evidência e execução
 
 O workflow `Defesa Civil Rio Map Assets Probe` é `workflow_dispatch` manual-only. Por padrão ele registra `NOT_RUN_EXPLICIT_APPROVAL_REQUIRED` e não consulta a fonte externa. Quando `execute_live_probe=true`, usa Node 24.20.0, consulta as duas camadas públicas oficiais, valida o contrato e arquiva apenas status, contagens e digests; não arquiva o inventário geográfico completo.
 
-O CI normal cobre parser, limites, duplicação, geometria, URL oficial e wrapper de fetch com respostas simuladas. Um PASS do CI não equivale a um PASS da consulta ArcGIS ao vivo.
+O CI normal cobre parser, limites, duplicação, geometria, URL oficial, cache fail-closed, integração com o worker e wrapper de fetch com respostas simuladas. Um PASS do CI não equivale a um PASS da consulta ArcGIS ao vivo.
 
 ## Escopo
 
