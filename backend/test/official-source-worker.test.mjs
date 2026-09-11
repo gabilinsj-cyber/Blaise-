@@ -1,14 +1,22 @@
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   ALERTA_RIO_RAINFALL_TASK_ID,
+  CHM_WARNINGS_TASK_ID,
   createOfficialSourceWorker,
   INEA_STATION_TASK_ID,
   loadOfficialSourceWorkerConfig,
   OfficialSourceWorkerError,
 } from '../src/official-source-worker.mjs';
 import { ALERTA_RIO_LIVE_SOURCE_ID } from '../src/alerta-rio-source.mjs';
+import { CHM_WARNINGS_SEMANTIC_VALIDITY } from '../src/chm-warning-cache.mjs';
+import {
+  CHM_HOST,
+  CHM_SOURCE_ID,
+  CHM_WARNINGS_URL,
+} from '../src/chm-source.mjs';
 import {
   INEA_ALERT_HOST,
   INEA_STATION_SOURCE_ID,
@@ -50,6 +58,38 @@ function ineaSnapshot() {
   });
 }
 
+function chmSnapshot() {
+  const warnings = Object.freeze([
+    Object.freeze({
+      id: '321/2026',
+      warningNumber: 321,
+      year: 2026,
+      area: 'SUL',
+      warningType: 'AVISO DE VENTO FORTE',
+      issuedZuluClock: '1200Z',
+    }),
+  ]);
+  const canonical = warnings.map((warning) => ({
+    id: warning.id,
+    area: warning.area,
+    warningType: warning.warningType,
+    issuedZuluClock: warning.issuedZuluClock,
+  }));
+  return Object.freeze({
+    sourceId: CHM_SOURCE_ID,
+    sourceHost: CHM_HOST,
+    sourceUrl: CHM_WARNINGS_URL,
+    metarea: 'V',
+    activeWarningCount: 1,
+    noWarningMarker: false,
+    warnings,
+    warningInventorySha256: createHash('sha256').update(JSON.stringify(canonical)).digest('hex'),
+    rawWarningTextRetention: 'NONE',
+    temporalValidityValidation: 'NOT_IMPLEMENTED',
+    rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
+  });
+}
+
 test('worker configuration is disabled fail-closed by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
@@ -65,6 +105,10 @@ test('worker configuration is disabled fail-closed by default', () => {
   assert.throws(
     () => loadOfficialSourceWorkerConfig({ BLAISE_INEA_STATION_URL: 'https://example.com/station' }),
     (error) => error.code === 'official_source_worker_invalid_inea_station_url',
+  );
+  assert.throws(
+    () => loadOfficialSourceWorkerConfig({ BLAISE_CHM_WARNINGS_ENABLED: 'yes' }),
+    (error) => error.code === 'official_source_worker_invalid_chm_warnings_enabled_flag',
   );
 });
 
@@ -157,6 +201,44 @@ test('optional INEA station task is explicit and honors severe cadence', async (
   assert.equal(worker.status().mode, 'severe');
   assert.equal(worker.status().scheduler.refreshIntervalMs, 60_000);
   assert.equal(worker.readSource(INEA_STATION_TASK_ID).state, 'CURRENT');
+});
+
+test('optional CHM warnings task is explicit and never promotes inventory freshness to alert validity', async () => {
+  let chmCalls = 0;
+  const worker = createOfficialSourceWorker({
+    config: {
+      enabled: true,
+      initialMode: 'normal',
+      ineaStationUrl: null,
+      chmWarningsEnabled: true,
+    },
+    now: () => NOW,
+    autoSchedule: false,
+    maxConcurrency: 2,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    probeChmWarningsLive: async () => {
+      chmCalls += 1;
+      return chmSnapshot();
+    },
+  });
+
+  worker.start();
+  const launched = await worker.tick();
+  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, CHM_WARNINGS_TASK_ID].sort());
+  assert.equal(chmCalls, 1);
+
+  const reading = worker.readSource(CHM_WARNINGS_TASK_ID);
+  assert.equal(reading.state, 'CURRENT');
+  assert.equal(reading.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
+  assert.equal(reading.snapshot.activeWarningCount, 1);
+  assert.equal(reading.snapshot.temporalValidityValidation, 'NOT_IMPLEMENTED');
+
+  const status = worker.status();
+  assert.equal(status.chmWarningsConfigured, true);
+  const chmStatus = status.sources.find((source) => source.sourceId === CHM_SOURCE_ID);
+  assert.equal(chmStatus.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
+  assert.equal(chmStatus.payloadExposed, false);
+  assert.equal(JSON.stringify(status).includes('AVISO DE VENTO FORTE'), false);
 });
 
 test('unknown source reads fail closed', () => {
