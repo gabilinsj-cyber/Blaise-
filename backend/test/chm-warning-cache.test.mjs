@@ -11,6 +11,7 @@ import {
 import {
   CHM_HOST,
   CHM_SOURCE_ID,
+  CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_WARNINGS_URL,
 } from '../src/chm-source.mjs';
 
@@ -23,6 +24,9 @@ function digestWarnings(warnings) {
     areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
+    issuedAt: warning.issuedAt,
+    validUntil: warning.validUntil,
+    validityDurationMs: warning.validityDurationMs,
   }));
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
@@ -37,6 +41,9 @@ function warningSnapshot() {
       areas: Object.freeze(['SUL', 'SUDESTE']),
       warningType: 'AVISO DE VENTO FORTE',
       issuedZuluClock: '1200Z',
+      issuedAt: '2026-09-10T12:00:00.000Z',
+      validUntil: '2026-09-12T12:00:00.000Z',
+      validityDurationMs: 48 * 60 * 60 * 1000,
     }),
   ]);
   return Object.freeze({
@@ -49,7 +56,7 @@ function warningSnapshot() {
     warnings,
     warningInventorySha256: digestWarnings(warnings),
     rawWarningTextRetention: 'NONE',
-    temporalValidityValidation: 'NOT_IMPLEMENTED',
+    temporalValidityValidation: CHM_TEMPORAL_VALIDITY_CONTRACT,
     rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
   });
 }
@@ -63,19 +70,21 @@ test('CHM warnings cache is unavailable until explicitly populated', () => {
   assert.equal(reading.snapshot, null);
 });
 
-test('CHM warnings cache keeps a bounded memory-only inventory without claiming alert validity', () => {
+test('CHM warnings cache keeps bounded temporally validated inventory without claiming RJ alert applicability', () => {
   const cache = createChmWarningsInventoryCache({ now: () => NOW });
   cache.recordSuccess(warningSnapshot(), { fetchedAt: NOW });
   const reading = cache.read();
 
   assert.equal(reading.state, 'CURRENT');
   assert.equal(reading.reason, 'fresh_source_inventory');
-  assert.equal(reading.semanticValidity, 'SOURCE_INVENTORY_ONLY_NOT_ALERT_VALIDITY');
+  assert.equal(reading.semanticValidity, 'SOURCE_INVENTORY_TEMPORAL_VALIDITY_NOT_RJ_GEOFENCED');
   assert.equal(reading.dataAgeMs, null);
   assert.equal(reading.cacheAgeMs, 0);
   assert.equal(reading.snapshot.activeWarningCount, 1);
   assert.deepEqual(reading.snapshot.warnings[0].areas, ['SUL', 'SUDESTE']);
-  assert.equal(reading.snapshot.temporalValidityValidation, 'NOT_IMPLEMENTED');
+  assert.equal(reading.snapshot.warnings[0].issuedAt, '2026-09-10T12:00:00.000Z');
+  assert.equal(reading.snapshot.warnings[0].validUntil, '2026-09-12T12:00:00.000Z');
+  assert.equal(reading.snapshot.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
   assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
   assert.equal(Object.isFrozen(reading.snapshot), true);
   assert.equal(Object.isFrozen(reading.snapshot.warnings), true);
@@ -103,7 +112,7 @@ test('CHM warnings cache contains later failures and redacts stale upstream bodi
   assert.equal(reading.snapshot.activeWarningCount, 1);
 });
 
-test('CHM warnings cache rejects inventory digest drift, area compatibility drift and semantic promotion', () => {
+test('CHM warnings cache rejects digest, area, temporal and semantic drift', () => {
   const cache = createChmWarningsInventoryCache({ now: () => NOW });
   const invalidDigest = { ...warningSnapshot(), warningInventorySha256: '0'.repeat(64) };
   assert.throws(
@@ -127,7 +136,23 @@ test('CHM warnings cache rejects inventory digest drift, area compatibility drif
       && error.code === 'chm_warnings_cache_warning_area_compatibility_mismatch',
   );
 
-  const invalidSemantics = { ...warningSnapshot(), temporalValidityValidation: 'PASS' };
+  const temporalWarnings = warningSnapshot().warnings.map((warning) => ({
+    ...warning,
+    validUntil: '2026-10-12T12:00:00.000Z',
+    validityDurationMs: 32 * 24 * 60 * 60 * 1000,
+  }));
+  const temporalDrift = {
+    ...warningSnapshot(),
+    warnings: temporalWarnings,
+    warningInventorySha256: digestWarnings(temporalWarnings),
+  };
+  assert.throws(
+    () => cache.recordSuccess(temporalDrift, { fetchedAt: NOW }),
+    (error) => error instanceof ChmWarningsCacheError
+      && error.code === 'chm_warnings_cache_warning_validity_window_invalid',
+  );
+
+  const invalidSemantics = { ...warningSnapshot(), temporalValidityValidation: 'NOT_IMPLEMENTED' };
   assert.throws(
     () => cache.recordSuccess(invalidSemantics, { fetchedAt: NOW }),
     (error) => error instanceof ChmWarningsCacheError
