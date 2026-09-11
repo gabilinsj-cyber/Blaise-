@@ -56,6 +56,7 @@ test('normalizes bounded official CHM METAREA V warning inventory without retain
   assert.equal(result.noWarningMarker, false);
   assert.deepEqual(result.warnings.map((record) => record.id), ['658/2026', '659/2026']);
   assert.equal(result.warnings[0].area, 'BRAVO');
+  assert.deepEqual(result.warnings[0].areas, ['BRAVO']);
   assert.equal(result.warnings[0].warningType, 'AVISO DE VENTO FORTE/MUITO FORTE');
   assert.equal(result.warnings[0].issuedZuluClock, '1200Z');
   assert.equal(result.rawWarningTextRetention, 'NONE');
@@ -86,8 +87,28 @@ test('collapses the same warning rendered twice when one copy adds the CHM area 
   assert.equal(result.duplicateRenderCount, 1);
   assert.equal(result.warnings[0].id, '666/2026');
   assert.equal(result.warnings[0].area, 'CHARLIE');
+  assert.deepEqual(result.warnings[0].areas, ['CHARLIE']);
   assert.equal(result.warnings[0].warningType, 'AVISO DE VENTO FORTE/MUITO FORTE');
   assert.equal(result.warnings[0].issuedZuluClock, '1200Z');
+});
+
+test('preserves distinct CHM area labels for one compatible warning id', () => {
+  const result = validateChmWarningsHtml(warningsFixture({ body: `
+    <p>ÁREA ALFA AVISO NR 666/2026</p>
+    <p>AVISO DE VENTO FORTE/MUITO FORTE</p>
+    <p>EMITIDO ÀS 1200Z - QUI - 10/SET/2026</p>
+    <p>VÁLIDO ATÉ 121200Z.</p>
+    <p>ÁREA CHARLIE AVISO NR 666/2026</p>
+    <p>AVISO DE VENTO FORTE/MUITO FORTE</p>
+    <p>EMITIDO ÀS 1200Z - QUI - 10/SET/2026</p>
+    <p>VÁLIDO ATÉ 121200Z.</p>
+  ` }));
+
+  assert.equal(result.activeWarningCount, 1);
+  assert.equal(result.duplicateRenderCount, 1);
+  assert.equal(result.warnings[0].area, 'ALFA');
+  assert.deepEqual(result.warnings[0].areas, ['ALFA', 'CHARLIE']);
+  assert.equal(Object.isFrozen(result.warnings[0].areas), true);
 });
 
 test('fails closed when duplicate warning renderings disagree on core metadata', () => {

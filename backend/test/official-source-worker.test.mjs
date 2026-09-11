@@ -65,6 +65,7 @@ function chmSnapshot() {
       warningNumber: 321,
       year: 2026,
       area: 'SUL',
+      areas: Object.freeze(['SUL']),
       warningType: 'AVISO DE VENTO FORTE',
       issuedZuluClock: '1200Z',
     }),
@@ -72,6 +73,7 @@ function chmSnapshot() {
   const canonical = warnings.map((warning) => ({
     id: warning.id,
     area: warning.area,
+    areas: warning.areas,
     warningType: warning.warningType,
     issuedZuluClock: warning.issuedZuluClock,
   }));

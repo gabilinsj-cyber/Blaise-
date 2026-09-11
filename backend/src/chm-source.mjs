@@ -7,6 +7,7 @@ export const CHM_HOST = 'www.marinha.mil.br';
 export const CHM_WARNINGS_URL = 'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo';
 export const CHM_TIDES_URL = 'https://www.marinha.mil.br/chm/dados-do-segnav-publicacoes/tabuas-das-mares';
 export const CHM_MAX_WARNING_RECORDS = 64;
+export const CHM_MAX_WARNING_AREAS = 8;
 
 export class ChmSourceContractError extends Error {
   constructor(code) {
@@ -72,12 +73,19 @@ function mergeDuplicateWarning(existing, candidate) {
       || existing.issuedZuluClock !== candidate.issuedZuluClock) {
     throw new ChmSourceContractError('chm_warning_duplicate_conflict');
   }
-  if (existing.area && candidate.area && existing.area !== candidate.area) {
-    throw new ChmSourceContractError('chm_warning_duplicate_area_conflict');
+
+  const areas = [...existing.areas];
+  for (const area of candidate.areas) {
+    if (!areas.includes(area)) areas.push(area);
   }
+  if (areas.length > CHM_MAX_WARNING_AREAS) {
+    throw new ChmSourceContractError('chm_warning_area_count_invalid');
+  }
+
   return Object.freeze({
     ...existing,
-    area: existing.area ?? candidate.area,
+    area: areas[0] ?? null,
+    areas: Object.freeze(areas),
   });
 }
 
@@ -115,6 +123,7 @@ export function validateChmWarningsHtml(html) {
     const area = match[1]
       ? normalizeBoundedLabel(match[1], 'chm_warning_area_invalid', 48)
       : null;
+    const areas = Object.freeze(area ? [area] : []);
     const warningType = normalizeBoundedLabel(match[4], 'chm_warning_type_invalid', 96);
     const issuedZuluClock = match[5].toUpperCase();
     if (!/^(?:[01]\d|2[0-3])[0-5]\dZ$/.test(issuedZuluClock)) {
@@ -126,6 +135,7 @@ export function validateChmWarningsHtml(html) {
       warningNumber,
       year,
       area,
+      areas,
       warningType,
       issuedZuluClock,
     });
@@ -150,6 +160,7 @@ export function validateChmWarningsHtml(html) {
   const canonicalRecords = records.map((record) => ({
     id: record.id,
     area: record.area,
+    areas: record.areas,
     warningType: record.warningType,
     issuedZuluClock: record.issuedZuluClock,
   }));
