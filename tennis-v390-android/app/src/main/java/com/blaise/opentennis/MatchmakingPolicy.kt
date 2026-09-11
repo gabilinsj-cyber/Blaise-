@@ -82,11 +82,11 @@ object MatchmakingPolicy {
     /**
      * Basic -> Intermediate:
      * at least 15 completed matches AND either 3 Basic tournament titles,
-     * or (when no Basic title was won) at least one Basic semifinal.
+     * or at least one Basic semifinal as the alternate achievement route.
      */
     fun qualifiesForIntermediate(progress: Progress): Boolean =
         progress.completedMatches >= 15 &&
-            (progress.basicTitles >= 3 || (progress.basicTitles == 0 && progress.basicSemifinals >= 1))
+            (progress.basicTitles >= 3 || progress.basicSemifinals >= 1)
 
     /** Intermediate -> Advanced: at least 30 completed matches + >=1 Grand Slam title. */
     fun qualifiesForAdvanced(progress: Progress): Boolean =
@@ -111,7 +111,7 @@ object MatchmakingPolicy {
     }
 
     /**
-     * Server supplies randomIndex from its CSPRNG/secure matchmaking RNG.
+     * Server supplies randomIndex from its secure matchmaking RNG.
      * Basic/Intermediate rooms therefore get a random B/I AI; Advanced gets A only.
      */
     fun chooseAiSkill(room: Room, randomIndex: Int): Skill {
