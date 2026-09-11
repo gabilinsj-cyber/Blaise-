@@ -14,10 +14,20 @@ O worker reutiliza o mesmo scheduler limitado: 15 minutos em modo normal e 1 min
 
 Qualquer valor booleano diferente de `true`/`false` ou URL de estação fora do contrato faz a configuração falhar fechada antes de iniciar polling.
 
+## Status operacional protegido
+
+O runtime expõe `GET /internal/official-sources` somente quando a identidade OIDC de observabilidade já está configurada. O endpoint reutiliza exatamente o mesmo verificador de `BLAISE_OBSERVABILITY_AUDIENCE` + `BLAISE_OBSERVABILITY_SERVICE_ACCOUNT`; sem essa configuração a rota responde `404`, e uma identidade inválida recebe `401`.
+
+A resposta vem diretamente de `sourceWorker.status()` e continua sem payload meteorológico. Ela informa apenas contrato, ativação, modo, estado do scheduler, timestamps/idades operacionais sanitizados, códigos de erro limitados e `payloadExposed: false` por fonte. O endpoint usa `Cache-Control: no-store` e os mesmos headers defensivos do runtime. Erro ao produzir o snapshot operacional responde `503` em vez de fabricar estado saudável.
+
+Essa rota é exclusivamente operacional. Ela **não concede acesso do aplicativo aos snapshots**, não substitui o gate de assinatura e não torna conteúdo meteorológico público. Seu objetivo é permitir observabilidade, readiness operacional e auditoria do polling de fontes sem expor valores de chuva, nível, localização de cliente, tokens de compra ou identificadores de usuário.
+
 ## Lifecycle
 
 O worker é criado junto com o runtime HTTP, porém só inicia se a ativação explícita estiver presente. Em `SIGTERM` ou `SIGINT`, o runtime primeiro impede novas atualizações do worker e depois inicia o draining do servidor HTTP. Uma tarefa de fonte que já esteja em andamento não é duplicada nem substituída; seus próprios timeouts de transporte continuam limitando a duração.
 
+Durante draining, a rota operacional também deixa de aceitar novas requisições porque permanece atrás do mesmo `createDrainingHandler`; somente `/healthz` continua disponível para liveness.
+
 ## Limites de prova
 
-A integração desta camada prova composição, cadência, cache, lifecycle e comportamento fail-closed em testes determinísticos. Ela **não prova disponibilidade LIVE de Alerta Rio/INEA**, não publica P0 e não torna os snapshots automaticamente visíveis ao aplicativo. A promoção de uma fonte para LIVE continua dependendo de execução externa explícita, freshness válida e evidência do mesmo SHA.
+A integração desta camada prova composição, cadência, cache, lifecycle, status operacional protegido e comportamento fail-closed em testes determinísticos. Ela **não prova disponibilidade LIVE de Alerta Rio/INEA**, não publica P0 e não torna os snapshots automaticamente visíveis ao aplicativo. A promoção de uma fonte para LIVE continua dependendo de execução externa explícita, freshness válida e evidência do mesmo SHA.

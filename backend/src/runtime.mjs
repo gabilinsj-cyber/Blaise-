@@ -54,6 +54,48 @@ export function createDrainingHandler(delegate, readiness) {
   };
 }
 
+export function createOfficialSourceStatusHandler(
+  delegate,
+  {
+    sourceWorker,
+    oidcVerifier = null,
+  } = {},
+) {
+  if (typeof delegate !== 'function') throw new Error('invalid_source_status_delegate');
+  if (!sourceWorker || typeof sourceWorker.status !== 'function') {
+    throw new Error('invalid_source_status_worker');
+  }
+  if (oidcVerifier !== null && typeof oidcVerifier !== 'function') {
+    throw new Error('invalid_source_status_oidc_verifier');
+  }
+
+  return async (req, res) => {
+    if (req.method !== 'GET' || req.url !== '/internal/official-sources') {
+      return delegate(req, res);
+    }
+
+    if (!oidcVerifier) {
+      sendRuntimeJson(res, 404, { error: 'not_found' });
+      return;
+    }
+
+    if (!(await oidcVerifier(req.headers.authorization))) {
+      sendRuntimeJson(res, 401, { error: 'unauthorized' });
+      return;
+    }
+
+    try {
+      const status = sourceWorker.status();
+      if (!status || typeof status !== 'object' || Array.isArray(status)) {
+        throw new Error('invalid_source_status_snapshot');
+      }
+      sendRuntimeJson(res, 200, status);
+    } catch {
+      sendRuntimeJson(res, 503, { error: 'source_status_unavailable' });
+    }
+  };
+}
+
 export function createGracefulShutdown(
   server,
   readiness,
@@ -152,6 +194,7 @@ async function main() {
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
   const readiness = createReadinessState();
+  const sourceWorker = createOfficialSourceWorker({ config: sourceWorkerConfig });
   const coreHandler = createHttpHandler({
     config,
     gateway,
@@ -163,12 +206,15 @@ async function main() {
     replayGuard,
     p0ReplayGuard,
   });
-  const server = http.createServer(createDrainingHandler(coreHandler, readiness));
+  const operationalHandler = createOfficialSourceStatusHandler(coreHandler, {
+    sourceWorker,
+    oidcVerifier: metricsOidcVerifier,
+  });
+  const server = http.createServer(createDrainingHandler(operationalHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const sourceWorker = createOfficialSourceWorker({ config: sourceWorkerConfig });
   if (sourceWorker.start()) {
     console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
   } else {
