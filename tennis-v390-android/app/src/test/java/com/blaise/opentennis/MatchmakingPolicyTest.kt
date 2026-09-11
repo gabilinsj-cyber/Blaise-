@@ -33,12 +33,17 @@ class MatchmakingPolicyTest {
 
     @Test fun advancedRoomOnlyUsesAdvancedAi() {
         assertEquals(setOf(MatchmakingPolicy.Skill.ADVANCED), MatchmakingPolicy.allowedAiSkills(MatchmakingPolicy.Room.ADVANCED))
+        assertEquals(MatchmakingPolicy.Skill.ADVANCED, MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.ADVANCED, 99))
     }
 
-    @Test fun basicAndIntermediateAiFallbackOnlyUseBasicOrIntermediate() {
+    @Test fun basicAndIntermediateAiFallbackRandomizesBetweenBasicAndIntermediate() {
         val expected = setOf(MatchmakingPolicy.Skill.BASIC, MatchmakingPolicy.Skill.INTERMEDIATE)
         assertEquals(expected, MatchmakingPolicy.allowedAiSkills(MatchmakingPolicy.Room.BASIC))
         assertEquals(expected, MatchmakingPolicy.allowedAiSkills(MatchmakingPolicy.Room.INTERMEDIATE))
+        assertEquals(MatchmakingPolicy.Skill.BASIC, MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.BASIC, 0))
+        assertEquals(MatchmakingPolicy.Skill.INTERMEDIATE, MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.BASIC, 1))
+        assertEquals(MatchmakingPolicy.Skill.BASIC, MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.INTERMEDIATE, 2))
+        assertEquals(MatchmakingPolicy.Skill.INTERMEDIATE, MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.INTERMEDIATE, 3))
     }
 
     @Test fun privateRoomNeverUsesAi() {
@@ -46,6 +51,12 @@ class MatchmakingPolicyTest {
         try {
             MatchmakingPolicy.chooseOpponentKind(false, MatchmakingPolicy.Room.PRIVATE)
             fail("Private room must not create AI opponent")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+        try {
+            MatchmakingPolicy.chooseAiSkill(MatchmakingPolicy.Room.PRIVATE, 0)
+            fail("Private room must not select AI tier")
         } catch (_: IllegalArgumentException) {
             // expected
         }
