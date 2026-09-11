@@ -5,6 +5,7 @@ import {
   createCoordinatedShutdown,
   createDrainingHandler,
   createGracefulShutdown,
+  createOfficialSourceStatusHandler,
   createReadinessState,
 } from '../src/runtime.mjs';
 
@@ -66,6 +67,82 @@ test('draining keeps liveness but removes readiness and rejects new work', async
     assert.equal(rejected.headers.get('retry-after'), '1');
     assert.deepEqual(await rejected.json(), { error: 'service_draining' });
     assert.equal(rejected.headers.get('cache-control'), 'no-store');
+  });
+});
+
+test('official source status is OIDC-gated, payload-redacted and delegates other routes', async () => {
+  let statusReads = 0;
+  const sourceWorker = {
+    status() {
+      statusReads += 1;
+      return Object.freeze({
+        contract: 'OFFICIAL_SOURCE_FAIL_CLOSED_WORKER',
+        enabled: true,
+        started: true,
+        mode: 'normal',
+        payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
+        statusPayloads: 'REDACTED',
+        sources: Object.freeze([
+          Object.freeze({
+            sourceId: 'alerta-rio-rainfall',
+            state: 'CURRENT',
+            payloadExposed: false,
+          }),
+        ]),
+      });
+    },
+  };
+  const handler = createOfficialSourceStatusHandler(delegate, {
+    sourceWorker,
+    oidcVerifier: async (authorization) => authorization === 'Bearer ops-ok',
+  });
+
+  await withServer(handler, async (base) => {
+    const denied = await fetch(`${base}/internal/official-sources`);
+    assert.equal(denied.status, 401);
+    assert.deepEqual(await denied.json(), { error: 'unauthorized' });
+    assert.equal(statusReads, 0);
+
+    const accepted = await fetch(`${base}/internal/official-sources`, {
+      headers: { Authorization: 'Bearer ops-ok' },
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.headers.get('cache-control'), 'no-store');
+    const body = await accepted.json();
+    assert.equal(body.contract, 'OFFICIAL_SOURCE_FAIL_CLOSED_WORKER');
+    assert.equal(body.statusPayloads, 'REDACTED');
+    assert.equal(body.sources[0].payloadExposed, false);
+    assert.equal(statusReads, 1);
+    const serialized = JSON.stringify(body);
+    assert.equal(serialized.includes('rainfallMm'), false);
+    assert.equal(serialized.includes('riverLevel'), false);
+
+    const delegated = await fetch(`${base}/healthz`);
+    assert.equal(delegated.status, 200);
+    assert.deepEqual(await delegated.json(), { status: 'ok' });
+  });
+});
+
+test('official source status stays hidden without observability OIDC and fails closed on provider errors', async () => {
+  const hidden = createOfficialSourceStatusHandler(delegate, {
+    sourceWorker: { status() { return { enabled: false }; } },
+  });
+  await withServer(hidden, async (base) => {
+    const response = await fetch(`${base}/internal/official-sources`);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'not_found' });
+  });
+
+  const failing = createOfficialSourceStatusHandler(delegate, {
+    sourceWorker: { status() { throw new Error('boom'); } },
+    oidcVerifier: async () => true,
+  });
+  await withServer(failing, async (base) => {
+    const response = await fetch(`${base}/internal/official-sources`, {
+      headers: { Authorization: 'Bearer ops-ok' },
+    });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'source_status_unavailable' });
   });
 });
 
@@ -133,6 +210,21 @@ test('graceful shutdown configuration fails closed', () => {
   assert.throws(
     () => createDrainingHandler(null, readiness),
     /invalid_runtime_handler_configuration/,
+  );
+  assert.throws(
+    () => createOfficialSourceStatusHandler(null, { sourceWorker: { status() {} } }),
+    /invalid_source_status_delegate/,
+  );
+  assert.throws(
+    () => createOfficialSourceStatusHandler(delegate, { sourceWorker: null }),
+    /invalid_source_status_worker/,
+  );
+  assert.throws(
+    () => createOfficialSourceStatusHandler(delegate, {
+      sourceWorker: { status() {} },
+      oidcVerifier: 'bad',
+    }),
+    /invalid_source_status_oidc_verifier/,
   );
   assert.throws(
     () => createCoordinatedShutdown(null, { stop() {} }),
