@@ -1,4 +1,6 @@
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
+import { createCemadenRjHydrologicalRiskCache } from './cemaden-rj-cache.mjs';
+import { probeCemadenRjHydrologicalRisk } from './cemaden-rj-source.mjs';
 import { probeIneaStationSnapshot } from './inea-source.mjs';
 import {
   createAlertaRioRainfallCache,
@@ -9,6 +11,7 @@ import { createOfficialSourceScheduler } from './official-source-scheduler.mjs';
 export const OFFICIAL_SOURCE_WORKER_CONTRACT = 'OFFICIAL_SOURCE_FAIL_CLOSED_WORKER';
 export const ALERTA_RIO_RAINFALL_TASK_ID = 'alerta-rio-rainfall';
 export const INEA_STATION_TASK_ID = 'inea-station';
+export const CEMADEN_RJ_TASK_ID = 'cemaden-rj-hydrological-risk';
 
 const INEA_STATION_URL = /^https:\/\/alertadecheias\.inea\.rj\.gov\.br\/alertadecheias\/\d{8,20}\.html$/;
 
@@ -54,12 +57,22 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     code: 'official_source_worker_invalid_severe_flag',
   });
   const ineaStationUrl = validateIneaStationUrl(env.BLAISE_INEA_STATION_URL);
+  const cemadenRjEnabled = parseBoolean(env.BLAISE_CEMADEN_RJ_ENABLED, {
+    defaultValue: false,
+    code: 'official_source_worker_invalid_cemaden_rj_enabled_flag',
+  });
 
-  return Object.freeze({
+  const config = {
     enabled,
     initialMode: severe ? 'severe' : 'normal',
     ineaStationUrl,
-  });
+  };
+  if (env.BLAISE_CEMADEN_RJ_ENABLED !== undefined
+      && env.BLAISE_CEMADEN_RJ_ENABLED !== null
+      && env.BLAISE_CEMADEN_RJ_ENABLED !== '') {
+    config.cemadenRjEnabled = cemadenRjEnabled;
+  }
+  return Object.freeze(config);
 }
 
 function sourceStateWithoutPayload(reading) {
@@ -90,6 +103,7 @@ export function createOfficialSourceWorker({
   onEvent = () => {},
   probeAlertaRio = probeAlertaRioLiveRainfall,
   probeIneaStation = probeIneaStationSnapshot,
+  probeCemadenRj = probeCemadenRjHydrologicalRisk,
 } = {}) {
   if (!config || typeof config !== 'object') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_config');
@@ -101,10 +115,16 @@ export function createOfficialSourceWorker({
     throw new OfficialSourceWorkerError('official_source_worker_invalid_mode');
   }
   const ineaStationUrl = validateIneaStationUrl(config.ineaStationUrl);
+  const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
+  if (typeof cemadenRjEnabled !== 'boolean') {
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');
+  }
   if (typeof now !== 'function' || typeof fetchImpl !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_runtime');
   }
-  if (typeof probeAlertaRio !== 'function' || typeof probeIneaStation !== 'function') {
+  if (typeof probeAlertaRio !== 'function'
+      || typeof probeIneaStation !== 'function'
+      || typeof probeCemadenRj !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_probe');
   }
   if (typeof onEvent !== 'function') {
@@ -113,6 +133,7 @@ export function createOfficialSourceWorker({
 
   const alertaRioCache = createAlertaRioRainfallCache({ now });
   const ineaCache = ineaStationUrl ? createIneaHydrometStationCache({ now }) : null;
+  const cemadenRjCache = cemadenRjEnabled ? createCemadenRjHydrologicalRiskCache({ now }) : null;
 
   const tasks = [{
     id: ALERTA_RIO_RAINFALL_TASK_ID,
@@ -136,6 +157,21 @@ export function createOfficialSourceWorker({
           ineaCache.recordSuccess(snapshot, { fetchedAt: startedAt });
         } catch (error) {
           ineaCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+          throw error;
+        }
+      },
+    });
+  }
+
+  if (cemadenRjEnabled) {
+    tasks.push({
+      id: CEMADEN_RJ_TASK_ID,
+      run: async ({ startedAt }) => {
+        try {
+          const snapshot = await probeCemadenRj({ fetchImpl });
+          cemadenRjCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        } catch (error) {
+          cemadenRjCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
           throw error;
         }
       },
@@ -171,6 +207,9 @@ export function createOfficialSourceWorker({
     if (taskId === INEA_STATION_TASK_ID && ineaCache) {
       return ineaCache.read({ mode: scheduler.snapshot().mode });
     }
+    if (taskId === CEMADEN_RJ_TASK_ID && cemadenRjCache) {
+      return cemadenRjCache.read({ mode: scheduler.snapshot().mode });
+    }
     throw new OfficialSourceWorkerError('official_source_worker_unknown_source');
   }
 
@@ -182,6 +221,9 @@ export function createOfficialSourceWorker({
     if (ineaCache) {
       sourceStates.push(sourceStateWithoutPayload(ineaCache.read({ mode: schedulerStatus.mode })));
     }
+    if (cemadenRjCache) {
+      sourceStates.push(sourceStateWithoutPayload(cemadenRjCache.read({ mode: schedulerStatus.mode })));
+    }
 
     return Object.freeze({
       contract: OFFICIAL_SOURCE_WORKER_CONTRACT,
@@ -191,6 +233,7 @@ export function createOfficialSourceWorker({
       taskCount: schedulerStatus.taskCount,
       maxConcurrency: schedulerStatus.maxConcurrency,
       ineaStationConfigured: Boolean(ineaStationUrl),
+      cemadenRjConfigured: cemadenRjEnabled,
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
       statusPayloads: 'REDACTED',
       externalPolling: config.enabled ? 'EXPLICITLY_ENABLED' : 'DISABLED_FAIL_CLOSED',
