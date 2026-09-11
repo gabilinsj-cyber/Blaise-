@@ -1,9 +1,6 @@
 package com.blaise.opentennis
 
-/**
- * Presentation-only state for an authoritative MEMORABLE_CONFIRMED event.
- * This layer never decides whether a rally is memorable and never changes scoring.
- */
+/** Presentation-only state for the server-authoritative MEMORABLE_CONFIRMED event. */
 enum class MemorableReplayFilter { ALL, LOCAL, OPPONENT }
 
 data class MemorableUiState(
@@ -22,37 +19,53 @@ data class MemorableUiState(
 )
 
 class MemorablePresentationController {
+    companion object {
+        const val AUTHORITATIVE_EVENT = "MEMORABLE_CONFIRMED"
+        const val OVERLAY_MS = 1200L
+        const val OVATION_MS = 2200L
+    }
+
+    private val seenSequenceIds = mutableSetOf<String>()
     var state = MemorableUiState()
         private set
 
+    /** Accepts only the authoritative event and deduplicates reconnect/resend by sequenceId. */
     fun onAuthoritativeConfirmed(
+        eventType: String,
+        sequenceId: String,
         player: MemorablePlayer,
         total: Int,
         localCount: Int,
         opponentCount: Int,
         nowMs: Long,
-    ) {
+    ): Boolean {
+        if (eventType != AUTHORITATIVE_EVENT || sequenceId.isBlank() || sequenceId in seenSequenceIds) return false
         require(total >= 1)
         require(localCount >= 0 && opponentCount >= 0)
         require(localCount + opponentCount == total)
         val scorerCount = if (player == MemorablePlayer.LOCAL) localCount else opponentCount
         require(scorerCount >= 1)
-
+        seenSequenceIds += sequenceId
         state = state.copy(
             cameraBadgeTotal = total,
             localCount = localCount,
             opponentCount = opponentCount,
             lastPlayer = player,
             overlayStartedMs = nowMs,
-            overlayUntilMs = nowMs + 1200L,
+            overlayUntilMs = nowMs + OVERLAY_MS,
             standingOvationStartedMs = nowMs,
-            standingOvationUntilMs = nowMs + 2200L,
+            standingOvationUntilMs = nowMs + OVATION_MS,
             applauseCuePending = true,
-            // Replays deliberately stay locked while the set is live.
             replayAvailable = false,
             replayPanelVisible = false,
             replayFilter = MemorableReplayFilter.ALL,
         )
+        return true
+    }
+
+    /** Compatibility entry point for existing deterministic tests; production bridge uses sequenceId overload. */
+    fun onAuthoritativeConfirmed(player: MemorablePlayer, total: Int, localCount: Int, opponentCount: Int, nowMs: Long) {
+        onAuthoritativeConfirmed(AUTHORITATIVE_EVENT, "legacy-$total-$localCount-$opponentCount-$nowMs", player, total, localCount, opponentCount, nowMs)
     }
 
     fun consumeApplauseCue(): Boolean {
@@ -61,10 +74,6 @@ class MemorablePresentationController {
         return true
     }
 
-    /**
-     * Called only after the set has ended. This is the first moment in which the
-     * camera/replay surface may expose memorable clips to the players.
-     */
     fun onSetBreakStarted() {
         val available = state.cameraBadgeTotal > 0
         state = state.copy(
@@ -85,9 +94,7 @@ class MemorablePresentationController {
         return true
     }
 
-    fun closeReplayPanel() {
-        state = state.copy(replayPanelVisible = false)
-    }
+    fun closeReplayPanel() { state = state.copy(replayPanelVisible = false) }
 
     fun selectReplayFilter(filter: MemorableReplayFilter): Boolean {
         if (!state.replayAvailable) return false
@@ -101,11 +108,6 @@ class MemorablePresentationController {
         return true
     }
 
-    /**
-     * Start of a new set clears only the per-set presentation counters. Durable
-     * post-match replay retention remains a server/replay-store responsibility.
-     */
-    fun resetForNewSet() {
-        state = MemorableUiState()
-    }
+    /** Clears per-set presentation while keeping reconnect dedupe IDs for this match session. */
+    fun resetForNewSet() { state = MemorableUiState() }
 }
