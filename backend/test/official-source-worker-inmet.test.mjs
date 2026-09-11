@@ -5,10 +5,12 @@ import assert from 'node:assert/strict';
 import { ALERTA_RIO_LIVE_SOURCE_ID } from '../src/alerta-rio-source.mjs';
 import {
   createOfficialSourceWorker,
+  INMET_P0_RUNTIME_STATUS_CONTRACT,
   INMET_WARNINGS_TASK_ID,
   loadOfficialSourceWorkerConfig,
   OfficialSourceWorkerError,
 } from '../src/official-source-worker.mjs';
+import { INMET_P0_POLICY_ID } from '../src/inmet-p0-policy.mjs';
 import { INMET_WARNINGS_SEMANTIC_VALIDITY } from '../src/inmet-warning-cache.mjs';
 import {
   INMET_CAP_RSS_URL,
@@ -105,7 +107,7 @@ test('INMET runtime polling is explicit and disabled by default', () => {
   );
 });
 
-test('optional INMET CAP task caches validated inventory without evaluating or publishing P0', async () => {
+test('optional INMET CAP task caches source and continuously stages redacted P0 evaluation without publishing', async () => {
   let inmetCalls = 0;
   const worker = createOfficialSourceWorker({
     config: {
@@ -141,11 +143,68 @@ test('optional INMET CAP task caches validated inventory without evaluating or p
   const inmetStatus = status.sources.find((source) => source.sourceId === INMET_SOURCE_ID);
   assert.equal(inmetStatus.semanticValidity, INMET_WARNINGS_SEMANTIC_VALIDITY);
   assert.equal(inmetStatus.payloadExposed, false);
-  assert.equal(JSON.stringify(status).includes('Chuvas Intensas'), false);
-  assert.equal(JSON.stringify(status).includes('3304557'), false);
+
+  const evaluation = status.inmetP0Evaluation;
+  assert.equal(evaluation.contract, INMET_P0_RUNTIME_STATUS_CONTRACT);
+  assert.equal(evaluation.policyId, INMET_P0_POLICY_ID);
+  assert.equal(evaluation.configured, true);
+  assert.equal(evaluation.status, 'READY_STAGED_NOT_PUBLISHED');
+  assert.equal(evaluation.lastAttemptAt, new Date(NOW).toISOString());
+  assert.equal(evaluation.evaluatedAt, new Date(NOW).toISOString());
+  assert.equal(evaluation.candidateCount, 1);
+  assert.equal(evaluation.blockedCount, 0);
+  assert.equal(evaluation.ineligibleCount, 0);
+  assert.match(evaluation.batchSha256, /^[a-f0-9]{64}$/);
+  assert.equal(evaluation.delivery, 'STAGED_NOT_PUBLISHED');
+  assert.equal(evaluation.publication, 'NOT_PERFORMED');
+  assert.equal(evaluation.fcmDelivery, 'NOT_PROVEN');
+  assert.equal(evaluation.automaticPublication, 'DISABLED');
+  assert.equal(evaluation.candidatePayloadRetention, 'NONE_AFTER_STATUS_PROJECTION');
+
+  const serializedStatus = JSON.stringify(status);
+  assert.equal(serializedStatus.includes('Chuvas Intensas'), false);
+  assert.equal(serializedStatus.includes('3304557'), false);
+  assert.equal(serializedStatus.includes('urn:oid:'), false);
 });
 
-test('INMET refresh failures remain fail-closed and payload-redacted', async () => {
+test('INMET policy or staging failure does not poison a valid source cache and remains redacted', async () => {
+  const worker = createOfficialSourceWorker({
+    config: {
+      enabled: true,
+      initialMode: 'normal',
+      ineaStationUrl: null,
+      inmetWarningsEnabled: true,
+    },
+    now: () => NOW,
+    autoSchedule: false,
+    maxConcurrency: 2,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    probeInmetWarningsLive: async () => inmetSnapshot(),
+    stageInmetP0: () => {
+      const error = new Error('candidate payload must never leak into runtime status');
+      error.code = 'inmet_p0_stage_contract_failure';
+      throw error;
+    },
+  });
+
+  worker.start();
+  await worker.tick();
+
+  const reading = worker.readSource(INMET_WARNINGS_TASK_ID);
+  assert.equal(reading.state, 'CURRENT');
+  assert.equal(reading.snapshot.rjWarningCount, 1);
+
+  const status = worker.status();
+  assert.equal(status.inmetP0Evaluation.status, 'BLOCKED_POLICY_OR_STAGING_CONTRACT');
+  assert.equal(status.inmetP0Evaluation.lastErrorCode, 'inmet_p0_stage_contract_failure');
+  assert.equal(status.inmetP0Evaluation.candidateCount, null);
+  assert.equal(status.inmetP0Evaluation.batchSha256, null);
+  assert.equal(status.inmetP0Evaluation.publication, 'NOT_PERFORMED');
+  assert.equal(status.scheduler.tasks.find((task) => task.taskId === INMET_WARNINGS_TASK_ID).lastOutcome, 'SUCCESS');
+  assert.equal(JSON.stringify(status).includes('candidate payload'), false);
+});
+
+test('INMET refresh failures block P0 evaluation separately and remain fail-closed and payload-redacted', async () => {
   const worker = createOfficialSourceWorker({
     config: {
       enabled: true,
@@ -170,5 +229,11 @@ test('INMET refresh failures remain fail-closed and payload-redacted', async () 
   assert.equal(reading.state, 'UNAVAILABLE');
   assert.equal(reading.lastErrorCode, 'inmet_source_timeout');
   assert.equal(reading.snapshot, null);
-  assert.equal(JSON.stringify(worker.status()).includes('CAP XML body'), false);
+
+  const status = worker.status();
+  assert.equal(status.inmetP0Evaluation.status, 'BLOCKED_SOURCE_UNAVAILABLE');
+  assert.equal(status.inmetP0Evaluation.lastErrorCode, 'inmet_source_timeout');
+  assert.equal(status.inmetP0Evaluation.publication, 'NOT_PERFORMED');
+  assert.equal(status.inmetP0Evaluation.fcmDelivery, 'NOT_PROVEN');
+  assert.equal(JSON.stringify(status).includes('CAP XML body'), false);
 });
