@@ -67,6 +67,20 @@ function normalizeBoundedLabel(value, code, maxLength) {
   return normalized;
 }
 
+function mergeDuplicateWarning(existing, candidate) {
+  if (existing.warningType !== candidate.warningType
+      || existing.issuedZuluClock !== candidate.issuedZuluClock) {
+    throw new ChmSourceContractError('chm_warning_duplicate_conflict');
+  }
+  if (existing.area && candidate.area && existing.area !== candidate.area) {
+    throw new ChmSourceContractError('chm_warning_duplicate_area_conflict');
+  }
+  return Object.freeze({
+    ...existing,
+    area: existing.area ?? candidate.area,
+  });
+}
+
 export function validateChmWarningsHtml(html) {
   if (typeof html !== 'string' || html.length < 256) {
     throw new ChmSourceContractError('chm_warnings_empty_html');
@@ -84,8 +98,8 @@ export function validateChmWarningsHtml(html) {
     throw new ChmSourceContractError('chm_identity_marker_missing');
   }
 
-  const records = [];
-  const ids = new Set();
+  const recordsById = new Map();
+  let duplicateRenderCount = 0;
   const pattern = /(?:ÁREA\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ ]{2,48})\s+)?AVISO\s+NR\s+(\d{1,4})\/(\d{4})\s+(AVISO\s+DE\s+.{3,96}?)\s+EMITIDO\s+[ÀA]S\s+(\d{4}Z)/giu;
   for (const match of text.matchAll(pattern)) {
     const warningNumber = Number(match[2]);
@@ -97,8 +111,6 @@ export function validateChmWarningsHtml(html) {
       throw new ChmSourceContractError('chm_warning_year_invalid');
     }
     const id = `${warningNumber}/${year}`;
-    if (ids.has(id)) throw new ChmSourceContractError('chm_warning_duplicate_id');
-    ids.add(id);
 
     const area = match[1]
       ? normalizeBoundedLabel(match[1], 'chm_warning_area_invalid', 48)
@@ -109,19 +121,27 @@ export function validateChmWarningsHtml(html) {
       throw new ChmSourceContractError('chm_warning_issue_clock_invalid');
     }
 
-    records.push(Object.freeze({
+    const candidate = Object.freeze({
       id,
       warningNumber,
       year,
       area,
       warningType,
       issuedZuluClock,
-    }));
-    if (records.length > CHM_MAX_WARNING_RECORDS) {
+    });
+    const existing = recordsById.get(id);
+    if (existing) {
+      recordsById.set(id, mergeDuplicateWarning(existing, candidate));
+      duplicateRenderCount += 1;
+    } else {
+      recordsById.set(id, candidate);
+    }
+    if (recordsById.size > CHM_MAX_WARNING_RECORDS) {
       throw new ChmSourceContractError('chm_warning_count_invalid');
     }
   }
 
+  const records = [...recordsById.values()];
   const noWarningMarker = /\bNIL\b/i.test(text) || folded.includes('nao ha avisos');
   if (records.length < 1 && !noWarningMarker) {
     throw new ChmSourceContractError('chm_warning_inventory_missing');
@@ -140,6 +160,7 @@ export function validateChmWarningsHtml(html) {
     sourceUrl: CHM_WARNINGS_URL,
     metarea: 'V',
     activeWarningCount: records.length,
+    duplicateRenderCount,
     noWarningMarker: records.length === 0 && noWarningMarker,
     warnings: Object.freeze(records),
     warningInventorySha256: sha256(JSON.stringify(canonicalRecords)),
