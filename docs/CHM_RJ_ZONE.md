@@ -1,6 +1,6 @@
 # CHM / METAREA V — RJ zone classification
 
-This stage adds a bounded, fail-closed **subarea-to-Rio-de-Janeiro relevance classifier** plus an IBGE 2024 sea-facing municipality prefilter. It still does not claim exact CHM-to-municipality geofencing and it does not publish municipality P0 alerts by itself.
+This stage provides a bounded, fail-closed **subarea-to-Rio-de-Janeiro relevance classifier**, an IBGE 2024 sea-facing municipality prefilter and a separate **RJ regional marine routing** contract. It still does not claim exact CHM-to-municipality geofencing and it does not publish municipality P0 alerts by itself.
 
 ## Official CHM subarea boundaries used
 
@@ -33,7 +33,7 @@ The IBGE catalog is a coarse safety prefilter only. It identifies whether a sele
 
 Important distinction: municipalities such as Iguaba Grande and São Pedro da Aldeia can be relevant to the broader coastal/lagoon system but are not silently added to this specific IBGE sea-facing set. The code therefore keeps them `seaFacing=false` for this contract instead of broadening the official 25-entry recorte.
 
-## Code contract
+## Zone classification contract
 
 `backend/src/chm-rj-zone.mjs` classifies only recognized CHM area labels. Unknown or malformed area labels fail closed.
 
@@ -57,9 +57,26 @@ Every municipality prefilter result explicitly returns:
 - `canPromoteMunicipalityP0=false`;
 - contract marker `CHM_METAREA_V_PLUS_IBGE_2024_SEAFRONT_PREFILTER_NOT_MUNICIPAL_GEOFENCE`.
 
+## RJ regional marine routing contract
+
+`classifyChmWarningRjRouting(warning)` now converts the proven coarse sector classification into a routing result suitable for the **RJ/Oceano Atlântico marine panel**, without converting that result into municipality targeting:
+
+- any warning containing `BRAVO`, `CHARLIE` or `DELTA` is routed as `RJ_MARINE_REGIONAL`;
+- `NORTE OCEÂNICA` or `SUL OCEÂNICA` without a direct RJ sector becomes `BROAD_OCEANIC_REVIEW_REQUIRED`;
+- recognized sectors outside direct RJ become `NOT_DIRECT_RJ`;
+- warnings with no explicit CHM area become `UNROUTABLE_NO_EXPLICIT_AREA`;
+- unknown area labels fail closed.
+
+A regional route can set `canExposeRjMarineWarning=true`, which means only that the warning may be shown in the RJ/Atlantic marine scope. It **never** changes these municipality safeguards:
+
+- `municipalityGeofenceValidated=false`;
+- `canPromoteMunicipalityP0=false`.
+
+The routing contract marker is `CHM_METAREA_V_RJ_REGIONAL_ROUTING_NOT_MUNICIPAL_GEOFENCE`.
+
 ## What this closes
 
-This prevents the backend from treating either a raw METAREA V label or generic “coastal RJ” status as if it were already exact municipality targeting. It also removes inland municipalities from the CHM coastal candidate set without inventing geometry.
+This prevents the backend from treating either a raw METAREA V label or generic “coastal RJ” status as if it were already exact municipality targeting, while still allowing proven CHM sectors that intersect the RJ marine monitoring scope to be represented as **regional marine relevance**. It also removes inland municipalities from the CHM coastal candidate set without inventing geometry.
 
 ## Still not proven
 
@@ -70,6 +87,6 @@ This stage does not prove:
 - parsing of directional qualifiers such as “ao sul de Campos dos Goytacazes/RJ” into exact municipality sets;
 - current coastal impact, ressaca occurrence or observed wave height;
 - automatic severity mapping;
-- automatic CHM-to-P0 publication.
+- automatic CHM-to-municipality-P0 publication.
 
 Those remain fail closed until exact official geometry/coordinate evidence, warning-text spatial semantics and publication policy are implemented and tested.

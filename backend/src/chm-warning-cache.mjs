@@ -10,6 +10,10 @@ import {
   CHM_WARNINGS_URL,
 } from './chm-source.mjs';
 import {
+  CHM_RJ_ALERT_ROUTING_CONTRACT,
+  classifyChmWarningRjRouting,
+} from './chm-rj-zone.mjs';
+import {
   OFFICIAL_SOURCE_MAX_FUTURE_SKEW_MS,
   OFFICIAL_SOURCE_NORMAL_REFRESH_MS,
   OFFICIAL_SOURCE_SEVERE_REFRESH_MS,
@@ -17,7 +21,7 @@ import {
 
 export const CHM_WARNINGS_MAX_CACHE_AGE_MS = 30 * 60 * 1000;
 export const CHM_WARNINGS_MAX_SNAPSHOT_BYTES = 64 * 1024;
-export const CHM_WARNINGS_SEMANTIC_VALIDITY = 'SOURCE_INVENTORY_TEMPORAL_VALIDITY_NOT_RJ_GEOFENCED';
+export const CHM_WARNINGS_SEMANTIC_VALIDITY = 'SOURCE_INVENTORY_TEMPORAL_VALIDITY_RJ_REGIONAL_ROUTED_NOT_MUNICIPAL_GEOFENCED';
 
 export class ChmWarningsCacheError extends Error {
   constructor(code) {
@@ -86,6 +90,7 @@ function digestWarnings(warnings) {
     issuedAt: warning.issuedAt,
     validUntil: warning.validUntil,
     validityDurationMs: warning.validityDurationMs,
+    rjRouting: warning.rjRouting,
   }));
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
@@ -155,6 +160,16 @@ function validateWarning(warning, seen) {
       || durationMs > CHM_MAX_WARNING_VALIDITY_MS) {
     throw new ChmWarningsCacheError('chm_warnings_cache_warning_validity_window_invalid');
   }
+
+  let expectedRouting;
+  try {
+    expectedRouting = classifyChmWarningRjRouting(warning);
+  } catch {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_rj_routing_invalid');
+  }
+  if (JSON.stringify(warning.rjRouting) !== JSON.stringify(expectedRouting)) {
+    throw new ChmWarningsCacheError('chm_warnings_cache_warning_rj_routing_invalid');
+  }
 }
 
 function validateSnapshot(snapshot) {
@@ -180,6 +195,7 @@ function validateSnapshot(snapshot) {
   }
   if (snapshot.rawWarningTextRetention !== 'NONE'
       || snapshot.temporalValidityValidation !== CHM_TEMPORAL_VALIDITY_CONTRACT
+      || snapshot.rjZoneRoutingValidation !== CHM_RJ_ALERT_ROUTING_CONTRACT
       || snapshot.rjCoastGeofenceValidation !== 'NOT_IMPLEMENTED') {
     throw new ChmWarningsCacheError('chm_warnings_cache_semantic_contract_drift');
   }

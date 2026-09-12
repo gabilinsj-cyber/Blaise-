@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 
 import { fetchTextContract, SourceContractError } from './source-contract.mjs';
+import {
+  CHM_RJ_ALERT_ROUTING_CONTRACT,
+  ChmRjZoneError,
+  classifyChmWarningRjRouting,
+} from './chm-rj-zone.mjs';
 
 export const CHM_SOURCE_ID = 'chm-marine';
 export const CHM_HOST = 'www.marinha.mil.br';
@@ -186,6 +191,20 @@ function mergeDuplicateWarning(existing, candidate) {
   });
 }
 
+function withRjRouting(record) {
+  try {
+    return Object.freeze({
+      ...record,
+      rjRouting: classifyChmWarningRjRouting(record),
+    });
+  } catch (error) {
+    if (error instanceof ChmRjZoneError) {
+      throw new ChmSourceContractError(`chm_warning_rj_routing_${error.code}`);
+    }
+    throw error;
+  }
+}
+
 export function validateChmWarningsHtml(html) {
   if (typeof html !== 'string' || html.length < 256) {
     throw new ChmSourceContractError('chm_warnings_empty_html');
@@ -278,7 +297,7 @@ export function validateChmWarningsHtml(html) {
     }
   }
 
-  const records = [...recordsById.values()];
+  const records = [...recordsById.values()].map(withRjRouting);
   const noWarningMarker = /\bNIL\b/i.test(text) || folded.includes('nao ha avisos');
   if (records.length < 1 && !noWarningMarker) {
     throw new ChmSourceContractError('chm_warning_inventory_missing');
@@ -293,6 +312,7 @@ export function validateChmWarningsHtml(html) {
     issuedAt: record.issuedAt,
     validUntil: record.validUntil,
     validityDurationMs: record.validityDurationMs,
+    rjRouting: record.rjRouting,
   }));
 
   return Object.freeze({
@@ -307,6 +327,7 @@ export function validateChmWarningsHtml(html) {
     warningInventorySha256: sha256(JSON.stringify(canonicalRecords)),
     rawWarningTextRetention: 'NONE',
     temporalValidityValidation: CHM_TEMPORAL_VALIDITY_CONTRACT,
+    rjZoneRoutingValidation: CHM_RJ_ALERT_ROUTING_CONTRACT,
     rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
   });
 }
