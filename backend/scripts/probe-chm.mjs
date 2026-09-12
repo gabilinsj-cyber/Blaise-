@@ -6,11 +6,16 @@ import {
   probeChmTides,
   probeChmWarnings,
 } from '../src/chm-source.mjs';
+import {
+  ChmTideCatalogError,
+  probeChmRjTideCatalog,
+} from '../src/chm-tide-catalog.mjs';
 
 const evidencePath = 'evidence/official-sources/chm.json';
 
 function errorCode(error) {
   if (error instanceof ChmSourceContractError) return error.code;
+  if (error instanceof ChmTideCatalogError) return error.code;
   return 'chm_unexpected_error';
 }
 
@@ -30,20 +35,30 @@ function warningEvidence(result) {
   };
 }
 
-function tideEvidence(result) {
+function tideEvidence(publication, catalog) {
+  if (publication.calendarYear !== catalog.calendarYear) {
+    throw new ChmTideCatalogError('chm_tide_catalog_year_mismatch');
+  }
+
   return {
     status: 'PASS',
-    sourceHost: result.sourceHost,
-    calendarYear: result.calendarYear,
-    tidePublicationSha256: result.tidePublicationSha256,
-    tideValueIngestion: result.tideValueIngestion,
-    portSelectionValidation: result.portSelectionValidation,
+    sourceHost: publication.sourceHost,
+    calendarYear: publication.calendarYear,
+    tidePublicationSha256: publication.tidePublicationSha256,
+    rjStationCount: catalog.rjStationCount,
+    rjStationNumbers: catalog.stations.map((station) => station.stationNumber),
+    rjStationNames: catalog.stations.map((station) => station.name),
+    stationCatalogSha256: catalog.stationCatalogSha256,
+    rawCatalogTextRetention: catalog.rawCatalogTextRetention,
+    tideValueIngestion: catalog.tideValueIngestion,
+    portSelectionValidation: catalog.portSelectionValidation,
+    catalogContract: catalog.contract,
   };
 }
 
 const evidence = {
   sourceId: CHM_SOURCE_ID,
-  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery',
+  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog',
   status: 'BLOCKED_SOURCE_CONTRACT',
   execution: 'LIVE_PUBLIC_SOURCE_PROBE',
   warnings: { status: 'NOT_RUN' },
@@ -63,7 +78,9 @@ try {
 
 if (!failure) {
   try {
-    evidence.tides = tideEvidence(await probeChmTides());
+    const publication = await probeChmTides();
+    const catalog = await probeChmRjTideCatalog();
+    evidence.tides = tideEvidence(publication, catalog);
   } catch (error) {
     failure = error;
     evidence.tides = { status: 'BLOCKED_SOURCE_CONTRACT', errorCode: errorCode(error) };

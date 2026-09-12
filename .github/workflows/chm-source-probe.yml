@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query official Marinha/CHM METAREA V warnings and tide-publication discovery pages'
+        description: 'Query official Marinha/CHM METAREA V warnings, tide-publication discovery and RJ tide-station catalog pages'
         required: true
         default: false
         type: boolean
@@ -32,7 +32,7 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
@@ -56,6 +56,7 @@ jobs:
           test "$(node --version)" = "v24.20.0"
           node --check backend/src/source-contract.mjs
           node --check backend/src/chm-source.mjs
+          node --check backend/src/chm-tide-catalog.mjs
           node --check backend/scripts/probe-chm.mjs
           node backend/scripts/probe-chm.mjs
 
