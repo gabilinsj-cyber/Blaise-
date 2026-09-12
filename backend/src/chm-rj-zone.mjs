@@ -1,3 +1,7 @@
+import {
+  ChmMarineSignalError,
+  validateChmMarineSignal,
+} from './chm-marine-signal.mjs';
 import { classifyRjSeaFacingMunicipality } from './rj-seafront-municipalities.mjs';
 
 export const CHM_RJ_ZONE_CONTRACT = 'OFFICIAL_METAREA_V_SUBAREA_RJ_ZONE_CLASSIFICATION_NOT_MUNICIPAL_GEOFENCE';
@@ -93,6 +97,17 @@ function normalizeAreaLabel(value) {
   return normalized;
 }
 
+function validatedMarineSignal(warning) {
+  try {
+    return validateChmMarineSignal(warning.marineSignal, warning.warningType);
+  } catch (error) {
+    if (error instanceof ChmMarineSignalError) {
+      throw new ChmRjZoneError('chm_rj_routing_marine_signal_invalid');
+    }
+    throw error;
+  }
+}
+
 export function classifyChmRjZone(areaLabel) {
   const normalizedArea = normalizeAreaLabel(areaLabel);
   const rule = AREA_RULES[normalizedArea];
@@ -138,6 +153,7 @@ export function classifyChmWarningRjRouting(warning) {
   }
 
   const warningId = typeof warning.id === 'string' ? warning.id : null;
+  const marineSignal = validatedMarineSignal(warning);
   if (warning.areas.length === 0) {
     return Object.freeze({
       warningId,
@@ -145,6 +161,7 @@ export function classifyChmWarningRjRouting(warning) {
       rjZoneCandidate: false,
       directRjAreas: Object.freeze([]),
       broadOceanicAreas: Object.freeze([]),
+      marineSignal,
       canExposeRjMarineWarning: false,
       municipalityGeofenceValidated: false,
       canPromoteMunicipalityP0: false,
@@ -172,6 +189,7 @@ export function classifyChmWarningRjRouting(warning) {
     rjZoneCandidate: directRjAreas.length > 0,
     directRjAreas: Object.freeze(directRjAreas),
     broadOceanicAreas: Object.freeze(broadOceanicAreas),
+    marineSignal,
     canExposeRjMarineWarning: route === CHM_RJ_ALERT_ROUTE.RJ_MARINE_REGIONAL,
     municipalityGeofenceValidated: false,
     canPromoteMunicipalityP0: false,
