@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 
 import { fetchTextContract, SourceContractError } from './source-contract.mjs';
 import {
+  ChmMarineSignalError,
+  mergeChmMarineSignals,
+  parseChmMarineSignal,
+} from './chm-marine-signal.mjs';
+import {
   CHM_RJ_ALERT_ROUTING_CONTRACT,
   ChmRjZoneError,
   classifyChmWarningRjRouting,
@@ -167,6 +172,28 @@ function resolveValidUntil({ issued, token }) {
   });
 }
 
+function parseMarineSignal(segment, warningType) {
+  try {
+    return parseChmMarineSignal(segment, warningType);
+  } catch (error) {
+    if (error instanceof ChmMarineSignalError) {
+      throw new ChmSourceContractError(`chm_warning_marine_signal_${error.code}`);
+    }
+    throw error;
+  }
+}
+
+function mergeMarineSignals(existing, candidate, warningType) {
+  try {
+    return mergeChmMarineSignals(existing, candidate, warningType);
+  } catch (error) {
+    if (error instanceof ChmMarineSignalError) {
+      throw new ChmSourceContractError(`chm_warning_marine_signal_${error.code}`);
+    }
+    throw error;
+  }
+}
+
 function mergeDuplicateWarning(existing, candidate) {
   if (existing.warningType !== candidate.warningType
       || existing.issuedZuluClock !== candidate.issuedZuluClock
@@ -184,10 +211,12 @@ function mergeDuplicateWarning(existing, candidate) {
     throw new ChmSourceContractError('chm_warning_area_count_invalid');
   }
 
+  const marineSignal = mergeMarineSignals(existing.marineSignal, candidate.marineSignal, existing.warningType);
   return Object.freeze({
     ...existing,
     area: areas[0] ?? null,
     areas: Object.freeze(areas),
+    marineSignal,
   });
 }
 
@@ -272,6 +301,7 @@ export function validateChmWarningsHtml(html) {
     const validMatch = segment.match(/V[ÁA]LIDO\s+AT[ÉE]\s+(\d{6}Z)/iu);
     if (!validMatch) throw new ChmSourceContractError('chm_warning_valid_until_missing');
     const validity = resolveValidUntil({ issued, token: validMatch[1].toUpperCase() });
+    const marineSignal = parseMarineSignal(segment, warningType);
 
     const candidate = Object.freeze({
       id,
@@ -284,6 +314,7 @@ export function validateChmWarningsHtml(html) {
       issuedAt: issued.iso,
       validUntil: validity.iso,
       validityDurationMs: validity.durationMs,
+      marineSignal,
     });
     const existing = recordsById.get(id);
     if (existing) {
