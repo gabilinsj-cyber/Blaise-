@@ -1,4 +1,7 @@
+import { classifyRjSeaFacingMunicipality } from './rj-seafront-municipalities.mjs';
+
 export const CHM_RJ_ZONE_CONTRACT = 'OFFICIAL_METAREA_V_SUBAREA_RJ_ZONE_CLASSIFICATION_NOT_MUNICIPAL_GEOFENCE';
+export const CHM_RJ_MUNICIPALITY_PREFILTER_CONTRACT = 'CHM_METAREA_V_PLUS_IBGE_2024_SEAFRONT_PREFILTER_NOT_MUNICIPAL_GEOFENCE';
 
 export const CHM_RJ_ZONE_KIND = Object.freeze({
   RJ_COASTAL: 'RJ_COASTAL_ZONE',
@@ -115,5 +118,25 @@ export function classifyChmWarningRjZones(warning) {
     municipalityGeofenceValidated: false,
     canPromoteMunicipalityP0: false,
     contract: CHM_RJ_ZONE_CONTRACT,
+  });
+}
+
+export function classifyChmRjMunicipalityCandidate(areaLabel, municipalityIbge) {
+  const zone = classifyChmRjZone(areaLabel);
+  const municipality = classifyRjSeaFacingMunicipality(municipalityIbge);
+  const coastalZone = zone.kind === CHM_RJ_ZONE_KIND.RJ_COASTAL;
+  const rjCoastalCatalogMatch = coastalZone && municipality.seaFacing;
+
+  return Object.freeze({
+    area: zone.area,
+    kind: zone.kind,
+    officialBoundary: zone.officialBoundary,
+    municipalityName: municipality.name,
+    municipalityIbge: municipality.ibge,
+    ibgeSeaFacing: municipality.seaFacing,
+    rjCoastalCatalogMatch,
+    municipalityGeofenceValidated: false,
+    canPromoteMunicipalityP0: false,
+    contract: CHM_RJ_MUNICIPALITY_PREFILTER_CONTRACT,
   });
 }

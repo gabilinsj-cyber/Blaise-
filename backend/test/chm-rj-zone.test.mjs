@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CHM_RJ_MUNICIPALITY_PREFILTER_CONTRACT,
   CHM_RJ_ZONE_CONTRACT,
   CHM_RJ_ZONE_KIND,
   ChmRjZoneError,
+  classifyChmRjMunicipalityCandidate,
   classifyChmRjZone,
   classifyChmWarningRjZones,
 } from '../src/chm-rj-zone.mjs';
@@ -83,4 +85,29 @@ test('rejects warning objects without a bounded explicit area inventory', () => 
     () => classifyChmWarningRjZones(null),
     (error) => error instanceof ChmRjZoneError && error.code === 'chm_rj_zone_warning_invalid',
   );
+});
+
+test('prefilters only IBGE sea-facing municipalities for CHM coastal zones without claiming an exact geofence', () => {
+  const rio = classifyChmRjMunicipalityCandidate('CHARLIE', '3304557');
+  const niteroi = classifyChmRjMunicipalityCandidate('DELTA', '3303302');
+
+  for (const result of [rio, niteroi]) {
+    assert.equal(result.ibgeSeaFacing, true);
+    assert.equal(result.rjCoastalCatalogMatch, true);
+    assert.equal(result.municipalityGeofenceValidated, false);
+    assert.equal(result.canPromoteMunicipalityP0, false);
+    assert.equal(result.contract, CHM_RJ_MUNICIPALITY_PREFILTER_CONTRACT);
+  }
+});
+
+test('does not treat inland catalog entries or offshore BRAVO as municipality coastal matches', () => {
+  const inland = classifyChmRjMunicipalityCandidate('CHARLIE', '3305109');
+  const offshore = classifyChmRjMunicipalityCandidate('BRAVO', '3304557');
+
+  assert.equal(inland.ibgeSeaFacing, false);
+  assert.equal(inland.rjCoastalCatalogMatch, false);
+  assert.equal(offshore.ibgeSeaFacing, true);
+  assert.equal(offshore.kind, CHM_RJ_ZONE_KIND.RJ_OFFSHORE);
+  assert.equal(offshore.rjCoastalCatalogMatch, false);
+  assert.equal(offshore.canPromoteMunicipalityP0, false);
 });

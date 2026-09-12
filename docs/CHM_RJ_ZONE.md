@@ -1,6 +1,6 @@
 # CHM / METAREA V — RJ zone classification
 
-This stage adds a bounded, fail-closed **subarea-to-Rio-de-Janeiro relevance classifier**. It does not claim exact municipality geofencing and it does not publish P0 alerts by itself.
+This stage adds a bounded, fail-closed **subarea-to-Rio-de-Janeiro relevance classifier** plus an IBGE 2024 sea-facing municipality prefilter. It still does not claim exact CHM-to-municipality geofencing and it does not publish municipality P0 alerts by itself.
 
 ## Official CHM subarea boundaries used
 
@@ -21,6 +21,18 @@ Official source pages:
 - `https://www.marinha.mil.br/chm/dados-do-smm-meteoromarinha/previsao-24-horas`
 - `https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo`
 
+## IBGE 2024 sea-facing municipality prefilter
+
+`backend/src/rj-seafront-municipalities.mjs` contains the 25 Rio de Janeiro municipalities in the IBGE 2024 **Municípios Defrontantes com o Mar** recorte and startup-validates every pair against the canonical 92-municipality RJ catalog already used by the backend.
+
+Official IBGE source:
+
+- `https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/24072-municipios-defrontantes-com-o-mar.html`
+
+The IBGE catalog is a coarse safety prefilter only. It identifies whether a selected RJ municipality is in the official sea-facing recorte; it does **not** prove that a particular CHM warning polygon, directional qualifier or local marine impact intersects that municipality.
+
+Important distinction: municipalities such as Iguaba Grande and São Pedro da Aldeia can be relevant to the broader coastal/lagoon system but are not silently added to this specific IBGE sea-facing set. The code therefore keeps them `seaFacing=false` for this contract instead of broadening the official 25-entry recorte.
+
 ## Code contract
 
 `backend/src/chm-rj-zone.mjs` classifies only recognized CHM area labels. Unknown or malformed area labels fail closed.
@@ -32,24 +44,32 @@ The safe relevance model is intentionally coarse:
 - the remaining direct coastal sectors are `OUTSIDE_DIRECT_RJ_ZONE`;
 - broad oceanic sectors are `BROAD_OCEANIC_NOT_RJ_GEOFENCED`.
 
-Every classification explicitly returns:
+`classifyChmRjMunicipalityCandidate(area, ibge)` combines only two proven coarse facts:
+
+1. the CHM area is a recognized RJ coastal sector (`CHARLIE` or `DELTA`); and
+2. the selected municipality belongs to the official IBGE 2024 RJ sea-facing catalog.
+
+A positive `rjCoastalCatalogMatch` is therefore a **candidate filter**, not a geofence result. `BRAVO` never becomes a municipality coastal match because it is an offshore sector.
+
+Every municipality prefilter result explicitly returns:
 
 - `municipalityGeofenceValidated=false`;
 - `canPromoteMunicipalityP0=false`;
-- contract marker `OFFICIAL_METAREA_V_SUBAREA_RJ_ZONE_CLASSIFICATION_NOT_MUNICIPAL_GEOFENCE`.
+- contract marker `CHM_METAREA_V_PLUS_IBGE_2024_SEAFRONT_PREFILTER_NOT_MUNICIPAL_GEOFENCE`.
 
 ## What this closes
 
-This prevents the backend from treating a raw METAREA V area label as if it were already a municipality-level Rio de Janeiro geofence. It provides a deterministic first-stage filter that later exact geometry/coordinate logic can consume.
+This prevents the backend from treating either a raw METAREA V label or generic “coastal RJ” status as if it were already exact municipality targeting. It also removes inland municipalities from the CHM coastal candidate set without inventing geometry.
 
 ## Still not proven
 
 This stage does not prove:
 
 - exact polygon/coordinate intersection with any RJ municipality;
-- municipality selection for Rio, Niterói, São Gonçalo or any of the 92 municipalities;
+- which side of the Arraial do Cabo boundary a municipality-specific impact belongs to for a particular warning;
+- parsing of directional qualifiers such as “ao sul de Campos dos Goytacazes/RJ” into exact municipality sets;
 - current coastal impact, ressaca occurrence or observed wave height;
 - automatic severity mapping;
 - automatic CHM-to-P0 publication.
 
-Those remain fail closed until exact official geometry/coordinate evidence and publication policy are implemented and tested.
+Those remain fail closed until exact official geometry/coordinate evidence, warning-text spatial semantics and publication policy are implemented and tested.
