@@ -13,6 +13,10 @@ import {
 import { ALERTA_RIO_LIVE_SOURCE_ID } from '../src/alerta-rio-source.mjs';
 import { CHM_WARNINGS_SEMANTIC_VALIDITY } from '../src/chm-warning-cache.mjs';
 import {
+  CHM_RJ_ALERT_ROUTING_CONTRACT,
+  classifyChmWarningRjRouting,
+} from '../src/chm-rj-zone.mjs';
+import {
   CHM_HOST,
   CHM_SOURCE_ID,
   CHM_TEMPORAL_VALIDITY_CONTRACT,
@@ -60,18 +64,22 @@ function ineaSnapshot() {
 }
 
 function chmSnapshot() {
+  const baseWarning = {
+    id: '321/2026',
+    warningNumber: 321,
+    year: 2026,
+    area: 'CHARLIE',
+    areas: Object.freeze(['CHARLIE']),
+    warningType: 'AVISO DE VENTO FORTE',
+    issuedZuluClock: '1200Z',
+    issuedAt: '2026-09-10T12:00:00.000Z',
+    validUntil: '2026-09-12T12:00:00.000Z',
+    validityDurationMs: 48 * 60 * 60 * 1000,
+  };
   const warnings = Object.freeze([
     Object.freeze({
-      id: '321/2026',
-      warningNumber: 321,
-      year: 2026,
-      area: 'SUL',
-      areas: Object.freeze(['SUL']),
-      warningType: 'AVISO DE VENTO FORTE',
-      issuedZuluClock: '1200Z',
-      issuedAt: '2026-09-10T12:00:00.000Z',
-      validUntil: '2026-09-12T12:00:00.000Z',
-      validityDurationMs: 48 * 60 * 60 * 1000,
+      ...baseWarning,
+      rjRouting: classifyChmWarningRjRouting(baseWarning),
     }),
   ]);
   const canonical = warnings.map((warning) => ({
@@ -83,6 +91,7 @@ function chmSnapshot() {
     issuedAt: warning.issuedAt,
     validUntil: warning.validUntil,
     validityDurationMs: warning.validityDurationMs,
+    rjRouting: warning.rjRouting,
   }));
   return Object.freeze({
     sourceId: CHM_SOURCE_ID,
@@ -95,6 +104,7 @@ function chmSnapshot() {
     warningInventorySha256: createHash('sha256').update(JSON.stringify(canonical)).digest('hex'),
     rawWarningTextRetention: 'NONE',
     temporalValidityValidation: CHM_TEMPORAL_VALIDITY_CONTRACT,
+    rjZoneRoutingValidation: CHM_RJ_ALERT_ROUTING_CONTRACT,
     rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
   });
 }
@@ -212,7 +222,7 @@ test('optional INEA station task is explicit and honors severe cadence', async (
   assert.equal(worker.readSource(INEA_STATION_TASK_ID).state, 'CURRENT');
 });
 
-test('optional CHM warnings task is explicit and never promotes temporally validated inventory to RJ alert validity', async () => {
+test('optional CHM warnings task exposes only validated RJ regional routing and never municipality P0', async () => {
   let chmCalls = 0;
   const worker = createOfficialSourceWorker({
     config: {
@@ -241,6 +251,11 @@ test('optional CHM warnings task is explicit and never promotes temporally valid
   assert.equal(reading.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
   assert.equal(reading.snapshot.activeWarningCount, 1);
   assert.equal(reading.snapshot.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
+  assert.equal(reading.snapshot.rjZoneRoutingValidation, CHM_RJ_ALERT_ROUTING_CONTRACT);
+  assert.equal(reading.snapshot.warnings[0].rjRouting.route, 'RJ_MARINE_REGIONAL');
+  assert.equal(reading.snapshot.warnings[0].rjRouting.canExposeRjMarineWarning, true);
+  assert.equal(reading.snapshot.warnings[0].rjRouting.municipalityGeofenceValidated, false);
+  assert.equal(reading.snapshot.warnings[0].rjRouting.canPromoteMunicipalityP0, false);
   assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
 
   const status = worker.status();
