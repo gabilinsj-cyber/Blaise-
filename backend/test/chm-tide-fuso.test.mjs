@@ -10,10 +10,11 @@ import {
   ChmTideFusoError,
 } from '../src/chm-tide-fuso.mjs';
 
-test('binds DHN positive-west FUSO +3 to base UTC offset -180 minutes', () => {
-  const result = bindChmTideFusoToken('+3');
-  assert.equal(result.rawToken, '+3');
-  assert.equal(result.zoneHoursWest, 3);
+test('binds the official 2026 CHM tide header UTC -03.0 token to -180 minutes', () => {
+  const result = bindChmTideFusoToken('-03.0');
+  assert.equal(result.rawToken, '-03.0');
+  assert.equal(result.utcOffsetHours, -3);
+  assert.equal(result.zoneHoursWestDerived, 3);
   assert.equal(result.baseUtcOffsetMinutes, -180);
   assert.equal(result.signConvention, CHM_TIDE_FUSO_SIGN_CONVENTION);
   assert.equal(result.timeBasis, CHM_TIDE_FUSO_TIME_BASIS);
@@ -23,21 +24,23 @@ test('binds DHN positive-west FUSO +3 to base UTC offset -180 minutes', () => {
   assert.equal(result.contract, CHM_TIDE_FUSO_CONTRACT);
 });
 
-test('binds east-of-Greenwich negative DHN FUSO to positive UTC offset', () => {
-  const result = bindChmTideFusoToken('-2');
-  assert.equal(result.zoneHoursWest, -2);
+test('binds positive signed UTC offset directly instead of applying nautical west-positive inversion', () => {
+  const result = bindChmTideFusoToken('+02.0');
+  assert.equal(result.utcOffsetHours, 2);
+  assert.equal(result.zoneHoursWestDerived, -2);
   assert.equal(result.baseUtcOffsetMinutes, 120);
 });
 
-test('binds Greenwich FUSO zero without inventing a civil-clock adjustment', () => {
-  const result = bindChmTideFusoToken('0');
-  assert.equal(result.zoneHoursWest, 0);
+test('binds signed UTC zero without inventing a civil-clock adjustment', () => {
+  const result = bindChmTideFusoToken('+00.0');
+  assert.equal(result.utcOffsetHours, 0);
+  assert.equal(result.zoneHoursWestDerived, 0);
   assert.equal(result.baseUtcOffsetMinutes, 0);
   assert.equal(result.effectiveUtcOffsetMinutes, null);
 });
 
-for (const token of ['+03:00', '3.5', 'abc', '', '++3']) {
-  test(`fails closed on malformed FUSO token ${JSON.stringify(token)}`, () => {
+for (const token of ['+03:00', '3', '3.5', '-03.5', 'abc', '', '++3']) {
+  test(`fails closed on malformed or semantically ambiguous tide-header FUSO token ${JSON.stringify(token)}`, () => {
     assert.throws(
       () => bindChmTideFusoToken(token),
       (error) => error instanceof ChmTideFusoError && error.code === 'chm_tide_fuso_token_invalid',
@@ -45,7 +48,7 @@ for (const token of ['+03:00', '3.5', 'abc', '', '++3']) {
   });
 }
 
-for (const token of ['+15', '-15']) {
+for (const token of ['+15.0', '-15.0']) {
   test(`fails closed on out-of-range FUSO token ${token}`, () => {
     assert.throws(
       () => bindChmTideFusoToken(token),
@@ -56,7 +59,7 @@ for (const token of ['+15', '-15']) {
 
 test('fails closed on non-string input instead of coercing it', () => {
   assert.throws(
-    () => bindChmTideFusoToken(3),
+    () => bindChmTideFusoToken(-3),
     (error) => error instanceof ChmTideFusoError && error.code === 'chm_tide_fuso_token_invalid',
   );
 });

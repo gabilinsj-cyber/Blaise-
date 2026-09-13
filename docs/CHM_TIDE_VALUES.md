@@ -16,20 +16,25 @@ Each prediction is bound to a source page inside the station's validated three-p
 
 `backend/src/chm-tide-text.mjs` adds a deliberately conservative **synthetic/internal** parser boundary for layout-preserving PDF text. It validates exactly three extracted pages, the bound station/year identity, four ordered month columns per page, complete January-through-December coverage, bounded day/time/height rows, optional explicit `PM`/`BM` tokens, per-day event limits, source-page attribution and the exact upstream PDF artifact SHA-256. It hashes the extracted text and canonical parsed values while retaining no raw text.
 
-This parser does **not** prove that the official 2026 CHM PDFs currently match the synthetic layout contract. Its contract remains `CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED`, and `liveSourceExtraction` remains blocked until a separately approved live probe demonstrates the real PDF text/table layout.
+The official 2026 Rio de Janeiro catalog abbreviates station 40 as `PORTO DO RIO DE JANEIRO - I FISCAL`, while the official station PDF expands the same identity to `PORTO DO RIO DE JANEIRO - ILHA FISCAL`. The parser explicitly binds this catalog/PDF identity difference rather than silently weakening station validation.
 
-## FUSO sign-convention binding
+This parser still does **not** prove that the complete official 2026 CHM PDF table layout matches the synthetic row/column contract. Its contract remains `CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED`, and `liveSourceExtraction` remains blocked until a separately approved live probe demonstrates the real extraction layout for all required RJ station PDFs.
 
-`backend/src/chm-tide-fuso.mjs` separates the DHN nautical FUSO sign convention from any civil-clock adjustment. The current official CHM guidance says each tide-table header contains the fuso of the legal time used for the predictions. A DHN navigation publication explicitly defines positive FUSO values west of Greenwich and negative values east of Greenwich. The binding therefore maps the raw nautical token with `baseUtcOffsetMinutes = -zoneHoursWest * 60`; for example, a raw `FUSO +3` maps to a base UTC offset of `-180` minutes.
+## 2026 tide-header UTC-offset binding
 
-Evidence references used by this contract:
+The tide-table header contract is now bound to the current official 2026 CHM publication itself, not to the sign convention of a different nautical `FUSO` context.
+
+The CHM guidance states that each tide-table header contains the fuso of the legal time used for the predictions. The official 2026 PDF for station 40 (Porto do Rio de Janeiro - Ilha Fiscal) prints the header as `Fuso UTC -03.0 horas`. Therefore `backend/src/chm-tide-fuso.mjs` treats the tide-header token as a **signed UTC offset**: `-03.0` maps directly to `baseUtcOffsetMinutes=-180`; `+02.0` would map directly to `+120` minutes. The code does not apply a west-positive inversion to this field.
+
+Evidence references used by this tide-header contract:
 
 - https://www.marinha.mil.br/chm/pagina-basica/informacoes-sobre-mares
-- https://www.marinha.mil.br/chm/sites/www.marinha.mil.br.chm/files/u1974/rot-par-par.pdf
+- https://www.marinha.mil.br/chm/tabuas-de-mare-6
+- https://www.marinha.mil.br/chm/sites/www.marinha.mil.br.chm/files/dados_de_mare/40%20-%20PORTO%20DO%20RIO%20DE%20JANEIRO%20-%20I%20FISCAL%20-%20130%20-%20132.pdf
 
-The sign convention is now explicit as `DHN_POSITIVE_WEST_NEGATIVE_EAST`, but this deliberately does **not** make `baseUtcOffsetMinutes` the final legal-clock offset. `civilClockAdjustmentMinutes` and `effectiveUtcOffsetMinutes` remain null under `BLOCKED_SEPARATE_CIVIL_CLOCK_ADJUSTMENT_POLICY`. This prevents a historical or future civil-clock rule from being silently inferred from the nautical zone number.
+The sign convention is explicit as `SIGNED_UTC_OFFSET_FROM_CHM_TABLE_HEADER`. The code still keeps `civilClockAdjustmentMinutes` and `effectiveUtcOffsetMinutes` null under `BLOCKED_SEPARATE_CIVIL_CLOCK_ADJUSTMENT_POLICY`; this prevents historical or future civil-clock rules from being silently inferred. A derived west-positive value may be emitted only as compatibility metadata and is not the source sign convention.
 
-Accordingly, `chm-tide-text.mjs` can expose the evidenced base-zone conversion while keeping `utcOffsetMinutes=null`. Parsed rows still cannot be fed into the final live tide-value normalizer until the official 2026 PDF layout and the effective civil-clock offset applicable to the table are both evidenced.
+Accordingly, `chm-tide-text.mjs` can expose the evidenced base UTC-offset conversion while keeping `utcOffsetMinutes=null`. Parsed rows still cannot be fed into the final live tide-value normalizer until the full official 2026 PDF layout and the effective civil-clock offset applicable to the table are both evidenced.
 
 ## Explicit boundary
 
@@ -37,7 +42,7 @@ PDF artifact/container validation is not tide-value extraction. The artifact val
 
 The manual CHM source workflow is the only current live path for exercising the artifact retrieval contract. Its default remains external execution not requested. A successful live artifact probe may prove host/path/content-type/container/digest evidence only; it must not be represented as proof that tide rows, effective legal-time offset, phases or heights were extracted.
 
-A later stage must separately validate the official CHM PDF text/table extraction format, bind each extracted value set to the exact PDF artifact SHA-256, evidence the effective civil-clock offset, and then run the same final SHA through Android CI and Runtime before live tide values can be marked implemented.
+A later stage must separately validate the official CHM PDF text/table extraction format for all seven RJ stations, bind each extracted value set to the exact PDF artifact SHA-256, evidence the effective civil-clock offset, and then run the same final SHA through Android CI and Runtime before live tide values can be marked implemented.
 
 ## Safety and retention
 
