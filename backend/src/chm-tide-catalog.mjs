@@ -6,7 +6,9 @@ export const CHM_TIDE_CATALOG_SOURCE_ID = 'chm-marine';
 export const CHM_TIDE_CATALOG_HOST = 'www.marinha.mil.br';
 export const CHM_RJ_TIDE_CATALOG_URL = 'https://www.marinha.mil.br/chm/tabuas-de-mare-6';
 export const CHM_RJ_TIDE_CATALOG_CONTRACT = 'OFFICIAL_CHM_RJ_TIDE_STATION_CATALOG_NO_TIDE_VALUES';
+export const CHM_RJ_TIDE_DOCUMENT_BINDING_CONTRACT = 'PASS_OFFICIAL_CHM_TIDE_PDF_BINDING';
 export const CHM_EXPECTED_RJ_TIDE_STATION_COUNT = 7;
+export const CHM_TIDE_PDF_PATH_PREFIX = '/chm/sites/www.marinha.mil.br.chm/files/dados_de_mare/';
 
 export class ChmTideCatalogError extends Error {
   constructor(code) {
@@ -81,6 +83,103 @@ function parseCoordinate(value, min, max, code) {
     throw new ChmTideCatalogError(code);
   }
   return parsed;
+}
+
+function hrefValues(html) {
+  const values = [];
+  const anchorPattern = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/giu;
+  for (const match of String(html).matchAll(anchorPattern)) {
+    const raw = decodeEntities(match[1] ?? match[2] ?? match[3] ?? '').trim();
+    if (raw) values.push(raw);
+  }
+  return values;
+}
+
+function tidePdfDescriptor(rawHref) {
+  let url;
+  try {
+    url = new URL(rawHref, `https://${CHM_TIDE_CATALOG_HOST}`);
+  } catch {
+    return null;
+  }
+
+  let pathname;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_path_encoding_invalid');
+  }
+
+  if (!/\.pdf$/iu.test(pathname)) return null;
+  const filename = pathname.split('/').pop() ?? '';
+  const match = filename.match(/^(\d{1,2})\s*-\s*.+\s*-\s*(\d{2,3})\s*-\s*(\d{2,3})\.pdf$/iu);
+  if (!match) return null;
+
+  return Object.freeze({
+    rawHref,
+    url,
+    pathname,
+    filename,
+    stationNumber: parseBoundedInteger(match[1], 1, 99, 'chm_rj_tide_pdf_station_number_invalid'),
+    pageStart: parseBoundedInteger(match[2], 1, 400, 'chm_rj_tide_pdf_page_range_invalid'),
+    pageEnd: parseBoundedInteger(match[3], 1, 400, 'chm_rj_tide_pdf_page_range_invalid'),
+  });
+}
+
+function validateTidePdfBinding(descriptor, station) {
+  if (descriptor.url.protocol !== 'https:'
+      || descriptor.url.hostname !== CHM_TIDE_CATALOG_HOST
+      || descriptor.url.username
+      || descriptor.url.password
+      || descriptor.url.search
+      || descriptor.url.hash) {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_url_invalid');
+  }
+  if (!descriptor.pathname.startsWith(CHM_TIDE_PDF_PATH_PREFIX)) {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_path_invalid');
+  }
+  if (descriptor.pageStart !== station.pageStart || descriptor.pageEnd !== station.pageEnd) {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_page_range_mismatch');
+  }
+  if (descriptor.pageEnd - descriptor.pageStart !== 2) {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_page_range_invalid');
+  }
+  if (descriptor.filename.length < 8 || descriptor.filename.length > 220 || /[\u0000-\u001f\u007f]/.test(descriptor.filename)) {
+    throw new ChmTideCatalogError('chm_rj_tide_pdf_filename_invalid');
+  }
+
+  return Object.freeze({
+    tideTablePdfUrl: descriptor.url.href,
+    tideTablePdfFilename: descriptor.filename,
+  });
+}
+
+function bindOfficialTideDocuments(html, stations) {
+  const descriptors = hrefValues(html)
+    .map(tidePdfDescriptor)
+    .filter(Boolean);
+
+  const bound = [];
+  const seenUrls = new Set();
+
+  for (const station of stations) {
+    const matches = descriptors.filter((descriptor) => descriptor.stationNumber === station.stationNumber);
+    if (matches.length < 1) {
+      throw new ChmTideCatalogError('chm_rj_tide_pdf_missing');
+    }
+    if (matches.length > 1) {
+      throw new ChmTideCatalogError('chm_rj_tide_pdf_duplicate');
+    }
+
+    const document = validateTidePdfBinding(matches[0], station);
+    if (seenUrls.has(document.tideTablePdfUrl)) {
+      throw new ChmTideCatalogError('chm_rj_tide_pdf_url_duplicate');
+    }
+    seenUrls.add(document.tideTablePdfUrl);
+    bound.push(Object.freeze({ ...station, ...document }));
+  }
+
+  return Object.freeze(bound);
 }
 
 export function validateChmRjTideCatalogHtml(html) {
@@ -170,15 +269,26 @@ export function validateChmRjTideCatalogHtml(html) {
       latitude: station.latitude,
     }));
 
+  const boundStations = bindOfficialTideDocuments(html, canonicalStations);
+  const canonicalDocuments = boundStations.map((station) => ({
+    stationNumber: station.stationNumber,
+    pageStart: station.pageStart,
+    pageEnd: station.pageEnd,
+    tideTablePdfUrl: station.tideTablePdfUrl,
+  }));
+
   return Object.freeze({
     sourceId: CHM_TIDE_CATALOG_SOURCE_ID,
     sourceHost: CHM_TIDE_CATALOG_HOST,
     sourceUrl: CHM_RJ_TIDE_CATALOG_URL,
     calendarYear,
-    rjStationCount: canonicalStations.length,
-    stations: Object.freeze(canonicalStations.map((station) => Object.freeze(station))),
+    rjStationCount: boundStations.length,
+    stations: boundStations,
     stationCatalogSha256: sha256(JSON.stringify(canonicalStations)),
+    tideDocumentCatalogSha256: sha256(JSON.stringify(canonicalDocuments)),
     portSelectionValidation: 'PASS_OFFICIAL_RJ_TIDE_STATION_CATALOG',
+    tideDocumentBindingValidation: CHM_RJ_TIDE_DOCUMENT_BINDING_CONTRACT,
+    pdfContentValidation: 'NOT_IMPLEMENTED',
     tideValueIngestion: 'NOT_IMPLEMENTED',
     rawCatalogTextRetention: 'NONE',
     contract: CHM_RJ_TIDE_CATALOG_CONTRACT,

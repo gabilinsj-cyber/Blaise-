@@ -1,6 +1,6 @@
 # Marinha / CHM marine source contract
 
-This integration is fail-closed and intentionally separates **official source parsing**, **Rio de Janeiro regional marine routing**, **RJ tide-station selection** and **municipality/P0 publication**.
+This integration is fail-closed and intentionally separates **official source parsing**, **Rio de Janeiro regional marine routing**, **RJ tide-station selection/document provenance**, **structured tide-value normalization** and **municipality/P0 publication**.
 
 ## Official sources
 
@@ -40,9 +40,9 @@ Each normalized warning is bound to the fail-closed RJ regional routing contract
 
 Regional routing is deliberately separate from municipality targeting. Every routing result keeps `municipalityGeofenceValidated=false` and `canPromoteMunicipalityP0=false`.
 
-## RJ tide-station selection contract
+## RJ tide-station selection and document-provenance contract
 
-`backend/src/chm-tide-catalog.mjs` validates the separate official CHM tide-station catalog before the app/backend can present an RJ tide location selector. It does **not** parse tide heights or times.
+`backend/src/chm-tide-catalog.mjs` validates the separate official CHM tide-station catalog before the app/backend can present an RJ tide location selector. It now also binds each validated station row to exactly one official CHM tide-table PDF link exposed by that catalog. It still does **not** fetch/parse PDF contents and does **not** parse tide heights or times.
 
 The catalog contract:
 
@@ -51,20 +51,30 @@ The catalog contract:
 - requires exactly the seven RJ entries currently published by CHM for the active 2026 catalog;
 - validates bounded station numbers, three-page table ranges and RJ coastal coordinate bounds;
 - rejects duplicate station numbers, names or page ranges;
-- canonicalizes the seven stations by station number and emits a SHA-256 catalog digest;
+- canonicalizes the seven stations by station number and emits a SHA-256 station-catalog digest;
+- requires exactly one `.pdf` link whose station number matches each validated station;
+- canonicalizes relative links to the CHM HTTPS origin and requires the exact `www.marinha.mil.br` host;
+- restricts the document path to `/chm/sites/www.marinha.mil.br.chm/files/dados_de_mare/`;
+- rejects credentials, query strings, fragments, foreign hosts, duplicate links and station/PDF page-range mismatches;
+- emits a separate SHA-256 document-catalog digest bound to station number, validated page range and canonical official PDF URL;
 - keeps `rawCatalogTextRetention=NONE`;
 - exposes `portSelectionValidation=PASS_OFFICIAL_RJ_TIDE_STATION_CATALOG` only after the full catalog validates;
-- keeps `tideValueIngestion=NOT_IMPLEMENTED` until actual official tide values are parsed and evidenced.
+- exposes `tideDocumentBindingValidation=PASS_OFFICIAL_CHM_TIDE_PDF_BINDING` only after all seven official document links validate;
+- keeps `pdfContentValidation=NOT_IMPLEMENTED` and catalog-side `tideValueIngestion=NOT_IMPLEMENTED` until the official PDF contents are separately fetched, validated and extracted.
 
 The live probe also requires the tide-publication year and the RJ station-catalog year to match. A mismatch fails closed instead of silently mixing yearly publications.
 
-The currently expected RJ catalog contains Porto do Açu, Terminal Marítimo de Imbetiba, Porto do Rio de Janeiro - Ilha Fiscal, Porto de Itaguaí, Porto do Forno, Terminal da Ilha Guaíba and Porto de Angra dos Reis. Any official count/name/range/coordinate drift is intended to stop the contract for review rather than being guessed.
+The currently expected RJ catalog contains Porto do Açu, Terminal Marítimo de Imbetiba, Porto do Rio de Janeiro - Ilha Fiscal, Porto de Itaguaí, Porto do Forno, Terminal da Ilha Guaíba and Porto de Angra dos Reis. Any official count/name/range/coordinate/document-link drift is intended to stop the contract for review rather than being guessed.
+
+## Structured tide-value normalization
+
+`backend/src/chm-tide-values.mjs` provides the separately tested fail-closed normalizer for structured tide events after extraction. It binds station metadata, calendar year, source page, explicit local legal-time basis, UTC offset and the SHA-256 of the source artifact; it bounds heights/event counts, rejects duplicate local times and does not infer high/low phase when the source does not explicitly provide one. This is a normalization contract only: `liveSourceExtraction=BLOCKED_OFFICIAL_PDF_VALUE_EXTRACTION_NOT_EVIDENCED` remains authoritative until the official PDF fetch/content-extraction path is separately proven. See `docs/CHM_TIDE_VALUES.md`.
 
 ## Evidence and retention
 
 The warning inventory digest is bound to identity, areas, type, validated temporal interval and the derived regional routing object. The evidence/cache layer stores only bounded metadata and SHA-256 digests. It does **not** retain raw warning text.
 
-The tide-station evidence stores bounded public station metadata and a catalog SHA-256 digest; it does not retain the raw catalog page.
+The tide-station evidence stores bounded public station metadata, official PDF filenames and separate station/document SHA-256 digests; it does not retain the raw catalog page or PDF contents. Binding a CHM URL is provenance evidence only and is not evidence that the PDF was fetched, structurally validated or that any tide value was ingested.
 
 The warning cache semantic marker remains `SOURCE_INVENTORY_TEMPORAL_VALIDITY_RJ_REGIONAL_ROUTED_NOT_MUNICIPAL_GEOFENCED`: temporal chronology and coarse RJ regional marine routing are validated, but a warning is still **not** promoted to a municipality alert or municipality P0 solely because it appears in the METAREA V inventory.
 
@@ -76,6 +86,7 @@ This stage does not claim:
 - current applicability to a selected municipality based on coordinates, directional qualifiers or official warning geometry;
 - which municipalities are affected on either side of the Arraial do Cabo sector boundary for a specific warning;
 - observed wave height or confirmation that a forecast warning actually produced coastal ressaca;
+- successful fetch, integrity/content validation or table extraction from the seven bound tide-table PDFs;
 - live tide height/time values for the seven validated RJ tide stations;
 - current/surf operational values derived from tide tables;
 - automatic municipality P0 severity mapping or municipality P0 publication from CHM warnings.
@@ -84,4 +95,4 @@ Those remain fail-closed until their exact official live contracts are implement
 
 ## Execution policy
 
-`.github/workflows/chm-source-probe.yml` is manual-only. With `execute_live_probe=false` it records `NOT_RUN_EXPLICIT_APPROVAL_REQUIRED`; it never fabricates a live PASS. With explicit live execution it queries only the three pinned public CHM pages above and uploads sanitized evidence as `blaise-chm-marine-evidence`.
+`.github/workflows/chm-source-probe.yml` is manual-only. With `execute_live_probe=false` it records `NOT_RUN_EXPLICIT_APPROVAL_REQUIRED`; it never fabricates a live PASS. With explicit live execution it queries only the three pinned public CHM HTML pages above, validates the tide-document links found in the catalog page without fetching the PDFs, and uploads sanitized evidence as `blaise-chm-marine-evidence`.
