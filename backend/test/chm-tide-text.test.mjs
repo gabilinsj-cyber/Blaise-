@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CHM_TIDE_CIVIL_CLOCK_BINDING,
+  CHM_TIDE_FUSO_SIGN_CONVENTION,
+} from '../src/chm-tide-fuso.mjs';
+import {
   CHM_TIDE_FUSO_BINDING,
   CHM_TIDE_TEXT_CONTRACT,
   ChmTideTextError,
@@ -40,15 +44,20 @@ function fixture(options = {}) {
   ].join('\f');
 }
 
-test('parses a synthetic three-page CHM layout boundary without binding FUSO to UTC', () => {
+test('parses synthetic CHM layout and binds DHN FUSO sign convention without inventing civil-clock adjustment', () => {
   const result = parseChmTidePdfLayoutText({
     text: fixture(), station, calendarYear: 2026, sourceArtifactSha256,
   });
   assert.equal(result.pageCount, 3);
   assert.equal(result.predictionCount, 24);
   assert.equal(result.fusoRawToken, '+3');
-  assert.equal(result.utcOffsetMinutes, null);
+  assert.equal(result.fusoZoneHoursWest, 3);
+  assert.equal(result.baseUtcOffsetMinutes, -180);
+  assert.equal(result.fusoSignConvention, CHM_TIDE_FUSO_SIGN_CONVENTION);
   assert.equal(result.fusoSemanticsBinding, CHM_TIDE_FUSO_BINDING);
+  assert.equal(result.civilClockAdjustmentMinutes, null);
+  assert.equal(result.civilClockBinding, CHM_TIDE_CIVIL_CLOCK_BINDING);
+  assert.equal(result.utcOffsetMinutes, null);
   assert.equal(result.liveSourceExtraction, 'BLOCKED_OFFICIAL_2026_PDF_LAYOUT_NOT_YET_EVIDENCED');
   assert.equal(result.contract, CHM_TIDE_TEXT_CONTRACT);
   assert.match(result.extractedTextSha256, /^[a-f0-9]{64}$/u);
@@ -76,7 +85,7 @@ test('fails closed if the station identity is not present in the extracted text'
   );
 });
 
-test('fails closed on ambiguous FUSO tokens instead of guessing UTC semantics', () => {
+test('fails closed on ambiguous FUSO tokens instead of guessing civil-clock semantics', () => {
   const text = fixture().replace('FUSO +3', 'FUSO +3\nFUSO -3');
   assert.throws(
     () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),

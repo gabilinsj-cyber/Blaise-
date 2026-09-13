@@ -1,9 +1,17 @@
 import { createHash } from 'node:crypto';
 
+import {
+  bindChmTideFusoToken,
+  CHM_TIDE_CIVIL_CLOCK_BINDING,
+  CHM_TIDE_FUSO_CONTRACT,
+  CHM_TIDE_FUSO_SIGN_CONVENTION,
+  CHM_TIDE_FUSO_TIME_BASIS,
+} from './chm-tide-fuso.mjs';
+
 export const CHM_TIDE_TEXT_SOURCE_ID = 'chm-marine';
 export const CHM_TIDE_TEXT_CONTRACT = 'CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED';
 export const CHM_TIDE_TEXT_LAYOUT = 'PDFTOTEXT_LAYOUT_SYNTHETIC_CONTRACT_ONLY';
-export const CHM_TIDE_FUSO_BINDING = 'BLOCKED_FUSO_SEMANTICS_MUST_BE_BOUND_SEPARATELY';
+export const CHM_TIDE_FUSO_BINDING = 'PASS_DHN_SIGN_CONVENTION_BASE_OFFSET_BOUND_CIVIL_CLOCK_SEPARATE';
 export const CHM_TIDE_TEXT_EXPECTED_PAGE_COUNT = 3;
 export const CHM_TIDE_TEXT_MONTHS_PER_PAGE = 4;
 export const CHM_TIDE_TEXT_MAX_BYTES = 1024 * 1024;
@@ -212,6 +220,7 @@ export function parseChmTidePdfLayoutText(input) {
   const { pages, byteLength } = normalizePages(input.text);
   validateIdentity(input.text, station, calendarYear);
   const fusoRawToken = parseFusoRaw(input.text);
+  const fuso = bindChmTideFusoToken(fusoRawToken);
 
   const predictions = pages.flatMap((page, pageIndex) => parsePage(page, pageIndex, station, calendarYear));
   if (predictions.length < 12 || predictions.length > 366 * CHM_TIDE_TEXT_MAX_EVENTS_PER_DAY) {
@@ -230,12 +239,19 @@ export function parseChmTidePdfLayoutText(input) {
     perDay.set(prediction.localDate, count);
   }
 
+  const canonicalFuso = {
+    rawToken: fuso.rawToken,
+    zoneHoursWest: fuso.zoneHoursWest,
+    baseUtcOffsetMinutes: fuso.baseUtcOffsetMinutes,
+    signConvention: fuso.signConvention,
+    timeBasis: fuso.timeBasis,
+  };
   const canonical = {
     sourceId: CHM_TIDE_TEXT_SOURCE_ID,
     calendarYear,
     station,
     sourceArtifactSha256,
-    fusoRawToken,
+    fuso: canonicalFuso,
     predictions,
   };
 
@@ -247,8 +263,15 @@ export function parseChmTidePdfLayoutText(input) {
     extractedTextSha256: sha256(Buffer.from(input.text, 'utf8')),
     extractedTextByteLength: byteLength,
     pageCount: pages.length,
-    fusoRawToken,
+    fusoRawToken: fuso.rawToken,
+    fusoZoneHoursWest: fuso.zoneHoursWest,
+    fusoSignConvention: CHM_TIDE_FUSO_SIGN_CONVENTION,
+    fusoTimeBasis: CHM_TIDE_FUSO_TIME_BASIS,
+    fusoContract: CHM_TIDE_FUSO_CONTRACT,
     fusoSemanticsBinding: CHM_TIDE_FUSO_BINDING,
+    baseUtcOffsetMinutes: fuso.baseUtcOffsetMinutes,
+    civilClockAdjustmentMinutes: null,
+    civilClockBinding: CHM_TIDE_CIVIL_CLOCK_BINDING,
     utcOffsetMinutes: null,
     predictionCount: predictions.length,
     predictions: Object.freeze(predictions),
