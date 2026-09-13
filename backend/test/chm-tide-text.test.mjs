@@ -1,0 +1,101 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  CHM_TIDE_FUSO_BINDING,
+  CHM_TIDE_TEXT_CONTRACT,
+  ChmTideTextError,
+  parseChmTidePdfLayoutText,
+} from '../src/chm-tide-text.mjs';
+
+const station = Object.freeze({
+  stationNumber: 40,
+  name: 'PORTO DO RIO DE JANEIRO - I FISCAL',
+  pageStart: 130,
+  pageEnd: 132,
+});
+
+const sourceArtifactSha256 = 'a'.repeat(64);
+const monthNames = [
+  'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL',
+  'MAIO', 'JUNHO', 'JULHO', 'AGOSTO',
+  'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
+];
+
+function page(months, pageNumber, { fuso = '+3' } = {}) {
+  const header = pageNumber === 130
+    ? `CENTRO DE HIDROGRAFIA DA MARINHA 2026\nPORTO DO RIO DE JANEIRO - I FISCAL\nFUSO ${fuso}\n`
+    : 'CENTRO DE HIDROGRAFIA DA MARINHA\n';
+  const monthHeader = months.join('          ');
+  const first = months.map(() => '01 PM 0330 1,20').join('    ');
+  const second = months.map(() => 'BM 10:41 0.40').join('    ');
+  return `${header}${monthHeader}\n${first}\n${second}\nPAGINA ${pageNumber}`;
+}
+
+function fixture(options = {}) {
+  return [
+    page(monthNames.slice(0, 4), 130, options),
+    page(monthNames.slice(4, 8), 131, options),
+    page(monthNames.slice(8, 12), 132, options),
+  ].join('\f');
+}
+
+test('parses a synthetic three-page CHM layout boundary without binding FUSO to UTC', () => {
+  const result = parseChmTidePdfLayoutText({
+    text: fixture(), station, calendarYear: 2026, sourceArtifactSha256,
+  });
+  assert.equal(result.pageCount, 3);
+  assert.equal(result.predictionCount, 24);
+  assert.equal(result.fusoRawToken, '+3');
+  assert.equal(result.utcOffsetMinutes, null);
+  assert.equal(result.fusoSemanticsBinding, CHM_TIDE_FUSO_BINDING);
+  assert.equal(result.liveSourceExtraction, 'BLOCKED_OFFICIAL_2026_PDF_LAYOUT_NOT_YET_EVIDENCED');
+  assert.equal(result.contract, CHM_TIDE_TEXT_CONTRACT);
+  assert.match(result.extractedTextSha256, /^[a-f0-9]{64}$/u);
+  assert.match(result.parsedValueSha256, /^[a-f0-9]{64}$/u);
+  assert.equal(result.predictions[0].localDate, '2026-01-01');
+  assert.equal(result.predictions[0].localTime, '03:30');
+  assert.equal(result.predictions[0].phase, 'PM');
+  assert.equal(result.predictions[0].sourcePage, 130);
+  assert.equal(result.predictions[1].phase, 'BM');
+});
+
+test('fails closed if the extracted text does not contain exactly three pages', () => {
+  const twoPages = fixture().split('\f').slice(0, 2).join('\f');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text: twoPages, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_page_count_invalid',
+  );
+});
+
+test('fails closed if the station identity is not present in the extracted text', () => {
+  const text = fixture().replace(station.name, 'ESTACAO DESCONHECIDA');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_station_identity_missing',
+  );
+});
+
+test('fails closed on ambiguous FUSO tokens instead of guessing UTC semantics', () => {
+  const text = fixture().replace('FUSO +3', 'FUSO +3\nFUSO -3');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_fuso_ambiguous',
+  );
+});
+
+test('fails closed when month coverage/order drifts', () => {
+  const text = fixture().replace('SETEMBRO          OUTUBRO          NOVEMBRO          DEZEMBRO', 'SETEMBRO          OUTUBRO          NOVEMBRO          NOVEMBRO');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_month_coverage_invalid',
+  );
+});
+
+test('fails closed when a continuation row appears before any day context', () => {
+  const text = fixture().replace('01 PM 0330 1,20', 'PM 0330 1,20');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_day_context_missing',
+  );
+});
