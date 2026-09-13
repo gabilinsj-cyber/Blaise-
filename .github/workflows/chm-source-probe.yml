@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query official Marinha/CHM warnings, tide publication and RJ station catalog/PDF-link bindings'
+        description: 'Query official Marinha/CHM warnings, tide publication, RJ station catalog/PDF bindings and bounded PDF artifacts'
         required: true
         default: false
         type: boolean
@@ -32,14 +32,15 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "tides": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "liveWaveObservationIngestion": "NOT_IMPLEMENTED",
             "liveTideValueIngestion": "NOT_IMPLEMENTED",
-            "tidePdfContentValidation": "NOT_IMPLEMENTED",
+            "tidePdfArtifactValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "tidePdfTextExtraction": "NOT_IMPLEMENTED",
             "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
           }
           JSON
@@ -58,6 +59,7 @@ jobs:
           node --check backend/src/source-contract.mjs
           node --check backend/src/chm-source.mjs
           node --check backend/src/chm-tide-catalog.mjs
+          node --check backend/src/chm-tide-artifact.mjs
           node --check backend/scripts/probe-chm.mjs
           node backend/scripts/probe-chm.mjs
 
