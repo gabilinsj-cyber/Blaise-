@@ -10,12 +10,17 @@ import {
   ChmTideCatalogError,
   probeChmRjTideCatalog,
 } from '../src/chm-tide-catalog.mjs';
+import {
+  ChmTidePdfArtifactError,
+  probeChmRjTidePdfArtifacts,
+} from '../src/chm-tide-artifact.mjs';
 
 const evidencePath = 'evidence/official-sources/chm.json';
 
 function errorCode(error) {
   if (error instanceof ChmSourceContractError) return error.code;
   if (error instanceof ChmTideCatalogError) return error.code;
+  if (error instanceof ChmTidePdfArtifactError) return error.code;
   return 'chm_unexpected_error';
 }
 
@@ -35,9 +40,13 @@ function warningEvidence(result) {
   };
 }
 
-function tideEvidence(publication, catalog) {
-  if (publication.calendarYear !== catalog.calendarYear) {
+function tideEvidence(publication, catalog, pdfArtifacts) {
+  if (publication.calendarYear !== catalog.calendarYear
+      || catalog.calendarYear !== pdfArtifacts.calendarYear) {
     throw new ChmTideCatalogError('chm_tide_catalog_year_mismatch');
+  }
+  if (catalog.rjStationCount !== pdfArtifacts.artifactCount) {
+    throw new ChmTidePdfArtifactError('chm_tide_pdf_artifact_count_mismatch');
   }
 
   return {
@@ -56,20 +65,36 @@ function tideEvidence(publication, catalog) {
     portSelectionValidation: catalog.portSelectionValidation,
     tideDocumentBindingValidation: catalog.tideDocumentBindingValidation,
     pdfContentValidation: catalog.pdfContentValidation,
+    pdfArtifactValidation: pdfArtifacts.pdfArtifactValidation,
+    pdfArtifactCount: pdfArtifacts.artifactCount,
+    pdfArtifactInventorySha256: pdfArtifacts.artifactInventorySha256,
+    pdfArtifacts: pdfArtifacts.artifacts.map((artifact) => ({
+      stationNumber: artifact.stationNumber,
+      tideTablePdfFilename: artifact.tideTablePdfFilename,
+      byteLength: artifact.byteLength,
+      sourceArtifactSha256: artifact.sourceArtifactSha256,
+      pdfMagicValidation: artifact.pdfMagicValidation,
+      pdfEofValidation: artifact.pdfEofValidation,
+    })),
+    rawPdfRetention: pdfArtifacts.rawPdfRetention,
+    pdfTextExtraction: pdfArtifacts.textExtraction,
+    liveTideValueIngestion: pdfArtifacts.tideValueExtraction,
     catalogContract: catalog.contract,
+    pdfArtifactContract: pdfArtifacts.contract,
   };
 }
 
 const evidence = {
   sourceId: CHM_SOURCE_ID,
-  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding',
+  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation',
   status: 'BLOCKED_SOURCE_CONTRACT',
   execution: 'LIVE_PUBLIC_SOURCE_PROBE',
   warnings: { status: 'NOT_RUN' },
   tides: { status: 'NOT_RUN' },
   liveWaveObservationIngestion: 'NOT_IMPLEMENTED',
   liveTideValueIngestion: 'NOT_IMPLEMENTED',
-  tidePdfContentValidation: 'NOT_IMPLEMENTED',
+  tidePdfArtifactValidation: 'NOT_RUN',
+  tidePdfTextExtraction: 'NOT_IMPLEMENTED',
   rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
 };
 
@@ -85,14 +110,16 @@ if (!failure) {
   try {
     const publication = await probeChmTides();
     const catalog = await probeChmRjTideCatalog();
-    evidence.tides = tideEvidence(publication, catalog);
+    const pdfArtifacts = await probeChmRjTidePdfArtifacts(catalog);
+    evidence.tides = tideEvidence(publication, catalog, pdfArtifacts);
+    evidence.tidePdfArtifactValidation = pdfArtifacts.pdfArtifactValidation;
   } catch (error) {
     failure = error;
     evidence.tides = { status: 'BLOCKED_SOURCE_CONTRACT', errorCode: errorCode(error) };
   }
 }
 
-if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_AND_DOCUMENT_BINDING_ONLY';
+if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_AND_PDF_ARTIFACTS_ONLY';
 
 await mkdir('evidence/official-sources', { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
@@ -101,5 +128,5 @@ if (failure) {
   console.error(`CHM_SOURCE_PROBE=BLOCKED:${errorCode(failure)}`);
   process.exitCode = 1;
 } else {
-  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_AND_DOCUMENT_BINDING_ONLY');
+  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_AND_PDF_ARTIFACTS_ONLY');
 }
