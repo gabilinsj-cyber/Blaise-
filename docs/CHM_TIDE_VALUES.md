@@ -12,13 +12,21 @@ The caller of the tide-value normalizer must still provide `timeBasis=LEGAL_LOCA
 
 Each prediction is bound to a source page inside the station's validated three-page range. The normalized result is sorted deterministically, emits UTC instants from the explicit table-header offset, retains no raw source text and produces a SHA-256 digest over the canonical station/year/time-basis/source-artifact/value set.
 
+## PDF text/table parser boundary
+
+`backend/src/chm-tide-text.mjs` adds a deliberately conservative **synthetic/internal** parser boundary for layout-preserving PDF text. It validates exactly three extracted pages, the bound station/year identity, four ordered month columns per page, complete January-through-December coverage, bounded day/time/height rows, optional explicit `PM`/`BM` tokens, per-day event limits, source-page attribution and the exact upstream PDF artifact SHA-256. It hashes the extracted text and canonical parsed values while retaining no raw text.
+
+This parser does **not** prove that the official 2026 CHM PDFs currently match the synthetic layout contract. Its contract remains `CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED`, and `liveSourceExtraction` remains blocked until a separately approved live probe demonstrates the real PDF text/table layout.
+
+The parser records the raw `FUSO` token but intentionally leaves `utcOffsetMinutes=null` with `BLOCKED_FUSO_SEMANTICS_MUST_BE_BOUND_SEPARATELY`. A raw table token such as `FUSO +3` must not be silently converted into a UTC offset until the official CHM semantics are explicitly evidenced. Therefore parsed rows cannot yet be fed into the final tide-value normalizer as live values.
+
 ## Explicit boundary
 
 PDF artifact/container validation is not tide-value extraction. The artifact validator contract is `OFFICIAL_CHM_TIDE_PDF_ARTIFACT_VALIDATED_NO_TEXT_EXTRACTION`; the structured value contract remains `STRUCTURED_OFFICIAL_CHM_TIDE_VALUES_NORMALIZER_LIVE_EXTRACTION_BLOCKED` until the official PDF text/table layout has been independently proven and parsed fail closed.
 
 The manual CHM source workflow is the only current live path for exercising the artifact retrieval contract. Its default remains external execution not requested. A successful live artifact probe may prove host/path/content-type/container/digest evidence only; it must not be represented as proof that tide rows, time basis, UTC offset, phases or heights were extracted.
 
-A later stage must separately validate the official CHM PDF text/table extraction format, bind each extracted value set to the exact PDF artifact SHA-256, and then run the same final SHA through Android CI and Runtime before live tide values can be marked implemented.
+A later stage must separately validate the official CHM PDF text/table extraction format, bind each extracted value set to the exact PDF artifact SHA-256, prove the `FUSO`/legal-time semantics, and then run the same final SHA through Android CI and Runtime before live tide values can be marked implemented.
 
 ## Safety and retention
 
