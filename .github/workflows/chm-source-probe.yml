@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query official Marinha/CHM METAREA V warnings, tide-publication discovery and RJ tide-station catalog pages'
+        description: 'Query official Marinha/CHM warnings, tide publication and RJ station catalog/PDF-link bindings'
         required: true
         default: false
         type: boolean
@@ -32,13 +32,14 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "tides": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "liveWaveObservationIngestion": "NOT_IMPLEMENTED",
             "liveTideValueIngestion": "NOT_IMPLEMENTED",
+            "tidePdfContentValidation": "NOT_IMPLEMENTED",
             "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
           }
           JSON

@@ -49,22 +49,27 @@ function tideEvidence(publication, catalog) {
     rjStationNumbers: catalog.stations.map((station) => station.stationNumber),
     rjStationNames: catalog.stations.map((station) => station.name),
     stationCatalogSha256: catalog.stationCatalogSha256,
+    tideDocumentCatalogSha256: catalog.tideDocumentCatalogSha256,
+    tideDocumentFilenames: catalog.stations.map((station) => station.tideTablePdfFilename),
     rawCatalogTextRetention: catalog.rawCatalogTextRetention,
     tideValueIngestion: catalog.tideValueIngestion,
     portSelectionValidation: catalog.portSelectionValidation,
+    tideDocumentBindingValidation: catalog.tideDocumentBindingValidation,
+    pdfContentValidation: catalog.pdfContentValidation,
     catalogContract: catalog.contract,
   };
 }
 
 const evidence = {
   sourceId: CHM_SOURCE_ID,
-  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog',
+  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding',
   status: 'BLOCKED_SOURCE_CONTRACT',
   execution: 'LIVE_PUBLIC_SOURCE_PROBE',
   warnings: { status: 'NOT_RUN' },
   tides: { status: 'NOT_RUN' },
   liveWaveObservationIngestion: 'NOT_IMPLEMENTED',
   liveTideValueIngestion: 'NOT_IMPLEMENTED',
+  tidePdfContentValidation: 'NOT_IMPLEMENTED',
   rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
 };
 
@@ -87,7 +92,7 @@ if (!failure) {
   }
 }
 
-if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_ONLY';
+if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_AND_DOCUMENT_BINDING_ONLY';
 
 await mkdir('evidence/official-sources', { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
@@ -96,5 +101,5 @@ if (failure) {
   console.error(`CHM_SOURCE_PROBE=BLOCKED:${errorCode(failure)}`);
   process.exitCode = 1;
 } else {
-  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_ONLY');
+  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_AND_DOCUMENT_BINDING_ONLY');
 }
