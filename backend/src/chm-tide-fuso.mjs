@@ -30,7 +30,7 @@ export function bindChmTideFusoToken(value) {
     throw new ChmTideFusoError('chm_tide_fuso_range_invalid');
   }
 
-  const baseUtcOffsetMinutes = -zoneHoursWest * 60;
+  const baseUtcOffsetMinutes = zoneHoursWest === 0 ? 0 : -zoneHoursWest * 60;
   return Object.freeze({
     rawToken,
     zoneHoursWest,
