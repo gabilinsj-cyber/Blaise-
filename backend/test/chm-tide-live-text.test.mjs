@@ -7,6 +7,7 @@ import {
   CHM_TIDE_LIVE_VALUE_STATUS,
   ChmTideLiveTextError,
   extractChmTidePdfTextWithPdftotext,
+  extractChmTidePdfValuesWithPdftotext,
   normalizePdftotextLayoutOutput,
 } from '../src/chm-tide-live-text.mjs';
 
@@ -41,6 +42,8 @@ function fixture() {
   ].join('\f');
 }
 
+const execFixture = async () => ({ stdout: `${fixture()}\f\n`, stderr: '' });
+
 test('normalizes the trailing form-feed emitted by pdftotext without removing page separators', () => {
   const normalized = normalizePdftotextLayoutOutput(`${fixture()}\f\n`);
   assert.equal(normalized.split('\f').length, 3);
@@ -58,7 +61,7 @@ test('extracts bounded digest-only text/value evidence and never returns raw PDF
     execFileImpl: async (command, args) => {
       observedCommand = command;
       observedArgs = args;
-      return { stdout: `${fixture()}\f\n`, stderr: '' };
+      return execFixture();
     },
   });
 
@@ -74,7 +77,7 @@ test('extracts bounded digest-only text/value evidence and never returns raw PDF
   assert.equal(result.effectiveUtcOffsetMinutes, -180);
   assert.equal(result.textExtraction, CHM_TIDE_LIVE_TEXT_STATUS);
   assert.equal(result.tideValueNormalization, CHM_TIDE_LIVE_VALUE_STATUS);
-  assert.equal(result.liveTideValueIngestion, 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED');
+  assert.equal(result.liveTideValueIngestion, 'READY_FOR_FAIL_CLOSED_MEMORY_CACHE_INGESTION');
   assert.equal(result.firstInstantUtc, '2026-01-01T06:30:00.000Z');
   assert.equal(result.contract, CHM_TIDE_LIVE_TEXT_CONTRACT);
   assert.equal('predictions' in result, false);
@@ -83,6 +86,23 @@ test('extracts bounded digest-only text/value evidence and never returns raw PDF
   assert.match(result.extractedTextSha256, /^[a-f0-9]{64}$/u);
   assert.match(result.parsedValueSha256, /^[a-f0-9]{64}$/u);
   assert.match(result.tideValueSha256, /^[a-f0-9]{64}$/u);
+});
+
+test('internal extraction boundary exposes only normalized structured snapshot plus summary for cache ingestion', async () => {
+  const result = await extractChmTidePdfValuesWithPdftotext({
+    bytes: new TextEncoder().encode('%PDF-1.7 synthetic test bytes %%EOF'),
+    station,
+    calendarYear: 2026,
+    sourceArtifactSha256,
+    execFileImpl: execFixture,
+  });
+
+  assert.equal(result.summary.tideValueSha256, result.snapshot.tideValueSha256);
+  assert.equal(result.snapshot.predictionCount, 24);
+  assert.equal(result.snapshot.predictions[0].instantUtc, '2026-01-01T06:30:00.000Z');
+  assert.equal('text' in result, false);
+  assert.equal('bytes' in result, false);
+  assert.equal('rawText' in result, false);
 });
 
 test('fails closed when pdftotext execution fails', async () => {

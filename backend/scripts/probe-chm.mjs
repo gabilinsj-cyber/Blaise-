@@ -20,8 +20,14 @@ import {
 import {
   CHM_TIDE_LIVE_VALUE_STATUS,
   ChmTideLiveTextError,
-  extractChmTidePdfTextWithPdftotext,
 } from '../src/chm-tide-live-text.mjs';
+import { createChmTideValuesCache } from '../src/chm-tide-cache.mjs';
+import {
+  CHM_TIDE_DELIVERY_CONTRACT,
+  CHM_TIDE_SOURCE_TO_CACHE_CONTRACT,
+  ChmTidePipelineError,
+  ingestChmTidePdfToCache,
+} from '../src/chm-tide-pipeline.mjs';
 import { ChmTideTextError } from '../src/chm-tide-text.mjs';
 import { fetchBinaryContract, SourceContractError } from '../src/source-contract.mjs';
 
@@ -32,6 +38,7 @@ function errorCode(error) {
   if (error instanceof ChmTideCatalogError) return error.code;
   if (error instanceof ChmTidePdfArtifactError) return error.code;
   if (error instanceof ChmTideLiveTextError) return error.code;
+  if (error instanceof ChmTidePipelineError) return error.code;
   if (error instanceof ChmTideTextError) return error.code;
   if (error instanceof SourceContractError) return `chm_tide_text_${error.code}`;
   return error?.code ?? 'chm_unexpected_error';
@@ -53,14 +60,14 @@ function warningEvidence(result) {
   };
 }
 
-function tideEvidence(publication, catalog, pdfArtifacts, textExtractions) {
+function tideEvidence(publication, catalog, pdfArtifacts, cacheIngestions) {
   if (publication.calendarYear !== catalog.calendarYear
       || catalog.calendarYear !== pdfArtifacts.calendarYear
-      || catalog.calendarYear !== textExtractions.calendarYear) {
+      || catalog.calendarYear !== cacheIngestions.calendarYear) {
     throw new ChmTideCatalogError('chm_tide_catalog_year_mismatch');
   }
   if (catalog.rjStationCount !== pdfArtifacts.artifactCount
-      || catalog.rjStationCount !== textExtractions.extractionCount) {
+      || catalog.rjStationCount !== cacheIngestions.ingestionCount) {
     throw new ChmTidePdfArtifactError('chm_tide_pdf_artifact_count_mismatch');
   }
 
@@ -77,7 +84,11 @@ function tideEvidence(publication, catalog, pdfArtifacts, textExtractions) {
     tideDocumentFilenames: catalog.stations.map((station) => station.tideTablePdfFilename),
     rawCatalogTextRetention: catalog.rawCatalogTextRetention,
     tideValueNormalization: CHM_TIDE_LIVE_VALUE_STATUS,
-    tideValueIngestion: 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED',
+    tideValueIngestion: 'PASS_FAIL_CLOSED_MEMORY_CACHE_READBACK',
+    sourceToCacheIngestion: cacheIngestions.status,
+    sourceToCacheContract: CHM_TIDE_SOURCE_TO_CACHE_CONTRACT,
+    deliveryContract: CHM_TIDE_DELIVERY_CONTRACT,
+    androidNetworkDelivery: 'BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED',
     portSelectionValidation: catalog.portSelectionValidation,
     tideDocumentBindingValidation: catalog.tideDocumentBindingValidation,
     pdfContentValidation: 'PASS_OFFICIAL_CHM_PDF_CONTAINER_DIGEST_LAYOUT_TEXT_AND_STRUCTURED_VALUES',
@@ -92,22 +103,23 @@ function tideEvidence(publication, catalog, pdfArtifacts, textExtractions) {
       pdfMagicValidation: artifact.pdfMagicValidation,
       pdfEofValidation: artifact.pdfEofValidation,
     })),
-    textExtractionValidation: textExtractions.status,
-    textExtractionCount: textExtractions.extractionCount,
-    textExtractions: textExtractions.extractions,
+    textExtractionValidation: cacheIngestions.textExtractionStatus,
+    textExtractionCount: cacheIngestions.ingestionCount,
+    textExtractions: cacheIngestions.ingestions,
     rawPdfRetention: 'NONE_AFTER_EPHEMERAL_EXTRACTION',
     rawTextRetention: 'NONE',
     pdfTextExtraction: 'PASS_OFFICIAL_CHM_PDF_PDFTOTEXT_LAYOUT',
     liveTideValueNormalization: CHM_TIDE_LIVE_VALUE_STATUS,
-    liveTideValueIngestion: 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED',
+    liveTideValueIngestion: 'PASS_FAIL_CLOSED_MEMORY_CACHE_READBACK',
     catalogContract: catalog.contract,
     pdfArtifactContract: pdfArtifacts.contract,
-    textExtractionContract: textExtractions.contract,
+    textExtractionContract: cacheIngestions.contract,
   };
 }
 
-async function probeChmTideTextExtractions(catalog, pdfArtifacts) {
-  const extractions = [];
+async function probeChmTideCacheIngestions(catalog, pdfArtifacts) {
+  const cache = createChmTideValuesCache();
+  const ingestions = [];
   for (const station of catalog.stations) {
     const artifact = pdfArtifacts.artifacts.find((candidate) => candidate.stationNumber === station.stationNumber);
     if (!artifact) throw new ChmTidePdfArtifactError('chm_tide_pdf_artifact_missing');
@@ -124,36 +136,42 @@ async function probeChmTideTextExtractions(catalog, pdfArtifacts) {
       throw new ChmTidePdfArtifactError('chm_tide_pdf_artifact_changed_during_probe');
     }
 
-    const extracted = await extractChmTidePdfTextWithPdftotext({
+    const ingested = await ingestChmTidePdfToCache({
+      cache,
       bytes,
       station,
       calendarYear: catalog.calendarYear,
       sourceArtifactSha256: validated.sourceArtifactSha256,
+      fetchedAt: Date.now(),
     });
-    extractions.push(extracted);
+    const { delivery: _delivery, ...summaryOnly } = ingested;
+    ingestions.push(Object.freeze(summaryOnly));
   }
 
   return Object.freeze({
     calendarYear: catalog.calendarYear,
-    extractionCount: extractions.length,
-    extractions: Object.freeze(extractions),
-    status: 'PASS_OFFICIAL_2026_PDF_LAYOUT_TEXT_AND_STRUCTURED_VALUE_NORMALIZATION',
-    contract: 'OFFICIAL_CHM_RJ_TIDE_PDF_EPHEMERAL_TEXT_AND_VALUE_NORMALIZATION_NO_RAW_RETENTION',
+    ingestionCount: ingestions.length,
+    ingestions: Object.freeze(ingestions),
+    status: 'PASS_OFFICIAL_2026_PDF_TO_NORMALIZED_MEMORY_CACHE_READBACK',
+    textExtractionStatus: 'PASS_OFFICIAL_2026_PDF_LAYOUT_TEXT_AND_STRUCTURED_VALUE_NORMALIZATION',
+    contract: 'OFFICIAL_CHM_RJ_TIDE_PDF_EPHEMERAL_TEXT_VALUE_NORMALIZATION_AND_CACHE_READBACK_NO_RAW_RETENTION',
   });
 }
 
 const evidence = {
   sourceId: CHM_SOURCE_ID,
-  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization',
+  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization+official_rj_tide_memory_cache_readback',
   status: 'BLOCKED_SOURCE_CONTRACT',
   execution: 'LIVE_PUBLIC_SOURCE_PROBE',
   warnings: { status: 'NOT_RUN' },
   tides: { status: 'NOT_RUN' },
   liveWaveObservationIngestion: 'NOT_IMPLEMENTED',
   liveTideValueNormalization: 'NOT_RUN',
-  liveTideValueIngestion: 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED',
+  liveTideValueIngestion: 'NOT_RUN',
   tidePdfArtifactValidation: 'NOT_RUN',
   tidePdfTextExtraction: 'NOT_RUN',
+  tideSourceToCacheIngestion: 'NOT_RUN',
+  androidNetworkDelivery: 'BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED',
   rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
 };
 
@@ -170,18 +188,20 @@ if (!failure) {
     const publication = await probeChmTides();
     const catalog = await probeChmRjTideCatalog();
     const pdfArtifacts = await probeChmRjTidePdfArtifacts(catalog);
-    const textExtractions = await probeChmTideTextExtractions(catalog, pdfArtifacts);
-    evidence.tides = tideEvidence(publication, catalog, pdfArtifacts, textExtractions);
+    const cacheIngestions = await probeChmTideCacheIngestions(catalog, pdfArtifacts);
+    evidence.tides = tideEvidence(publication, catalog, pdfArtifacts, cacheIngestions);
     evidence.tidePdfArtifactValidation = pdfArtifacts.pdfArtifactValidation;
-    evidence.tidePdfTextExtraction = textExtractions.status;
+    evidence.tidePdfTextExtraction = cacheIngestions.textExtractionStatus;
     evidence.liveTideValueNormalization = CHM_TIDE_LIVE_VALUE_STATUS;
+    evidence.liveTideValueIngestion = 'PASS_FAIL_CLOSED_MEMORY_CACHE_READBACK';
+    evidence.tideSourceToCacheIngestion = cacheIngestions.status;
   } catch (error) {
     failure = error;
     evidence.tides = { status: 'BLOCKED_SOURCE_CONTRACT', errorCode: errorCode(error) };
   }
 }
 
-if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_EXTRACTION_AND_VALUE_NORMALIZATION_ONLY';
+if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_AND_MEMORY_CACHE_READBACK';
 
 await mkdir('evidence/official-sources', { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
@@ -190,5 +210,5 @@ if (failure) {
   console.error(`CHM_SOURCE_PROBE=BLOCKED:${errorCode(failure)}`);
   process.exitCode = 1;
 } else {
-  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_EXTRACTION_AND_VALUE_NORMALIZATION_ONLY');
+  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_AND_MEMORY_CACHE_READBACK');
 }

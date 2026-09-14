@@ -66,12 +66,12 @@ function summary(parsed, normalizedValues) {
     rawTextRetention: 'NONE',
     textExtraction: CHM_TIDE_LIVE_TEXT_STATUS,
     tideValueNormalization: CHM_TIDE_LIVE_VALUE_STATUS,
-    liveTideValueIngestion: 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED',
+    liveTideValueIngestion: 'READY_FOR_FAIL_CLOSED_MEMORY_CACHE_INGESTION',
     contract: CHM_TIDE_LIVE_TEXT_CONTRACT,
   });
 }
 
-export async function extractChmTidePdfTextWithPdftotext({
+async function extractNormalizedChmTidePdf({
   bytes,
   station,
   calendarYear,
@@ -112,8 +112,20 @@ export async function extractChmTidePdfTextWithPdftotext({
       sourceArtifactSha256: parsed.sourceArtifactSha256,
       predictions: parsed.predictions,
     });
-    return summary(parsed, normalizedValues);
+    return Object.freeze({
+      summary: summary(parsed, normalizedValues),
+      snapshot: normalizedValues,
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+}
+
+export async function extractChmTidePdfValuesWithPdftotext(options = {}) {
+  return extractNormalizedChmTidePdf(options);
+}
+
+export async function extractChmTidePdfTextWithPdftotext(options = {}) {
+  const extracted = await extractNormalizedChmTidePdf(options);
+  return extracted.summary;
 }
