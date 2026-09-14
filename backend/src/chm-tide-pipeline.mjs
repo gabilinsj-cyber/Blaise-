@@ -5,6 +5,7 @@ import { CHM_TIDE_VALUE_SOURCE_ID } from './chm-tide-values.mjs';
 
 export const CHM_TIDE_DELIVERY_CONTRACT = 'OFFICIAL_CHM_TIDE_VALUES_DELIVERY_V1';
 export const CHM_TIDE_SOURCE_TO_CACHE_CONTRACT = 'OFFICIAL_CHM_TIDE_SOURCE_TO_CACHE_READBACK_V1';
+export const CHM_TIDE_ANDROID_NETWORK_DELIVERY_STATUS = 'IMPLEMENTED_FAIL_CLOSED_REQUIRES_RUNTIME_CHM_TIDE_INGESTION_AND_REAL_PLAY_ENTITLEMENT_PROOF';
 
 export class ChmTidePipelineError extends Error {
   constructor(code) {
@@ -156,7 +157,7 @@ export async function ingestChmTidePdfToCache({
       cacheContract: reading.contract,
       deliveryContract: CHM_TIDE_DELIVERY_CONTRACT,
       deliverySha256: sha256(JSON.stringify(delivery)),
-      androidNetworkDelivery: 'BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED',
+      androidNetworkDelivery: CHM_TIDE_ANDROID_NETWORK_DELIVERY_STATUS,
       pipelineContract: CHM_TIDE_SOURCE_TO_CACHE_CONTRACT,
       delivery,
     });

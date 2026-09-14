@@ -32,7 +32,7 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization+official_rj_tide_memory_cache_readback",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization+official_rj_tide_memory_cache_readback+paid_entitlement_https_delivery_boundary",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
@@ -41,7 +41,7 @@ jobs:
             "liveTideValueNormalization": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "liveTideValueIngestion": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "tideSourceToCacheIngestion": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "androidNetworkDelivery": "BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED",
+            "androidNetworkDelivery": "IMPLEMENTED_FAIL_CLOSED_REQUIRES_RUNTIME_CHM_TIDE_INGESTION_AND_REAL_PLAY_ENTITLEMENT_PROOF",
             "tidePdfArtifactValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "tidePdfTextExtraction": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
@@ -80,6 +80,7 @@ jobs:
           node --check backend/src/chm-tide-values.mjs
           node --check backend/src/chm-tide-cache.mjs
           node --check backend/src/chm-tide-pipeline.mjs
+          node --check backend/src/chm-tide-http.mjs
           node --check backend/scripts/probe-chm.mjs
           node backend/scripts/probe-chm.mjs
 

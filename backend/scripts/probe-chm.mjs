@@ -23,6 +23,7 @@ import {
 } from '../src/chm-tide-live-text.mjs';
 import { createChmTideValuesCache } from '../src/chm-tide-cache.mjs';
 import {
+  CHM_TIDE_ANDROID_NETWORK_DELIVERY_STATUS,
   CHM_TIDE_DELIVERY_CONTRACT,
   CHM_TIDE_SOURCE_TO_CACHE_CONTRACT,
   ChmTidePipelineError,
@@ -88,7 +89,7 @@ function tideEvidence(publication, catalog, pdfArtifacts, cacheIngestions) {
     sourceToCacheIngestion: cacheIngestions.status,
     sourceToCacheContract: CHM_TIDE_SOURCE_TO_CACHE_CONTRACT,
     deliveryContract: CHM_TIDE_DELIVERY_CONTRACT,
-    androidNetworkDelivery: 'BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED',
+    androidNetworkDelivery: CHM_TIDE_ANDROID_NETWORK_DELIVERY_STATUS,
     portSelectionValidation: catalog.portSelectionValidation,
     tideDocumentBindingValidation: catalog.tideDocumentBindingValidation,
     pdfContentValidation: 'PASS_OFFICIAL_CHM_PDF_CONTAINER_DIGEST_LAYOUT_TEXT_AND_STRUCTURED_VALUES',
@@ -160,7 +161,7 @@ async function probeChmTideCacheIngestions(catalog, pdfArtifacts) {
 
 const evidence = {
   sourceId: CHM_SOURCE_ID,
-  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization+official_rj_tide_memory_cache_readback',
+  contract: 'official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization+official_rj_tide_memory_cache_readback+paid_entitlement_https_delivery_boundary',
   status: 'BLOCKED_SOURCE_CONTRACT',
   execution: 'LIVE_PUBLIC_SOURCE_PROBE',
   warnings: { status: 'NOT_RUN' },
@@ -171,7 +172,7 @@ const evidence = {
   tidePdfArtifactValidation: 'NOT_RUN',
   tidePdfTextExtraction: 'NOT_RUN',
   tideSourceToCacheIngestion: 'NOT_RUN',
-  androidNetworkDelivery: 'BLOCKED_PAID_ENTITLEMENT_SAFE_HTTPS_API_NOT_IMPLEMENTED',
+  androidNetworkDelivery: CHM_TIDE_ANDROID_NETWORK_DELIVERY_STATUS,
   rjCoastGeofenceValidation: 'NOT_IMPLEMENTED',
 };
 
@@ -201,7 +202,7 @@ if (!failure) {
   }
 }
 
-if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_AND_MEMORY_CACHE_READBACK';
+if (!failure) evidence.status = 'PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_MEMORY_CACHE_READBACK_AND_PAID_HTTPS_BOUNDARY_IMPLEMENTED';
 
 await mkdir('evidence/official-sources', { recursive: true });
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
@@ -210,5 +211,5 @@ if (failure) {
   console.error(`CHM_SOURCE_PROBE=BLOCKED:${errorCode(failure)}`);
   process.exitCode = 1;
 } else {
-  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_AND_MEMORY_CACHE_READBACK');
+  console.log('CHM_SOURCE_PROBE=PASS_SOURCE_DISCOVERY_DOCUMENT_BINDING_PDF_ARTIFACTS_TEXT_VALUES_MEMORY_CACHE_READBACK_AND_PAID_HTTPS_BOUNDARY_IMPLEMENTED');
 }

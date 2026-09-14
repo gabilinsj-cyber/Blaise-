@@ -13,6 +13,10 @@ const COUNTERS = Object.freeze([
   'p0_duplicate_total',
   'p0_rejected_total',
   'p0_busy_total',
+  'chm_tide_success_total',
+  'chm_tide_denied_total',
+  'chm_tide_unavailable_total',
+  'chm_tide_busy_total',
   'google_play_retry_total',
   'fcm_retry_total',
 ]);
