@@ -1,15 +1,17 @@
 import { createHash } from 'node:crypto';
 
 import {
+  bindChmTideCivilClock,
+} from './chm-tide-civil-clock.mjs';
+import {
   bindChmTideFusoToken,
-  CHM_TIDE_CIVIL_CLOCK_BINDING,
   CHM_TIDE_FUSO_CONTRACT,
   CHM_TIDE_FUSO_SIGN_CONVENTION,
   CHM_TIDE_FUSO_TIME_BASIS,
 } from './chm-tide-fuso.mjs';
 
 export const CHM_TIDE_TEXT_SOURCE_ID = 'chm-marine';
-export const CHM_TIDE_TEXT_CONTRACT = 'CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED';
+export const CHM_TIDE_TEXT_CONTRACT = 'CHM_PDF_TEXT_TABLE_PARSER_RJ_2026_CIVIL_CLOCK_BOUND_LIVE_EXTRACTION_SEPARATE';
 export const CHM_TIDE_TEXT_LAYOUT = 'PDFTOTEXT_LAYOUT_SYNTHETIC_CONTRACT_ONLY';
 export const CHM_TIDE_FUSO_BINDING = 'PASS_CHM_2026_HEADER_SIGNED_UTC_OFFSET_BOUND_CIVIL_CLOCK_SEPARATE';
 export const CHM_TIDE_TEXT_EXPECTED_PAGE_COUNT = 3;
@@ -233,6 +235,10 @@ export function parseChmTidePdfLayoutText(input) {
   validateIdentity(input.text, station, calendarYear);
   const fusoRawToken = parseFusoRaw(input.text);
   const fuso = bindChmTideFusoToken(fusoRawToken);
+  const civilClock = bindChmTideCivilClock({
+    calendarYear,
+    baseUtcOffsetMinutes: fuso.baseUtcOffsetMinutes,
+  });
 
   const predictions = pages.flatMap((page, pageIndex) => parsePage(page, pageIndex, station, calendarYear));
   if (predictions.length < 12 || predictions.length > 366 * CHM_TIDE_TEXT_MAX_EVENTS_PER_DAY) {
@@ -264,6 +270,12 @@ export function parseChmTidePdfLayoutText(input) {
     station,
     sourceArtifactSha256,
     fuso: canonicalFuso,
+    civilClock: {
+      adjustmentMinutes: civilClock.civilClockAdjustmentMinutes,
+      effectiveUtcOffsetMinutes: civilClock.effectiveUtcOffsetMinutes,
+      policy: civilClock.policy,
+      policySnapshotDate: civilClock.policySnapshotDate,
+    },
     predictions,
   };
 
@@ -283,9 +295,13 @@ export function parseChmTidePdfLayoutText(input) {
     fusoContract: CHM_TIDE_FUSO_CONTRACT,
     fusoSemanticsBinding: CHM_TIDE_FUSO_BINDING,
     baseUtcOffsetMinutes: fuso.baseUtcOffsetMinutes,
-    civilClockAdjustmentMinutes: null,
-    civilClockBinding: CHM_TIDE_CIVIL_CLOCK_BINDING,
-    utcOffsetMinutes: null,
+    civilClockAdjustmentMinutes: civilClock.civilClockAdjustmentMinutes,
+    civilClockBinding: civilClock.civilClockBinding,
+    civilClockPolicy: civilClock.policy,
+    civilClockPolicySnapshotDate: civilClock.policySnapshotDate,
+    civilClockEvidence: civilClock.evidence,
+    civilClockContract: civilClock.contract,
+    utcOffsetMinutes: civilClock.effectiveUtcOffsetMinutes,
     predictionCount: predictions.length,
     predictions: Object.freeze(predictions),
     parsedValueSha256: sha256(JSON.stringify(canonical)),

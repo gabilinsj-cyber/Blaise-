@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   CHM_TIDE_LIVE_TEXT_CONTRACT,
   CHM_TIDE_LIVE_TEXT_STATUS,
+  CHM_TIDE_LIVE_VALUE_STATUS,
   ChmTideLiveTextError,
   extractChmTidePdfTextWithPdftotext,
   normalizePdftotextLayoutOutput,
@@ -46,7 +47,7 @@ test('normalizes the trailing form-feed emitted by pdftotext without removing pa
   assert.equal(normalized.endsWith('\f'), false);
 });
 
-test('extracts a bounded digest-only summary and never returns raw PDF, raw text or tide predictions', async () => {
+test('extracts bounded digest-only text/value evidence and never returns raw PDF, raw text or tide predictions', async () => {
   let observedCommand = null;
   let observedArgs = null;
   const result = await extractChmTidePdfTextWithPdftotext({
@@ -69,15 +70,19 @@ test('extracts a bounded digest-only summary and never returns raw PDF, raw text
   assert.equal(result.predictionCount, 24);
   assert.equal(result.fusoRawToken, '-03.0');
   assert.equal(result.baseUtcOffsetMinutes, -180);
-  assert.equal(result.effectiveUtcOffsetMinutes, null);
+  assert.equal(result.civilClockAdjustmentMinutes, 0);
+  assert.equal(result.effectiveUtcOffsetMinutes, -180);
   assert.equal(result.textExtraction, CHM_TIDE_LIVE_TEXT_STATUS);
-  assert.equal(result.liveTideValueIngestion, 'BLOCKED_CIVIL_CLOCK_EFFECTIVE_OFFSET_NOT_BOUND');
+  assert.equal(result.tideValueNormalization, CHM_TIDE_LIVE_VALUE_STATUS);
+  assert.equal(result.liveTideValueIngestion, 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED');
+  assert.equal(result.firstInstantUtc, '2026-01-01T06:30:00.000Z');
   assert.equal(result.contract, CHM_TIDE_LIVE_TEXT_CONTRACT);
   assert.equal('predictions' in result, false);
   assert.equal('text' in result, false);
   assert.equal('bytes' in result, false);
   assert.match(result.extractedTextSha256, /^[a-f0-9]{64}$/u);
   assert.match(result.parsedValueSha256, /^[a-f0-9]{64}$/u);
+  assert.match(result.tideValueSha256, /^[a-f0-9]{64}$/u);
 });
 
 test('fails closed when pdftotext execution fails', async () => {
