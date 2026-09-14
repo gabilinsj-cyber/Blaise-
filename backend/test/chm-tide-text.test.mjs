@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   CHM_TIDE_CIVIL_CLOCK_BINDING,
+  CHM_TIDE_CIVIL_CLOCK_CONTRACT,
+} from '../src/chm-tide-civil-clock.mjs';
+import {
   CHM_TIDE_FUSO_SIGN_CONVENTION,
 } from '../src/chm-tide-fuso.mjs';
 import {
@@ -44,7 +47,7 @@ function fixture(options = {}) {
   ].join('\f');
 }
 
-test('parses synthetic layout while binding the official 2026 CHM signed UTC tide-header token', () => {
+test('parses synthetic layout while binding the official 2026 CHM UTC header and RJ civil clock', () => {
   const result = parseChmTidePdfLayoutText({
     text: fixture(), station, calendarYear: 2026, sourceArtifactSha256,
   });
@@ -56,9 +59,11 @@ test('parses synthetic layout while binding the official 2026 CHM signed UTC tid
   assert.equal(result.baseUtcOffsetMinutes, -180);
   assert.equal(result.fusoSignConvention, CHM_TIDE_FUSO_SIGN_CONVENTION);
   assert.equal(result.fusoSemanticsBinding, CHM_TIDE_FUSO_BINDING);
-  assert.equal(result.civilClockAdjustmentMinutes, null);
+  assert.equal(result.civilClockAdjustmentMinutes, 0);
   assert.equal(result.civilClockBinding, CHM_TIDE_CIVIL_CLOCK_BINDING);
-  assert.equal(result.utcOffsetMinutes, null);
+  assert.equal(result.civilClockContract, CHM_TIDE_CIVIL_CLOCK_CONTRACT);
+  assert.equal(result.civilClockPolicySnapshotDate, '2026-09-14');
+  assert.equal(result.utcOffsetMinutes, -180);
   assert.equal(result.liveSourceExtraction, 'BLOCKED_OFFICIAL_2026_PDF_LAYOUT_NOT_YET_EVIDENCED');
   assert.equal(result.contract, CHM_TIDE_TEXT_CONTRACT);
   assert.match(result.extractedTextSha256, /^[a-f0-9]{64}$/u);
@@ -122,5 +127,14 @@ test('fails closed when a continuation row appears before any day context', () =
   assert.throws(
     () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
     (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_day_context_missing',
+  );
+});
+
+test('fails closed when the evidenced RJ 2026 civil-clock base offset does not match the source header', () => {
+  assert.throws(
+    () => parseChmTidePdfLayoutText({
+      text: fixture({ fuso: '-02.0' }), station, calendarYear: 2026, sourceArtifactSha256,
+    }),
+    (error) => error?.code === 'chm_tide_civil_clock_base_offset_mismatch',
   );
 });

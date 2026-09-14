@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query official Marinha/CHM warnings, tide publication, RJ station catalog/PDF bindings, bounded PDF artifacts and ephemeral PDF text extraction'
+        description: 'Query official Marinha/CHM warnings, tide publication, RJ station catalog/PDF bindings, bounded PDF artifacts, ephemeral PDF text extraction and structured tide-value normalization'
         required: true
         default: false
         type: boolean
@@ -32,13 +32,14 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction+official_rj_tide_value_normalization",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "tides": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "liveWaveObservationIngestion": "NOT_IMPLEMENTED",
-            "liveTideValueIngestion": "BLOCKED_CIVIL_CLOCK_EFFECTIVE_OFFSET_NOT_BOUND",
+            "liveTideValueNormalization": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "liveTideValueIngestion": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "tidePdfArtifactValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "tidePdfTextExtraction": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
@@ -71,8 +72,10 @@ jobs:
           node --check backend/src/chm-tide-catalog.mjs
           node --check backend/src/chm-tide-artifact.mjs
           node --check backend/src/chm-tide-fuso.mjs
+          node --check backend/src/chm-tide-civil-clock.mjs
           node --check backend/src/chm-tide-text.mjs
           node --check backend/src/chm-tide-live-text.mjs
+          node --check backend/src/chm-tide-values.mjs
           node --check backend/scripts/probe-chm.mjs
           node backend/scripts/probe-chm.mjs
 

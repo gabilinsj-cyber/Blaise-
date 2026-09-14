@@ -5,9 +5,14 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { parseChmTidePdfLayoutText } from './chm-tide-text.mjs';
+import {
+  CHM_TIDE_TIME_BASIS,
+  normalizeChmTideValues,
+} from './chm-tide-values.mjs';
 
 export const CHM_TIDE_LIVE_TEXT_CONTRACT = 'OFFICIAL_CHM_PDF_EPHEMERAL_PDFTOTEXT_LAYOUT_EXTRACTION_BOUNDARY';
 export const CHM_TIDE_LIVE_TEXT_STATUS = 'PASS_EPHEMERAL_PDFTOTEXT_LAYOUT_PARSED';
+export const CHM_TIDE_LIVE_VALUE_STATUS = 'PASS_OFFICIAL_CHM_PDF_TEXT_STRUCTURED_TIDE_VALUES_NORMALIZED';
 export const CHM_TIDE_LIVE_TEXT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 const execFileAsync = promisify(execFileCallback);
@@ -34,7 +39,7 @@ export function normalizePdftotextLayoutOutput(value) {
   return normalized;
 }
 
-function summary(parsed) {
+function summary(parsed, normalizedValues) {
   return Object.freeze({
     stationNumber: parsed.station.stationNumber,
     stationName: parsed.station.name,
@@ -45,14 +50,23 @@ function summary(parsed) {
     fusoRawToken: parsed.fusoRawToken,
     fusoUtcOffsetHours: parsed.fusoUtcOffsetHours,
     baseUtcOffsetMinutes: parsed.baseUtcOffsetMinutes,
+    civilClockAdjustmentMinutes: parsed.civilClockAdjustmentMinutes,
     civilClockBinding: parsed.civilClockBinding,
+    civilClockPolicy: parsed.civilClockPolicy,
+    civilClockPolicySnapshotDate: parsed.civilClockPolicySnapshotDate,
     effectiveUtcOffsetMinutes: parsed.utcOffsetMinutes,
     predictionCount: parsed.predictionCount,
     parsedValueSha256: parsed.parsedValueSha256,
+    tideValueSha256: normalizedValues.tideValueSha256,
+    firstLocalDate: normalizedValues.firstLocalDate,
+    lastLocalDate: normalizedValues.lastLocalDate,
+    firstInstantUtc: normalizedValues.predictions[0].instantUtc,
+    lastInstantUtc: normalizedValues.predictions.at(-1).instantUtc,
     rawPdfRetention: 'NONE_AFTER_EPHEMERAL_EXTRACTION',
     rawTextRetention: 'NONE',
     textExtraction: CHM_TIDE_LIVE_TEXT_STATUS,
-    liveTideValueIngestion: 'BLOCKED_CIVIL_CLOCK_EFFECTIVE_OFFSET_NOT_BOUND',
+    tideValueNormalization: CHM_TIDE_LIVE_VALUE_STATUS,
+    liveTideValueIngestion: 'BLOCKED_DOWNSTREAM_TIDE_CACHE_API_NOT_IMPLEMENTED',
     contract: CHM_TIDE_LIVE_TEXT_CONTRACT,
   });
 }
@@ -90,7 +104,15 @@ export async function extractChmTidePdfTextWithPdftotext({
       calendarYear,
       sourceArtifactSha256,
     });
-    return summary(parsed);
+    const normalizedValues = normalizeChmTideValues({
+      station: parsed.station,
+      calendarYear: parsed.calendarYear,
+      timeBasis: CHM_TIDE_TIME_BASIS,
+      utcOffsetMinutes: parsed.utcOffsetMinutes,
+      sourceArtifactSha256: parsed.sourceArtifactSha256,
+      predictions: parsed.predictions,
+    });
+    return summary(parsed, normalizedValues);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
