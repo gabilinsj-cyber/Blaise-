@@ -8,6 +8,7 @@ interface AlertRepository { suspend fun official(city: City?): Result<List<Offic
 interface RadarRepository { suspend fun lastThirtyMinutes(city: City): Result<List<RadarFrame>> }
 interface RiskRepository { suspend fun risks(city: City): Result<List<RiskEvent>> }
 interface MarineRepository { suspend fun conditions(): Result<MarineSnapshot> }
+interface TideRepository { suspend fun current(stationNumber: Int, calendarYear: Int): Result<ChmTideDelivery> }
 interface TrafficRepository { suspend fun incidents(city: City): Result<List<TrafficIncident>> }
 interface NewsRepository { suspend fun latest(): Result<List<NewsItem>> }
 interface SubscriptionRepository { suspend fun hasActiveEntitlement(): Boolean }
@@ -20,4 +21,3 @@ data class RiskEvent(val title: String, val source: String)
 data class MarineSnapshot(val waveHeightM: Double, val windDirection: String, val source: String)
 data class TrafficIncident(val title: String, val source: String)
 data class NewsItem(val title: String, val source: String, val publishedAt: Long)
-
