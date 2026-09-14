@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_live_probe:
-        description: 'Query official Marinha/CHM warnings, tide publication, RJ station catalog/PDF bindings and bounded PDF artifacts'
+        description: 'Query official Marinha/CHM warnings, tide publication, RJ station catalog/PDF bindings, bounded PDF artifacts and ephemeral PDF text extraction'
         required: true
         default: false
         type: boolean
@@ -19,7 +19,7 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -32,15 +32,15 @@ jobs:
           cat > evidence/official-sources/chm.json <<'JSON'
           {
             "sourceId": "chm-marine",
-            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation",
+            "contract": "official_metarea_v_warning_inventory+official_tide_publication_discovery+official_rj_tide_station_catalog+official_rj_tide_pdf_binding+official_rj_tide_pdf_artifact_validation+official_rj_tide_pdf_text_extraction",
             "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "warnings": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "tides": { "status": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED" },
             "liveWaveObservationIngestion": "NOT_IMPLEMENTED",
-            "liveTideValueIngestion": "NOT_IMPLEMENTED",
+            "liveTideValueIngestion": "BLOCKED_CIVIL_CLOCK_EFFECTIVE_OFFSET_NOT_BOUND",
             "tidePdfArtifactValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "tidePdfTextExtraction": "NOT_IMPLEMENTED",
+            "tidePdfTextExtraction": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "rjCoastGeofenceValidation": "NOT_IMPLEMENTED"
           }
           JSON
@@ -49,6 +49,16 @@ jobs:
         if: ${{ inputs.execute_live_probe }}
         with:
           node-version: '24.20.0'
+
+      - name: Install bounded PDF text extraction tooling
+        if: ${{ inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          command -v pdftotext
+          pdftotext -v 2>&1 | head -n 2
 
       - name: Validate and probe official Marinha CHM marine source contracts
         if: ${{ inputs.execute_live_probe }}
@@ -60,6 +70,9 @@ jobs:
           node --check backend/src/chm-source.mjs
           node --check backend/src/chm-tide-catalog.mjs
           node --check backend/src/chm-tide-artifact.mjs
+          node --check backend/src/chm-tide-fuso.mjs
+          node --check backend/src/chm-tide-text.mjs
+          node --check backend/src/chm-tide-live-text.mjs
           node --check backend/scripts/probe-chm.mjs
           node backend/scripts/probe-chm.mjs
 
