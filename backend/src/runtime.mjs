@@ -1,6 +1,8 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
+import { createChmTideValuesCache } from './chm-tide-cache.mjs';
+import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -152,6 +154,7 @@ async function main() {
     : null;
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
+  const chmTideCache = createChmTideValuesCache();
   const readiness = createReadinessState();
   const coreHandler = createHttpHandler({
     config,
@@ -164,7 +167,13 @@ async function main() {
     replayGuard,
     p0ReplayGuard,
   });
-  const server = http.createServer(createDrainingHandler(coreHandler, readiness));
+  const paidDataHandler = createChmTideHttpHandler(coreHandler, {
+    config,
+    gateway,
+    chmTideCache,
+    metrics,
+  });
+  const server = http.createServer(createDrainingHandler(paidDataHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
