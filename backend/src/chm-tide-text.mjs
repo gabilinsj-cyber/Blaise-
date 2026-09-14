@@ -11,7 +11,7 @@ import {
 export const CHM_TIDE_TEXT_SOURCE_ID = 'chm-marine';
 export const CHM_TIDE_TEXT_CONTRACT = 'CHM_PDF_TEXT_TABLE_PARSER_LIVE_SOURCE_EXTRACTION_NOT_YET_EVIDENCED';
 export const CHM_TIDE_TEXT_LAYOUT = 'PDFTOTEXT_LAYOUT_SYNTHETIC_CONTRACT_ONLY';
-export const CHM_TIDE_FUSO_BINDING = 'PASS_DHN_SIGN_CONVENTION_BASE_OFFSET_BOUND_CIVIL_CLOCK_SEPARATE';
+export const CHM_TIDE_FUSO_BINDING = 'PASS_CHM_2026_HEADER_SIGNED_UTC_OFFSET_BOUND_CIVIL_CLOCK_SEPARATE';
 export const CHM_TIDE_TEXT_EXPECTED_PAGE_COUNT = 3;
 export const CHM_TIDE_TEXT_MONTHS_PER_PAGE = 4;
 export const CHM_TIDE_TEXT_MAX_BYTES = 1024 * 1024;
@@ -97,15 +97,27 @@ function normalizePages(text) {
   return Object.freeze({ pages, byteLength });
 }
 
+function stationIdentityCandidates(stationName) {
+  const canonical = fold(stationName);
+  const candidates = new Set([canonical]);
+  if (/\bI FISCAL\b/u.test(canonical)) {
+    candidates.add(canonical.replace(/\bI FISCAL\b/gu, 'ILHA FISCAL'));
+  }
+  return candidates;
+}
+
 function validateIdentity(text, station, calendarYear) {
   const folded = fold(text);
-  if (!folded.includes(fold(station.name))) throw new ChmTideTextError('chm_tide_text_station_identity_missing');
+  if (![...stationIdentityCandidates(station.name)].some((candidate) => folded.includes(candidate))) {
+    throw new ChmTideTextError('chm_tide_text_station_identity_missing');
+  }
   const yearMatches = [...folded.matchAll(/\b(20\d{2}|2100)\b/gu)].map((match) => Number(match[1]));
   if (!yearMatches.includes(calendarYear)) throw new ChmTideTextError('chm_tide_text_year_identity_missing');
 }
 
 function parseFusoRaw(text) {
-  const matches = [...fold(text).matchAll(/\bFUSO\s*[:=]?\s*([+-]?\d{1,2})\b/gu)].map((match) => match[1]);
+  const matches = [...fold(text).matchAll(/\bFUSO\s+UTC\s*[:=]?\s*([+-]\d{1,2}(?:[.,]\d)?)\s*HORAS?\b/gu)]
+    .map((match) => match[1].replace(',', '.'));
   if (matches.length < 1) throw new ChmTideTextError('chm_tide_text_fuso_missing');
   const unique = [...new Set(matches)];
   if (unique.length !== 1) throw new ChmTideTextError('chm_tide_text_fuso_ambiguous');
@@ -241,7 +253,7 @@ export function parseChmTidePdfLayoutText(input) {
 
   const canonicalFuso = {
     rawToken: fuso.rawToken,
-    zoneHoursWest: fuso.zoneHoursWest,
+    utcOffsetHours: fuso.utcOffsetHours,
     baseUtcOffsetMinutes: fuso.baseUtcOffsetMinutes,
     signConvention: fuso.signConvention,
     timeBasis: fuso.timeBasis,
@@ -264,7 +276,8 @@ export function parseChmTidePdfLayoutText(input) {
     extractedTextByteLength: byteLength,
     pageCount: pages.length,
     fusoRawToken: fuso.rawToken,
-    fusoZoneHoursWest: fuso.zoneHoursWest,
+    fusoUtcOffsetHours: fuso.utcOffsetHours,
+    fusoZoneHoursWestDerived: fuso.zoneHoursWestDerived,
     fusoSignConvention: CHM_TIDE_FUSO_SIGN_CONVENTION,
     fusoTimeBasis: CHM_TIDE_FUSO_TIME_BASIS,
     fusoContract: CHM_TIDE_FUSO_CONTRACT,

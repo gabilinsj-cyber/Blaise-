@@ -26,9 +26,9 @@ const monthNames = [
   'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
 ];
 
-function page(months, pageNumber, { fuso = '+3' } = {}) {
+function page(months, pageNumber, { fuso = '-03.0' } = {}) {
   const header = pageNumber === 130
-    ? `CENTRO DE HIDROGRAFIA DA MARINHA 2026\nPORTO DO RIO DE JANEIRO - I FISCAL\nFUSO ${fuso}\n`
+    ? `PORTO DO RIO DE JANEIRO - ILHA FISCAL (ESTADO DO RIO DE JANEIRO) - 2026\nLatitude 22 53.8 S\nLongitude 43 10 W\nFuso UTC ${fuso} horas\nCHM\n70 Componentes\nNivel Medio 0.73 m\nCarta 1515\n`
     : 'CENTRO DE HIDROGRAFIA DA MARINHA\n';
   const monthHeader = months.join('          ');
   const first = months.map(() => '01 PM 0330 1,20').join('    ');
@@ -44,14 +44,15 @@ function fixture(options = {}) {
   ].join('\f');
 }
 
-test('parses synthetic CHM layout and binds DHN FUSO sign convention without inventing civil-clock adjustment', () => {
+test('parses synthetic layout while binding the official 2026 CHM signed UTC tide-header token', () => {
   const result = parseChmTidePdfLayoutText({
     text: fixture(), station, calendarYear: 2026, sourceArtifactSha256,
   });
   assert.equal(result.pageCount, 3);
   assert.equal(result.predictionCount, 24);
-  assert.equal(result.fusoRawToken, '+3');
-  assert.equal(result.fusoZoneHoursWest, 3);
+  assert.equal(result.fusoRawToken, '-03.0');
+  assert.equal(result.fusoUtcOffsetHours, -3);
+  assert.equal(result.fusoZoneHoursWestDerived, 3);
   assert.equal(result.baseUtcOffsetMinutes, -180);
   assert.equal(result.fusoSignConvention, CHM_TIDE_FUSO_SIGN_CONVENTION);
   assert.equal(result.fusoSemanticsBinding, CHM_TIDE_FUSO_BINDING);
@@ -69,6 +70,13 @@ test('parses synthetic CHM layout and binds DHN FUSO sign convention without inv
   assert.equal(result.predictions[1].phase, 'BM');
 });
 
+test('accepts the official catalog abbreviation I FISCAL when the PDF identity expands it to ILHA FISCAL', () => {
+  const result = parseChmTidePdfLayoutText({
+    text: fixture(), station, calendarYear: 2026, sourceArtifactSha256,
+  });
+  assert.equal(result.station.name, station.name);
+});
+
 test('fails closed if the extracted text does not contain exactly three pages', () => {
   const twoPages = fixture().split('\f').slice(0, 2).join('\f');
   assert.throws(
@@ -78,18 +86,26 @@ test('fails closed if the extracted text does not contain exactly three pages', 
 });
 
 test('fails closed if the station identity is not present in the extracted text', () => {
-  const text = fixture().replace(station.name, 'ESTACAO DESCONHECIDA');
+  const text = fixture().replace('PORTO DO RIO DE JANEIRO - ILHA FISCAL', 'ESTACAO DESCONHECIDA');
   assert.throws(
     () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
     (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_station_identity_missing',
   );
 });
 
-test('fails closed on ambiguous FUSO tokens instead of guessing civil-clock semantics', () => {
-  const text = fixture().replace('FUSO +3', 'FUSO +3\nFUSO -3');
+test('fails closed on ambiguous signed UTC FUSO tokens instead of guessing civil-clock semantics', () => {
+  const text = fixture().replace('Fuso UTC -03.0 horas', 'Fuso UTC -03.0 horas\nFuso UTC -02.0 horas');
   assert.throws(
     () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
     (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_fuso_ambiguous',
+  );
+});
+
+test('fails closed on an unlabeled nautical-style FUSO token that is not the evidenced 2026 tide-header form', () => {
+  const text = fixture().replace('Fuso UTC -03.0 horas', 'FUSO +3');
+  assert.throws(
+    () => parseChmTidePdfLayoutText({ text, station, calendarYear: 2026, sourceArtifactSha256 }),
+    (error) => error instanceof ChmTideTextError && error.code === 'chm_tide_text_fuso_missing',
   );
 });
 
