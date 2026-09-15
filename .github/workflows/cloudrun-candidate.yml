@@ -79,7 +79,7 @@ jobs:
           version: '583.0.0'
           project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
 
-      - name: Build and push immutable backend image
+      - name: Build, push and resolve backend image digest
         if: ${{ inputs.execute_deploy }}
         shell: bash
         run: |
@@ -88,14 +88,28 @@ jobs:
           gcloud version | tee evidence/cloudrun/gcloud-version.txt
           grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun/gcloud-version.txt
           registry="${BLAISE_CLOUDRUN_REGION}-docker.pkg.dev"
-          image="${registry}/${BLAISE_GCP_PROJECT_ID}/${BLAISE_ARTIFACT_REGISTRY_REPOSITORY}/blaise-entitlement-backend:${GITHUB_SHA}"
+          image_base="${registry}/${BLAISE_GCP_PROJECT_ID}/${BLAISE_ARTIFACT_REGISTRY_REPOSITORY}/blaise-entitlement-backend"
+          tagged_image="${image_base}:${GITHUB_SHA}"
           gcloud auth configure-docker "$registry" --quiet
-          docker build --file backend/Dockerfile --tag "$image" backend
-          docker push "$image"
-          printf 'BLAISE_CLOUDRUN_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
-          printf '%s\n' "image=${image}" > evidence/cloudrun/image.txt
+          docker build --file backend/Dockerfile --tag "$tagged_image" backend
+          docker push "$tagged_image"
 
-      - name: Deploy tagged candidate with zero production traffic
+          digest="$(gcloud artifacts docker images describe "$tagged_image" --format='value(image_summary.digest)')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "BLOCKED: Artifact Registry did not return a valid sha256 digest" >&2
+            exit 2
+          }
+          digest_image="${image_base}@${digest}"
+          printf 'BLAISE_CLOUDRUN_IMAGE=%s\n' "$digest_image" >> "$GITHUB_ENV"
+          printf 'BLAISE_CLOUDRUN_IMAGE_DIGEST=%s\n' "$digest" >> "$GITHUB_ENV"
+          printf '%s\n' \
+            "tagged_image=${tagged_image}" \
+            "digest=${digest}" \
+            "deploy_image=${digest_image}" \
+            'deployment_binding=DIGEST_PINNED' \
+            > evidence/cloudrun/image.txt
+
+      - name: Deploy digest-pinned tagged candidate with zero production traffic
         if: ${{ inputs.execute_deploy }}
         shell: bash
         run: |
@@ -158,6 +172,39 @@ jobs:
               fh.write(f"BLAISE_CLOUDRUN_CANDIDATE_REVISION={match['revisionName']}\n")
           PY
 
+      - name: Verify deployed revision is bound to pushed image digest
+        if: ${{ inputs.execute_deploy }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision_json="$RUNNER_TEMP/cloudrun-revision.json"
+          gcloud run revisions describe "$BLAISE_CLOUDRUN_CANDIDATE_REVISION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$revision_json"
+          cp "$revision_json" evidence/cloudrun/revision.json
+
+          python3 - "$revision_json" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          revision = json.loads(Path(sys.argv[1]).read_text())
+          expected = os.environ['BLAISE_CLOUDRUN_IMAGE_DIGEST']
+          actual = revision.get('status', {}).get('imageDigest')
+          if not re.fullmatch(r'sha256:[0-9a-f]{64}', expected):
+              raise SystemExit('expected image digest malformed')
+          if actual != expected:
+              raise SystemExit(f'Cloud Run revision digest mismatch: expected={expected} actual={actual}')
+          Path('evidence/cloudrun/digest-binding.txt').write_text(
+              'CLOUDRUN_IMAGE_DIGEST_BINDING=PASS\n'
+              f'digest={expected}\n'
+              'revision_image=PASS_EXACT_DIGEST_MATCH\n'
+          )
+          PY
+
       - name: Smoke tagged candidate before any traffic migration
         if: ${{ inputs.execute_deploy }}
         shell: bash
@@ -175,9 +222,11 @@ jobs:
             | tee evidence/cloudrun/readyz.json
           grep -F '"status":"ok"' evidence/cloudrun/healthz.json
           grep -F '"status":"ready"' evidence/cloudrun/readyz.json
+          grep -F 'CLOUDRUN_IMAGE_DIGEST_BINDING=PASS' evidence/cloudrun/digest-binding.txt
           printf '%s\n' \
             'CLOUDRUN_CANDIDATE_GATE=PASS' \
             'candidate_smoke=PASS' \
+            'image_digest_binding=PASS' \
             'production_traffic=NOT_MIGRATED' \
             'promotion=BLOCKED_SEPARATE_EXPLICIT_GATE_REQUIRED' \
             > evidence/cloudrun/gate.txt
@@ -192,6 +241,7 @@ jobs:
             printf '%s\n' \
               'CLOUDRUN_CANDIDATE_GATE=BLOCKED' \
               'reason=workflow_failed_before_candidate_gate' \
+              'image_digest_binding=NOT_PROVEN' \
               'production_traffic=UNCHANGED_OR_NOT_PROVEN' \
               > evidence/cloudrun/gate.txt
           fi
