@@ -12,6 +12,7 @@ bash scripts/test-testlab-workflow.sh | tee evidence/firebase-testlab-workflow-s
 bash scripts/test-cloudrun-workflow.sh | tee evidence/cloudrun-workflow-selftest.txt
 bash scripts/test-cloudrun-promotion-workflow.sh | tee evidence/cloudrun-promotion-workflow-selftest.txt
 bash scripts/test-weather-transition-calibration-workflow.sh | tee evidence/weather-transition-calibration-workflow-selftest.txt
+bash scripts/test-south-america-source-workflow.sh | tee evidence/south-america-source-workflow-selftest.txt
 bash scripts/test-runtime-adb-retry.sh | tee evidence/runtime-adb-retry-selftest.txt
 bash scripts/test-official-source-workflow.sh | tee evidence/official-source-workflow-selftest.txt
 node --check backend/src/source-contract.mjs

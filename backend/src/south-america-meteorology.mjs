@@ -25,7 +25,7 @@ export const WIS2_GLOBAL_BROKERS = Object.freeze([
   }),
   Object.freeze({
     id: 'us-noaa-global-broker',
-    endpoint: 'mqtts://everyone:everyone@wis2broker.globaldata.nws.noaa.gov:8883',
+    endpoint: 'mqtts://everyone:everyone@wis2globalbroker.nws.noaa.gov:8883',
     transportPriority: 70,
   }),
 ]);
