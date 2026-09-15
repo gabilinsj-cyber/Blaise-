@@ -21,24 +21,28 @@ import org.junit.runner.RunWith
 class MainActivityTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
+    private fun assertTextDisplayed(text: String) {
+        rule.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+    }
+
     private fun assertCoreDashboard() {
-        rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
-        rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
-        rule.onNodeWithText("Não presumimos ausência de alerta sem evidência oficial válida.").assertIsDisplayed()
+        assertTextDisplayed("BLAISE V6 RJ")
+        assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
+        assertTextDisplayed("Não presumimos ausência de alerta sem evidência oficial válida.")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
-        rule.onNodeWithText("P0 oficial permanece disponível sem assinatura.").assertIsDisplayed()
-        rule.onNodeWithText("Conteúdo premium exige entitlement ativo.").assertIsDisplayed()
-        rule.onNodeWithText("Cidade 1").assertIsDisplayed()
-        rule.onNodeWithText("Cidade 2").assertIsDisplayed()
-        rule.onNodeWithText("Escolher cidade 1").assertIsDisplayed()
-        rule.onNodeWithText("Escolher cidade 2").assertIsDisplayed()
-        rule.onNodeWithText("Assinatura Google Play").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Não configurada nesta build • premium bloqueado").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("P0 oficial permanece disponível sem assinatura.")
+        assertTextDisplayed("Conteúdo premium exige entitlement ativo.")
+        assertTextDisplayed("Cidade 1")
+        assertTextDisplayed("Cidade 2")
+        assertTextDisplayed("Escolher cidade 1")
+        assertTextDisplayed("Escolher cidade 2")
+        assertTextDisplayed("Assinatura Google Play")
+        assertTextDisplayed("Não configurada nesta build • premium bloqueado")
     }
 
     private fun assertCriticalStatusVisible() {
-        rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
-        rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
+        assertTextDisplayed("BLAISE V6 RJ")
+        assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
     }
 
@@ -71,15 +75,15 @@ class MainActivityTest {
     }
 
     @Test fun citySelectionSearchesAllMunicipalitiesAndSurvivesRecreation() {
-        rule.onNodeWithText("Escolher cidade 1").performClick()
+        rule.onNodeWithText("Escolher cidade 1").performScrollTo().performClick()
         rule.onNodeWithTag("city-search").performTextInput("sao goncalo")
         rule.onNodeWithTag("city-option-3304904").performClick()
         rule.waitForIdle()
-        rule.onNodeWithText("São Gonçalo").assertIsDisplayed()
-        rule.onNodeWithText("IBGE 3304904").assertIsDisplayed()
+        rule.onNodeWithText("São Gonçalo").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("IBGE 3304904").performScrollTo().assertIsDisplayed()
         rule.activityRule.scenario.recreate()
         rule.waitForIdle()
-        rule.onNodeWithText("São Gonçalo").assertIsDisplayed()
-        rule.onNodeWithText("IBGE 3304904").assertIsDisplayed()
+        rule.onNodeWithText("São Gonçalo").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("IBGE 3304904").performScrollTo().assertIsDisplayed()
     }
 }
