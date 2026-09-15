@@ -22,7 +22,9 @@ class MainActivityTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     private fun assertCoreDashboard() {
-        rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
+        // The dashboard intentionally restores scroll position across Activity recreation.
+        // Bring the header back into view before asserting the top-of-page fail-closed state.
+        rule.onNodeWithText("BLAISE V6 RJ").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
         rule.onNodeWithText("Não presumimos ausência de alerta sem evidência oficial válida.").assertIsDisplayed()
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
@@ -37,7 +39,7 @@ class MainActivityTest {
     }
 
     private fun assertCriticalStatusVisible() {
-        rule.onNodeWithText("BLAISE V6 RJ").assertIsDisplayed()
+        rule.onNodeWithText("BLAISE V6 RJ").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("STATUS OFICIAL • AGUARDANDO DADOS").assertIsDisplayed()
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
     }
