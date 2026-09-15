@@ -33,6 +33,8 @@ O Blaise devolve `probabilityPercent`, `marginOfErrorPp` e o intervalo `interval
 
 Até existir backtest histórico suficiente por horizonte/região/evento, a saída permanece marcada como `UNCALIBRATED_UNTIL_HISTORICAL_BACKTEST`. Antes de usar rótulos como “alta confiança”, a produção deve verificar confiabilidade com eventos observados (por exemplo Brier score/reliability bins) e ajustar os adaptadores de probabilidade. A camada não mascara essa ausência de calibração.
 
+A implementação do backtest e seus gates fail-closed está documentada em `docs/WEATHER_TRANSITION_CALIBRATION.md`. Testes sintéticos validam apenas a matemática; eles não contam como evidência histórica real.
+
 ## Recalculo ao entrar no RJ
 
 Fases operacionais:
