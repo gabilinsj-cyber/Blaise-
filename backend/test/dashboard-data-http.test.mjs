@@ -148,9 +148,9 @@ test('paid dashboard snapshot projects only bounded current Alerta Rio rainfall 
     assert.equal(body.currentSourceCount, 1);
     assert.equal(body.sources.length, 1);
     const serialized = JSON.stringify(body);
-    assert.equal(serialized.includes('purchaseToken'), false);
     assert.equal(serialized.includes('token-12345678'), false);
     assert.equal(serialized.includes('Estacao 4'), false);
+    assert.equal(serialized.includes('productIds'), false);
     assert.deepEqual(body.privacy, {
       purchaseTokenExposed: false,
       rawStationPayloadExposed: false,
