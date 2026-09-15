@@ -10,6 +10,7 @@ BLAISE_PREFLIGHT_TEST_RESULT_FILE=evidence/production-preflight-selftest.txt \
   bash scripts/test-production-preflight.sh
 bash scripts/test-testlab-workflow.sh | tee evidence/firebase-testlab-workflow-selftest.txt
 bash scripts/test-cloudrun-workflow.sh | tee evidence/cloudrun-workflow-selftest.txt
+bash scripts/test-cloudrun-readiness-workflow.sh | tee evidence/cloudrun-readiness-workflow-selftest.txt
 bash scripts/test-cloudrun-promotion-workflow.sh | tee evidence/cloudrun-promotion-workflow-selftest.txt
 bash scripts/test-weather-transition-calibration-workflow.sh | tee evidence/weather-transition-calibration-workflow-selftest.txt
 bash scripts/test-south-america-source-workflow.sh | tee evidence/south-america-source-workflow-selftest.txt

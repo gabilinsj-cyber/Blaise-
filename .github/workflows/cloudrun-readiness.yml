@@ -1,0 +1,173 @@
+name: Cloud Run WIF Readiness Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_probe:
+        description: 'Authenticate with WIF and verify the Cloud Run/Artifact Registry control plane without mutating production'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-readiness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_REGION: ${{ vars.BLAISE_CLOUDRUN_REGION }}
+      BLAISE_CLOUDRUN_SERVICE: ${{ vars.BLAISE_CLOUDRUN_SERVICE }}
+      BLAISE_ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.BLAISE_ARTIFACT_REGISTRY_REPOSITORY }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate readiness configuration locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLAISE_CLOUDRUN_READINESS_RESULT_FILE=evidence/cloudrun-readiness/preflight.txt \
+            bash scripts/cloudrun-readiness-preflight.sh
+
+      - name: Record external probe not requested
+        if: ${{ !inputs.execute_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-readiness
+          printf '%s\n' \
+            'CLOUDRUN_WIF_READINESS_GATE=BLOCKED_EXTERNAL_PROBE_NOT_REQUESTED' \
+            'wif_auth=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'artifact_registry=NOT_PROBED' \
+            'cloudrun_control_plane=NOT_PROBED' \
+            'external_mutation=NOT_RUN' \
+            > evidence/cloudrun-readiness/gate.txt
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.execute_probe }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.execute_probe }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Verify WIF identity and read-only control plane access
+        if: ${{ inputs.execute_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-readiness
+          gcloud version | tee evidence/cloudrun-readiness/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun-readiness/gcloud-version.txt
+
+          active_account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)"
+          [[ "$active_account" == "$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" ]] || {
+            echo 'BLOCKED: active WIF identity is not the configured deployment service account' >&2
+            exit 2
+          }
+          printf '%s\n' \
+            'WIF_AUTH=PASS' \
+            'identity=DEPLOY_SERVICE_ACCOUNT_MATCH' \
+            > evidence/cloudrun-readiness/wif.txt
+
+          repo_json="$RUNNER_TEMP/artifact-repository.json"
+          gcloud artifacts repositories describe "$BLAISE_ARTIFACT_REGISTRY_REPOSITORY" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --location="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$repo_json"
+          cp "$repo_json" evidence/cloudrun-readiness/artifact-repository.json
+
+          BLAISE_REPO_EXPECTED_LOCATION="$BLAISE_CLOUDRUN_REGION" python3 - "$repo_json" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          repo = json.loads(Path(sys.argv[1]).read_text())
+          fmt = str(repo.get('format', '')).upper()
+          if fmt != 'DOCKER':
+              raise SystemExit(f'Artifact Registry repository must be DOCKER, got {fmt!r}')
+          name = str(repo.get('name', ''))
+          expected_location = os.environ['BLAISE_REPO_EXPECTED_LOCATION']
+          if f'/locations/{expected_location}/' not in name:
+              raise SystemExit('Artifact Registry repository location mismatch')
+          Path('evidence/cloudrun-readiness/artifact-registry.txt').write_text(
+              'ARTIFACT_REGISTRY_READINESS=PASS\n'
+              'format=DOCKER\n'
+              f'location={expected_location}\n'
+          )
+          PY
+
+          service_name="$(gcloud run services list \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --platform=managed \
+            --filter="metadata.name=${BLAISE_CLOUDRUN_SERVICE}" \
+            --format='value(metadata.name)' \
+            --limit=1)"
+
+          if [[ "$service_name" == "$BLAISE_CLOUDRUN_SERVICE" ]]; then
+            gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+              --project="$BLAISE_GCP_PROJECT_ID" \
+              --region="$BLAISE_CLOUDRUN_REGION" \
+              --platform=managed \
+              --format=json > evidence/cloudrun-readiness/cloudrun-service.json
+            service_state='PRESENT_READABLE'
+          elif [[ -z "$service_name" ]]; then
+            service_state='ABSENT_INITIAL_CANDIDATE_MAY_CREATE'
+          else
+            echo 'BLOCKED: unexpected Cloud Run service lookup result' >&2
+            exit 2
+          fi
+
+          printf '%s\n' \
+            'CLOUDRUN_WIF_READINESS_GATE=PASS' \
+            'wif_auth=PASS_DEPLOY_IDENTITY_MATCH' \
+            'artifact_registry=PASS_DOCKER_REPOSITORY_READABLE' \
+            "cloudrun_service=${service_state}" \
+            'cloudrun_control_plane=PASS_READ_ONLY' \
+            'external_mutation=NOT_RUN' \
+            > evidence/cloudrun-readiness/gate.txt
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-readiness
+          if [[ ! -s evidence/cloudrun-readiness/gate.txt ]]; then
+            printf '%s\n' \
+              'CLOUDRUN_WIF_READINESS_GATE=BLOCKED' \
+              'reason=workflow_failed_before_readiness_gate' \
+              'wif_auth=NOT_PROVEN' \
+              'artifact_registry=NOT_PROVEN' \
+              'cloudrun_control_plane=NOT_PROVEN' \
+              'external_mutation=NOT_RUN' \
+              > evidence/cloudrun-readiness/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-cloudrun-readiness-evidence
+          path: evidence/cloudrun-readiness/

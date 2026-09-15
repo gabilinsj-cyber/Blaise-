@@ -50,6 +50,7 @@ project="$BLAISE_GCP_PROJECT_ID"
 same_project_sa_re="^[a-z0-9][a-z0-9-]{4,28}[a-z0-9]@${project}\\.iam\\.gserviceaccount\\.com$"
 [[ "$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" =~ $same_project_sa_re ]] || fail 'invalid_cloudrun_deploy_service_account'
 [[ "$BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" =~ $same_project_sa_re ]] || fail 'invalid_cloudrun_runtime_service_account'
+[[ "$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" != "$BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT" ]] || fail 'deploy_and_runtime_service_accounts_must_differ'
 
 generic_sa_re='^[a-z0-9][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\.iam\.gserviceaccount\.com$'
 for value in \
@@ -80,7 +81,7 @@ printf '%s\n' \
   'CLOUDRUN_PREFLIGHT=PASS' \
   'wif=PASS_KEYLESS' \
   'deploy_identity=PASS_USER_MANAGED_SERVICE_ACCOUNT' \
-  'runtime_identity=PASS_USER_MANAGED_SERVICE_ACCOUNT' \
+  'runtime_identity=PASS_SEPARATE_USER_MANAGED_SERVICE_ACCOUNT' \
   'artifact_registry=PASS_FORMAT' \
   'cloudrun_target=PASS_FORMAT' \
   'billing_runtime_config=PASS_FORMAT' \

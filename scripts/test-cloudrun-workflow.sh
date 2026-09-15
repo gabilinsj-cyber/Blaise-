@@ -10,6 +10,12 @@ grep -F 'google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093' "$
 grep -F 'google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db' "$workflow" >/dev/null
 grep -F "version: '583.0.0'" "$workflow" >/dev/null
 grep -F -- '--no-traffic' "$workflow" >/dev/null
+grep -F 'gcloud artifacts docker images describe "$tagged_image"' "$workflow" >/dev/null
+grep -F -- "--format='value(image_summary.digest)'" "$workflow" >/dev/null
+grep -F 'digest_image="${image_base}@${digest}"' "$workflow" >/dev/null
+grep -F 'gcloud run revisions describe "$BLAISE_CLOUDRUN_CANDIDATE_REVISION"' "$workflow" >/dev/null
+grep -F "revision.get('status', {}).get('imageDigest')" "$workflow" >/dev/null
+grep -F 'image_digest_binding=PASS' "$workflow" >/dev/null
 grep -F 'promotion=BLOCKED_SEPARATE_EXPLICIT_GATE_REQUIRED' "$workflow" >/dev/null
 grep -F 'deployment=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' "$workflow" >/dev/null
 if grep -Eq '^[[:space:]]+(push|pull_request):' "$workflow"; then
@@ -52,6 +58,7 @@ env "${base_env[@]}" \
   BLAISE_CLOUDRUN_PREFLIGHT_RESULT_FILE="$tmp/valid.txt" \
   bash scripts/cloudrun-preflight.sh >/dev/null
 grep -F 'CLOUDRUN_PREFLIGHT=PASS' "$tmp/valid.txt" >/dev/null
+grep -F 'runtime_identity=PASS_SEPARATE_USER_MANAGED_SERVICE_ACCOUNT' "$tmp/valid.txt" >/dev/null
 grep -F 'external_deployment=NOT_RUN_BY_PREFLIGHT' "$tmp/valid.txt" >/dev/null
 
 expect_fail() {
@@ -70,11 +77,15 @@ expect_fail duplicate_products BLAISE_ANNUAL_PRODUCT_ID=blaise_monthly
 expect_fail insecure_audience BLAISE_P0_AUDIENCE=http://api.blaise.example/v1/internal/p0
 expect_fail malformed_deploy_identity BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT=owner@example.com
 expect_fail malformed_wif BLAISE_GCP_WIF_PROVIDER=github-provider
+expect_fail shared_deploy_runtime_identity BLAISE_CLOUDRUN_RUNTIME_SERVICE_ACCOUNT=blaise-deploy@blaise-rj-prod.iam.gserviceaccount.com
 
 printf '%s\n' \
   'CLOUDRUN_WORKFLOW_SELFTEST=PASS' \
   'manual_only=PASS' \
   'wif_keyless=PASS' \
+  'separate_deploy_runtime_identity=PASS' \
+  'digest_pinned_candidate=PASS' \
+  'revision_digest_binding=PASS' \
   'zero_traffic_candidate=PASS' \
   'production_promotion_absent=PASS' \
   'preflight_fail_closed=PASS'
