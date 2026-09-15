@@ -1,10 +1,12 @@
 package br.com.blaise.rj
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -142,9 +145,14 @@ fun BlaiseApp(
     onRefreshBilling: () -> Unit = {},
     onSubscribe: (SubscriptionOffer) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val uiPreferences = remember { context.getSharedPreferences("blaise-ui-state", Context.MODE_PRIVATE) }
     var city1 by remember { mutableStateOf(store.load(1)) }
     var city2 by remember { mutableStateOf(store.load(2)) }
     var pickerSlot by remember { mutableStateOf<Int?>(null) }
+    var selectedSection by remember { mutableStateOf(FinalDashboardSpec.primaryNavigation.first()) }
+    var powerOn by remember { mutableStateOf(uiPreferences.getBoolean("power_on", true)) }
+    var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val officialFeedState = remember(officialFeedEvidence) {
         OfficialFeedStatusPolicy.state(officialFeedEvidence, Instant.now())
     }
@@ -156,6 +164,18 @@ fun BlaiseApp(
         billingSnapshot = billingSnapshot,
         offersSnapshot = offersSnapshot,
         purchaseLaunchCode = purchaseLaunchCode,
+        selectedSection = selectedSection,
+        powerOn = powerOn,
+        silentMode = silentMode,
+        onSelectSection = { selectedSection = it },
+        onPowerChange = {
+            powerOn = it
+            uiPreferences.edit().putBoolean("power_on", it).apply()
+        },
+        onSilentModeChange = {
+            silentMode = it
+            uiPreferences.edit().putBoolean("silent_mode", it).apply()
+        },
         onRefreshBilling = onRefreshBilling,
         onSubscribe = onSubscribe,
         onChooseCity1 = { pickerSlot = 1 },
@@ -186,6 +206,12 @@ private fun BlaiseDashboard(
     billingSnapshot: BillingEntitlementSnapshot,
     offersSnapshot: SubscriptionOffersSnapshot,
     purchaseLaunchCode: Int?,
+    selectedSection: String,
+    powerOn: Boolean,
+    silentMode: Boolean,
+    onSelectSection: (String) -> Unit,
+    onPowerChange: (Boolean) -> Unit,
+    onSilentModeChange: (Boolean) -> Unit,
     onRefreshBilling: () -> Unit,
     onSubscribe: (SubscriptionOffer) -> Unit,
     onChooseCity1: () -> Unit,
@@ -201,36 +227,30 @@ private fun BlaiseDashboard(
                         .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    AppHeader()
+                    AppHeader(powerOn)
+                    AssistantPanel()
+                    PrimaryNavigation(selectedSection, onSelectSection)
                     OfficialStatusBanner(officialFeedState)
                     AccessPolicyStrip()
 
-                    if (wide) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            BlaiseHeroCard(Modifier.weight(0.86f))
-                            CityPair(
-                                city1 = city1,
-                                city2 = city2,
-                                onChooseCity1 = onChooseCity1,
-                                onChooseCity2 = onChooseCity2,
-                                modifier = Modifier.weight(1.55f),
-                            )
-                        }
-                    } else {
-                        BlaiseHeroCard(Modifier.fillMaxWidth())
-                        CityPair(
-                            city1 = city1,
-                            city2 = city2,
-                            onChooseCity1 = onChooseCity1,
-                            onChooseCity2 = onChooseCity2,
-                            modifier = Modifier.fillMaxWidth(),
+                    when (selectedSection) {
+                        "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
+                        "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
+                        "Mapa" -> MapScreen(city1, city2)
+                        "Alertas" -> AlertsScreen(city1, city2)
+                        "Trânsito" -> TrafficScreen()
+                        "Mar e Ondas" -> MarineScreen()
+                        "Qualidade do Ar" -> AirQualityScreen()
+                        "Notícias" -> NewsScreen()
+                        "Histórico" -> HistoryScreen(city1, city2)
+                        "Mais" -> MoreScreen(
+                            powerOn = powerOn,
+                            silentMode = silentMode,
+                            onPowerChange = onPowerChange,
+                            onSilentModeChange = onSilentModeChange,
                         )
+                        else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
                     }
-
-                    QuickConditionsRow()
-                    MarineAndRiskRow(wide)
-                    RadarPanel()
-                    BulletinAndNewsRow(wide)
 
                     BillingPanel(
                         entitlement = billingSnapshot,
@@ -248,28 +268,96 @@ private fun BlaiseDashboard(
 }
 
 @Composable
-private fun AppHeader() {
+private fun AppHeader(powerOn: Boolean) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Divider),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineSmall)
-                Text("Clima • Alertas • Risco • Trânsito • Marinha", color = Color.White, style = MaterialTheme.typography.bodyMedium)
-                Text("Última atualização: aguardando primeira consolidação oficial", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+                Text(FinalDashboardSpec.TAGLINE, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text("Última atualização: aguardando primeira consolidação oficial", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
+            val statusColor = if (powerOn) StableGreen else AlertRed
+            val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
             Surface(
-                color = Color(0xFF123D2B),
+                modifier = Modifier.testTag("power-indicator"),
+                color = statusBackground,
                 shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, StableGreen),
+                border = BorderStroke(1.dp, statusColor),
             ) {
-                Text("● LIGADO", color = StableGreen, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                Text(
+                    if (powerOn) "● LIGADO" else "● DESLIGADO",
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantPanel() {
+    var question by remember { mutableStateOf("") }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Gold.copy(alpha = 0.48f)),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    modifier = Modifier.size(54.dp),
+                    shape = CircleShape,
+                    color = Color(0xFF183F66),
+                    border = BorderStroke(1.dp, Gold),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("B", color = GoldSoft, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                    Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
+                    Text("Pergunte sobre clima, alertas, trânsito, risco, RJ e Oceano Atlântico.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.testTag("assistant-microphone")) {
+                    Text("🎙")
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = question,
+                    onValueChange = { question = it },
+                    label = { Text("Digite o que deseja saber") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag("assistant-input"),
+                )
+                Button(onClick = {}, enabled = false) { Text("Enviar") }
+            }
+            Text("Microfone e resposta serão habilitados somente quando o serviço de voz/Q&A estiver conectado e validado.", color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("primary-navigation"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FinalDashboardSpec.primaryNavigation.forEach { item ->
+            if (item == selected) {
+                Button(onClick = { onSelect(item) }, modifier = Modifier.testTag("nav-$item")) { Text(item) }
+            } else {
+                OutlinedButton(onClick = { onSelect(item) }, modifier = Modifier.testTag("nav-$item")) { Text(item) }
             }
         }
     }
@@ -285,6 +373,227 @@ private fun AccessPolicyStrip() {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("P0 oficial permanece disponível sem assinatura.", color = Gold, fontWeight = FontWeight.Bold)
             Text("Conteúdo premium exige entitlement ativo.", color = Color.LightGray)
+        }
+    }
+}
+
+@Composable
+private fun HomeScreen(
+    city1: City,
+    city2: City,
+    wide: Boolean,
+    onChooseCity1: () -> Unit,
+    onChooseCity2: () -> Unit,
+) {
+    if (wide) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            BlaiseHeroCard(Modifier.weight(0.86f))
+            CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.weight(1.55f))
+        }
+    } else {
+        BlaiseHeroCard(Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    }
+    Spacer(Modifier.height(14.dp))
+    QuickConditionsRow()
+    Spacer(Modifier.height(14.dp))
+    MarineAndRiskRow(wide)
+    Spacer(Modifier.height(14.dp))
+    RadarPanel()
+    Spacer(Modifier.height(14.dp))
+    BulletinAndNewsRow(wide)
+}
+
+@Composable
+private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
+    CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "CLIMA DO DIA • DUAS CIDADES",
+        subtitle = "Temperatura, sensação térmica, chuva e severidade por município",
+    ) {
+        StatusLine(city1.name, "Aguardando temperatura, térmica, chuva e horário de fonte oficial")
+        StatusLine(city2.name, "Aguardando temperatura, térmica, chuva e horário de fonte oficial")
+        Text("A coluna preta mantém a separação visual entre Cidade 1 e Cidade 2.", color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun MapScreen(city1: City, city2: City) {
+    DashboardSection(
+        title = "MAPA DE RISCO • ESTADO DO RJ",
+        subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
+    ) {
+        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
+        StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
+        StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
+        StatusLine("INEA / Alerta Rio", "Aguardando radar e chuva com horário por frame")
+    }
+}
+
+@Composable
+private fun AlertsScreen(city1: City, city2: City) {
+    DashboardSection(
+        title = "ALERTAS POR MUNICÍPIO",
+        subtitle = "Verde • Amarelo • Amarelo piscando • Vermelho • COR.Rio 1–5",
+    ) {
+        StatusLine(city1.name, "Sem conclusão até receber evidência oficial válida")
+        StatusLine(city2.name, "Sem conclusão até receber evidência oficial válida")
+        Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
+        Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
+    }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "ABALO SÍSMICO",
+        subtitle = "Regra de notificação do Blaise V6 RJ",
+    ) {
+        Text("Notificar somente eventos de magnitude ≥ 7,0 que tenham sido sentidos no Brasil.", color = Color.White, fontWeight = FontWeight.SemiBold)
+        Text("Eventos abaixo do limiar, ou sem evidência de impacto/sensação no Brasil, não geram notificação ao cliente.", color = Muted)
+    }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "CICLONES • ATLÂNTICO",
+        subtitle = "Formação oceânica, proximidade e rota prevista",
+    ) {
+        StatusLine("Formação", "Aguardando fonte meteorológica válida")
+        StatusLine("Rota prevista", "Exibida apenas quando sustentada por fonte válida")
+        StatusLine("Impacto em solo", "P0 quando houver orientação oficial aplicável")
+    }
+}
+
+@Composable
+private fun TrafficScreen() {
+    DashboardSection(
+        title = "TRÂNSITO • EVENTOS",
+        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Defesa Civil • Guarda Municipal",
+    ) {
+        FinalDashboardSpec.trafficEvents.forEach { event -> StatusLine(event, "Aguardando ocorrência oficial") }
+    }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "ROTAS E OPERAÇÃO",
+        subtitle = "Autoria, horário, área, validade e estado operacional preservados",
+    ) {
+        StatusLine("Rotas alternativas", "Somente quando houver evento confirmado")
+        StatusLine("Estágio da cidade", "Aguardando COR.Rio")
+        StatusLine("Câmeras/monitoramento", "Sem reprodução de fonte não autorizada")
+    }
+}
+
+@Composable
+private fun MarineScreen() {
+    MarinePanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "RESSACA • TSUNAMI • MAREMOTO",
+        subtitle = "Marinha do Brasil / CHM",
+    ) {
+        StatusLine("Ressaca", "Regra destacada para ondas > 3,5 m quando houver aviso oficial")
+        StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
+        StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
+        StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
+    }
+}
+
+@Composable
+private fun AirQualityScreen() {
+    DashboardSection(
+        title = "QUALIDADE DO AR • IQAr",
+        subtitle = "5 faixas + umidade relativa + índice UV",
+    ) {
+        StatusLine("IQAr", "Aguardando índice oficial e faixa de severidade")
+        StatusLine("Alerta IQAr", "Destacar muito ruim/severo para o Estado do RJ")
+        StatusLine("Umidade", "Ideal 50–60% • alertar abaixo de 30%")
+        StatusLine("Faixas UR", "20–30% • 12–20% • <12% com severidade crescente")
+        StatusLine("UV", "Aguardando índice e severidade")
+    }
+}
+
+@Composable
+private fun NewsScreen() {
+    NewsPanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "NOTICIÁRIO LOCAL",
+        subtitle = "3 principais notícias recentes com data/hora e fonte",
+    ) {
+        FinalDashboardSpec.newsScopes.take(4).forEach { scope -> StatusLine(scope, "Aguardando notícia recente validada") }
+        Text("Vídeo somente via incorporação/link oficial; sem hospedagem ou download do conteúdo do veículo.", color = Muted)
+    }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "BOLETIM INTERNACIONAL",
+        subtitle = "El Niño/La Niña • extremos • ciclones • terremoto/tsunami relevante",
+    ) {
+        NewsPlaceholder("1", "Aguardando notícia internacional recente traduzida com fonte")
+        NewsPlaceholder("2", "Aguardando notícia internacional recente traduzida com fonte")
+        NewsPlaceholder("3", "Aguardando notícia internacional recente traduzida com fonte")
+    }
+}
+
+@Composable
+private fun HistoryScreen(city1: City, city2: City) {
+    DashboardSection(
+        title = "HISTÓRICO E COMPARAÇÃO",
+        subtitle = "Comparação V6 por cidade, período e fonte",
+    ) {
+        StatusLine(city1.name, "Aguardando dados históricos elegíveis")
+        StatusLine(city2.name, "Aguardando dados históricos elegíveis")
+        Text("A comparação não cria valores sintéticos; usa somente snapshots/dados consolidados válidos.", color = Muted)
+    }
+}
+
+@Composable
+private fun MoreScreen(
+    powerOn: Boolean,
+    silentMode: Boolean,
+    onPowerChange: (Boolean) -> Unit,
+    onSilentModeChange: (Boolean) -> Unit,
+) {
+    DashboardSection(
+        title = "CONFIGURAÇÕES",
+        subtitle = "Controle manual do aplicativo e áudio",
+    ) {
+        StatusLine("Estado inicial", "LIGADO")
+        Button(
+            onClick = { onPowerChange(!powerOn) },
+            modifier = Modifier.fillMaxWidth().testTag("settings-power-toggle"),
+            colors = ButtonDefaults.buttonColors(containerColor = if (powerOn) StableGreen else AlertRed, contentColor = Navy),
+        ) {
+            Text(if (powerOn) "Desligar aplicativo" else "Ligar aplicativo")
+        }
+        OutlinedButton(
+            onClick = { onSilentModeChange(!silentMode) },
+            modifier = Modifier.fillMaxWidth().testTag("settings-silent-toggle"),
+        ) {
+            Text(if (silentMode) "Modo silencioso: LIGADO" else "Modo silencioso: DESLIGADO")
+        }
+        Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
+    }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "FONTES OFICIAIS",
+        subtitle = "Prioridade local e origem preservada",
+    ) {
+        FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
+    }
+}
+
+@Composable
+private fun PlaceholderMap(detail: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(180.dp),
+        color = Color(0xFF071421),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Divider),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(18.dp)) {
+                Text("MAPA TERRITORIAL RJ", color = Gold, fontWeight = FontWeight.Bold)
+                Text(detail, color = Muted, textAlign = TextAlign.Center)
+                Text("Sem dados sintéticos • aguardando camadas oficiais", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
@@ -312,7 +621,7 @@ private fun BlaiseHeroCard(modifier: Modifier = Modifier) {
                     Text("B", color = GoldSoft, fontWeight = FontWeight.Black, style = MaterialTheme.typography.displaySmall)
                 }
             }
-            Text("BLAISE", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
+            Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
             Text("Assistente meteorológico e de alertas", color = Muted, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
             Button(
                 onClick = {},
@@ -732,6 +1041,12 @@ private fun PreviewApp() {
         billingSnapshot = BillingEntitlementSnapshot.Unconfigured,
         offersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
         purchaseLaunchCode = null,
+        selectedSection = "Início",
+        powerOn = true,
+        silentMode = false,
+        onSelectSection = {},
+        onPowerChange = {},
+        onSilentModeChange = {},
         onRefreshBilling = {},
         onSubscribe = {},
         onChooseCity1 = {},
