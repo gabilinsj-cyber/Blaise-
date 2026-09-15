@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
+import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -156,6 +157,21 @@ async function main() {
   const p0ReplayGuard = createRtdnReplayGuard();
   const chmTideCache = createChmTideValuesCache();
   const readiness = createReadinessState();
+
+  let publishInmetP0 = null;
+  if (sourceWorkerConfig.inmetP0PublishEnabled === true) {
+    publishInmetP0 = await createInmetP0RuntimePublisher({
+      baseUrl: process.env.BLAISE_INMET_P0_BACKEND_BASE_URL,
+      audience: config.p0Audience,
+      serviceAccount: config.p0ServiceAccount,
+    });
+  }
+
+  const sourceWorker = createOfficialSourceWorker({
+    config: sourceWorkerConfig,
+    publishInmetP0,
+  });
+
   const coreHandler = createHttpHandler({
     config,
     gateway,
@@ -173,24 +189,17 @@ async function main() {
     chmTideCache,
     metrics,
   });
-  const server = http.createServer(createDrainingHandler(paidDataHandler, readiness));
+  const dashboardDataHandler = createPaidDashboardDataHttpHandler(paidDataHandler, {
+    config,
+    gateway,
+    sourceWorker,
+    metrics,
+  });
+  const server = http.createServer(createDrainingHandler(dashboardDataHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  let publishInmetP0 = null;
-  if (sourceWorkerConfig.inmetP0PublishEnabled === true) {
-    publishInmetP0 = await createInmetP0RuntimePublisher({
-      baseUrl: process.env.BLAISE_INMET_P0_BACKEND_BASE_URL,
-      audience: config.p0Audience,
-      serviceAccount: config.p0ServiceAccount,
-    });
-  }
-
-  const sourceWorker = createOfficialSourceWorker({
-    config: sourceWorkerConfig,
-    publishInmetP0,
-  });
   if (sourceWorker.start()) {
     console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
   } else {
