@@ -17,6 +17,10 @@ const COUNTERS = Object.freeze([
   'chm_tide_denied_total',
   'chm_tide_unavailable_total',
   'chm_tide_busy_total',
+  'dashboard_success_total',
+  'dashboard_denied_total',
+  'dashboard_unavailable_total',
+  'dashboard_busy_total',
   'google_play_retry_total',
   'fcm_retry_total',
 ]);
