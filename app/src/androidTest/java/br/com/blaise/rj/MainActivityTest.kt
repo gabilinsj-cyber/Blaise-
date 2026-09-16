@@ -27,6 +27,9 @@ class MainActivityTest {
 
     private fun assertCoreDashboard() {
         assertTextDisplayed("BLAISE V6 RJ")
+        assertTextDisplayed("Clima e Tempo")
+        assertTextDisplayed("Como posso ajudar?")
+        assertTextDisplayed("Início")
         assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
         assertTextDisplayed("Não presumimos ausência de alerta sem evidência oficial válida.")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
@@ -42,6 +45,7 @@ class MainActivityTest {
 
     private fun assertCriticalStatusVisible() {
         assertTextDisplayed("BLAISE V6 RJ")
+        assertTextDisplayed("Clima e Tempo")
         assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
     }
