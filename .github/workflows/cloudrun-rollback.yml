@@ -1,0 +1,312 @@
+name: Cloud Run Rollback Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_rollback:
+        description: 'Move production traffic to an explicitly validated prior revision'
+        required: true
+        default: false
+        type: boolean
+      target_revision:
+        description: 'Exact prior Cloud Run revision to receive 100% production traffic'
+        required: false
+        type: string
+      expected_image_digest:
+        description: 'Exact sha256 image digest expected on the rollback revision'
+        required: false
+        type: string
+      confirmation:
+        description: 'Type ROLLBACK_BLAISE_PRODUCTION to authorize the traffic mutation'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloudrun-rollback-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+      BLAISE_CLOUDRUN_REGION: ${{ vars.BLAISE_CLOUDRUN_REGION }}
+      BLAISE_CLOUDRUN_SERVICE: ${{ vars.BLAISE_CLOUDRUN_SERVICE }}
+      BLAISE_CLOUDRUN_EXECUTE_ROLLBACK: ${{ inputs.execute_rollback }}
+      BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION: ${{ inputs.target_revision }}
+      BLAISE_CLOUDRUN_ROLLBACK_EXPECTED_DIGEST: ${{ inputs.expected_image_digest }}
+      BLAISE_CLOUDRUN_ROLLBACK_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Fail-closed rollback preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLAISE_CLOUDRUN_ROLLBACK_PREFLIGHT_RESULT_FILE=evidence/cloudrun-rollback/preflight.txt \
+            bash scripts/cloudrun-rollback-preflight.sh
+
+      - name: Record external rollback not requested
+        if: ${{ !inputs.execute_rollback }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-rollback
+          printf '%s\n' \
+            'CLOUDRUN_ROLLBACK_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'traffic_change=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'production_traffic=UNCHANGED' \
+            > evidence/cloudrun-rollback/gate.txt
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.execute_rollback }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.execute_rollback }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Bind rollback target and capture current traffic
+        if: ${{ inputs.execute_rollback }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-rollback
+          gcloud version | tee evidence/cloudrun-rollback/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/cloudrun-rollback/gcloud-version.txt
+
+          before="$RUNNER_TEMP/cloudrun-rollback-before.json"
+          target="$RUNNER_TEMP/cloudrun-rollback-target.json"
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$before"
+          gcloud run revisions describe "$BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$target"
+          cp "$before" evidence/cloudrun-rollback/traffic-before.json
+          cp "$target" evidence/cloudrun-rollback/target-revision.json
+
+          python3 - "$before" "$target" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          service = json.loads(Path(sys.argv[1]).read_text())
+          revision = json.loads(Path(sys.argv[2]).read_text())
+          target = os.environ['BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION']
+          expected_digest = os.environ['BLAISE_CLOUDRUN_ROLLBACK_EXPECTED_DIGEST']
+
+          if not re.fullmatch(r'sha256:[0-9a-f]{64}', expected_digest):
+              raise SystemExit('expected rollback image digest malformed')
+          actual_digest = revision.get('status', {}).get('imageDigest')
+          if actual_digest != expected_digest:
+              raise SystemExit(f'rollback target digest mismatch: expected={expected_digest} actual={actual_digest}')
+
+          conditions = revision.get('status', {}).get('conditions', [])
+          ready = any(c.get('type') == 'Ready' and str(c.get('status')).lower() == 'true' for c in conditions)
+          if not ready:
+              raise SystemExit('rollback target revision is not Ready')
+
+          traffic = service.get('status', {}).get('traffic', [])
+          current = {}
+          for entry in traffic:
+              pct = int(entry.get('percent') or 0)
+              if pct <= 0:
+                  continue
+              name = entry.get('revisionName')
+              if not name:
+                  raise SystemExit('positive production traffic is not pinned to an explicit revision')
+              current[name] = current.get(name, 0) + pct
+          if not current or sum(current.values()) != 100:
+              raise SystemExit(f'unexpected production traffic distribution: {current}')
+          if current == {target: 100}:
+              raise SystemExit('rollback target already carries 100 percent production traffic')
+
+          service_url = service.get('status', {}).get('url')
+          if not service_url:
+              raise SystemExit('canonical service URL missing')
+
+          restore_spec = ','.join(f'{name}={pct}' for name, pct in sorted(current.items()))
+          with Path(os.environ['GITHUB_ENV']).open('a') as fh:
+              fh.write(f'BLAISE_CLOUDRUN_PREVIOUS_TRAFFIC_SPEC={restore_spec}\n')
+              fh.write(f'BLAISE_CLOUDRUN_SERVICE_URL={service_url}\n')
+
+          Path('evidence/cloudrun-rollback/plan.txt').write_text(
+              'CLOUDRUN_ROLLBACK_PLAN=PASS\n'
+              f'target_revision={target}\n'
+              f'expected_image_digest={expected_digest}\n'
+              f'previous_traffic={json.dumps(current, sort_keys=True, separators=(",", ":"))}\n'
+              'target_traffic_percent=100\n'
+              'automatic_restore_on_post_switch_failure=ENABLED\n'
+          )
+          PY
+
+      - name: Roll back traffic with automatic restoration on verification failure
+        if: ${{ inputs.execute_rollback }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set_traffic() {
+            local spec="$1"
+            gcloud run services update-traffic "$BLAISE_CLOUDRUN_SERVICE" \
+              --project="$BLAISE_GCP_PROJECT_ID" \
+              --region="$BLAISE_CLOUDRUN_REGION" \
+              --to-revisions="$spec" \
+              --quiet
+          }
+
+          verify_restored_traffic() {
+            local restored_file="$1"
+            python3 - evidence/cloudrun-rollback/traffic-before.json "$restored_file" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          def positive_traffic(doc):
+              result = {}
+              for entry in doc.get('status', {}).get('traffic', []):
+                  pct = int(entry.get('percent') or 0)
+                  if pct <= 0:
+                      continue
+                  revision = entry.get('revisionName')
+                  if not revision:
+                      raise SystemExit('restored traffic contains an unpinned positive entry')
+                  result[revision] = result.get(revision, 0) + pct
+              return result
+
+          before = positive_traffic(json.loads(Path(sys.argv[1]).read_text()))
+          after = positive_traffic(json.loads(Path(sys.argv[2]).read_text()))
+          if before != after:
+              raise SystemExit(f'previous traffic restoration mismatch: before={before} after={after}')
+          PY
+          }
+
+          restore_on_error() {
+            local original_rc=$?
+            trap - ERR
+            set +e
+            set_traffic "$BLAISE_CLOUDRUN_PREVIOUS_TRAFFIC_SPEC"
+            restore_rc=$?
+            restored="$RUNNER_TEMP/cloudrun-rollback-restored.json"
+            verify_rc=1
+            if [[ "$restore_rc" -eq 0 ]]; then
+              gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+                --project="$BLAISE_GCP_PROJECT_ID" \
+                --region="$BLAISE_CLOUDRUN_REGION" \
+                --format=json > "$restored"
+              describe_rc=$?
+              if [[ "$describe_rc" -eq 0 ]]; then
+                cp "$restored" evidence/cloudrun-rollback/traffic-restored.json
+                verify_restored_traffic "$restored"
+                verify_rc=$?
+              fi
+            fi
+            if [[ "$restore_rc" -eq 0 && "$verify_rc" -eq 0 ]]; then
+              printf '%s\n' \
+                'CLOUDRUN_ROLLBACK_GATE=FAILED_PREVIOUS_TRAFFIC_RESTORED' \
+                'rollback_target_verification=FAIL' \
+                'automatic_restore=PASS_PREVIOUS_TRAFFIC_PROVEN' \
+                > evidence/cloudrun-rollback/gate.txt
+            else
+              printf '%s\n' \
+                'CLOUDRUN_ROLLBACK_GATE=FAILED_RESTORE_NOT_PROVEN' \
+                'rollback_target_verification=FAIL' \
+                'automatic_restore=FAIL_OR_NOT_PROVEN' \
+                > evidence/cloudrun-rollback/gate.txt
+            fi
+            exit "$original_rc"
+          }
+          trap restore_on_error ERR
+
+          set_traffic "${BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION}=100"
+
+          after="$RUNNER_TEMP/cloudrun-rollback-after.json"
+          gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --region="$BLAISE_CLOUDRUN_REGION" \
+            --format=json > "$after"
+          cp "$after" evidence/cloudrun-rollback/traffic-after.json
+
+          python3 - "$after" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          service = json.loads(Path(sys.argv[1]).read_text())
+          target = os.environ['BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION']
+          actual = {}
+          for entry in service.get('status', {}).get('traffic', []):
+              pct = int(entry.get('percent') or 0)
+              revision = entry.get('revisionName')
+              if revision and pct > 0:
+                  actual[revision] = actual.get(revision, 0) + pct
+          expected = {target: 100}
+          if actual != expected:
+              raise SystemExit(f'rollback traffic verification failed: expected={expected} actual={actual}')
+          PY
+
+          token="$(gcloud auth print-identity-token)"
+          test -n "$token"
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/healthz" \
+            | tee evidence/cloudrun-rollback/service-healthz-after.json
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $token" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/readyz" \
+            | tee evidence/cloudrun-rollback/service-readyz-after.json
+          grep -F '"status":"ok"' evidence/cloudrun-rollback/service-healthz-after.json
+          grep -F '"status":"ready"' evidence/cloudrun-rollback/service-readyz-after.json
+
+          trap - ERR
+          printf '%s\n' \
+            'CLOUDRUN_ROLLBACK_GATE=PASS' \
+            "target_revision=${BLAISE_CLOUDRUN_ROLLBACK_TARGET_REVISION}" \
+            "image_digest=${BLAISE_CLOUDRUN_ROLLBACK_EXPECTED_DIGEST}" \
+            'target_traffic_percent=100' \
+            'service_smoke=PASS_AFTER_TRAFFIC_SWITCH' \
+            'automatic_restore=READY_NOT_EXECUTED' \
+            > evidence/cloudrun-rollback/gate.txt
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/cloudrun-rollback
+          if [[ ! -s evidence/cloudrun-rollback/gate.txt ]]; then
+            printf '%s\n' \
+              'CLOUDRUN_ROLLBACK_GATE=BLOCKED' \
+              'reason=workflow_failed_before_gate_or_restore_evidence' \
+              'traffic_state=NOT_PROVEN' \
+              > evidence/cloudrun-rollback/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-cloudrun-rollback-evidence
+          path: evidence/cloudrun-rollback/
