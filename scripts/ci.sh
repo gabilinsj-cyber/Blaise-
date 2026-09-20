@@ -13,6 +13,7 @@ bash scripts/test-cloudrun-workflow.sh | tee evidence/cloudrun-workflow-selftest
 bash scripts/test-cloudrun-readiness-workflow.sh | tee evidence/cloudrun-readiness-workflow-selftest.txt
 bash scripts/test-cloudrun-promotion-workflow.sh | tee evidence/cloudrun-promotion-workflow-selftest.txt
 bash scripts/test-cloudrun-rollback-workflow.sh | tee evidence/cloudrun-rollback-workflow-selftest.txt
+bash scripts/test-scale-readiness-workflow.sh | tee evidence/scale-readiness-workflow-selftest.txt
 bash scripts/test-weather-transition-calibration-workflow.sh | tee evidence/weather-transition-calibration-workflow-selftest.txt
 bash scripts/test-south-america-source-workflow.sh | tee evidence/south-america-source-workflow-selftest.txt
 bash scripts/test-runtime-adb-retry.sh | tee evidence/runtime-adb-retry-selftest.txt
@@ -20,6 +21,7 @@ bash scripts/test-official-source-workflow.sh | tee evidence/official-source-wor
 node --check backend/src/source-contract.mjs
 node --check backend/src/alerta-rio-source.mjs
 node --check backend/scripts/probe-official-sources.mjs
+node --check scripts/bounded-http-probe.mjs
 
 test "$(node --version)" = "v24.20.0"
 test "$(npm --version)" = "11.19.0"
