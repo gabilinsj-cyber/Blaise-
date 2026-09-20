@@ -211,7 +211,7 @@ export function validateCemadenRjHydrologicalHtml(html) {
     statusInventorySha256: sha256(JSON.stringify(canonical)),
     riskPriorityValidation: 'EXACT_1_TO_5_OFFICIAL_PAIRING',
     timestampValidation: 'OFFICIAL_DD_MM_YYYY_HH_MM_SS_AS_RJ_UTC_MINUS_03',
-    operationalFreshnessValidation: 'NOT_YET_PROVEN',
+    operationalFreshnessValidation: 'REQUIRES_CACHE_FRESHNESS_VALIDATION',
     p0PromotionPolicy: 'NOT_IMPLEMENTED',
     rawHtmlRetention: 'NONE',
   });

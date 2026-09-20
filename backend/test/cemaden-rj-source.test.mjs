@@ -54,7 +54,7 @@ test('CEMADEN-RJ hydrological contract requires exact 92-city canonical coverage
   assert.equal(result.maxPriority, 5);
   assert.equal(result.highestRisk, 'MUITO ALTO');
   assert.match(result.statusInventorySha256, /^[a-f0-9]{64}$/);
-  assert.equal(result.operationalFreshnessValidation, 'NOT_YET_PROVEN');
+  assert.equal(result.operationalFreshnessValidation, 'REQUIRES_CACHE_FRESHNESS_VALIDATION');
   assert.equal(result.p0PromotionPolicy, 'NOT_IMPLEMENTED');
   const niteroi = result.records.find((record) => record.ibge === '3303302');
   assert.equal(niteroi?.municipality, 'Niterói');
