@@ -39,7 +39,7 @@ jobs:
             "contract": "official_hydrological_risk_status_92_municipalities",
             "status": "NOT_RUN_EXTERNAL_EXECUTION_NOT_REQUESTED",
             "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
-            "operationalFreshnessValidation": "NOT_YET_PROVEN",
+            "operationalFreshnessValidation": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
             "appRiskReconciliation": "NOT_IMPLEMENTED",
             "p0PromotionPolicy": "NOT_IMPLEMENTED",
             "rawHtmlRetention": "NONE"

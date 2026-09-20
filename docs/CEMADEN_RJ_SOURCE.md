@@ -38,7 +38,7 @@ A prioridade deve corresponder exatamente ao nível publicado:
 
 Município desconhecido, duplicado, cobertura diferente de 92, REDEC desconhecida, nível desconhecido, prioridade divergente, timestamp inválido ou mudança estrutural relevante bloqueiam o contrato. `ND`, ausência de linha ou erro de transporte nunca são convertidos em risco baixo.
 
-A data/hora oficial no formato `DD/MM/YYYY HH:MM:SS` é normalizada para o instante correspondente do Rio de Janeiro no período operacional atual (`UTC-03:00`). O contrato atual valida formato/coerência temporal, mas **a política de freshness operacional ainda não está provada** e portanto não promove esse status diretamente para a UI ou P0.
+A data/hora oficial no formato `DD/MM/YYYY HH:MM:SS` é normalizada para o instante correspondente do Rio de Janeiro no período operacional atual (`UTC-03:00`). O parser valida formato/coerência temporal, mas não declara freshness por si só. A camada operacional separada `cemaden-rj-cache.mjs` exige cobertura completa, digest íntegro, observações sem desvio futuro relevante e idade máxima de **30 minutos**; snapshots vencidos deixam de ser servidos. A cadência de rechecagem é **15 minutos** em modo normal e **1 minuto** em modo severo.
 
 ## Evidência
 
@@ -57,8 +57,8 @@ Não persiste HTML bruto nem a tabela completa por município no artefato do gat
 
 `.github/workflows/cemaden-rj-source-probe.yml` é **manual-only**. O padrão é `execute_live_probe=false`, registrando `NOT_RUN_EXTERNAL_EXECUTION_NOT_REQUESTED`. Somente uma execução manual com `execute_live_probe=true` consulta a página pública e pode produzir `PASS_SOURCE_CONTRACT` no mesmo SHA.
 
-Esse PASS prova o contrato estrutural/fonte no momento da execução; não prova freshness operacional contínua, reconciliação multi-fonte, promoção P0, entrega FCM ou exibição no app.
+O probe LIVE agora só registra `PASS_SOURCE_CONTRACT_AND_FRESHNESS` quando, no mesmo instante da checagem, o snapshot também entra como `CURRENT` nas leituras operacionais normal e severa do cache. A evidência guarda apenas estados/idades/cadências e nunca o payload municipal. Esse PASS prova freshness naquele instante; não prova continuidade futura, reconciliação multi-fonte, promoção P0, entrega FCM ou exibição no app.
 
 ## Próximo fechamento
 
-Antes de uso operacional no Blaise, a camada deve acrescentar freshness/recheck compatível com a publicação real do CEMADEN-RJ, reconciliação com INMET/INEA/Defesa Civil/Alerta Rio conforme o tipo de risco e política explícita de promoção para alerta do aplicativo. Até isso ocorrer, `operationalFreshnessValidation=NOT_YET_PROVEN` e `p0PromotionPolicy=NOT_IMPLEMENTED` permanecem fail-closed.
+O fechamento seguinte é a reconciliação determinística com INMET/INEA/Defesa Civil/Alerta Rio conforme o tipo de risco e uma política explícita de promoção para alerta do aplicativo. A freshness/recheck já está implementada e testada, mas só recebe PASS LIVE quando o workflow manual comprova um snapshot `CURRENT` no mesmo SHA. `p0PromotionPolicy=NOT_IMPLEMENTED` permanece fail-closed.

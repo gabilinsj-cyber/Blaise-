@@ -6,6 +6,7 @@ import {
   CEMADEN_RJ_MAX_DATA_AGE_MS,
   CemadenRjCacheError,
   createCemadenRjHydrologicalRiskCache,
+  evaluateCemadenRjOperationalFreshness,
 } from '../src/cemaden-rj-cache.mjs';
 import { CEMADEN_RJ_SOURCE_ID } from '../src/cemaden-rj-source.mjs';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
@@ -96,4 +97,27 @@ test('CEMADEN cache rejects digest or coverage drift', () => {
     () => cache.recordSuccess(incomplete, { fetchedAt: BASE }),
     (error) => error.code === 'cemaden_rj_cache_coverage_invalid',
   );
+});
+
+
+test('CEMADEN operational freshness evaluation proves current normal and severe views without exposing payload', () => {
+  const result = evaluateCemadenRjOperationalFreshness(snapshot(), { checkedAt: BASE });
+  assert.equal(result.status, 'PASS_CURRENT_AT_CHECK_TIME');
+  assert.equal(result.normal.state, 'CURRENT');
+  assert.equal(result.severe.state, 'CURRENT');
+  assert.equal(result.normal.refreshDue, false);
+  assert.equal(result.severe.refreshDue, false);
+  assert.equal(result.payloadExposed, false);
+  assert.equal('snapshot' in result.normal, false);
+  assert.equal('snapshot' in result.severe, false);
+});
+
+test('CEMADEN operational freshness evaluation blocks an observation older than the freshness window', () => {
+  const checkedAt = BASE + CEMADEN_RJ_MAX_DATA_AGE_MS + 1;
+  const result = evaluateCemadenRjOperationalFreshness(snapshot(), { checkedAt });
+  assert.equal(result.status, 'BLOCKED_STALE_OR_UNAVAILABLE');
+  assert.equal(result.normal.state, 'STALE');
+  assert.equal(result.severe.state, 'STALE');
+  assert.equal(result.normal.reason, 'observation_age_exceeded');
+  assert.equal(result.severe.reason, 'observation_age_exceeded');
 });
