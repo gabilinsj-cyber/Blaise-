@@ -2,6 +2,8 @@
 
 Política: `PASS` somente com execução registrada; `FAIL` para execução malsucedida; `BLOCKED` para dependência externa comprovada; `NOT_RUN` para o que não foi executado. Uma preparação `PASS` não é promovida para produção sem a evidência da etapa seguinte.
 
+> **Reconciliação de estado:** os SHAs e runs abaixo são marcos históricos documentados. Eles não devem ser tratados como o `main` atual. Para uma afirmação de estado corrente, a fonte de verdade é o par **Android CI + Android Runtime concluídos no mesmo SHA atual de `main`**, acompanhado dos artefatos/digests daquele ciclo.
+
 ## Baseline validado atual
 
 Código validado: `d2e3ff5d06022461a09e84d2436997d7cef216ed` (`feat: add fail-closed Google Play entitlement backend foundation`).

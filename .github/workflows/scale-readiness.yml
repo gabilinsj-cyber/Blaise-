@@ -1,0 +1,112 @@
+name: Production Scale Readiness Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_probe:
+        description: 'Run a bounded GET-only probe against production health/readiness endpoints'
+        required: true
+        default: false
+        type: boolean
+      target_url:
+        description: 'HTTPS backend base URL; required only when execute_probe=true'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-scale-readiness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scale-readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    env:
+      BLAISE_SCALE_EXECUTE_PROBE: ${{ inputs.execute_probe }}
+      BLAISE_SCALE_TARGET_URL: ${{ inputs.target_url }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+
+      - name: Validate scale probe safety policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLAISE_SCALE_RESULT_FILE=evidence/scale-readiness/preflight.txt \
+            bash scripts/scale-readiness-preflight.sh
+
+      - name: Record bounded probe not requested
+        if: ${{ !inputs.execute_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/scale-readiness
+          printf '%s\n' \
+            'PRODUCTION_SCALE_READINESS_GATE=BLOCKED_EXTERNAL_PROBE_NOT_REQUESTED' \
+            'bounded_get_probe=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'scale_3m_9m=NOT_RUN_EXTERNAL_LOAD_PLATFORM_REQUIRED' \
+            'multi_region_failover=NOT_RUN_EXTERNAL_INFRA_REQUIRED' \
+            'production_write_traffic=NOT_RUN' \
+            > evidence/scale-readiness/gate.txt
+
+      - name: Verify production health and readiness
+        if: ${{ inputs.execute_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/scale-readiness
+          base="${BLAISE_SCALE_TARGET_URL%/}"
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 10 "$base/healthz" > evidence/scale-readiness/health.json
+          grep -F '"status":"ok"' evidence/scale-readiness/health.json
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 10 "$base/readyz" > evidence/scale-readiness/ready.json
+          grep -F '"status":"ready"' evidence/scale-readiness/ready.json
+
+      - name: Run bounded GET-only canary probe
+        if: ${{ inputs.execute_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${BLAISE_SCALE_TARGET_URL%/}"
+          {
+            node scripts/bounded-http-probe.mjs "$base/healthz" 400 32
+            node scripts/bounded-http-probe.mjs "$base/readyz" 100 16
+          } | tee evidence/scale-readiness/bounded-probe.txt
+          test "$(grep -c '^BOUNDED_HTTP_PROBE=PASS' evidence/scale-readiness/bounded-probe.txt)" -eq 2
+          printf '%s\n' \
+            'PRODUCTION_SCALE_READINESS_GATE=PASS_BOUNDED_PROBE' \
+            'health_readiness=PASS' \
+            'bounded_get_probe=PASS_500_REQUEST_BUDGET' \
+            'scale_3m_9m=NOT_RUN_EXTERNAL_LOAD_PLATFORM_REQUIRED' \
+            'multi_region_failover=NOT_RUN_EXTERNAL_INFRA_REQUIRED' \
+            'production_write_traffic=NOT_RUN' \
+            > evidence/scale-readiness/gate.txt
+
+      - name: Ensure fail-closed evidence marker
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/scale-readiness
+          if [[ ! -s evidence/scale-readiness/gate.txt ]]; then
+            printf '%s\n' \
+              'PRODUCTION_SCALE_READINESS_GATE=BLOCKED' \
+              'reason=workflow_failed_before_gate_completion' \
+              'bounded_get_probe=NOT_PROVEN' \
+              'scale_3m_9m=NOT_RUN_EXTERNAL_LOAD_PLATFORM_REQUIRED' \
+              'multi_region_failover=NOT_RUN_EXTERNAL_INFRA_REQUIRED' \
+              'production_write_traffic=NOT_RUN' \
+              > evidence/scale-readiness/gate.txt
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-production-scale-readiness-evidence
+          path: evidence/scale-readiness/

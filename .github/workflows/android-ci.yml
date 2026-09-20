@@ -29,6 +29,9 @@ jobs:
           test "$(npm --version)" = "11.19.0"
           rm -f package-lock.json
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          mkdir -p evidence
+          cp package-lock.json evidence/package-lock.generated.json
+          sha256sum package-lock.json > evidence/package-lock.generated.sha256
           sha256sum -c package-lock.sha256
           npm ci --ignore-scripts --no-audit --no-fund
       - name: Backend syntax and unit tests
