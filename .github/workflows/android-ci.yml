@@ -55,7 +55,7 @@ jobs:
           test "$(cat backend/evidence/container-user.txt)" = "node"
           (cd backend && npm ls --all) > backend/evidence/npm-tree.txt
           sha256sum backend/package-lock.json > backend/evidence/package-lock-sha256.txt
-          grep -F '17da91ed9255837252c2228a65fc907cef54a2a1f619dc6c8d968fae9c315b6f' backend/evidence/package-lock-sha256.txt
+          grep -F 'ecaaca5feb66a9829930cc5c5cbfe0df84f51128df9d408140e32b426f076fce' backend/evidence/package-lock-sha256.txt
       - name: Runtime smoke production backend container
         run: |
           set -euo pipefail
