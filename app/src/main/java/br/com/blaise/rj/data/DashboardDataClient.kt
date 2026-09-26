@@ -73,6 +73,17 @@ sealed interface DashboardDataNetworkResult {
     data object Unavailable : DashboardDataNetworkResult
 }
 
+data class DashboardRainfallPresentation(val value: String, val detail: String)
+
+object DashboardRainfallPresentationPolicy {
+    fun present(result: DashboardDataNetworkResult): DashboardRainfallPresentation {
+        val rainfall = (result as? DashboardDataNetworkResult.Available)?.snapshot?.rainfall
+            ?: return DashboardRainfallPresentation("—", "INDISPONÍVEL NO MOMENTO")
+        val value = rainfall.max1hMm?.let { String.format(java.util.Locale.ROOT, "%.1f mm", it) } ?: "—"
+        return DashboardRainfallPresentation(value, "Alerta Rio • dado oficial atual")
+    }
+}
+
 object DashboardDataParser {
     private const val MAX_FUTURE_SKEW_SECONDS = 120L
     private val topLevelKeys = setOf(
