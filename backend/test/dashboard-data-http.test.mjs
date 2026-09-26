@@ -187,6 +187,20 @@ test('paid dashboard endpoint denies inactive subscriptions without source discl
   assert.equal(metrics.snapshot({ nowMillis: NOW }).counters.dashboard_denied_total, 1);
 });
 
+test('paid dashboard endpoint returns 503 without weather payload when official rainfall is stale', async () => {
+  const { handler, metrics } = handlerWith({ sourceWorker: currentWorker({ state: 'STALE' }) });
+  await withServer(handler, async (base) => {
+    const response = await post(base, validRequest());
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.deepEqual(body, { error: 'source_unavailable' });
+    const serialized = JSON.stringify(body);
+    assert.equal(serialized.includes('rainfall'), false);
+    assert.equal(serialized.includes('token-12345678'), false);
+  });
+  assert.equal(metrics.snapshot({ nowMillis: NOW }).counters.dashboard_unavailable_total, 1);
+});
+
 test('paid dashboard endpoint returns source_unavailable when worker is disabled or has no current verified rainfall', async () => {
   const { handler, metrics } = handlerWith({ sourceWorker: currentWorker({ enabled: false }) });
   await withServer(handler, async (base) => {
