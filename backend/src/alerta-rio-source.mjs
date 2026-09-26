@@ -105,21 +105,27 @@ export function validateAlertaRioStationCatalog(payload) {
 }
 
 export async function probeAlertaRioStationCatalog({ fetchImpl = globalThis.fetch } = {}) {
-  let payload;
-  try {
-    payload = await fetchJsonContract(ALERTA_RIO_STATIONS_QUERY_URL, {
-      allowedHosts: [ALERTA_RIO_HOST],
-      fetchImpl,
-      timeoutMs: 5_000,
-      maxBytes: 128 * 1024,
-    });
-  } catch (error) {
-    if (error instanceof SourceContractError) {
-      throw new OfficialSourceContractError(`alerta_rio_${error.code}`);
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const payload = await fetchJsonContract(ALERTA_RIO_STATIONS_QUERY_URL, {
+        allowedHosts: [ALERTA_RIO_HOST],
+        fetchImpl,
+        timeoutMs: 10_000,
+        maxBytes: 128 * 1024,
+      });
+      return validateAlertaRioStationCatalog(payload);
+    } catch (error) {
+      lastError = error;
+      const retryable = error instanceof SourceContractError
+        && ['source_timeout', 'source_network_error'].includes(error.code);
+      if (!retryable || attempt === 1) break;
     }
-    throw error;
   }
-  return validateAlertaRioStationCatalog(payload);
+  if (lastError instanceof SourceContractError) {
+    throw new OfficialSourceContractError(`alerta_rio_${lastError.code}`);
+  }
+  throw lastError;
 }
 
 function decodeHtmlText(value) {
