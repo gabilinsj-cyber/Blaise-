@@ -118,6 +118,22 @@ class DashboardDataClientTest {
         assertTrue(runCatching { DashboardDataParser.parse(futureSource, now) }.isFailure)
     }
 
+    @Test
+    fun `parser fails closed on stale rainfall even when server labels it current`() {
+        val now = Instant.parse("2026-09-15T11:30:00Z")
+        val staleRainfall = validPayload().toMutableMap().apply {
+            put("generatedAt", "2026-09-15T11:29:30Z")
+            val rainfall = (get("rainfall") as Map<*, *>).entries
+                .associate { it.key as String to it.value }
+                .toMutableMap()
+            rainfall["observedAt"] = "2026-09-15T11:09:59Z"
+            rainfall["fetchedAt"] = "2026-09-15T11:29:00Z"
+            put("rainfall", rainfall)
+        }
+
+        assertTrue(runCatching { DashboardDataParser.parse(staleRainfall, now) }.isFailure)
+    }
+
     private fun validPayload(): Map<String, Any?> = mapOf(
         "contract" to DASHBOARD_DATA_CONTRACT,
         "generatedAt" to "2026-09-15T11:00:00Z",
