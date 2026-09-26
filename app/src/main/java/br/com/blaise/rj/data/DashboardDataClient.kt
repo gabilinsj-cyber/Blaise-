@@ -73,6 +73,7 @@ sealed interface DashboardDataNetworkResult {
 }
 
 object DashboardDataParser {
+    private const val MAX_FUTURE_SKEW_SECONDS = 120L
     private val topLevelKeys = setOf(
         "contract",
         "generatedAt",
@@ -111,12 +112,13 @@ object DashboardDataParser {
     private val privacyKeys = setOf("purchaseTokenExposed", "rawStationPayloadExposed", "userLocationStored")
     private val acceptedSourceStates = setOf("CURRENT", "CURRENT_DEGRADED", "STALE", "UNAVAILABLE")
 
-    fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
+    fun parse(payload: Map<String, Any?>, now: Instant = Instant.now()): DashboardDataSnapshot {
         require(payload.keys == topLevelKeys)
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] == "RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL")
 
         val generatedAt = instant(payload["generatedAt"])
+        require(!generatedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
         val mode = string(payload["mode"], 3, 16)
         require(mode == "normal" || mode == "severe")
         val sourceCount = boundedInt(payload["sourceCount"], 1, 64)
@@ -132,10 +134,15 @@ object DashboardDataParser {
         val stationCount = boundedInt(rainfallMap["stationCount"], DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT, DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT)
         val wetStationCount = boundedInt(rainfallMap["wetStationCount"], 0, stationCount)
         val missingValueCount = nullableBoundedInt(rainfallMap["missingValueCount"], 0, stationCount * 14)
+        val rainfallObservedAt = instant(rainfallMap["observedAt"])
+        val rainfallFetchedAt = nullableInstant(rainfallMap["fetchedAt"])
+        require(!rainfallObservedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
+        require(rainfallFetchedAt == null || !rainfallFetchedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
+        require(rainfallFetchedAt == null || !rainfallObservedAt.isAfter(rainfallFetchedAt.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
         val rainfall = DashboardRainfallSummary(
             state = rainfallState,
-            observedAt = instant(rainfallMap["observedAt"]),
-            fetchedAt = nullableInstant(rainfallMap["fetchedAt"]),
+            observedAt = rainfallObservedAt,
+            fetchedAt = rainfallFetchedAt,
             stationCount = stationCount,
             wetStationCount = wetStationCount,
             missingValueCount = missingValueCount,
@@ -151,12 +158,17 @@ object DashboardDataParser {
             require(value.keys == sourceKeys)
             val state = string(value["state"], 3, 32)
             require(state in acceptedSourceStates)
+            val sourceFetchedAt = nullableInstant(value["fetchedAt"])
+            val sourceObservedAt = nullableInstant(value["observedAt"])
+            require(sourceFetchedAt == null || !sourceFetchedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
+            require(sourceObservedAt == null || !sourceObservedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
+            require(sourceFetchedAt == null || sourceObservedAt == null || !sourceObservedAt.isAfter(sourceFetchedAt.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
             DashboardOfficialSourceState(
                 sourceId = identifier(value["sourceId"]),
                 state = state,
                 reason = string(value["reason"], 1, 96),
-                fetchedAt = nullableInstant(value["fetchedAt"]),
-                observedAt = nullableInstant(value["observedAt"]),
+                fetchedAt = sourceFetchedAt,
+                observedAt = sourceObservedAt,
                 dataAgeMs = nullableBoundedLong(value["dataAgeMs"], 0, 7L * 24 * 60 * 60 * 1000),
                 cacheAgeMs = nullableBoundedLong(value["cacheAgeMs"], 0, 7L * 24 * 60 * 60 * 1000),
                 semanticValidity = nullableString(value["semanticValidity"], 1, 160),
