@@ -60,6 +60,7 @@ import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardResultGenerationGate
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.data.DashboardRainfallPresentationPolicy
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
@@ -694,9 +695,7 @@ private fun CityPair(
 
 @Composable
 private fun QuickConditionsRow(dashboardDataResult: DashboardDataNetworkResult) {
-    val rainfall = (dashboardDataResult as? DashboardDataNetworkResult.Available)?.snapshot?.rainfall
-    val rainfallValue = rainfall?.max1hMm?.let { "%.1f mm".format(it) } ?: "—"
-    val rainfallDetail = if (rainfall != null) "Alerta Rio • dado oficial atual" else "INDISPONÍVEL NO MOMENTO"
+    val rainfallPresentation = DashboardRainfallPresentationPolicy.present(dashboardDataResult)
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(20.dp),
@@ -706,7 +705,7 @@ private fun QuickConditionsRow(dashboardDataResult: DashboardDataNetworkResult) 
             Text("CONDIÇÕES CONSOLIDADAS", color = Gold, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetricTile("Temperatura", "— °C", "fonte oficial pendente", Modifier.weight(1f))
-                MetricTile("Chuva", rainfallValue, rainfallDetail, Modifier.weight(1f))
+                MetricTile("Chuva", rainfallPresentation.value, rainfallPresentation.detail, Modifier.weight(1f))
                 MetricTile("Vento", "— km/h", "rajadas pendentes", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
