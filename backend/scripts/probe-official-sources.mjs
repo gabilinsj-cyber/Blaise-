@@ -5,6 +5,7 @@ import {
   probeAlertaRioStationCatalog,
 } from '../src/alerta-rio-source.mjs';
 import { probeIneaHydrometDiscovery, probeIneaStationSnapshot } from '../src/inea-source.mjs';
+import { evaluateIneaLiveValidation } from '../src/inea-validation-policy.mjs';
 import {
   createAlertaRioRainfallCache,
   createIneaHydrometStationCache,
@@ -118,16 +119,18 @@ const ineaStationOperationalPass = !stationConfigured || (
   && ineaStationFreshness?.severe?.state === 'CURRENT'
 );
 const ineaDiscoveryPass = ineaProbe.status === 'fulfilled';
-const ineaOperationalState = !stationConfigured
-  ? 'NOT_RUN_STATION_URL_NOT_CONFIGURED'
-  : ineaStationOperationalPass ? 'CURRENT' : 'UNAVAILABLE';
+const ineaValidation = evaluateIneaLiveValidation({
+  discoveryAvailable: ineaDiscoveryPass,
+  stationConfigured,
+  stationOperationalPass: ineaStationOperationalPass,
+});
 
 const ineaEvidence = {
   sourceId: 'inea',
   contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot+operational_freshness',
-  status: stationConfigured && ineaStationOperationalPass ? 'PASS' : 'NOT_VALIDATED',
-  discoveryStatus: ineaDiscoveryPass ? 'PASS' : 'UNAVAILABLE',
-  operationalStatus: ineaOperationalState,
+  status: ineaValidation.status,
+  discoveryStatus: ineaValidation.discoveryStatus,
+  operationalStatus: ineaValidation.operationalStatus,
   checkedAt: checkedAt.toISOString(),
   discoveryContract: ineaProbe.status === 'fulfilled'
     ? {
@@ -195,5 +198,5 @@ if (!stationConfigured) {
   console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
 } else {
   console.error('INEA_LIVE_HYDROMET_STATION_CONTRACT=UNAVAILABLE');
-  process.exitCode = 1;
+  if (ineaValidation.shouldFailWorkflow) process.exitCode = 1;
 }
