@@ -9,6 +9,17 @@ import java.time.Instant
 
 class DashboardDataClientTest {
     @Test
+    fun `rainfall presentation fails closed when dashboard is unavailable or denied`() {
+        val unavailable = DashboardRainfallPresentationPolicy.present(DashboardDataNetworkResult.Unavailable)
+        assertEquals("—", unavailable.value)
+        assertEquals("INDISPONÍVEL NO MOMENTO", unavailable.detail)
+
+        val denied = DashboardRainfallPresentationPolicy.present(DashboardDataNetworkResult.Denied)
+        assertEquals("—", denied.value)
+        assertEquals("INDISPONÍVEL NO MOMENTO", denied.detail)
+    }
+
+    @Test
     fun `older dashboard response cannot overwrite a newer invalidation`() {
         val gate = DashboardResultGenerationGate()
         val oldRequest = gate.invalidate()
