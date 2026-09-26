@@ -67,6 +67,7 @@ import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
 import com.android.billingclient.api.BillingClient
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : ComponentActivity() {
     private lateinit var billingSource: PlayBillingEntitlementSource
@@ -74,6 +75,7 @@ class MainActivity : ComponentActivity() {
     private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
     private var purchaseLaunchCode by mutableStateOf<Int?>(null)
     private var dashboardDataResult by mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable)
+    private val dashboardRequestGeneration = AtomicInteger(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,11 +115,17 @@ class MainActivity : ComponentActivity() {
             entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
             offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
             verifiedPurchaseObserver = { candidate ->
-                if (candidate == null || dashboardClient == null) {
-                    runOnUiThread { dashboardDataResult = DashboardDataNetworkResult.Unavailable }
-                } else {
+                val generation = dashboardRequestGeneration.incrementAndGet()
+                runOnUiThread { dashboardDataResult = DashboardDataNetworkResult.Unavailable }
+                if (candidate != null && dashboardClient != null) {
                     dashboardClient.fetch(candidate) { result ->
-                        runOnUiThread { dashboardDataResult = result }
+                        if (generation == dashboardRequestGeneration.get()) {
+                            runOnUiThread {
+                                if (generation == dashboardRequestGeneration.get()) {
+                                    dashboardDataResult = result
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -125,6 +133,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        dashboardRequestGeneration.incrementAndGet()
+        dashboardDataResult = DashboardDataNetworkResult.Unavailable
         if (::billingSource.isInitialized) billingSource.stop()
         super.onDestroy()
     }
