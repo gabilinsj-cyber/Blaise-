@@ -49,6 +49,7 @@ class PlayBillingEntitlementSource(
     private val catalog = SubscriptionCatalog(productIds)
     private var entitlementObserver: ((BillingEntitlementSnapshot) -> Unit)? = null
     private var offersObserver: ((SubscriptionOffersSnapshot) -> Unit)? = null
+    private var verifiedPurchaseObserver: ((PlayPurchaseCandidate?) -> Unit)? = null
 
     private val billingClient = BillingClient.newBuilder(context.applicationContext)
         .setListener(this)
@@ -63,12 +64,15 @@ class PlayBillingEntitlementSource(
     fun start(
         entitlementObserver: (BillingEntitlementSnapshot) -> Unit,
         offersObserver: (SubscriptionOffersSnapshot) -> Unit = {},
+        verifiedPurchaseObserver: (PlayPurchaseCandidate?) -> Unit = {},
     ) {
         this.entitlementObserver = entitlementObserver
         this.offersObserver = offersObserver
+        this.verifiedPurchaseObserver = verifiedPurchaseObserver
         if (!catalog.configured) {
             entitlementObserver(BillingEntitlementSnapshot.Unconfigured)
             offersObserver(SubscriptionOffersSnapshot.Unconfigured)
+            verifiedPurchaseObserver(null)
             return
         }
         entitlementObserver(BillingEntitlementSnapshot.Connecting)
@@ -136,6 +140,8 @@ class PlayBillingEntitlementSource(
     fun stop() {
         entitlementObserver = null
         offersObserver = null
+        verifiedPurchaseObserver?.invoke(null)
+        verifiedPurchaseObserver = null
         billingClient.endConnection()
     }
 
@@ -145,6 +151,7 @@ class PlayBillingEntitlementSource(
             refreshOffers()
         } else {
             entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+            verifiedPurchaseObserver?.invoke(null)
             offersObserver?.invoke(SubscriptionOffersSnapshot.Unavailable(result.responseCode))
         }
     }
@@ -153,6 +160,7 @@ class PlayBillingEntitlementSource(
         entitlementObserver?.invoke(
             BillingEntitlementSnapshot.Unavailable(BillingClient.BillingResponseCode.SERVICE_DISCONNECTED),
         )
+        verifiedPurchaseObserver?.invoke(null)
         offersObserver?.invoke(
             SubscriptionOffersSnapshot.Unavailable(BillingClient.BillingResponseCode.SERVICE_DISCONNECTED),
         )
@@ -237,6 +245,7 @@ class PlayBillingEntitlementSource(
             .filter { PlayEntitlementGate.canRequestVerification(it, catalog) }
 
         if (candidates.isEmpty()) {
+            verifiedPurchaseObserver?.invoke(null)
             entitlementObserver?.invoke(BillingEntitlementSnapshot.Inactive)
             return
         }
@@ -249,9 +258,11 @@ class PlayBillingEntitlementSource(
             verifier.verify(candidate) { verification ->
                 val entitlement = PlayEntitlementGate.entitlement(candidate, verification)
                 if (entitlement.active && granted.compareAndSet(false, true)) {
+                    verifiedPurchaseObserver?.invoke(candidate)
                     entitlementObserver?.invoke(BillingEntitlementSnapshot.Active(candidate.productIds.toSet()))
                 }
                 if (remaining.decrementAndGet() == 0 && !granted.get()) {
+                    verifiedPurchaseObserver?.invoke(null)
                     entitlementObserver?.invoke(BillingEntitlementSnapshot.Inactive)
                 }
             }
