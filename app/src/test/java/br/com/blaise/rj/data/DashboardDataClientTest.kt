@@ -9,6 +9,17 @@ import java.time.Instant
 
 class DashboardDataClientTest {
     @Test
+    fun `older dashboard response cannot overwrite a newer invalidation`() {
+        val gate = DashboardResultGenerationGate()
+        val oldRequest = gate.invalidate()
+        assertTrue(gate.isCurrent(oldRequest))
+
+        val newerInvalidation = gate.invalidate()
+        assertFalse(gate.isCurrent(oldRequest))
+        assertTrue(gate.isCurrent(newerInvalidation))
+    }
+
+    @Test
     fun `dashboard endpoint is derived only from exact HTTPS entitlement verifier path`() {
         assertEquals(
             "https://api.example.test/v1/data/dashboard",
