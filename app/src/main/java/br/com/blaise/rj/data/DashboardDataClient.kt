@@ -247,6 +247,16 @@ object DashboardDataParser {
     }
 }
 
+
+class DashboardResultGenerationGate {
+    private val generation = java.util.concurrent.atomic.AtomicInteger(0)
+
+    fun invalidate(): Int = generation.incrementAndGet()
+
+    fun isCurrent(candidateGeneration: Int): Boolean =
+        candidateGeneration == generation.get()
+}
+
 class DashboardDataHttpsClient private constructor(
     endpoint: String,
     private val packageName: String,
