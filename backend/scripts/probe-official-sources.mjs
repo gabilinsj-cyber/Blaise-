@@ -117,12 +117,16 @@ const ineaStationOperationalPass = !stationConfigured || (
   && ineaStationFreshness?.normal?.state === 'CURRENT'
   && ineaStationFreshness?.severe?.state === 'CURRENT'
 );
-const ineaOverallPass = ineaProbe.status === 'fulfilled' && ineaStationOperationalPass;
+const ineaDiscoveryPass = ineaProbe.status === 'fulfilled';
+const ineaOperationalState = !stationConfigured
+  ? 'NOT_RUN_STATION_URL_NOT_CONFIGURED'
+  : ineaStationOperationalPass ? 'CURRENT' : 'UNAVAILABLE';
 
 const ineaEvidence = {
   sourceId: 'inea',
   contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot+operational_freshness',
-  status: ineaOverallPass ? 'PASS' : 'FAIL',
+  status: ineaDiscoveryPass ? 'PASS' : 'FAIL',
+  operationalStatus: ineaOperationalState,
   checkedAt: checkedAt.toISOString(),
   discoveryContract: ineaProbe.status === 'fulfilled'
     ? {
@@ -179,10 +183,17 @@ if (alertaRioEvidence.status === 'PASS') {
 }
 
 if (ineaEvidence.status === 'PASS') {
-  console.log('INEA_OFFICIAL_SOURCE_CONTRACT=PASS');
-  if (stationConfigured) console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
-  else console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=NOT_RUN_STATION_URL_NOT_CONFIGURED');
+  console.log('INEA_OFFICIAL_DISCOVERY_CONTRACT=PASS');
 } else {
-  console.error('INEA_OFFICIAL_SOURCE_CONTRACT=FAIL');
+  console.error('INEA_OFFICIAL_DISCOVERY_CONTRACT=FAIL');
+  process.exitCode = 1;
+}
+
+if (!stationConfigured) {
+  console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=NOT_RUN_STATION_URL_NOT_CONFIGURED');
+} else if (ineaStationOperationalPass) {
+  console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
+} else {
+  console.error('INEA_LIVE_HYDROMET_STATION_CONTRACT=UNAVAILABLE');
   process.exitCode = 1;
 }
