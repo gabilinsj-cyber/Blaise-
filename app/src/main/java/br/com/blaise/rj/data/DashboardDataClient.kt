@@ -73,6 +73,13 @@ sealed interface DashboardDataNetworkResult {
     data object Unavailable : DashboardDataNetworkResult
 }
 
+object DashboardDataHttpStatusPolicy {
+    fun resultForStatus(statusCode: Int): DashboardDataNetworkResult = when (statusCode) {
+        HttpURLConnection.HTTP_FORBIDDEN -> DashboardDataNetworkResult.Denied
+        else -> DashboardDataNetworkResult.Unavailable
+    }
+}
+
 data class DashboardRainfallPresentation(val value: String, val detail: String)
 
 object DashboardRainfallPresentationPolicy {
@@ -325,7 +332,7 @@ class DashboardDataHttpsClient private constructor(
                         ?: return DashboardDataNetworkResult.Unavailable
                     DashboardDataNetworkResult.Available(snapshot)
                 }
-                else -> DashboardDataNetworkResult.Unavailable
+                else -> DashboardDataHttpStatusPolicy.resultForStatus(connection.responseCode)
             }
         } finally {
             connection.disconnect()
