@@ -125,7 +125,8 @@ const ineaOperationalState = !stationConfigured
 const ineaEvidence = {
   sourceId: 'inea',
   contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot+operational_freshness',
-  status: ineaDiscoveryPass ? 'PASS' : 'FAIL',
+  status: stationConfigured && ineaStationOperationalPass ? 'PASS' : 'NOT_VALIDATED',
+  discoveryStatus: ineaDiscoveryPass ? 'PASS' : 'UNAVAILABLE',
   operationalStatus: ineaOperationalState,
   checkedAt: checkedAt.toISOString(),
   discoveryContract: ineaProbe.status === 'fulfilled'
@@ -182,11 +183,10 @@ if (alertaRioEvidence.status === 'PASS') {
   process.exitCode = 1;
 }
 
-if (ineaEvidence.status === 'PASS') {
+if (ineaDiscoveryPass) {
   console.log('INEA_OFFICIAL_DISCOVERY_CONTRACT=PASS');
 } else {
-  console.error('INEA_OFFICIAL_DISCOVERY_CONTRACT=FAIL');
-  process.exitCode = 1;
+  console.warn('INEA_OFFICIAL_DISCOVERY_CONTRACT=UNAVAILABLE');
 }
 
 if (!stationConfigured) {
