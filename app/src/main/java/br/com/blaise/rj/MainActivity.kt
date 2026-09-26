@@ -1065,6 +1065,7 @@ private fun PreviewApp() {
         billingSnapshot = BillingEntitlementSnapshot.Unconfigured,
         offersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
         purchaseLaunchCode = null,
+        dashboardDataResult = DashboardDataNetworkResult.Unavailable,
         selectedSection = "Início",
         powerOn = true,
         silentMode = false,
