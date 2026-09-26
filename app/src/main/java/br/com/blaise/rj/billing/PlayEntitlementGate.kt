@@ -8,7 +8,10 @@ data class PlayPurchaseCandidate(
     val purchaseToken: String,
     val productIds: List<String>,
     val state: LocalPurchaseState,
-)
+) {
+    override fun toString(): String =
+        "PlayPurchaseCandidate(purchaseToken=<redacted>, productIds=$productIds, state=$state)"
+}
 
 enum class ServerVerification { VERIFIED_ACTIVE, REJECTED, UNAVAILABLE }
 
