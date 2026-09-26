@@ -50,6 +50,7 @@ class PlayBillingEntitlementSource(
     private var entitlementObserver: ((BillingEntitlementSnapshot) -> Unit)? = null
     private var offersObserver: ((SubscriptionOffersSnapshot) -> Unit)? = null
     private var verifiedPurchaseObserver: ((PlayPurchaseCandidate?) -> Unit)? = null
+    private val verificationGeneration = AtomicInteger(0)
 
     private val billingClient = BillingClient.newBuilder(context.applicationContext)
         .setListener(this)
@@ -138,9 +139,10 @@ class PlayBillingEntitlementSource(
     }
 
     fun stop() {
+        verificationGeneration.incrementAndGet()
+        verifiedPurchaseObserver?.invoke(null)
         entitlementObserver = null
         offersObserver = null
-        verifiedPurchaseObserver?.invoke(null)
         verifiedPurchaseObserver = null
         billingClient.endConnection()
     }
@@ -150,6 +152,7 @@ class PlayBillingEntitlementSource(
             refreshPurchases()
             refreshOffers()
         } else {
+            verificationGeneration.incrementAndGet()
             entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
             verifiedPurchaseObserver?.invoke(null)
             offersObserver?.invoke(SubscriptionOffersSnapshot.Unavailable(result.responseCode))
@@ -157,6 +160,7 @@ class PlayBillingEntitlementSource(
     }
 
     override fun onBillingServiceDisconnected() {
+        verificationGeneration.incrementAndGet()
         entitlementObserver?.invoke(
             BillingEntitlementSnapshot.Unavailable(BillingClient.BillingResponseCode.SERVICE_DISCONNECTED),
         )
@@ -170,7 +174,11 @@ class PlayBillingEntitlementSource(
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> verifyPurchases(purchases.orEmpty())
             BillingClient.BillingResponseCode.USER_CANCELED -> refresh()
-            else -> entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+            else -> {
+                verificationGeneration.incrementAndGet()
+                verifiedPurchaseObserver?.invoke(null)
+                entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+            }
         }
     }
 
@@ -182,6 +190,8 @@ class PlayBillingEntitlementSource(
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                 verifyPurchases(purchases)
             } else {
+                verificationGeneration.incrementAndGet()
+                verifiedPurchaseObserver?.invoke(null)
                 entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
             }
         }
@@ -240,6 +250,8 @@ class PlayBillingEntitlementSource(
         }
 
     private fun verifyPurchases(purchases: List<Purchase>) {
+        val generation = verificationGeneration.incrementAndGet()
+        verifiedPurchaseObserver?.invoke(null)
         val candidates = purchases
             .map(::toCandidate)
             .filter { PlayEntitlementGate.canRequestVerification(it, catalog) }
@@ -256,6 +268,7 @@ class PlayBillingEntitlementSource(
 
         candidates.forEach { candidate ->
             verifier.verify(candidate) { verification ->
+                if (generation != verificationGeneration.get()) return@verify
                 val entitlement = PlayEntitlementGate.entitlement(candidate, verification)
                 if (entitlement.active && granted.compareAndSet(false, true)) {
                     verifiedPurchaseObserver?.invoke(candidate)
