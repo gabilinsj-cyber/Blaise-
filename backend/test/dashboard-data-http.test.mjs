@@ -162,6 +162,23 @@ test('paid dashboard snapshot projects only bounded current Alerta Rio rainfall 
   assert.equal(counters.dashboard_denied_total, 0);
 });
 
+test('fresh official rainfall is projected through paid HTTP contract for Android consumption', async () => {
+  const { handler } = handlerWith();
+  await withServer(handler, async (base) => {
+    const response = await post(base, validRequest());
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.contract, DASHBOARD_DATA_HTTP_CONTRACT);
+    assert.equal(body.rainfall.sourceId, ALERTA_RIO_LIVE_SOURCE_ID);
+    assert.equal(body.rainfall.state, 'CURRENT');
+    assert.equal(body.rainfall.stationCount, ALERTA_RIO_EXPECTED_ACTIVE_STATIONS);
+    assert.equal(body.rainfall.max1hMm, 28.4);
+    assert.equal(body.privacy.purchaseTokenExposed, false);
+    assert.equal(body.privacy.rawStationPayloadExposed, false);
+    assert.equal(body.privacy.userLocationStored, false);
+  });
+});
+
 test('dashboard projection fails closed when official rainfall cache is stale', () => {
   assert.equal(buildPaidDashboardSnapshot(currentWorker({ state: 'STALE' }), { nowMillis: NOW }), null);
 });
@@ -185,6 +202,20 @@ test('paid dashboard endpoint denies inactive subscriptions without source discl
     assert.deepEqual(await response.json(), { error: 'access_denied' });
   });
   assert.equal(metrics.snapshot({ nowMillis: NOW }).counters.dashboard_denied_total, 1);
+});
+
+test('paid dashboard endpoint returns 503 without weather payload when official rainfall is stale', async () => {
+  const { handler, metrics } = handlerWith({ sourceWorker: currentWorker({ state: 'STALE' }) });
+  await withServer(handler, async (base) => {
+    const response = await post(base, validRequest());
+    assert.equal(response.status, 503);
+    const body = await response.json();
+    assert.deepEqual(body, { error: 'source_unavailable' });
+    const serialized = JSON.stringify(body);
+    assert.equal(serialized.includes('rainfall'), false);
+    assert.equal(serialized.includes('token-12345678'), false);
+  });
+  assert.equal(metrics.snapshot({ nowMillis: NOW }).counters.dashboard_unavailable_total, 1);
 });
 
 test('paid dashboard endpoint returns source_unavailable when worker is disabled or has no current verified rainfall', async () => {

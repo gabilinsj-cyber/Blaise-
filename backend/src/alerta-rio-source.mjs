@@ -7,6 +7,8 @@ export const ALERTA_RIO_EXPECTED_ACTIVE_STATIONS = 33;
 export const ALERTA_RIO_LIVE_SOURCE_ID = 'alerta-rio-rainfall-live';
 export const ALERTA_RIO_LIVE_HOST = 'websempre.rio.rj.gov.br';
 export const ALERTA_RIO_LIVE_URL = 'https://websempre.rio.rj.gov.br/estacoes/';
+export const ALERTA_RIO_LIVE_MAX_AGE_MS = 20 * 60 * 1000;
+export const ALERTA_RIO_LIVE_MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
 
 const queryUrl = new URL('https://pgeo3.rio.rj.gov.br/arcgis/rest/services/Geotecnia/Estacoes_AlertaRio/FeatureServer/0/query');
 queryUrl.search = new URLSearchParams({
@@ -103,21 +105,27 @@ export function validateAlertaRioStationCatalog(payload) {
 }
 
 export async function probeAlertaRioStationCatalog({ fetchImpl = globalThis.fetch } = {}) {
-  let payload;
-  try {
-    payload = await fetchJsonContract(ALERTA_RIO_STATIONS_QUERY_URL, {
-      allowedHosts: [ALERTA_RIO_HOST],
-      fetchImpl,
-      timeoutMs: 5_000,
-      maxBytes: 128 * 1024,
-    });
-  } catch (error) {
-    if (error instanceof SourceContractError) {
-      throw new OfficialSourceContractError(`alerta_rio_${error.code}`);
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const payload = await fetchJsonContract(ALERTA_RIO_STATIONS_QUERY_URL, {
+        allowedHosts: [ALERTA_RIO_HOST],
+        fetchImpl,
+        timeoutMs: 10_000,
+        maxBytes: 128 * 1024,
+      });
+      return validateAlertaRioStationCatalog(payload);
+    } catch (error) {
+      lastError = error;
+      const retryable = error instanceof SourceContractError
+        && ['source_timeout', 'source_network_error'].includes(error.code);
+      if (!retryable || attempt === 1) break;
     }
-    throw error;
   }
-  return validateAlertaRioStationCatalog(payload);
+  if (lastError instanceof SourceContractError) {
+    throw new OfficialSourceContractError(`alerta_rio_${lastError.code}`);
+  }
+  throw lastError;
 }
 
 function decodeHtmlText(value) {
@@ -263,7 +271,33 @@ export function validateAlertaRioLiveRainfallHtml(html) {
   });
 }
 
-export async function probeAlertaRioLiveRainfall({ fetchImpl = globalThis.fetch } = {}) {
+export function assertAlertaRioLiveFreshness(snapshot, {
+  now = new Date(),
+  maxAgeMs = ALERTA_RIO_LIVE_MAX_AGE_MS,
+  maxFutureSkewMs = ALERTA_RIO_LIVE_MAX_FUTURE_SKEW_MS,
+} = {}) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new TypeError('now must be a valid Date');
+  }
+  if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0 || !Number.isFinite(maxFutureSkewMs) || maxFutureSkewMs < 0) {
+    throw new TypeError('freshness limits must be valid');
+  }
+  const oldestMs = Date.parse(snapshot?.oldestObservedAt);
+  const freshestMs = Date.parse(snapshot?.freshestObservedAt);
+  if (!Number.isFinite(oldestMs) || !Number.isFinite(freshestMs)) {
+    throw new OfficialSourceContractError('alerta_rio_live_invalid_snapshot_timestamp');
+  }
+  const nowMs = now.getTime();
+  if (freshestMs > nowMs + maxFutureSkewMs || oldestMs > nowMs + maxFutureSkewMs) {
+    throw new OfficialSourceContractError('alerta_rio_live_future_timestamp');
+  }
+  if (nowMs - freshestMs > maxAgeMs) {
+    throw new OfficialSourceContractError('alerta_rio_live_stale_snapshot');
+  }
+  return snapshot;
+}
+
+export async function probeAlertaRioLiveRainfall({ fetchImpl = globalThis.fetch, now = new Date() } = {}) {
   let html;
   try {
     html = await fetchTextContract(ALERTA_RIO_LIVE_URL, {
@@ -278,5 +312,6 @@ export async function probeAlertaRioLiveRainfall({ fetchImpl = globalThis.fetch 
     }
     throw error;
   }
-  return validateAlertaRioLiveRainfallHtml(html);
+  const snapshot = validateAlertaRioLiveRainfallHtml(html);
+  return assertAlertaRioLiveFreshness(snapshot, { now });
 }

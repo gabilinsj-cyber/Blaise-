@@ -59,4 +59,19 @@ class PlayEntitlementGateTest {
         assertFalse(emptyCatalog.configured)
         assertFalse(PlayEntitlementGate.canRequestVerification(candidate, emptyCatalog))
     }
+    @Test
+    fun `purchase candidate diagnostics redact purchase token`() {
+        val secret = "secret-purchase-token"
+        val candidate = PlayPurchaseCandidate(
+            purchaseToken = secret,
+            productIds = listOf("blaise_rj_monthly"),
+            state = LocalPurchaseState.PURCHASED,
+        )
+
+        val diagnostic = candidate.toString()
+        assertFalse(diagnostic.contains(secret))
+        assertTrue(diagnostic.contains("<redacted>"))
+    }
+
+
 }

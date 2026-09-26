@@ -104,6 +104,7 @@ test('station catalog probe adapter accepts a valid mocked official response', a
 
 test('live rainfall probe adapter accepts a valid mocked official response', async () => {
   const result = await probeAlertaRioLiveRainfall({
+    now: new Date('2026-09-07T17:10:00.000Z'),
     fetchImpl: async (url, options) => {
       assert.equal(url.hostname, ALERTA_RIO_LIVE_HOST);
       assert.equal(options.redirect, 'manual');

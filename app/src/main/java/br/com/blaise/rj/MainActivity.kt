@@ -57,6 +57,10 @@ import br.com.blaise.rj.billing.PlayBillingEntitlementSource
 import br.com.blaise.rj.billing.PurchaseVerifierFactory
 import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
+import br.com.blaise.rj.data.DashboardDataHttpsClient
+import br.com.blaise.rj.data.DashboardResultGenerationGate
+import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.data.DashboardRainfallPresentationPolicy
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
@@ -71,6 +75,8 @@ class MainActivity : ComponentActivity() {
     private var billingSnapshot by mutableStateOf<BillingEntitlementSnapshot>(BillingEntitlementSnapshot.Unconfigured)
     private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
     private var purchaseLaunchCode by mutableStateOf<Int?>(null)
+    private var dashboardDataResult by mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable)
+    private val dashboardRequestGeneration = DashboardResultGenerationGate()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +90,10 @@ class MainActivity : ComponentActivity() {
             packageName = packageName,
         )
         billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier)
+        val dashboardClient = DashboardDataHttpsClient.create(
+            entitlementVerifierEndpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
+            packageName = packageName,
+        )
 
         setContent {
             BlaiseApp(
@@ -91,6 +101,7 @@ class MainActivity : ComponentActivity() {
                 billingSnapshot = billingSnapshot,
                 offersSnapshot = offersSnapshot,
                 purchaseLaunchCode = purchaseLaunchCode,
+                dashboardDataResult = dashboardDataResult,
                 onRefreshBilling = { billingSource.refresh() },
                 onSubscribe = { offer ->
                     purchaseLaunchCode = null
@@ -104,10 +115,27 @@ class MainActivity : ComponentActivity() {
         billingSource.start(
             entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
             offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
+            verifiedPurchaseObserver = { candidate ->
+                val generation = dashboardRequestGeneration.invalidate()
+                runOnUiThread { dashboardDataResult = DashboardDataNetworkResult.Unavailable }
+                if (candidate != null && dashboardClient != null) {
+                    dashboardClient.fetch(candidate) { result ->
+                        if (dashboardRequestGeneration.isCurrent(generation)) {
+                            runOnUiThread {
+                                if (dashboardRequestGeneration.isCurrent(generation)) {
+                                    dashboardDataResult = result
+                                }
+                            }
+                        }
+                    }
+                }
+            },
         )
     }
 
     override fun onDestroy() {
+        dashboardRequestGeneration.invalidate()
+        dashboardDataResult = DashboardDataNetworkResult.Unavailable
         if (::billingSource.isInitialized) billingSource.stop()
         super.onDestroy()
     }
@@ -142,6 +170,7 @@ fun BlaiseApp(
     billingSnapshot: BillingEntitlementSnapshot = BillingEntitlementSnapshot.Unconfigured,
     offersSnapshot: SubscriptionOffersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
     purchaseLaunchCode: Int? = null,
+    dashboardDataResult: DashboardDataNetworkResult = DashboardDataNetworkResult.Unavailable,
     onRefreshBilling: () -> Unit = {},
     onSubscribe: (SubscriptionOffer) -> Unit = {},
 ) {
@@ -164,6 +193,7 @@ fun BlaiseApp(
         billingSnapshot = billingSnapshot,
         offersSnapshot = offersSnapshot,
         purchaseLaunchCode = purchaseLaunchCode,
+        dashboardDataResult = dashboardDataResult,
         selectedSection = selectedSection,
         powerOn = powerOn,
         silentMode = silentMode,
@@ -206,6 +236,7 @@ private fun BlaiseDashboard(
     billingSnapshot: BillingEntitlementSnapshot,
     offersSnapshot: SubscriptionOffersSnapshot,
     purchaseLaunchCode: Int?,
+    dashboardDataResult: DashboardDataNetworkResult,
     selectedSection: String,
     powerOn: Boolean,
     silentMode: Boolean,
@@ -234,7 +265,7 @@ private fun BlaiseDashboard(
                     AccessPolicyStrip()
 
                     when (selectedSection) {
-                        "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
+                        "Início" -> HomeScreen(city1, city2, wide, dashboardDataResult, onChooseCity1, onChooseCity2)
                         "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
                         "Mapa" -> MapScreen(city1, city2)
                         "Alertas" -> AlertsScreen(city1, city2)
@@ -249,7 +280,7 @@ private fun BlaiseDashboard(
                             onPowerChange = onPowerChange,
                             onSilentModeChange = onSilentModeChange,
                         )
-                        else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
+                        else -> HomeScreen(city1, city2, wide, dashboardDataResult, onChooseCity1, onChooseCity2)
                     }
 
                     BillingPanel(
@@ -382,6 +413,7 @@ private fun HomeScreen(
     city1: City,
     city2: City,
     wide: Boolean,
+    dashboardDataResult: DashboardDataNetworkResult,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
 ) {
@@ -396,7 +428,7 @@ private fun HomeScreen(
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
     }
     Spacer(Modifier.height(14.dp))
-    QuickConditionsRow()
+    QuickConditionsRow(dashboardDataResult)
     Spacer(Modifier.height(14.dp))
     MarineAndRiskRow(wide)
     Spacer(Modifier.height(14.dp))
@@ -662,7 +694,8 @@ private fun CityPair(
 }
 
 @Composable
-private fun QuickConditionsRow() {
+private fun QuickConditionsRow(dashboardDataResult: DashboardDataNetworkResult) {
+    val rainfallPresentation = DashboardRainfallPresentationPolicy.present(dashboardDataResult)
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(20.dp),
@@ -672,7 +705,7 @@ private fun QuickConditionsRow() {
             Text("CONDIÇÕES CONSOLIDADAS", color = Gold, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetricTile("Temperatura", "— °C", "fonte oficial pendente", Modifier.weight(1f))
-                MetricTile("Chuva", "— %", "probabilidade pendente", Modifier.weight(1f))
+                MetricTile("Chuva", rainfallPresentation.value, rainfallPresentation.detail, Modifier.weight(1f))
                 MetricTile("Vento", "— km/h", "rajadas pendentes", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1041,6 +1074,7 @@ private fun PreviewApp() {
         billingSnapshot = BillingEntitlementSnapshot.Unconfigured,
         offersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
         purchaseLaunchCode = null,
+        dashboardDataResult = DashboardDataNetworkResult.Unavailable,
         selectedSection = "Início",
         powerOn = true,
         silentMode = false,
