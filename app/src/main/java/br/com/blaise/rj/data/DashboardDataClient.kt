@@ -19,6 +19,7 @@ const val DASHBOARD_DATA_RAINFALL_SOURCE_ID = "alerta-rio-rainfall-live"
 const val DASHBOARD_DATA_RAINFALL_COVERAGE = "RIO_CITY_ALERTA_RIO_STATIONS"
 const val DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT = 33
 const val DASHBOARD_DATA_MAX_RESPONSE_BYTES = 128 * 1024
+const val DASHBOARD_DATA_RAINFALL_MAX_AGE_SECONDS = 20 * 60L
 
 object DashboardDataEndpointPolicy {
     fun deriveFromEntitlementVerifier(value: String): String? {
@@ -137,6 +138,7 @@ object DashboardDataParser {
         val rainfallObservedAt = instant(rainfallMap["observedAt"])
         val rainfallFetchedAt = nullableInstant(rainfallMap["fetchedAt"])
         require(!rainfallObservedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
+        require(!rainfallObservedAt.isBefore(now.minusSeconds(DASHBOARD_DATA_RAINFALL_MAX_AGE_SECONDS)))
         require(rainfallFetchedAt == null || !rainfallFetchedAt.isAfter(now.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
         require(rainfallFetchedAt == null || !rainfallObservedAt.isAfter(rainfallFetchedAt.plusSeconds(MAX_FUTURE_SKEW_SECONDS)))
         val rainfall = DashboardRainfallSummary(
