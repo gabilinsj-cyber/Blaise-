@@ -58,6 +58,7 @@ import br.com.blaise.rj.billing.PurchaseVerifierFactory
 import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.data.DashboardDataHttpsClient
+import br.com.blaise.rj.data.DashboardResultGenerationGate
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
@@ -67,7 +68,6 @@ import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
 import com.android.billingclient.api.BillingClient
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : ComponentActivity() {
     private lateinit var billingSource: PlayBillingEntitlementSource
@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
     private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
     private var purchaseLaunchCode by mutableStateOf<Int?>(null)
     private var dashboardDataResult by mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable)
-    private val dashboardRequestGeneration = AtomicInteger(0)
+    private val dashboardRequestGeneration = DashboardResultGenerationGate()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,13 +115,13 @@ class MainActivity : ComponentActivity() {
             entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
             offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
             verifiedPurchaseObserver = { candidate ->
-                val generation = dashboardRequestGeneration.incrementAndGet()
+                val generation = dashboardRequestGeneration.invalidate()
                 runOnUiThread { dashboardDataResult = DashboardDataNetworkResult.Unavailable }
                 if (candidate != null && dashboardClient != null) {
                     dashboardClient.fetch(candidate) { result ->
-                        if (generation == dashboardRequestGeneration.get()) {
+                        if (dashboardRequestGeneration.isCurrent(generation)) {
                             runOnUiThread {
-                                if (generation == dashboardRequestGeneration.get()) {
+                                if (dashboardRequestGeneration.isCurrent(generation)) {
                                     dashboardDataResult = result
                                 }
                             }
@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        dashboardRequestGeneration.incrementAndGet()
+        dashboardRequestGeneration.invalidate()
         dashboardDataResult = DashboardDataNetworkResult.Unavailable
         if (::billingSource.isInitialized) billingSource.stop()
         super.onDestroy()
