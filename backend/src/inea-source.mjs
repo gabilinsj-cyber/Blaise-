@@ -306,21 +306,27 @@ export function validateIneaStationSnapshotHtml(html, { stationUrl } = {}) {
 }
 
 export async function probeIneaHydrometDiscovery({ fetchImpl = globalThis.fetch } = {}) {
-  let html;
-  try {
-    html = await fetchTextContract(INEA_DISCOVERY_URL, {
-      allowedHosts: [INEA_DISCOVERY_HOST],
-      fetchImpl,
-      timeoutMs: 7_000,
-      maxBytes: 768 * 1024,
-    });
-  } catch (error) {
-    if (error instanceof SourceContractError) {
-      throw new IneaSourceContractError(`inea_discovery_${error.code}`);
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const html = await fetchTextContract(INEA_DISCOVERY_URL, {
+        allowedHosts: [INEA_DISCOVERY_HOST],
+        fetchImpl,
+        timeoutMs: 15_000,
+        maxBytes: 768 * 1024,
+      });
+      return validateIneaHydrometDiscoveryHtml(html);
+    } catch (error) {
+      lastError = error;
+      const retryable = error instanceof SourceContractError
+        && ['source_timeout', 'source_network_error'].includes(error.code);
+      if (!retryable || attempt === 1) break;
     }
-    throw error;
   }
-  return validateIneaHydrometDiscoveryHtml(html);
+  if (lastError instanceof SourceContractError) {
+    throw new IneaSourceContractError(`inea_discovery_${lastError.code}`);
+  }
+  throw lastError;
 }
 
 export async function probeIneaStationSnapshot({ stationUrl, fetchImpl = globalThis.fetch } = {}) {
