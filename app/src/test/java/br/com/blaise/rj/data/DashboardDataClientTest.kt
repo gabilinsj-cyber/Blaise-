@@ -9,6 +9,16 @@ import java.time.Instant
 
 class DashboardDataClientTest {
     @Test
+    fun `http 503 maps to unavailable and fail closed rainfall presentation`() {
+        val networkResult = DashboardDataHttpStatusPolicy.resultForStatus(503)
+        assertEquals(DashboardDataNetworkResult.Unavailable, networkResult)
+
+        val presentation = DashboardRainfallPresentationPolicy.present(networkResult)
+        assertEquals("—", presentation.value)
+        assertEquals("INDISPONÍVEL NO MOMENTO", presentation.detail)
+    }
+
+    @Test
     fun `rainfall presentation fails closed when dashboard is unavailable or denied`() {
         val unavailable = DashboardRainfallPresentationPolicy.present(DashboardDataNetworkResult.Unavailable)
         assertEquals("—", unavailable.value)
