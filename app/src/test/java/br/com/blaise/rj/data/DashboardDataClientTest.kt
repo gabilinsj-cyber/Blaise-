@@ -78,6 +78,22 @@ class DashboardDataClientTest {
     }
 
     @Test
+    fun `fresh official rainfall reaches current Android presentation`() {
+        val snapshot = DashboardDataParser.parse(
+            validPayload(),
+            Instant.parse("2026-09-15T11:00:30Z"),
+        )
+        val networkResult = DashboardDataNetworkResult.Available(snapshot)
+        val presentation = DashboardRainfallPresentationPolicy.present(networkResult)
+
+        assertEquals("28.4 mm", presentation.value)
+        assertEquals("Alerta Rio • dado oficial atual", presentation.detail)
+        assertEquals(DASHBOARD_DATA_RAINFALL_SOURCE_ID, snapshot.sources.first().sourceId)
+        assertEquals("CURRENT", snapshot.rainfall.state)
+        assertEquals(33, snapshot.rainfall.stationCount)
+    }
+
+    @Test
     fun `parser fails closed on contract drift privacy drift and impossible rainfall counts`() {
         val wrongContract = validPayload().toMutableMap().apply { put("contract", "OTHER") }
         assertTrue(runCatching { DashboardDataParser.parse(wrongContract, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
