@@ -307,12 +307,12 @@ export function validateIneaStationSnapshotHtml(html, { stationUrl } = {}) {
 
 export async function probeIneaHydrometDiscovery({ fetchImpl = globalThis.fetch } = {}) {
   let lastError = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const html = await fetchTextContract(INEA_DISCOVERY_URL, {
         allowedHosts: [INEA_DISCOVERY_HOST],
         fetchImpl,
-        timeoutMs: 15_000,
+        timeoutMs: 20_000,
         maxBytes: 768 * 1024,
       });
       return validateIneaHydrometDiscoveryHtml(html);
@@ -320,7 +320,7 @@ export async function probeIneaHydrometDiscovery({ fetchImpl = globalThis.fetch 
       lastError = error;
       const retryable = error instanceof SourceContractError
         && ['source_timeout', 'source_network_error'].includes(error.code);
-      if (!retryable || attempt === 1) break;
+      if (!retryable || attempt === 2) break;
     }
   }
   if (lastError instanceof SourceContractError) {
