@@ -30,7 +30,7 @@ class DashboardDataClientTest {
 
     @Test
     fun `parser accepts bounded official rainfall summary without raw station or token material`() {
-        val snapshot = DashboardDataParser.parse(validPayload())
+        val snapshot = DashboardDataParser.parse(validPayload(), Instant.parse("2026-09-15T11:00:30Z"))
 
         assertEquals(Instant.parse("2026-09-15T11:00:00Z"), snapshot.generatedAt)
         assertEquals("normal", snapshot.mode)
@@ -48,7 +48,7 @@ class DashboardDataClientTest {
     @Test
     fun `parser fails closed on contract drift privacy drift and impossible rainfall counts`() {
         val wrongContract = validPayload().toMutableMap().apply { put("contract", "OTHER") }
-        assertTrue(runCatching { DashboardDataParser.parse(wrongContract) }.isFailure)
+        assertTrue(runCatching { DashboardDataParser.parse(wrongContract, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
 
         val privacyDrift = validPayload().toMutableMap().apply {
             put("privacy", mapOf(
@@ -57,27 +57,54 @@ class DashboardDataClientTest {
                 "userLocationStored" to false,
             ))
         }
-        assertTrue(runCatching { DashboardDataParser.parse(privacyDrift) }.isFailure)
+        assertTrue(runCatching { DashboardDataParser.parse(privacyDrift, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
 
         val rainfallDrift = validPayload().toMutableMap().apply {
             val rainfall = (get("rainfall") as Map<*, *>).entries.associate { it.key as String to it.value }.toMutableMap()
             rainfall["wetStationCount"] = 34
             put("rainfall", rainfall)
         }
-        assertTrue(runCatching { DashboardDataParser.parse(rainfallDrift) }.isFailure)
+        assertTrue(runCatching { DashboardDataParser.parse(rainfallDrift, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
     }
 
     @Test
     fun `parser rejects mismatched current source count and duplicate source identities`() {
         val wrongCount = validPayload().toMutableMap().apply { put("currentSourceCount", 2) }
-        assertTrue(runCatching { DashboardDataParser.parse(wrongCount) }.isFailure)
+        assertTrue(runCatching { DashboardDataParser.parse(wrongCount, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
 
         val duplicateSources = validPayload().toMutableMap().apply {
             val source = (get("sources") as List<*>).first()
             put("sources", listOf(source, source))
             put("currentSourceCount", 2)
         }
-        assertTrue(runCatching { DashboardDataParser.parse(duplicateSources) }.isFailure)
+        assertTrue(runCatching { DashboardDataParser.parse(duplicateSources, Instant.parse("2026-09-15T11:00:30Z")) }.isFailure)
+    }
+
+
+    @Test
+    fun `parser fails closed on future generated rainfall and source timestamps`() {
+        val now = Instant.parse("2026-09-15T11:00:30Z")
+
+        val futureGenerated = validPayload().toMutableMap().apply {
+            put("generatedAt", "2026-09-15T11:03:00Z")
+        }
+        assertTrue(runCatching { DashboardDataParser.parse(futureGenerated, now) }.isFailure)
+
+        val futureRainfall = validPayload().toMutableMap().apply {
+            val rainfall = (get("rainfall") as Map<*, *>).entries.associate { it.key as String to it.value }.toMutableMap()
+            rainfall["observedAt"] = "2026-09-15T11:03:00Z"
+            put("rainfall", rainfall)
+        }
+        assertTrue(runCatching { DashboardDataParser.parse(futureRainfall, now) }.isFailure)
+
+        val futureSource = validPayload().toMutableMap().apply {
+            val sources = (get("sources") as List<*>).map { raw ->
+                (raw as Map<*, *>).entries.associate { it.key as String to it.value }.toMutableMap()
+            }
+            sources[0]["fetchedAt"] = "2026-09-15T11:03:00Z"
+            put("sources", sources)
+        }
+        assertTrue(runCatching { DashboardDataParser.parse(futureSource, now) }.isFailure)
     }
 
     private fun validPayload(): Map<String, Any?> = mapOf(
