@@ -31,6 +31,7 @@ class MainActivityTest {
         assertTextDisplayed("Como posso ajudar?")
         assertTextDisplayed("Início")
         assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
+        assertTextDisplayed("INDISPONÍVEL NO MOMENTO")
         assertTextDisplayed("Não presumimos ausência de alerta sem evidência oficial válida.")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
         assertTextDisplayed("P0 oficial permanece disponível sem assinatura.")

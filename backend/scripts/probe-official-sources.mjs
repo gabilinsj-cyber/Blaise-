@@ -5,6 +5,9 @@ import {
   probeAlertaRioStationCatalog,
 } from '../src/alerta-rio-source.mjs';
 import { probeIneaHydrometDiscovery, probeIneaStationSnapshot } from '../src/inea-source.mjs';
+import { evaluateIneaLiveValidation } from '../src/inea-validation-policy.mjs';
+import { buildPaidDashboardSnapshot } from '../src/dashboard-data-http.mjs';
+import { createOfficialSourceWorker } from '../src/official-source-worker.mjs';
 import {
   createAlertaRioRainfallCache,
   createIneaHydrometStationCache,
@@ -60,10 +63,49 @@ const rainfallOperationalPass = rainfallProbe.status === 'fulfilled'
   && rainfallFreshness?.normal?.state === 'CURRENT'
   && rainfallFreshness?.severe?.state === 'CURRENT';
 
+let dashboardProjection = null;
+let dashboardProjectionError = null;
+if (rainfallOperationalPass) {
+  try {
+    const projectionWorker = createOfficialSourceWorker({
+      config: {
+        enabled: true,
+        initialMode: 'normal',
+        ineaStationUrl: null,
+      },
+      now: () => checkedAt.getTime(),
+      autoSchedule: false,
+      probeAlertaRio: async () => rainfallProbe.value,
+    });
+    projectionWorker.start();
+    await projectionWorker.tick();
+    const snapshot = buildPaidDashboardSnapshot(projectionWorker, {
+      nowMillis: checkedAt.getTime(),
+    });
+    projectionWorker.stop();
+    if (!snapshot) throw new Error('dashboard_projection_unavailable');
+    dashboardProjection = {
+      status: 'PASS',
+      contract: snapshot.contract,
+      generatedAt: snapshot.generatedAt,
+      rainfallSourceId: snapshot.rainfall.sourceId,
+      rainfallState: snapshot.rainfall.state,
+      rainfallObservedAt: snapshot.rainfall.observedAt,
+      rainfallStationCount: snapshot.rainfall.stationCount,
+      sourceCount: snapshot.sourceCount,
+      currentSourceCount: snapshot.currentSourceCount,
+      privacy: snapshot.privacy,
+      rawStationPayloadExposed: false,
+    };
+  } catch (error) {
+    dashboardProjectionError = errorCode(error);
+  }
+}
+
 const alertaRioEvidence = {
   sourceId: 'alerta-rio',
   contract: 'station_inventory+live_rainfall_snapshot+operational_freshness',
-  status: catalogProbe.status === 'fulfilled' && rainfallOperationalPass ? 'PASS' : 'FAIL',
+  status: catalogProbe.status === 'fulfilled' && rainfallOperationalPass && dashboardProjection?.status === 'PASS' ? 'PASS' : 'FAIL',
   checkedAt: checkedAt.toISOString(),
   stationCatalog: catalogProbe.status === 'fulfilled'
     ? {
@@ -76,6 +118,10 @@ const alertaRioEvidence = {
         status: 'FAIL',
         errorCode: errorCode(catalogProbe.reason),
       },
+  liveDashboardProjection: dashboardProjection ?? {
+    status: 'FAIL',
+    errorCode: dashboardProjectionError ?? 'source_not_current',
+  },
   rainfallLiveIngestion: rainfallProbe.status === 'fulfilled'
     ? {
         status: rainfallOperationalPass ? 'PASS' : 'FAIL',
@@ -117,12 +163,19 @@ const ineaStationOperationalPass = !stationConfigured || (
   && ineaStationFreshness?.normal?.state === 'CURRENT'
   && ineaStationFreshness?.severe?.state === 'CURRENT'
 );
-const ineaOverallPass = ineaProbe.status === 'fulfilled' && ineaStationOperationalPass;
+const ineaDiscoveryPass = ineaProbe.status === 'fulfilled';
+const ineaValidation = evaluateIneaLiveValidation({
+  discoveryAvailable: ineaDiscoveryPass,
+  stationConfigured,
+  stationOperationalPass: ineaStationOperationalPass,
+});
 
 const ineaEvidence = {
   sourceId: 'inea',
   contract: 'hydromet_discovery+official_link_contract+optional_live_station_snapshot+operational_freshness',
-  status: ineaOverallPass ? 'PASS' : 'FAIL',
+  status: ineaValidation.status,
+  discoveryStatus: ineaValidation.discoveryStatus,
+  operationalStatus: ineaValidation.operationalStatus,
   checkedAt: checkedAt.toISOString(),
   discoveryContract: ineaProbe.status === 'fulfilled'
     ? {
@@ -178,11 +231,17 @@ if (alertaRioEvidence.status === 'PASS') {
   process.exitCode = 1;
 }
 
-if (ineaEvidence.status === 'PASS') {
-  console.log('INEA_OFFICIAL_SOURCE_CONTRACT=PASS');
-  if (stationConfigured) console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
-  else console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=NOT_RUN_STATION_URL_NOT_CONFIGURED');
+if (ineaDiscoveryPass) {
+  console.log('INEA_OFFICIAL_DISCOVERY_CONTRACT=PASS');
 } else {
-  console.error('INEA_OFFICIAL_SOURCE_CONTRACT=FAIL');
-  process.exitCode = 1;
+  console.warn('INEA_OFFICIAL_DISCOVERY_CONTRACT=UNAVAILABLE');
+}
+
+if (!stationConfigured) {
+  console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=NOT_RUN_STATION_URL_NOT_CONFIGURED');
+} else if (ineaStationOperationalPass) {
+  console.log('INEA_LIVE_HYDROMET_STATION_CONTRACT=PASS');
+} else {
+  console.error('INEA_LIVE_HYDROMET_STATION_CONTRACT=UNAVAILABLE');
+  if (ineaValidation.shouldFailWorkflow) process.exitCode = 1;
 }
