@@ -6,6 +6,8 @@ import {
 } from '../src/alerta-rio-source.mjs';
 import { probeIneaHydrometDiscovery, probeIneaStationSnapshot } from '../src/inea-source.mjs';
 import { evaluateIneaLiveValidation } from '../src/inea-validation-policy.mjs';
+import { buildPaidDashboardSnapshot } from '../src/dashboard-data-http.mjs';
+import { createOfficialSourceWorker } from '../src/official-source-worker.mjs';
 import {
   createAlertaRioRainfallCache,
   createIneaHydrometStationCache,
@@ -61,10 +63,49 @@ const rainfallOperationalPass = rainfallProbe.status === 'fulfilled'
   && rainfallFreshness?.normal?.state === 'CURRENT'
   && rainfallFreshness?.severe?.state === 'CURRENT';
 
+let dashboardProjection = null;
+let dashboardProjectionError = null;
+if (rainfallOperationalPass) {
+  try {
+    const projectionWorker = createOfficialSourceWorker({
+      config: {
+        enabled: true,
+        initialMode: 'normal',
+        ineaStationUrl: null,
+      },
+      now: () => checkedAt.getTime(),
+      autoSchedule: false,
+      probeAlertaRio: async () => rainfallProbe.value,
+    });
+    projectionWorker.start();
+    await projectionWorker.tick();
+    const snapshot = buildPaidDashboardSnapshot(projectionWorker, {
+      nowMillis: checkedAt.getTime(),
+    });
+    projectionWorker.stop();
+    if (!snapshot) throw new Error('dashboard_projection_unavailable');
+    dashboardProjection = {
+      status: 'PASS',
+      contract: snapshot.contract,
+      generatedAt: snapshot.generatedAt,
+      rainfallSourceId: snapshot.rainfall.sourceId,
+      rainfallState: snapshot.rainfall.state,
+      rainfallObservedAt: snapshot.rainfall.observedAt,
+      rainfallStationCount: snapshot.rainfall.stationCount,
+      sourceCount: snapshot.sourceCount,
+      currentSourceCount: snapshot.currentSourceCount,
+      privacy: snapshot.privacy,
+      rawStationPayloadExposed: false,
+    };
+  } catch (error) {
+    dashboardProjectionError = errorCode(error);
+  }
+}
+
 const alertaRioEvidence = {
   sourceId: 'alerta-rio',
   contract: 'station_inventory+live_rainfall_snapshot+operational_freshness',
-  status: catalogProbe.status === 'fulfilled' && rainfallOperationalPass ? 'PASS' : 'FAIL',
+  status: catalogProbe.status === 'fulfilled' && rainfallOperationalPass && dashboardProjection?.status === 'PASS' ? 'PASS' : 'FAIL',
   checkedAt: checkedAt.toISOString(),
   stationCatalog: catalogProbe.status === 'fulfilled'
     ? {
@@ -77,6 +118,10 @@ const alertaRioEvidence = {
         status: 'FAIL',
         errorCode: errorCode(catalogProbe.reason),
       },
+  liveDashboardProjection: dashboardProjection ?? {
+    status: 'FAIL',
+    errorCode: dashboardProjectionError ?? 'source_not_current',
+  },
   rainfallLiveIngestion: rainfallProbe.status === 'fulfilled'
     ? {
         status: rainfallOperationalPass ? 'PASS' : 'FAIL',
