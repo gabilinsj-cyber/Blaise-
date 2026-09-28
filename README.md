@@ -37,3 +37,18 @@ O pacote de produção exige as variáveis `BLAISE_MONTHLY_PRODUCT_ID`, `BLAISE_
 Produção continua fail-closed: Play Console, backend real de entitlement, integrações meteorológicas externas completas e demais gates de produto só podem ser marcados como PASS com evidência real.
 
 Consulte `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md` e `docs/SECURITY.md`.
+# Pacotes para as três lojas
+
+O aplicativo usa a mesma interface definitiva e o mesmo identificador Android em três canais separados:
+
+- `GOOGLE_PLAY`: Google Play Billing habilitado quando os produtos e o backend de entitlement estão configurados.
+- `SAMSUNG_GALAXY_STORE`: pacote assinado próprio; compras permanecem bloqueadas até a integração oficial da loja.
+- `AMAZON_APPSTORE`: pacote assinado próprio; compras permanecem bloqueadas até a integração oficial da loja.
+
+Com Android SDK, bundletool, Firebase e assinatura de produção configurados, execute:
+
+```bash
+bash scripts/build-all-store-packages.sh
+```
+
+Os APKs, AABs, hashes e manifestos são gravados em `store-packages/`. O workflow manual **Android Store Packages** executa a mesma matriz no GitHub Actions. Ele prepara e valida os pacotes, mas não publica automaticamente: cada portal exige conta, aceite de termos, ficha da loja e confirmação final.

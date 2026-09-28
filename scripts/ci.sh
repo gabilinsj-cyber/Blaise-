@@ -17,6 +17,7 @@ bash scripts/test-weather-transition-calibration-workflow.sh | tee evidence/weat
 bash scripts/test-south-america-source-workflow.sh | tee evidence/south-america-source-workflow-selftest.txt
 bash scripts/test-runtime-adb-retry.sh | tee evidence/runtime-adb-retry-selftest.txt
 bash scripts/test-official-source-workflow.sh | tee evidence/official-source-workflow-selftest.txt
+bash scripts/test-store-package-workflow.sh | tee evidence/store-package-workflow-selftest.txt
 node --check backend/src/source-contract.mjs
 node --check backend/src/alerta-rio-source.mjs
 node --check backend/scripts/probe-official-sources.mjs
