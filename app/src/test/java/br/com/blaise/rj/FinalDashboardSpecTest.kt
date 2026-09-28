@@ -14,6 +14,13 @@ class FinalDashboardSpecTest {
         assertEquals(2, FinalDashboardSpec.HOME_SEISMIC_EVENT_COUNT)
         assertEquals(30, FinalDashboardSpec.RADAR_WINDOW_MINUTES)
     }
+
+    @Test
+    fun `store channels have explicit display names`() {
+        assertEquals("Google Play", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_GOOGLE_PLAY))
+        assertEquals("Samsung Galaxy Store", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_SAMSUNG))
+        assertEquals("Amazon Appstore", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_AMAZON))
+    }
     @Test fun `more than three city alerts opens additional page`() {
         assertFalse(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(3))
         assertTrue(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(4))

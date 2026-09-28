@@ -20,6 +20,10 @@ val firebaseApplicationId = System.getenv("BLAISE_FIREBASE_APPLICATION_ID").orEm
 val firebaseApiKey = System.getenv("BLAISE_FIREBASE_API_KEY").orEmpty().trim()
 val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().trim()
 val firebaseSenderId = System.getenv("BLAISE_FIREBASE_SENDER_ID").orEmpty().trim()
+val storeChannel = System.getenv("BLAISE_STORE_CHANNEL").orEmpty().trim().uppercase().ifEmpty { "GOOGLE_PLAY" }
+require(storeChannel in setOf("GOOGLE_PLAY", "SAMSUNG_GALAXY_STORE", "AMAZON_APPSTORE")) {
+    "BLAISE_STORE_CHANNEL must be GOOGLE_PLAY, SAMSUNG_GALAXY_STORE or AMAZON_APPSTORE"
+}
 
 android {
     namespace = "br.com.blaise.rj"
@@ -39,6 +43,7 @@ android {
         buildConfigField("String", "BLAISE_FIREBASE_API_KEY", buildConfigString(firebaseApiKey))
         buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
         buildConfigField("String", "BLAISE_FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
+        buildConfigField("String", "BLAISE_STORE_CHANNEL", buildConfigString(storeChannel))
     }
     signingConfigs {
         if (releaseSigningReady) {

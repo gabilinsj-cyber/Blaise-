@@ -6,6 +6,9 @@ package br.com.blaise.rj
  * render only timestamped source data supplied by the runtime adapters.
  */
 object FinalDashboardSpec {
+    const val STORE_GOOGLE_PLAY = "GOOGLE_PLAY"
+    const val STORE_SAMSUNG = "SAMSUNG_GALAXY_STORE"
+    const val STORE_AMAZON = "AMAZON_APPSTORE"
     const val PRODUCT = "Blaise V6 RJ"
     const val TAGLINE = "Clima e Tempo"
     const val DEFAULT_POWER_STATE = "LIGADO"
@@ -40,4 +43,10 @@ object FinalDashboardSpec {
 
     fun shouldNotifySeismicEvent(magnitude: Double, feltInBrazil: Boolean): Boolean =
         magnitude >= SEISMIC_NOTIFICATION_MIN_MAGNITUDE && feltInBrazil
+
+    fun storeDisplayName(channel: String): String = when (channel) {
+        STORE_SAMSUNG -> "Samsung Galaxy Store"
+        STORE_AMAZON -> "Amazon Appstore"
+        else -> "Google Play"
+    }
 }

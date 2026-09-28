@@ -67,7 +67,7 @@ import com.android.billingclient.api.BillingClient
 import java.time.Instant
 
 class MainActivity : ComponentActivity() {
-    private lateinit var billingSource: PlayBillingEntitlementSource
+    private var billingSource: PlayBillingEntitlementSource? = null
     private var billingSnapshot by mutableStateOf<BillingEntitlementSnapshot>(BillingEntitlementSnapshot.Unconfigured)
     private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
     private var purchaseLaunchCode by mutableStateOf<Int?>(null)
@@ -75,15 +75,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val products = setOf(BuildConfig.BLAISE_MONTHLY_PRODUCT_ID, BuildConfig.BLAISE_ANNUAL_PRODUCT_ID)
-            .map(String::trim)
-            .filter(String::isNotEmpty)
-            .toSet()
-        val verifier = PurchaseVerifierFactory.create(
-            endpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
-            packageName = packageName,
-        )
-        billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier)
+        if (BuildConfig.BLAISE_STORE_CHANNEL == FinalDashboardSpec.STORE_GOOGLE_PLAY) {
+            val products = setOf(BuildConfig.BLAISE_MONTHLY_PRODUCT_ID, BuildConfig.BLAISE_ANNUAL_PRODUCT_ID)
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .toSet()
+            val verifier = PurchaseVerifierFactory.create(
+                endpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
+                packageName = packageName,
+            )
+            billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier)
+        }
 
         setContent {
             BlaiseApp(
@@ -91,24 +93,24 @@ class MainActivity : ComponentActivity() {
                 billingSnapshot = billingSnapshot,
                 offersSnapshot = offersSnapshot,
                 purchaseLaunchCode = purchaseLaunchCode,
-                onRefreshBilling = { billingSource.refresh() },
+                onRefreshBilling = { billingSource?.refresh() },
                 onSubscribe = { offer ->
                     purchaseLaunchCode = null
-                    billingSource.launchPurchase(this, offer) { responseCode ->
+                    billingSource?.launchPurchase(this, offer) { responseCode ->
                         runOnUiThread { purchaseLaunchCode = responseCode }
                     }
                 },
             )
         }
 
-        billingSource.start(
+        billingSource?.start(
             entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
             offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
         )
     }
 
     override fun onDestroy() {
-        if (::billingSource.isInitialized) billingSource.stop()
+        billingSource?.stop()
         super.onDestroy()
     }
 }
@@ -253,6 +255,7 @@ private fun BlaiseDashboard(
                     }
 
                     BillingPanel(
+                        storeChannel = BuildConfig.BLAISE_STORE_CHANNEL,
                         entitlement = billingSnapshot,
                         offers = offersSnapshot,
                         purchaseLaunchCode = purchaseLaunchCode,
@@ -958,19 +961,28 @@ private fun NewsPlaceholder(index: String, text: String) {
 
 @Composable
 private fun BillingPanel(
+    storeChannel: String,
     entitlement: BillingEntitlementSnapshot,
     offers: SubscriptionOffersSnapshot,
     purchaseLaunchCode: Int?,
     onRefresh: () -> Unit,
     onSubscribe: (SubscriptionOffer) -> Unit,
 ) {
+    val storeName = FinalDashboardSpec.storeDisplayName(storeChannel)
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.48f)),
     ) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Assinatura Google Play", color = Gold, fontWeight = FontWeight.Bold)
+            Text("Assinatura • $storeName", color = Gold, fontWeight = FontWeight.Bold)
+            if (storeChannel != FinalDashboardSpec.STORE_GOOGLE_PLAY) {
+                Text(
+                    "Canal separado com acesso bloqueado até a integração e validação do faturamento oficial da loja.",
+                    color = WarningAmber,
+                )
+                return@Column
+            }
             val status = when (entitlement) {
                 BillingEntitlementSnapshot.Unconfigured -> "Não configurada nesta build • premium bloqueado"
                 BillingEntitlementSnapshot.Connecting -> "Conectando ao Google Play • premium bloqueado"
