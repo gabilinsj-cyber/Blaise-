@@ -6,7 +6,10 @@ root_evidence="${BLAISE_ALL_STORES_EVIDENCE_DIR:-evidence/stores}"
 root_packages="${BLAISE_ALL_STORES_PACKAGE_DIR:-store-packages}"
 mkdir -p "$root_evidence" "$root_packages"
 
-channels=(GOOGLE_PLAY SAMSUNG_GALAXY_STORE AMAZON_APPSTORE)
+# Produce the channels that do not depend on Play Console first. If the final
+# Google Play gate blocks on real product/backend values, Samsung and Amazon
+# packages and their evidence remain available for review.
+channels=(SAMSUNG_GALAXY_STORE AMAZON_APPSTORE GOOGLE_PLAY)
 for channel in "${channels[@]}"; do
   case "$channel" in
     GOOGLE_PLAY) slug='google-play' ;;
