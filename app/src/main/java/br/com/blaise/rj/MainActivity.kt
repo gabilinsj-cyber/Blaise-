@@ -387,22 +387,126 @@ private fun HomeScreen(
 ) {
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            BlaiseHeroCard(Modifier.weight(0.86f))
-            CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.weight(1.55f))
+            CityPanel("Cidade 1", city1, "Selecionar cidade", onChooseCity1, Modifier.weight(0.78f))
+            ExpandedRadarPanel(Modifier.weight(1.9f))
+            CityPanel("Cidade 2", city2, "Selecionar cidade", onChooseCity2, Modifier.weight(0.78f))
         }
     } else {
-        BlaiseHeroCard(Modifier.fillMaxWidth())
-        Spacer(Modifier.height(14.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+        ExpandedRadarPanel(Modifier.fillMaxWidth())
     }
-    Spacer(Modifier.height(14.dp))
-    QuickConditionsRow()
     Spacer(Modifier.height(14.dp))
     MarineAndRiskRow(wide)
     Spacer(Modifier.height(14.dp))
-    RadarPanel()
-    Spacer(Modifier.height(14.dp))
-    BulletinAndNewsRow(wide)
+    if (wide) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            ForecastPanel(Modifier.weight(0.85f))
+            DailyChartPanel(Modifier.weight(1.55f))
+            CompactNewsAndSeismicPanel(Modifier.weight(1.1f))
+        }
+    } else {
+        ForecastPanel(Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+        DailyChartPanel(Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+        CompactNewsAndSeismicPanel(Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
+    DashboardSection(
+        title = "ESTADO DO RIO DE JANEIRO",
+        subtitle = "Radar • chuva • temperatura • vento • nuvens",
+        modifier = modifier,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(310.dp).testTag("expanded-radar-map"),
+            color = Color(0xFF071421),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(18.dp),
+                ) {
+                    Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Aguardando frames oficiais INEA/Alerta Rio com municípios, fonte e horário.",
+                        color = Muted,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text("Janela operacional: últimos 30 minutos", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForecastPanel(modifier: Modifier = Modifier) {
+    DashboardSection(
+        title = "PREVISÃO DO TEMPO",
+        subtitle = "Hoje • 3 dias • fim de semana",
+        modifier = modifier,
+    ) {
+        StatusLine("Manhã", "Aguardando previsão oficial")
+        StatusLine("Tarde", "Aguardando previsão oficial")
+        StatusLine("Noite", "Aguardando previsão oficial")
+        Text("Fonte e horário acompanham cada atualização.", color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun DailyChartPanel(modifier: Modifier = Modifier) {
+    DashboardSection(
+        title = "GRÁFICOS DO DIA • RIO DE JANEIRO",
+        subtitle = "Temperatura • chuva • vento",
+        modifier = modifier,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(220.dp).testTag("expanded-daily-chart"),
+            color = Color(0xFF071421),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("EVOLUÇÃO METEOROLÓGICA", color = Gold, fontWeight = FontWeight.Bold)
+                    Text("00h     06h     12h     18h     24h", color = Muted)
+                    Text("O gráfico será preenchido somente por séries oficiais válidas.", color = Muted, textAlign = TextAlign.Center)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        DashboardSection(
+            title = "ABALOS SÍSMICOS",
+            subtitle = "Dois maiores eventos recentes • USGS",
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            StatusLine("Evento 1", "Aguardando magnitude, local e horário")
+            StatusLine("Evento 2", "Aguardando magnitude, local e horário")
+            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+        }
+        DashboardSection(
+            title = "NOTÍCIAS",
+            subtitle = "Rio de Janeiro + internacional",
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Internacional • aguardando notícia meteorológica traduzida", color = Gold, style = MaterialTheme.typography.labelSmall)
+            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+        }
+    }
 }
 
 @Composable
