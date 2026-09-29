@@ -26,7 +26,7 @@ object AssistantPolicy {
                 AssistantAnswer("Abrindo Qualidade do Ar para consultar IQAr, umidade e UV com fonte e horário.", "Qualidade do Ar")
             listOf("alerta", "temporal", "tempestade", "ciclone", "tornado", "deslizamento", "sismo", "terremoto").any(question::contains) ->
                 AssistantAnswer("Abrindo Alertas. O Blaise não presume segurança nem ocorrência sem evidência oficial válida.", "Alertas")
-            listOf("mapa", "radar", "chuva", "nuvem", "vento").any(question::contains) ->
+            listOf("mapa", "radar", "chuva", "chover", "chove", "nuvem", "vento").any(question::contains) ->
                 AssistantAnswer("Abrindo o Mapa. Camadas em tempo real aparecem somente quando a ingestão oficial estiver válida.", "Mapa")
             listOf("cidade", "município", "municipio", "temperatura", "sensação", "sensacao", "previsão", "previsao").any(question::contains) ->
                 AssistantAnswer("Abrindo Cidades para comparar os dois municípios selecionados sem misturar os dados.", "Cidades")
