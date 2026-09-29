@@ -39,7 +39,7 @@ class MainActivityTest {
         assertTextDisplayed("Cidade 2")
         assertTextDisplayed("Escolher cidade 1")
         assertTextDisplayed("Escolher cidade 2")
-        assertTextDisplayed("Assinatura Google Play")
+        assertTextDisplayed("Assinatura • Google Play Billing")
         assertTextDisplayed("Não configurada nesta build • premium bloqueado")
     }
 
