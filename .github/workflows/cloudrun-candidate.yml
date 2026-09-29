@@ -193,7 +193,8 @@ jobs:
 
           revision = json.loads(Path(sys.argv[1]).read_text())
           expected = os.environ['BLAISE_CLOUDRUN_IMAGE_DIGEST']
-          actual = revision.get('status', {}).get('imageDigest')
+          actual_raw = revision.get('status', {}).get('imageDigest')
+          actual = str(actual_raw or '').rsplit('@', 1)[-1]
           if not re.fullmatch(r'sha256:[0-9a-f]{64}', expected):
               raise SystemExit('expected image digest malformed')
           if actual != expected:
