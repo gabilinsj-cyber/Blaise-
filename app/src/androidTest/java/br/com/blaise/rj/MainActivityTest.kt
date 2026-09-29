@@ -90,4 +90,12 @@ class MainActivityTest {
         rule.onNodeWithText("São Gonçalo").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("IBGE 3304904").performScrollTo().assertIsDisplayed()
     }
+
+    @Test fun assistantRoutesQuestionsWithoutInventingLiveConditions() {
+        rule.onNodeWithTag("assistant-input").performTextInput("Tem tornado no Rio?")
+        rule.onNodeWithTag("assistant-send").performClick()
+        rule.waitForIdle()
+        assertTextDisplayed("ALERTAS POR MUNICÍPIO")
+        assertTextDisplayed("Abrindo Alertas. O Blaise não presume segurança nem ocorrência sem evidência oficial válida.")
+    }
 }

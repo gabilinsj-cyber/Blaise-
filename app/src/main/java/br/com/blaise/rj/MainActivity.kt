@@ -1,7 +1,11 @@
 package br.com.blaise.rj
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -57,6 +61,7 @@ import br.com.blaise.rj.billing.PlayBillingEntitlementSource
 import br.com.blaise.rj.billing.PurchaseVerifierFactory
 import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
+import br.com.blaise.rj.assistant.AssistantPolicy
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
@@ -230,7 +235,7 @@ private fun BlaiseDashboard(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppHeader(powerOn)
-                    AssistantPanel()
+                    AssistantPanel(onNavigate = onSelectSection)
                     PrimaryNavigation(selectedSection, onSelectSection)
                     OfficialStatusBanner(officialFeedState)
                     AccessPolicyStrip()
@@ -307,8 +312,28 @@ private fun AppHeader(powerOn: Boolean) {
 }
 
 @Composable
-private fun AssistantPanel() {
+private fun AssistantPanel(onNavigate: (String) -> Unit) {
     var question by remember { mutableStateOf("") }
+    var answer by remember { mutableStateOf("Pronto para orientar sem criar dados ou alertas.") }
+    var voiceError by remember { mutableStateOf<String?>(null) }
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+        if (!spoken.isNullOrEmpty()) {
+            question = spoken
+            voiceError = null
+            val response = AssistantPolicy.answer(spoken)
+            answer = response.text
+            response.destination?.let(onNavigate)
+        }
+    }
+    fun submit() {
+        val response = AssistantPolicy.answer(question)
+        answer = response.text
+        response.destination?.let(onNavigate)
+    }
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
@@ -331,7 +356,21 @@ private fun AssistantPanel() {
                     Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
                     Text("Pergunte sobre clima, alertas, trânsito, risco, RJ e Oceano Atlântico.", color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
-                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.testTag("assistant-microphone")) {
+                OutlinedButton(
+                    onClick = {
+                        voiceError = null
+                        runCatching {
+                            speechLauncher.launch(
+                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, FinalDashboardSpec.ASSISTANT_PROMPT)
+                                },
+                            )
+                        }.onFailure { voiceError = "Reconhecimento de voz indisponível neste aparelho." }
+                    },
+                    modifier = Modifier.testTag("assistant-microphone"),
+                ) {
                     Text("🎙")
                 }
             }
@@ -343,9 +382,11 @@ private fun AssistantPanel() {
                     singleLine = true,
                     modifier = Modifier.weight(1f).testTag("assistant-input"),
                 )
-                Button(onClick = {}, enabled = false) { Text("Enviar") }
+                Button(onClick = ::submit, enabled = question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
             }
-            Text("Microfone e resposta serão habilitados somente quando o serviço de voz/Q&A estiver conectado e validado.", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
+            voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
+            Text("O assistente abre o módulo correto; condições atuais só aparecem com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
