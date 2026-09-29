@@ -211,7 +211,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          token="$(gcloud auth print-identity-token)"
+          audience="$(gcloud run services describe "$BLAISE_CLOUDRUN_SERVICE" --project="$BLAISE_GCP_PROJECT_ID" --region="$BLAISE_CLOUDRUN_REGION" --format="value(status.url)")"
+          token="$(gcloud auth print-identity-token --impersonate-service-account="$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" --audiences="$audience")"
           test -n "$token"
           curl --fail --silent --show-error --retry 2 \
             -H "Authorization: Bearer $token" \
