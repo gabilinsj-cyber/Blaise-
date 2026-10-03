@@ -1,3 +1,4 @@
+// healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
@@ -38,12 +39,16 @@ export function createDrainingHandler(delegate, readiness) {
   }
 
   return async (req, res) => {
-    if (req.method === 'GET' && req.url === '/healthz') {
-      return delegate(req, res);
+    if (req.method === 'GET' && (req.url === '/healthz' || req.url === '/health')) {
+      sendRuntimeJson(res, 200, { status: 'ok' });
+      return;
     }
 
     if (req.method === 'GET' && req.url === '/readyz') {
-      if (readiness.isReady()) return delegate(req, res);
+      if (readiness.isReady()) {
+        sendRuntimeJson(res, 200, { status: 'ready' });
+        return;
+      }
       sendRuntimeJson(res, 503, { status: 'draining' });
       return;
     }
@@ -222,9 +227,9 @@ async function main() {
 }
 
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (invokedDirectly) {
-  main().catch(() => {
-    console.error('startup_failed');
+if (invokedDirectly || process.env.K_SERVICE || process.env.PORT) {
+  main().catch((err) => {
+    console.error('startup_failed', err);
     process.exitCode = 1;
   });
 }
