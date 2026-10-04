@@ -272,7 +272,7 @@ jobs:
           test -n "$token"
           curl --fail --silent --show-error --retry 3 --retry-all-errors \
             -H "Authorization: Bearer $token" \
-            "$BLAISE_CLOUDRUN_SERVICE_URL/healthz" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/health" \
             | tee evidence/cloudrun-rollback/service-healthz-after.json
           curl --fail --silent --show-error --retry 3 --retry-all-errors \
             -H "Authorization: Bearer $token" \

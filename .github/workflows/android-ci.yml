@@ -84,7 +84,7 @@ jobs:
 
           ready=0
           for _ in $(seq 1 30); do
-            if curl -fsS "$base/healthz" > backend/evidence/backend-health.json; then
+            if curl -fsS "$base/health" > backend/evidence/backend-health.json; then
               ready=1
               break
             fi
