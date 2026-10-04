@@ -178,7 +178,7 @@ jobs:
           test -n "$token"
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
-            "$BLAISE_CLOUDRUN_CANDIDATE_URL/healthz" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/health" \
             | tee evidence/cloudrun-promotion/candidate-healthz-before.json
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
@@ -273,7 +273,7 @@ jobs:
           test -n "$token"
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
-            "$BLAISE_CLOUDRUN_CANDIDATE_URL/healthz" \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/health" \
             | tee evidence/cloudrun-promotion/candidate-healthz-after.json
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
@@ -281,7 +281,7 @@ jobs:
             | tee evidence/cloudrun-promotion/candidate-readyz-after.json
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
-            "$BLAISE_CLOUDRUN_SERVICE_URL/healthz" \
+            "$BLAISE_CLOUDRUN_SERVICE_URL/health" \
             | tee evidence/cloudrun-promotion/service-healthz-after.json
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \

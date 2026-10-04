@@ -217,12 +217,12 @@ jobs:
           curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
             -H "Authorization: Bearer $token" \
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/health" \
-            | tee evidence/cloudrun/healthz.json
+            | tee evidence/cloudrun/health.json
           curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
             -H "Authorization: Bearer $token" \
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
             | tee evidence/cloudrun/readyz.json
-          grep -F '"status":"ok"' evidence/cloudrun/healthz.json
+          grep -F '"status":"ok"' evidence/cloudrun/health.json
           grep -F '"status":"ready"' evidence/cloudrun/readyz.json
           grep -F 'CLOUDRUN_IMAGE_DIGEST_BINDING=PASS' evidence/cloudrun/digest-binding.txt
           printf '%s\n' \
