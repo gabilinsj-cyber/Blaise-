@@ -187,11 +187,9 @@ jobs:
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
             | tee evidence/cloudrun-promotion/candidate-readyz-before.json
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
-          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.jso
-        
-            - name: Advance one canary stage with automatic rollback                           
+          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.js
 
-                if: ${{ inputs.execute_promotion }}            
+                  - name: Advance one canary stage with automatic rollback    
                              shell: bash 
     |               
               set -euo pipefail    
