@@ -192,8 +192,9 @@ jobs:
               -name Advance one canary stage with automatic rollback
 
         if: ${{ inputs.execute_promotion }}
-          
-        run: |
+                  shell: bash
+   run: |               
+        
 set_traffic() {
 local candidate_percent="$1"
 local stable_percent="$2"
