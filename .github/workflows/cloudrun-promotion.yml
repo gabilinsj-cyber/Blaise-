@@ -206,8 +206,7 @@ local stable_percent="$2"
           
           
             
-            if [[ 
-              spec="${BLAISE_CLOUDRUN_STABLE_REVISION}=100"
+                          if [[ "$candidate_percent" == '0' ]]; then
             elif [[ "$stable_percent" == '0' ]]; then
               spec="${BLAISE_CLOUDRUN_CANDIDATE_REVISION}=100"
             else
