@@ -174,8 +174,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          token="$(gcloud auth print-identity-token)"
-          test -n "$token"
+          token="$(gcloud auth print-identity-token --impersonate-service-account="$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" --audiences="$BLAISE_CLOUDRUN_SERVICE_URL" --include-email)"
+
+
+  
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/health" \
