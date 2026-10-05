@@ -195,7 +195,7 @@ jobs:
                   shell: bash
    run: |               
               set -euo pipefail    
-set_traffic() {
+          set_traffic() {
 local candidate_percent="$1"
 local stable_percent="$2"
 local spec
