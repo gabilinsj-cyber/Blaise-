@@ -1,4 +1,4 @@
-        run: |name: Cloud Run Promotion Gate
+name: Cloud Run Promotion Gate
 
 on:
   workflow_dispatch:
@@ -187,25 +187,20 @@ jobs:
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/readyz" \
             | tee evidence/cloudrun-promotion/candidate-readyz-before.json
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
-          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.js
+          grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.json
 
-            - name: Advance one canary stage with automatic rollback
+      - name: Advance one canary stage with automatic rollback
         if: ${{ inputs.execute_promotion }}
         shell: bash
         run: |
-              set -euo pipefail    
-          set_traffic() {
-local candidate_percent="$1"
-local stable_percent="$2"
-            local spec
-                    - 
-202: vazia
+          set -euo pipefail
 
-          
-          
-          
-            
-                          if [[ "$candidate_percent" == '0' ]]; then
+          set_traffic() {
+            local candidate_percent="$1"
+            local stable_percent="$2"
+            local spec
+            if [[ "$candidate_percent" == '0' ]]; then
+              spec="${BLAISE_CLOUDRUN_STABLE_REVISION}=100"
             elif [[ "$stable_percent" == '0' ]]; then
               spec="${BLAISE_CLOUDRUN_CANDIDATE_REVISION}=100"
             else
@@ -276,7 +271,7 @@ local stable_percent="$2"
               raise SystemExit(f'traffic verification failed: expected={expected} actual={actual}')
           PY
 
-          token="$(gcloud auth print-identity-token)"
+          token="$(gcloud auth print-identity-token --impersonate-service-account="$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" --audiences="$BLAISE_CLOUDRUN_SERVICE_URL" --include-email)"
           test -n "$token"
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
             -H "Authorization: Bearer $token" \
