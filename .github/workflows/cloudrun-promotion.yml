@@ -198,8 +198,8 @@ jobs:
           set_traffic() {
 local candidate_percent="$1"
 local stable_percent="$2"
-local spec
-        - 
+            local spec
+                    - 
 202: vazia
 
           
