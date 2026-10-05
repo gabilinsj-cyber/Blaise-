@@ -192,7 +192,7 @@ jobs:
             - name: Advance one canary stage with automatic rollback                           
 
                 if: ${{ inputs.execute_promotion }}            
-                shell: bash
+                             shell: bash 
     |               
               set -euo pipefail    
           set_traffic() {
