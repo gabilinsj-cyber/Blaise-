@@ -175,7 +175,7 @@ jobs:
         run: |
           set -euo pipefail
           token="$(gcloud auth print-identity-token --impersonate-service-account="$BLAISE_GCP_CLOUDRUN_DEPLOY_SERVICE_ACCOUNT" --audiences="$BLAISE_CLOUDRUN_SERVICE_URL" --include-email)"
-
+          test -n "$token"
 
   
           curl --fail --silent --show-error --retry 2 --retry-all-errors \
