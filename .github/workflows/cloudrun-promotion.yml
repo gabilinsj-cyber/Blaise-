@@ -190,8 +190,8 @@ jobs:
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.json
 
       - name: Advance one canary stage with automat
-      token="$(gcloud auth print-identity-token)"
-      
+              if: ${{ inputs.execute_promotion }}
+              
         
         shell: bash
         run: |
