@@ -189,9 +189,10 @@ jobs:
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.js
 
-                  - name: Advance one canary stage with automatic rollback    
-                             shell: bash 
-    |               
+            - name: Advance one canary stage with automatic rollback
+        if: ${{ inputs.execute_promotion }}
+        shell: bash
+        run: |
               set -euo pipefail    
           set_traffic() {
 local candidate_percent="$1"
