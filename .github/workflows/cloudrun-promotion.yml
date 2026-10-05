@@ -190,7 +190,7 @@ jobs:
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.jso
         
                 - name: Advance one canary stage with automatic rollback
-with automatic rollback
+
   if: ${{ inputs.execute_promotion }}
   shell: bash
 run: |
