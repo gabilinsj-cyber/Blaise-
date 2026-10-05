@@ -191,9 +191,9 @@ jobs:
         
                 - name: Advance one canary stage with automatic rollback
 
-        if: ${{ inputs.execute_promotion }}
-                  shell: bash
-   run: |               
+        if: ${{ inputs.execute_promotion              
+                shell: bash
+    |               
               set -euo pipefail    
           set_traffic() {
 local candidate_percent="$1"
