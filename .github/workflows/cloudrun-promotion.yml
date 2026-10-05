@@ -189,19 +189,18 @@ jobs:
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.json
 
-      - name: Advance one canary stage with automat
-              if: ${{ inputs.execute_promotion }}
-              
-        
+            - name: Advance one canary stage with automatic rollback
+        if: ${{ inputs.execute_promotion }}
         shell: bash
         run: |
           set -euo pipefail
+          
 
-          set_traffic() {
-            local candidate_percent="$1"
-            local stable_percent="$2"
-            local spec
-            if [[ "$candidate_percent" == '0' ]]; then
+          
+          
+          
+            
+            if [[ 
               spec="${BLAISE_CLOUDRUN_STABLE_REVISION}=100"
             elif [[ "$stable_percent" == '0' ]]; then
               spec="${BLAISE_CLOUDRUN_CANDIDATE_REVISION}=100"
