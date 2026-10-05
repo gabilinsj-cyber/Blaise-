@@ -188,8 +188,8 @@ jobs:
             | tee evidence/cloudrun-promotion/candidate-readyz-before.json
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.jso
-        if: ${{ inputs.execute_promotion }}
-        - name: ...
+        
+              - name: Advance one canary stage with automatic rollback
 193: if: ...
 194: shell: bash
 195: run: |
