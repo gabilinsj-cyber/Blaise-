@@ -191,14 +191,14 @@ jobs:
         
               Advance one canary stage
 with automatic rollback
-195: run: |
-196: set -euo pipefail
-197: vazia
-198: set_traffic() {
-199: local candidate_percent="$1"
-200: local stable_percent="$2"
-201: local spec
-202: vazia
+  if: ${{ inputs.execute_promotion }}
+  shell: bash
+run: |
+set -euo pipefail
+set_traffic() {
+local candidate_percent="$1"
+local stable_percent="$2"
+local spec
         - 
 202: vazia
 
