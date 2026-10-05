@@ -190,8 +190,7 @@ jobs:
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.jso
         
               Advance one canary stage
-193: if: ...
-194: shell: bash
+with automatic rollback
 195: run: |
 196: set -euo pipefail
 197: vazia
