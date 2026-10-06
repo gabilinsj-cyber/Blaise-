@@ -7,3 +7,6 @@ local.properties
 *.keystore
 evidence/artifacts/
 artifacts/
+# Generated offline voice downloads (pinned hashes in prepare-dora-voice.py).
+.cache/dora/
+.kotlin/

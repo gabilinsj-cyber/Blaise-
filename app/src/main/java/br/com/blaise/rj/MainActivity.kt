@@ -43,6 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +65,12 @@ import br.com.blaise.rj.billing.PurchaseVerifierFactory
 import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.assistant.AssistantPolicy
+import br.com.blaise.rj.voice.DoraVoiceService
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
@@ -235,7 +244,7 @@ private fun BlaiseDashboard(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppHeader(powerOn)
-                    AssistantPanel(onNavigate = onSelectSection)
+                    AssistantPanel(onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                     PrimaryNavigation(selectedSection, onSelectSection)
                     OfficialStatusBanner(officialFeedState)
                     AccessPolicyStrip()
@@ -312,26 +321,70 @@ private fun AppHeader(powerOn: Boolean) {
 }
 
 @Composable
-private fun AssistantPanel(onNavigate: (String) -> Unit) {
+private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val voice = remember(context) { DoraVoiceService(context) }
+    val scope = rememberCoroutineScope()
+    var speechJob by remember { mutableStateOf<Job?>(null) }
+    var speechRequest by remember { mutableStateOf(0) }
+    var speaking by remember { mutableStateOf(false) }
     var question by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("Pronto para orientar sem criar dados ou alertas.") }
     var voiceError by remember { mutableStateOf<String?>(null) }
+    fun stopSpeaking() {
+        speechRequest += 1
+        speechJob?.cancel()
+        voice.stop()
+        speaking = false
+    }
+    fun readAloud(text: String) {
+        stopSpeaking()
+        if (!voiceEnabled) return
+        val request = speechRequest
+        voiceError = null
+        speaking = true
+        speechJob = scope.launch {
+            try {
+                voice.speak(text).onFailure {
+                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz Dora. Tente novamente."
+                }
+            } finally {
+                if (request == speechRequest) speaking = false
+            }
+        }
+    }
+    LaunchedEffect(voiceEnabled) { if (!voiceEnabled) stopSpeaking() }
+    DisposableEffect(lifecycle, voice) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) stopSpeaking()
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            stopSpeaking()
+            voice.close()
+        }
+    }
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val spoken = result.data
             ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             ?.firstOrNull()
             ?.trim()
-        if (!spoken.isNullOrEmpty()) {
+        if (appEnabled && !spoken.isNullOrEmpty()) {
             question = spoken
             voiceError = null
             val response = AssistantPolicy.answer(spoken)
             answer = response.text
+            readAloud(response.text)
             response.destination?.let(onNavigate)
         }
     }
     fun submit() {
+        if (!appEnabled) return
         val response = AssistantPolicy.answer(question)
         answer = response.text
+        readAloud(response.text)
         response.destination?.let(onNavigate)
     }
     Card(
@@ -370,6 +423,7 @@ private fun AssistantPanel(onNavigate: (String) -> Unit) {
                         }.onFailure { voiceError = "Reconhecimento de voz indisponível neste aparelho." }
                     },
                     modifier = Modifier.testTag("assistant-microphone"),
+                    enabled = appEnabled,
                 ) {
                     Text("🎙")
                 }
@@ -382,9 +436,13 @@ private fun AssistantPanel(onNavigate: (String) -> Unit) {
                     singleLine = true,
                     modifier = Modifier.weight(1f).testTag("assistant-input"),
                 )
-                Button(onClick = ::submit, enabled = question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
+                Button(onClick = ::submit, enabled = appEnabled && question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
             }
             Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") }, enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora")) { Text("Testar voz") }
+                TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) }, enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
+            }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
             Text("O assistente abre o módulo correto; condições atuais só aparecem com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }

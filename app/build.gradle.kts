@@ -1,5 +1,13 @@
 plugins { alias(libs.plugins.android.application); alias(libs.plugins.kotlin.android); alias(libs.plugins.kotlin.compose) }
 
+val prepareDoraVoice by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    commandLine("python3", "scripts/prepare-dora-voice.py")
+    inputs.file(rootProject.file("scripts/prepare-dora-voice.py"))
+    outputs.dir(layout.buildDirectory.dir("generated/dora"))
+}
+val doraRuntime = files(layout.buildDirectory.file("generated/dora/sherpa-onnx-1.13.8.aar")).builtBy(prepareDoraVoice)
+
 fun buildConfigString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 val releaseKeystorePath = System.getenv("BLAISE_KEYSTORE_PATH")
@@ -67,10 +75,15 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/dora/assets"))
+    androidResources.noCompress += listOf("onnx", "bin")
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     testOptions.unitTests.isIncludeAndroidResources = true
 }
+tasks.named("preBuild") { dependsOn(prepareDoraVoice) }
 dependencies {
+    implementation(doraRuntime)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

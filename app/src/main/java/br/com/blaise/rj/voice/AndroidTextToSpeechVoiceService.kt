@@ -43,7 +43,7 @@ class AndroidTextToSpeechVoiceService(context: Context) : VoiceService, AutoClos
         }
 
         val utteranceId = "blaise-${System.nanoTime()}"
-        return if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId) == TextToSpeech.SUCCESS) {
+        return if (tts.speak(VoicePronunciation.forSpeech(text), TextToSpeech.QUEUE_FLUSH, null, utteranceId) == TextToSpeech.SUCCESS) {
             Result.success(Unit)
         } else {
             Result.failure(IllegalStateException("Android TTS failed to accept the utterance"))
