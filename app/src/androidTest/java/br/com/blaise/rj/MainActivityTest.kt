@@ -3,6 +3,8 @@ package br.com.blaise.rj
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -96,5 +98,26 @@ class MainActivityTest {
         rule.waitForIdle()
         assertTextDisplayed("ALERTAS POR MUNICÍPIO")
         assertTextDisplayed("Abrindo Alertas. O Blaise não presume segurança nem ocorrência sem evidência oficial válida.")
+    }
+
+    @Test fun voiceControlsRespectPowerAndSilentMode() {
+        val preferences = rule.activity.getSharedPreferences("blaise-ui-state", android.content.Context.MODE_PRIVATE)
+        val previousPower = preferences.getBoolean("power_on", true)
+        val previousSilent = preferences.getBoolean("silent_mode", false)
+        try {
+            preferences.edit().putBoolean("power_on", true).putBoolean("silent_mode", false).commit()
+            rule.activityRule.scenario.recreate()
+            rule.onNodeWithTag("assistant-test-dora").assertIsEnabled()
+            rule.onNodeWithTag("nav-Configurações").performScrollTo().performClick()
+            rule.onNodeWithTag("settings-silent-toggle").performScrollTo().performClick()
+            rule.onNodeWithTag("assistant-read-answer").assertIsNotEnabled()
+            rule.onNodeWithTag("settings-silent-toggle").performScrollTo().performClick()
+            rule.onNodeWithTag("assistant-read-answer").assertIsEnabled()
+            rule.onNodeWithTag("settings-power-toggle").performScrollTo().performClick()
+            rule.onNodeWithTag("assistant-test-dora").assertIsNotEnabled()
+            rule.onNodeWithTag("assistant-microphone").assertIsNotEnabled()
+        } finally {
+            preferences.edit().putBoolean("power_on", previousPower).putBoolean("silent_mode", previousSilent).commit()
+        }
     }
 }
