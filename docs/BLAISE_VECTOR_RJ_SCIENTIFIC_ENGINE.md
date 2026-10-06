@@ -30,6 +30,8 @@ Agendador:5min níveis1–3;30s níveis4–5; sem sobreposição. Severidade vem
 
 ## Pendências
 
+Extensão de06/10/2026: onze núcleos numéricos e contratos de tarefas foram acrescentados em `blaise-scientific-kernels.mjs`/`blaise-scientific-jobs.mjs`, com testes e entrada opcional ao agente. θe aproximada, integração PW por camada, Clausius–Clapeyron, FAO56 diário, balanço do solo, tensão do vento, TCHP, perfil médio neutro, R(KDP) calibrado, MOS fornecido e atualização Kalman escalar. Fórmulas completas, limites, fontes e avaliação da interface em `SCIENTIFIC_EXTENSION_20261006.md`. Não há ingestão operacional dessas novas entradas; rotinas testadas não são simuladores completos ou previsão validada.
+
 Perfis atmosféricos/métodos validados para CAPE/CIN/SRH/PWAT/índices; frames georreferenciados/retrospectiva para radar; batimetria/contornos/observações/validação numérica para oceano/tsunami. Esses simuladores não foram implementados nesta revisão. Sensação térmica segue indisponível no contrato Alerta Rio.
 
 Faltam ligação ao Cloud Run e Android, endpoints operacionais, calibração por região/fenômeno, fases de revalidação, ensaios de alertas/latência/carga e implantação. Módulo executável/testado não significa operação contínua. Precisão e rapidez operacional requerem medições, sem promessa de precisão absoluta.
