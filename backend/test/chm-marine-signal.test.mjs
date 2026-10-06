@@ -88,3 +88,12 @@ test('cache-facing validator recomputes threshold semantics and rejects tamperin
     (error) => error instanceof ChmMarineSignalError,
   );
 });
+
+test('CHM directional interval NW/SW retains both endpoints without averaging', () => {
+  const result = parseChmMarineSignal('ONDAS DE NW/SW 4.0/6.0 METROS.', 'AVISO DE MAR MUITO GROSSO');
+  assert.equal(result.waveDirection, 'NW/SW');
+  assert.equal(result.waveMinMeters, 4);
+  assert.equal(result.waveMaxMeters, 6);
+  assert.equal(validateChmMarineSignal(result).waveDirection, 'NW/SW');
+  assert.throws(() => parseChmMarineSignal('ONDAS DE XX/SW 4.0/6.0 METROS.', 'AVISO DE MAR MUITO GROSSO'));
+});

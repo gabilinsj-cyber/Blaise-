@@ -68,7 +68,7 @@ function validateFetchOptions({ allowedHosts, fetchImpl, timeoutMs, maxBytes }) 
   if (!Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30_000) {
     throw new SourceContractError('source_invalid_timeout');
   }
-  if (!Number.isInteger(maxBytes) || maxBytes < 64 || maxBytes > 2 * 1024 * 1024) {
+  if (!Number.isInteger(maxBytes) || maxBytes < 64 || maxBytes > 4 * 1024 * 1024) {
     throw new SourceContractError('source_invalid_body_limit');
   }
 }

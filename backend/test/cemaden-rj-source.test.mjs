@@ -131,3 +131,10 @@ test('CEMADEN-RJ live probe fails closed on redirects', async () => {
     (error) => error instanceof CemadenRjSourceContractError && error.code === 'cemaden_source_redirect_rejected',
   );
 });
+
+test('source-specific Buzios alias preserves canonical IBGE and duplicate checks', () => {
+  const html = fixture().replace('Armação dos Búzios', 'ARMAÇÃO DE BÚZIOS');
+  const result = validateCemadenRjHydrologicalHtml(html);
+  assert.equal(result.records.find(r => r.ibge === '3300233').municipality, 'Armação dos Búzios');
+  expectCode(() => validateCemadenRjHydrologicalHtml(html.replace('</tbody>', '<tr><td>Armação dos Búzios</td><td>CAPITAL</td><td>BAIXO</td><td>06/10/2026 18:00:00</td><td></td><td>2</td></tr></tbody>')), 'cemaden_duplicate_municipality');
+});

@@ -207,7 +207,7 @@ export function validateChmRjTideCatalogHtml(html) {
     'chm_rj_tide_catalog_year_invalid',
   );
 
-  const rowPattern = /(?:^|\s)(\d{1,2})\s*-\s*(.{3,120}?)\s+-\s*(\d{2,3})\s*-\s*(\d{2,3})\s+POINT\s*\(\s*(-?\d{1,3}(?:\.\d+)?)\s+(-?\d{1,2}(?:\.\d+)?)\s*\)\s+Rio de Janeiro\b/giu;
+  const rowPattern = /(?:^|\s)(\d{1,2})\s*-\s*((?:(?!\bPOINT\b).){3,120}?)\s+-\s*(\d{2,3})\s*-\s*(\d{2,3})\s+POINT\s*\(\s*(-?\d{1,3}(?:\.\d+)?)\s+(-?\d{1,2}(?:\.\d+)?)\s*\)\s+Rio de Janeiro\b/giu;
   const stations = [];
 
   for (const match of text.matchAll(rowPattern)) {

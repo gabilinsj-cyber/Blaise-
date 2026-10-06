@@ -411,7 +411,7 @@ async function fetchChmHtml(url, prefix, fetchImpl) {
       allowedHosts: [CHM_HOST],
       fetchImpl,
       timeoutMs: 8_000,
-      maxBytes: 1024 * 1024,
+      maxBytes: 4 * 1024 * 1024,
     });
   } catch (error) {
     if (error instanceof SourceContractError) {

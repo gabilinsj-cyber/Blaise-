@@ -38,6 +38,8 @@ const NAMED_HTML_ENTITIES = Object.freeze({
   Ocirc: 'Ô', ocirc: 'ô', Otilde: 'Õ', otilde: 'õ', Uacute: 'Ú', uacute: 'ú',
 });
 
+const CEMADEN_NAME_ALIASES = new Map([['armacao de buzios', 'armacao dos buzios']]);
+
 const CANONICAL_BY_FOLDED_NAME = new Map(RJ_MUNICIPALITIES.map((city) => [fold(city.name), city]));
 
 if (RJ_MUNICIPALITIES.length !== CEMADEN_RJ_EXPECTED_MUNICIPALITIES || CANONICAL_BY_FOLDED_NAME.size !== CEMADEN_RJ_EXPECTED_MUNICIPALITIES) {
@@ -133,7 +135,7 @@ export function validateCemadenRjHydrologicalHtml(html) {
     const cells = [...rowMatch[1].matchAll(cellPattern)].map((match) => cellText(match[1]));
     if (cells.length < 1) continue;
 
-    const municipality = CANONICAL_BY_FOLDED_NAME.get(fold(cells[0]));
+    const municipality = CANONICAL_BY_FOLDED_NAME.get(CEMADEN_NAME_ALIASES.get(fold(cells[0])) ?? fold(cells[0]));
     const looksLikeRiskRow = cells.length >= 3 && (Object.hasOwn(RISK_TO_PRIORITY, normalizeRisk(cells[2])) || /^[1-5]$/.test(cells.at(-1) ?? ''));
 
     if (!municipality) {
