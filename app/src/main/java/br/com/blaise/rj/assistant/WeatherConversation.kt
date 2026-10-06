@@ -25,7 +25,10 @@ class WeatherConversation {
         if (text.isBlank()) return ConversationAction.Reply("Não consegui ouvir a pergunta. Pode repetir?")
         if (listOf("nao consigo respirar", "ar nao entra no peito", "dor no peito", "desmaio", "confusao mental").any(text::contains))
             return ConversationAction.Reply("Se você está com falta de ar intensa, dor no peito, desmaio ou confusão, procure atendimento urgente ou ligue 192. Não posso atribuir esses sintomas ao tempo.")
-        val explicit = RioMunicipalities.all.sortedByDescending { it.name.length }.firstOrNull {
+        val station = br.com.blaise.rj.data.AlertaRioObservationParser.stations.firstOrNull {
+            Regex("(^| )${Regex.escape(normalizedSpeech(it))}( |$)").containsMatchIn(text)
+        }
+        val explicit = if (station != null) RioMunicipalities.all.first { it.ibgeCode == 3304557 } else RioMunicipalities.all.sortedByDescending { it.name.length }.firstOrNull {
             Regex("(^| )${Regex.escape(normalizedSpeech(it.name))}( |$)").containsMatchIn(text)
         } ?: if (Regex("(^| )rio( |$)").containsMatchIn(text) && !text.contains("estado do rio"))
             RioMunicipalities.all.first { it.ibgeCode == 3304557 } else null
@@ -37,7 +40,7 @@ class WeatherConversation {
             return ConversationAction.Reply("Para qual cidade ou região você deseja saber?")
         }
         if (explicit != null || text.contains("minha cidade")) {
-            confirmedScope = if (resolved.ibgeCode == 3304557) "Centro do Rio" else null
+            confirmedScope = station ?: if (resolved.ibgeCode == 3304557) "Centro do Rio" else null
         }
         city = resolved
         val question = pending?.let { "$it. $raw" } ?: raw

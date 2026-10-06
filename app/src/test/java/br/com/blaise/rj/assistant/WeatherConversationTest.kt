@@ -5,6 +5,13 @@ import org.junit.Test
 import java.time.LocalDate
 class WeatherConversationTest {
     private val selected = City("Niterói", 3303302)
+    @Test fun stationKeepsLocalCoverageInFollowUp() {
+        val c=WeatherConversation()
+        val q=c.accept("temperatura e umidade em São Cristóvão",selected) as ConversationAction.Query
+        assertEquals("São Cristóvão",q.request.localScope)
+        assertEquals(3304557,q.request.city.ibgeCode)
+        assertEquals("São Cristóvão",(c.accept("e o vento?",selected) as ConversationAction.Query).request.localScope)
+    }
     @Test fun asksLocationThenReusesQuestion() {
         val c = WeatherConversation()
         assertTrue(c.accept("qual a temperatura e a térmica?", selected) is ConversationAction.Reply)

@@ -3,6 +3,9 @@ package br.com.blaise.rj
 import br.com.blaise.rj.bulletin.BulletinPolicy
 import java.time.ZonedDateTime
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
@@ -258,9 +261,8 @@ private fun BlaiseDashboard(
                         .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    AppHeader(powerOn)
+                    AppHeader(powerOn, onPowerChange)
                     AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
-                    PrimaryNavigation(selectedSection, onSelectSection)
                     OfficialStatusBanner(officialFeedState)
                     AccessPolicyStrip()
 
@@ -283,6 +285,8 @@ private fun BlaiseDashboard(
                         else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
                     }
 
+                    PrimaryNavigation(selectedSection, onSelectSection)
+
                     BillingPanel(
                         storeChannel = BuildConfig.BLAISE_STORE_CHANNEL,
                         entitlement = billingSnapshot,
@@ -300,7 +304,7 @@ private fun BlaiseDashboard(
 }
 
 @Composable
-private fun AppHeader(powerOn: Boolean) {
+private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
@@ -319,7 +323,7 @@ private fun AppHeader(powerOn: Boolean) {
             val statusColor = if (powerOn) StableGreen else AlertRed
             val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
             Surface(
-                modifier = Modifier.testTag("power-indicator"),
+                modifier = Modifier.testTag("power-indicator").clickable { onPowerChange(!powerOn) },
                 color = statusBackground,
                 shape = RoundedCornerShape(18.dp),
                 border = BorderStroke(1.dp, statusColor),
@@ -409,9 +413,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         }
     }
     if (showBulletin) {
-        AlertDialog(onDismissRequest = { showBulletin = false }, title = { Text("Boletim Blaise • ${bulletinPeriod.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}") },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(bulletinText); Text("Horários: 06:00 • 12:00 • 16:00. Dados indisponíveis não representam ausência de risco.") } },
-            confirmButton = { TextButton(onClick = { showBulletin = false }) { Text("Fechar") } })
+        Dialog(onDismissRequest = { showBulletin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(Modifier.fillMaxSize(), color = Navy) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TextButton(onClick = { showBulletin = false }) { Text("← Voltar") }
+                    Text("Informativo Blaise V6 RJ", color = Gold, style = MaterialTheme.typography.headlineSmall)
+                    Text("Período: ${bulletinPeriod.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília", color = Color.White)
+                    Text(bulletinText, color = Color.White)
+                    Text("Horários: 06:00 • 12:00 • 16:00. Fonte e horário pertencem a cada medição. Dados indisponíveis não representam ausência de risco.", color = Muted)
+                }
+            }
+        }
     }
     fun ask(raw: String, spoken: Boolean) {
         if (!appEnabled) return
@@ -613,7 +625,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
                 ) {
                     Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Aguardando frames oficiais INEA/Alerta Rio com municípios, fonte e horário.",
+                        "Aguardando frames oficiais Alerta Rio/CEMADEN com municípios, fonte e horário.",
                         color = Muted,
                         textAlign = TextAlign.Center,
                     )

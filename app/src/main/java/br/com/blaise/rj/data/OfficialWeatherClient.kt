@@ -53,6 +53,15 @@ class OfficialWeatherClient {
         if (request.date != today) return forecast(request)
         val q = normalizedSpeech(request.question)
         if (listOf("vai", "previsao", "maxima", "minima", "fim do dia", "tarde", "praia", "quando").any(q::contains)) return forecast(request)
+        if (request.city.ibgeCode == 3304557 && AlertaRioObservationParser.stations.any { normalizedSpeech(it) == normalizedSpeech(request.localScope.orEmpty()) }) {
+            val observation = AlertaRioObservationParser.parse(get("https://websempre.rio.rj.gov.br/estacoes/")).firstOrNull { normalizedSpeech(it.station) == normalizedSpeech(request.localScope.orEmpty()) }
+                ?: return "Não consegui confirmar medição recente nessa estação do Alerta Rio."
+            val parts = listOfNotNull(observation.temperatureC?.let { "Temperatura: ${format(it)} graus." },
+                observation.humidityPercent?.let { "Umidade: ${format(it)} por cento." },
+                observation.windKmh?.let { "Vento médio: ${format(it)} quilômetros por hora." })
+            if (parts.isEmpty()) return "Não consegui confirmar valores disponíveis nessa estação."
+            return "Estação ${observation.station}. ${parts.joinToString(" ")} Medição ${observation.observedAt.atZone(zone).format(DateTimeFormatter.ofPattern("dd/MM HH:mm"))}, horário de Brasília. Fonte: Alerta Rio. A medição representa a estação. Sensação térmica, UV, previsão de chuva, nebulosidade e rajadas não estão disponíveis nesta consulta."
+        }
         val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
         val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
             it.optString("SG_ESTADO") == "RJ" && it.optString("CD_SITUACAO") == "Operante" &&
