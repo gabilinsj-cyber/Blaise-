@@ -1,3 +1,4 @@
+import { category5DeliveryGate } from './blaise-source-review.mjs';
 import { ClientInputError } from './core.mjs';
 import { retryTransient } from './resilience.mjs';
 import { findRjMunicipality } from './rio-municipalities.mjs';
@@ -7,7 +8,7 @@ export const DEFAULT_P0_TOPIC = 'blaise-rj-p0';
 const MAX_EVENT_SECONDS = 24 * 60 * 60;
 const FUTURE_SKEW_MILLIS = 5 * 60 * 1000;
 
-export function buildP0TopicMessage(alert, config, nowMillis = Date.now()) {
+export function buildP0TopicMessage(alert, config, nowMillis = Date.now(), convergenceEvidence = null) {
   if (!config?.firebaseProjectId) throw new Error('fcm_not_configured');
   const normalized = validateP0Alert(alert, nowMillis);
   const topic = (config.fcmP0Topic || DEFAULT_P0_TOPIC).trim();
@@ -17,8 +18,13 @@ export function buildP0TopicMessage(alert, config, nowMillis = Date.now()) {
     1,
     Math.min(MAX_EVENT_SECONDS, Math.ceil((normalized.expiresMillis - nowMillis) / 1000)),
   );
+  const expectedScope = normalized.cityIbge ? `municipality:${normalized.cityIbge}` : 'state:RJ';
+  const evidenceMatches = convergenceEvidence?.scopeId === expectedScope && convergenceEvidence?.officialAlerts?.some(item => item.alertId === normalized.id);
+  const audible = evidenceMatches && category5DeliveryGate({ ...convergenceEvidence, now: nowMillis }).automaticAlarm === true;
   const data = {
     schemaVersion: '1',
+    convergencePolicy: 'two-official-plus-blaise-v1',
+    automaticAudioAllowed: audible ? 'true' : 'false',
     eventType: 'p0_official_alert',
     authority: 'official',
     severity: 'P0',
@@ -45,7 +51,7 @@ export function buildP0TopicMessage(alert, config, nowMillis = Date.now()) {
   };
 }
 
-export async function createFcmGateway(config, { onRetry = () => {} } = {}) {
+export async function createFcmGateway(config, { onRetry = () => {}, getConvergenceEvidence = () => null } = {}) {
   if (!config?.firebaseProjectId) throw new Error('fcm_not_configured');
   const { GoogleAuth } = await import('google-auth-library');
   const auth = new GoogleAuth({ scopes: [FCM_SCOPE] });
@@ -56,7 +62,7 @@ export async function createFcmGateway(config, { onRetry = () => {} } = {}) {
   return {
     async publishOfficialP0(alert) {
       const client = await authClient();
-      const body = buildP0TopicMessage(alert, config);
+      const body = buildP0TopicMessage(alert, config, Date.now(), await getConvergenceEvidence(alert));
       try {
         const response = await retryTransient(
           () => client.request({
