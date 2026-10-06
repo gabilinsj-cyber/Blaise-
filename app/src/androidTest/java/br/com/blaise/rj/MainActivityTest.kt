@@ -93,11 +93,11 @@ class MainActivityTest {
     }
 
     @Test fun assistantRoutesQuestionsWithoutInventingLiveConditions() {
+        rule.onNodeWithText("Digite aqui… ⤢").performScrollTo().performClick()
         rule.onNodeWithTag("assistant-input").performTextInput("Tem tornado no Rio?")
         rule.onNodeWithTag("assistant-send").performClick()
         rule.waitForIdle()
-        assertTextDisplayed("ALERTAS POR MUNICÍPIO")
-        assertTextDisplayed("Abrindo Alertas. O Blaise não presume segurança nem ocorrência sem evidência oficial válida.")
+        assertTextDisplayed("Entendi a pergunta para Rio de Janeiro, mas ainda não tenho dados oficiais validados para esse assunto. Não posso confirmar condições ou riscos agora.")
     }
 
     @Test fun voiceControlsRespectPowerAndSilentMode() {

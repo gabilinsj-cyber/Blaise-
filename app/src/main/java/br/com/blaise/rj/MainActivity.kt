@@ -1,5 +1,16 @@
 package br.com.blaise.rj
 
+import br.com.blaise.rj.bulletin.BulletinPolicy
+import java.time.ZonedDateTime
+import kotlinx.coroutines.delay
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.compose.runtime.rememberUpdatedState
+import br.com.blaise.rj.assistant.WeatherConversation
+import br.com.blaise.rj.assistant.ConversationAction
+import br.com.blaise.rj.data.OfficialWeatherClient
+import br.com.blaise.rj.voice.VoiceQuestionRecognizer
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -66,6 +77,10 @@ import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.assistant.AssistantPolicy
 import br.com.blaise.rj.voice.DoraVoiceService
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -244,7 +259,7 @@ private fun BlaiseDashboard(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppHeader(powerOn)
-                    AssistantPanel(onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                    AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                     PrimaryNavigation(selectedSection, onSelectSection)
                     OfficialStatusBanner(officialFeedState)
                     AccessPolicyStrip()
@@ -321,7 +336,7 @@ private fun AppHeader(powerOn: Boolean) {
 }
 
 @Composable
-private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean) {
+private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val voice = remember(context) { DoraVoiceService(context) }
@@ -366,27 +381,89 @@ private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, 
             voice.close()
         }
     }
-    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val spoken = result.data
-            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            ?.firstOrNull()
-            ?.trim()
-        if (appEnabled && !spoken.isNullOrEmpty()) {
-            question = spoken
-            voiceError = null
-            val response = AssistantPolicy.answer(spoken)
-            answer = response.text
-            readAloud(response.text)
-            response.destination?.let(onNavigate)
+    val conversation = remember { WeatherConversation() }
+    val weather = remember { OfficialWeatherClient() }
+    var queryJob by remember { mutableStateOf<Job?>(null) }
+    var queryVersion by remember { mutableStateOf(0) }
+    var listening by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    val inputFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    var expandedInput by remember { mutableStateOf(false) }
+    LaunchedEffect(expandedInput) { if (expandedInput) { inputFocus.requestFocus(); keyboard?.show() } }
+    var showBulletin by remember { mutableStateOf(false) }
+    var bulletinPeriod by remember { mutableStateOf(BulletinPolicy.currentPeriod(ZonedDateTime.now())) }
+    var bulletinText by remember { mutableStateOf("Aguardando consulta às fontes oficiais.") }
+    LaunchedEffect(appEnabled, selectedCity.ibgeCode) {
+        if (!appEnabled) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        while (true) {
+            bulletinPeriod = BulletinPolicy.currentPeriod(ZonedDateTime.now())
+            val today = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"))
+            val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
+            val centre = weather.answer(br.com.blaise.rj.assistant.WeatherRequest(rio, "temperatura umidade vento", today, "Centro do Rio"))
+            val chosen = if (selectedCity.ibgeCode == rio.ibgeCode) centre else weather.answer(br.com.blaise.rj.assistant.WeatherRequest(selectedCity, "temperatura umidade vento", today, null))
+            bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen\n\nAlertas, previsão e sensação térmica ainda sem integração validada."
+            delay(BulletinPolicy.refreshSeconds(1) * 1000)
+        }
         }
     }
-    fun submit() {
-        if (!appEnabled) return
-        val response = AssistantPolicy.answer(question)
-        answer = response.text
-        readAloud(response.text)
-        response.destination?.let(onNavigate)
+    if (showBulletin) {
+        AlertDialog(onDismissRequest = { showBulletin = false }, title = { Text("Boletim Blaise • ${bulletinPeriod.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(bulletinText); Text("Horários: 06:00 • 12:00 • 16:00. Dados indisponíveis não representam ausência de risco.") } },
+            confirmButton = { TextButton(onClick = { showBulletin = false }) { Text("Fechar") } })
     }
+    fun ask(raw: String, spoken: Boolean) {
+        if (!appEnabled) return
+        stopSpeaking()
+        queryJob?.cancel()
+        queryVersion += 1
+        val version = queryVersion
+        voiceError = null
+        val action = conversation.accept(raw, selectedCity)
+        when (action) {
+            is ConversationAction.Reply -> {
+                loading = false
+                answer = action.text
+                if (spoken) readAloud(answer)
+            }
+            is ConversationAction.Query -> {
+                loading = true
+                answer = "Consultando fonte oficial para ${action.request.localScope ?: action.request.city.name}…"
+                queryJob = scope.launch {
+                    val result = weather.answer(action.request)
+                    if (version == queryVersion) {
+                        loading = false
+                        answer = result
+                        if (spoken) readAloud(result)
+                    }
+                }
+            }
+        }
+    }
+    val latestAsk by rememberUpdatedState<(String) -> Unit>({ ask(it, true) })
+    val recognizer = remember(context) {
+        VoiceQuestionRecognizer(context, { latestAsk(it) }, { voiceError = it }, { listening = it })
+    }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && appEnabled) recognizer.start() else voiceError = "Permita o microfone para perguntar por voz."
+    }
+    DisposableEffect(recognizer, lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                recognizer.cancel()
+                queryJob?.cancel()
+                queryVersion += 1
+                loading = false
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); recognizer.close(); queryJob?.cancel() }
+    }
+    LaunchedEffect(appEnabled) {
+        if (!appEnabled) { recognizer.cancel(); queryJob?.cancel(); queryVersion += 1; loading = false }
+    }
+    fun submit() { ask(question, false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
@@ -405,22 +482,20 @@ private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, 
                     }
                 }
                 Column(Modifier.weight(1f)) {
+                    Text("Boletim • 06:00 / 12:00 / 16:00", color = Gold, style = MaterialTheme.typography.labelSmall)
+                    Text("Resumo do Centro do Rio. Consulta para ${selectedCity.name}.", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
                     Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold)
                     Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
-                    Text("Pergunte sobre clima, alertas, trânsito, risco, RJ e Oceano Atlântico.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text(if (listening) "Ouvindo… termine sua pergunta para receber a resposta." else if (loading) "Consultando dados…" else "Pergunte por voz ou digite sua pergunta.", color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
                 OutlinedButton(
                     onClick = {
                         voiceError = null
-                        runCatching {
-                            speechLauncher.launch(
-                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, FinalDashboardSpec.ASSISTANT_PROMPT)
-                                },
-                            )
-                        }.onFailure { voiceError = "Reconhecimento de voz indisponível neste aparelho." }
+                        stopSpeaking()
+                        if (listening) recognizer.cancel()
+                        else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) recognizer.start()
+                        else permission.launch(Manifest.permission.RECORD_AUDIO)
                     },
                     modifier = Modifier.testTag("assistant-microphone"),
                     enabled = appEnabled,
@@ -429,14 +504,15 @@ private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, 
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                if (!expandedInput) TextButton(onClick = { expandedInput = true }) { Text("Digite aqui… ⤢") }
+                if (expandedInput)                 OutlinedTextField(
                     value = question,
                     onValueChange = { question = it },
                     label = { Text("Digite o que deseja saber") },
                     singleLine = true,
-                    modifier = Modifier.weight(1f).testTag("assistant-input"),
+                    modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("assistant-input"),
                 )
-                Button(onClick = ::submit, enabled = appEnabled && question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
+                Button(onClick = ::submit, enabled = appEnabled && expandedInput && question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
             }
             Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -444,7 +520,7 @@ private fun AssistantPanel(onNavigate: (String) -> Unit, voiceEnabled: Boolean, 
                 TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) }, enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
             }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-            Text("O assistente abre o módulo correto; condições atuais só aparecem com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Consulta oficial em validação. Dados ausentes não significam ausência de risco.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
