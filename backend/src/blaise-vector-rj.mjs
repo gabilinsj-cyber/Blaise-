@@ -1,3 +1,4 @@
+import {reviewBlaiseEvidence} from './blaise-source-review.mjs';
 import {createOfficialSourceScheduler} from './official-source-scheduler.mjs';
 import {validateAlertaRioMeteorologyHtml,ALERTA_RIO_LIVE_URL,ALERTA_RIO_LIVE_HOST} from './alerta-rio-source.mjs';
 import {fetchTextContract} from './source-contract.mjs';
@@ -30,7 +31,7 @@ export function fuseComparableReadings(rows,policy,now=Date.now()){
  const value=rows.reduce((s,r)=>s+r.value*(policy.weights[r.sourceId]/total),0);finite(value);
  return {value,min,max,spread:max-min,scopeId:first.scopeId,variable:first.variable,unit:first.unit,policyVersion:policy.version,nature:'CALCULO_BLAISE',confidencePercent:null,officialAlert:false,sources:rows.map(r=>({sourceId:r.sourceId,sourceUrl:r.sourceUrl,observedAt:r.observedAt,weight:policy.weights[r.sourceId]/total}))};
 }
-export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.now,onResult=()=>{}}={}){
+export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.now,onResult=()=>{},readEvidence=()=>({})}={}){
  let result=null;
  const scheduler=createOfficialSourceScheduler({now,refreshIntervalsMs:{normal:300000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
   try{
@@ -38,6 +39,7 @@ export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.n
    const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now())});
    result={agent:VECTOR_RJ.name,status:'PARTIAL',calculatedAt:new Date(now()).toISOString(),sourceUrl:data.sourceUrl,stations:data.stations.filter(s=>s.freshness==='recent').map(s=>({...s,windVector:s.windSpeedKmh!==null&&s.windDirectionDegrees!==null?windComponents(s.windSpeedKmh,s.windDirectionDegrees):null})),unavailable:['calibrated_fusion','feels_like','CAPE_CIN_SRH','radar_nowcast','cyclone_trajectory','tsunami','regional_coverage'],officialAlert:false};
   }catch{result={agent:VECTOR_RJ.name,status:'UNAVAILABLE',calculatedAt:new Date(now()).toISOString(),stations:[],officialAlert:false};}
+  result={...result,evidenceReview:reviewBlaiseEvidence({...readEvidence(),now:now()})};
   onResult(result);
  }}]});
  return {start:scheduler.start,stop:scheduler.stop,tick:scheduler.tick,setSeverity(level){if(!Number.isInteger(level)||level<1||level>5)throw RangeError('invalid_severity');return scheduler.setMode(level>=4?'severe':'normal');},snapshot(){return {agent:VECTOR_RJ,scheduler:scheduler.snapshot(),result};}};
