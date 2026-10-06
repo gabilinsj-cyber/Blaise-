@@ -8,3 +8,8 @@ const reading=(id,value)=>({sourceId:id,independentSourceId:id,sourceUrl:'https:
 const opts={now,maxAgeMs:60000,maxSkewMs:10000,tolerance:2};
 test('two comparable independent observations quarantine numeric outlier, not prove wrong',()=>{const r=reviewNumericCandidate(reading('a',40),[reading('b',25),reading('c',26)],opts);assert.equal(r.state,'QUARANTINED_FOR_REVIEW');assert.equal(r.provenWrong,false);assert.equal(r.officialAlertAffected,false);});
 test('different locations or duplicate origins cannot reject candidate',()=>{for(const peers of [[reading('b',25),{...reading('c',25),scopeId:'Niteroi'}],[reading('b',25),{...reading('c',25),independentSourceId:'b'}]])assert.equal(reviewNumericCandidate(reading('a',40),peers,opts).state,'INSUFFICIENT_EVIDENCE_TO_REJECT');});
+
+import {category5DeliveryGate} from '../src/blaise-source-review.mjs';
+test('single official level5 remains silent despite Blaise5',()=>{assert.equal(category5DeliveryGate({officialAlerts:[alert],analyses:[alert],scopeId:alert.scopeId,phenomenon:alert.phenomenon,now}).automaticVoice,false);});
+test('two independent official5 plus Blaise5 allow automatic delivery',()=>{const r=category5DeliveryGate({officialAlerts:[alert,{...alert,sourceId:'second',independentSourceId:'second'}],analyses:[alert],scopeId:alert.scopeId,phenomenon:alert.phenomenon,now});assert.equal(r.siren,true);assert.equal(r.officialAlertRemainsVisible,true);});
+test('Blaise4 and syndicated origin cannot unlock automatic level5',()=>{assert.equal(category5DeliveryGate({officialAlerts:[alert,{...alert,sourceId:'copy'}],analyses:[{...alert,level:4}],scopeId:alert.scopeId,phenomenon:alert.phenomenon,now}).vibration,false);});

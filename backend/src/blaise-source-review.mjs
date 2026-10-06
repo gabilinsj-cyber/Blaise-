@@ -27,3 +27,14 @@ export function reviewNumericCandidate(candidate, corroborators,{maxAgeMs,maxSke
  const discrepant=agreement&&unique.every(r=>Math.abs(r.value-candidate.value)>tolerance);
  return {state:discrepant?'QUARANTINED_FOR_REVIEW':'INSUFFICIENT_EVIDENCE_TO_REJECT',reason:discrepant?'two_independent_comparable_sources_disagree':'no_comparable_consensus',sources:unique.map(r=>r.sourceId),provenWrong:false,officialAlertAffected:false};
 }
+
+/** User-selected automatic delivery gate; never changes the displayed official level. */
+export function category5DeliveryGate({officialAlerts=[],analyses=[],scopeId,phenomenon,now=Date.now()}={}){
+ const review=reviewBlaiseEvidence({officialAlerts,analyses,now});
+ const authorities=new Set(review.officialAlerts.filter(a=>a.level===5&&a.scopeId===scopeId&&a.phenomenon===phenomenon).map(a=>a.independentSourceId));
+ const blaiseConfirmed=review.analyses.some(a=>a.level===5&&a.scopeId===scopeId&&a.phenomenon===phenomenon);
+ const allowed=authorities.size>=2&&blaiseConfirmed;
+ return {automaticAlarm:allowed,automaticVoice:allowed,siren:allowed,vibration:allowed,
+  officialAlertRemainsVisible:true,independentOfficialSources:authorities.size,blaiseConfirmed,
+  reason:allowed?'CATEGORY5_CONVERGENCE_CONFIRMED':'VISIBLE_ONLY_PENDING_CONVERGENCE'};
+}
