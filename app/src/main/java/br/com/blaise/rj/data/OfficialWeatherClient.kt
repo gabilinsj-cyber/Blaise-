@@ -12,20 +12,15 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Official INMET public endpoints only. No credentials, scraping or challenge bypass. */
+/** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
-    private data class Cached(val at: Instant, val result: String)
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, Cached>()
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
-        val key = "${request.city.ibgeCode}/${request.date}/${request.question}/${request.localScope}"
-        val ttl = if (severity >= 4) 30L else 300L
-        cache[key]?.takeIf { Duration.between(it.at, Instant.now()).seconds in 0 until ttl }?.let { return@withContext it.result }
+        // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
+        // retrieval age cannot extend the validity of the underlying observation.
         val result = runCatching { query(request) }.getOrElse {
             "Não consegui confirmar os dados oficiais de ${request.localScope ?: request.city.name} agora. A consulta ao INMET está indisponível. Não tenho temperatura ou sensação térmica válida para informar. Tente novamente em instantes."
         }
-        // Never cache failures as current weather.
-        if (!result.startsWith("Não consegui")) cache[key] = Cached(Instant.now(), result)
         result
     }
     private fun get(url: String): String {
