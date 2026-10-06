@@ -1,5 +1,5 @@
 /** Numerical primitives, not hazard classifiers. SI unless the parameter names say otherwise. */
-export const SCIENTIFIC_METHOD_VERSION = 'rj-kernels-20261006-v1';
+export const SCIENTIFIC_METHOD_VERSION = 'rj-kernels-20261006-v2';
 function number(value, name, min=-Infinity, max=Infinity) {
   if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max) throw RangeError(`invalid_${name}`);
   return value;
@@ -94,4 +94,65 @@ export function scalarKalmanUpdate({predictedMean,predictedVariance,measurement,
   const mean=predictedMean+gain*(measurement-predictedMean);
   const variance=(1-gain)**2*predictedVariance+gain**2*measurementVariance;
   number(mean,'posterior_mean');number(variance,'posterior_variance',0);return {mean,variance,gain,method:'scalar_Kalman_measurement_update_Joseph',methodVersion:SCIENTIFIC_METHOD_VERSION,nature:'CALCULO_BLAISE',officialAlert:false,limitation:'Measurement update only, not a trained temporal model; comparable observations and calibrated variances required.'};
+}
+
+export function calibratedTurbulentGust({meanWindMs,alongWindStdMs,heightM,averagingSeconds,windowSeconds,stationarity,policy}) {
+  number(meanWindMs,'mean_wind',0,150);number(alongWindStdMs,'along_wind_std',0,100);positive(heightM,'height');
+  positive(averagingSeconds,'averaging_seconds');positive(windowSeconds,'window_seconds');
+  if(windowSeconds<=averagingSeconds||stationarity!=='VALIDATED_STATIONARY')throw TypeError('stationary_window_required');
+  if(policy?.status!=='CALIBRATED'||!policy.version||!policy.scopeId||policy.method!=='mean_plus_peak_sigma'||policy.heightM!==heightM||policy.averagingSeconds!==averagingSeconds||policy.windowSeconds!==windowSeconds)throw TypeError('local_gust_calibration_required');
+  positive(policy.peakFactor,'peak_factor');number(policy.maxMeanWindMs,'mean_limit',0,150);number(policy.maxStdMs,'std_limit',0,100);
+  if(meanWindMs>policy.maxMeanWindMs||alongWindStdMs>policy.maxStdMs)throw RangeError('outside_calibration');
+  return output(meanWindMs+policy.peakFactor*alongWindStdMs,'m/s','locally_calibrated_turbulent_peak',{policyVersion:policy.version,scopeId:policy.scopeId,heightM,averagingSeconds,windowSeconds,limitation:'Estimated peak for a calibrated stationary window, not observed gust or future downburst/tornado wind; no universal factor.'});
+}
+
+function windLayer(levels,bottomM,topM,maxGapM) {
+  if(!Array.isArray(levels)||levels.length<2||levels.length>2048)throw TypeError('bounded_wind_profile_required');
+  number(bottomM,'layer_bottom',0,30000);number(topM,'layer_top',0,30000);positive(maxGapM,'profile_gap');
+  if(topM<=bottomM)throw RangeError('positive_layer_required');
+  for(let i=0;i<levels.length;i++){
+    const l=levels[i];number(l.heightAglM,'height_agl',0,30000);number(l.eastMs,'east_wind',-150,150);number(l.northMs,'north_wind',-150,150);
+    if(i&&l.heightAglM<=levels[i-1].heightAglM)throw RangeError('height_must_increase');
+    if(i&&l.heightAglM>bottomM&&levels[i-1].heightAglM<topM&&l.heightAglM-levels[i-1].heightAglM>maxGapM)throw RangeError('profile_gap_exceeds_policy');
+  }
+  if(levels[0].heightAglM>bottomM||levels.at(-1).heightAglM<topM)throw RangeError('full_layer_coverage_required');
+  const interpolate=heightAglM=>{
+    const exact=levels.find(l=>l.heightAglM===heightAglM);if(exact)return {...exact};
+    const i=levels.findIndex(l=>l.heightAglM>heightAglM),a=levels[i-1],b=levels[i],f=(heightAglM-a.heightAglM)/(b.heightAglM-a.heightAglM);
+    return {heightAglM,eastMs:a.eastMs+f*(b.eastMs-a.eastMs),northMs:a.northMs+f*(b.northMs-a.northMs)};
+  };
+  return [interpolate(bottomM),...levels.filter(l=>l.heightAglM>bottomM&&l.heightAglM<topM),interpolate(topM)];
+}
+
+export function bulkWindShear({levels,bottomM,topM,maxGapM}) {
+  const layer=windLayer(levels,bottomM,topM,maxGapM),a=layer[0],b=layer.at(-1);
+  const eastMs=b.eastMs-a.eastMs,northMs=b.northMs-a.northMs;
+  return output(Math.hypot(eastMs,northMs),'m/s','bulk_layer_vector_wind_difference',{eastMs,northMs,bottomM,topM,limitation:'Supports supplied layers such as 0–1 and 0–6 km AGL; does not confirm a supercell or tornado.'});
+}
+
+export function stormRelativeHelicity({levels,bottomM,topM,maxGapM,stormEastMs,stormNorthMs}) {
+  number(stormEastMs,'storm_east',-150,150);number(stormNorthMs,'storm_north',-150,150);
+  const layer=windLayer(levels,bottomM,topM,maxGapM);let positiveHelicity=0,negativeHelicity=0;
+  for(let i=1;i<layer.length;i++){
+    const a=layer[i-1],b=layer[i];
+    const contribution=(b.eastMs-stormEastMs)*(a.northMs-stormNorthMs)-(a.eastMs-stormEastMs)*(b.northMs-stormNorthMs);
+    number(contribution,'helicity_segment');if(contribution>=0)positiveHelicity+=contribution;else negativeHelicity+=contribution;
+  }
+  number(positiveHelicity,'positive_helicity');number(negativeHelicity,'negative_helicity');
+  return output(positiveHelicity+negativeHelicity,'m²/s²','storm_relative_hodograph_line_integral',{positiveHelicity,negativeHelicity,bottomM,topM,stormEastMs,stormNorthMs,limitation:'Signed diagnostic of supplied wind profile and storm motion; no universal tornado threshold or occurrence probability, especially across hemispheres.'});
+}
+
+export function horizontalWindDiagnostics({duDxPerSecond,duDyPerSecond,dvDxPerSecond,dvDyPerSecond,coordinateSystem}) {
+  if(coordinateSystem!=='LOCAL_CARTESIAN_EAST_NORTH_METERS')throw TypeError('metric_cartesian_gradients_required');
+  for(const n of[duDxPerSecond,duDyPerSecond,dvDxPerSecond,dvDyPerSecond])number(n,'wind_gradient',-10,10);
+  const divergencePerSecond=duDxPerSecond+dvDyPerSecond,vorticityPerSecond=dvDxPerSecond-duDyPerSecond;
+  return {divergencePerSecond,convergencePerSecond:-divergencePerSecond,vorticityPerSecond,stretchingDeformationPerSecond:duDxPerSecond-dvDyPerSecond,shearingDeformationPerSecond:dvDxPerSecond+duDyPerSecond,unit:'s⁻¹',method:'horizontal_cartesian_wind_derivatives',methodVersion:SCIENTIFIC_METHOD_VERSION,nature:'CALCULO_BLAISE',officialAlert:false,limitation:'Quality-controlled metric gradients required, not angular degree differences; rotation/convergence does not diagnose a tornado.'};
+}
+
+export function stationPressureTendency({earlier,later}) {
+  if(!earlier?.stationId||earlier.stationId!==later?.stationId||earlier.pressureKind!==later.pressureKind||!['STATION','SEA_LEVEL'].includes(earlier.pressureKind)||earlier.heightM!==later.heightM)throw TypeError('same_pressure_station_reference_required');
+  number(earlier.heightM,'station_height',-500,6000);number(earlier.pressurePa,'earlier_pressure',30000,110000);number(later.pressurePa,'later_pressure',30000,110000);
+  const first=Date.parse(earlier.observedAt),last=Date.parse(later.observedAt),seconds=(last-first)/1000;
+  if(!Number.isFinite(seconds)||seconds<=0||seconds>86400)throw RangeError('ordered_bounded_pressure_interval_required');
+  return output((later.pressurePa-earlier.pressurePa)/100/(seconds/3600),'hPa/h','two_point_same_station_pressure_tendency',{stationId:earlier.stationId,pressureKind:earlier.pressureKind,intervalSeconds:seconds,limitation:'Two-point observed tendency, not pressure-gradient force or a standalone cyclone forecast.'});
 }
