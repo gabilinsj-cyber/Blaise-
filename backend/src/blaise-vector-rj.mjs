@@ -34,14 +34,29 @@ export function fuseComparableReadings(rows,policy,now=Date.now()){
 }
 export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.now,onResult=()=>{},readEvidence=()=>({}),readScientificJobs=()=>[]}={}){
  let result=null;
- const scheduler=createOfficialSourceScheduler({now,refreshIntervalsMs:{normal:300000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
+ let lastCalculationAt=null,lastInputs=null;
+ const scheduler=createOfficialSourceScheduler({now,refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
   try{
    const html=await fetchTextContract(ALERTA_RIO_LIVE_URL,{allowedHosts:[ALERTA_RIO_LIVE_HOST],fetchImpl,timeoutMs:7000,maxBytes:1048576});
    const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now())});
    result={agent:VECTOR_RJ.name,status:'PARTIAL',calculatedAt:new Date(now()).toISOString(),sourceUrl:data.sourceUrl,stations:data.stations.filter(s=>s.freshness==='recent').map(s=>({...s,windVector:s.windSpeedKmh!==null&&s.windDirectionDegrees!==null?windComponents(s.windSpeedKmh,s.windDirectionDegrees):null})),unavailable:['calibrated_fusion','feels_like','CAPE_CIN_SRH','radar_nowcast','cyclone_trajectory','tsunami','regional_coverage'],officialAlert:false};
   }catch{result={agent:VECTOR_RJ.name,status:'UNAVAILABLE',calculatedAt:new Date(now()).toISOString(),stations:[],officialAlert:false};}
   let scientificCalculations=[];
-  try{scientificCalculations=evaluateScientificJobs(await readScientificJobs(),{now:now()});}
+  try{
+   const jobs=await readScientificJobs();
+   const fingerprint=JSON.stringify(jobs);
+   const time=now();
+   const changed=fingerprint!==lastInputs;
+   const due=lastCalculationAt===null||time-lastCalculationAt>=60000;
+   // Validate source age every tick, including unchanged inputs. No observation
+   // timestamp is refreshed merely because the scheduler fetched it again.
+   scientificCalculations=evaluateScientificJobs(jobs,{now:time});
+   if(changed||due){lastCalculationAt=time;lastInputs=fingerprint;}
+   result={...result,scientificCycle:{baselineIntervalMs:60000,revalidationIntervalMs:30000,
+    reason:changed?'INPUT_CHANGE':due?'BASELINE':'REVALIDATION',
+    lastBaselineOrChangeAt:new Date(lastCalculationAt).toISOString(),
+    revalidatedAt:new Date(time).toISOString()}};
+  }
   catch{scientificCalculations=[{status:'UNAVAILABLE',reason:'scientific_provider_failed',result:null,officialAlert:false}];}
   result={...result,scientificMethods:SCIENTIFIC_METHODS,scientificCalculations,evidenceReview:reviewBlaiseEvidence({...readEvidence(),now:now()})};
   onResult(result);

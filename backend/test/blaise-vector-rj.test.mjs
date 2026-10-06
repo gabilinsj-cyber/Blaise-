@@ -9,7 +9,7 @@ test('wind FROM direction wraps correctly',()=>{assert.ok(Math.abs(windComponent
 test('explicit weights preserve provenance without claiming confidence',()=>{const r=fuseComparableReadings(rows,policy,now);assert.equal(r.value,26.5);assert.equal(r.confidencePercent,null);assert.equal(r.officialAlert,false);});
 test('rejects invented policy and incompatible scope/nature',()=>{assert.throws(()=>fuseComparableReadings(rows,{...policy,status:'PENDING'},now));for(const patch of [{scopeId:'Niteroi'},{nature:'MODELO'}])assert.throws(()=>fuseComparableReadings([rows[0],{...rows[1],...patch}],policy,now));});
 test('rejects stale future duplicate and divergent observations',()=>{for(const patch of [{observedAt:'2026-10-06T18:00:00Z'},{observedAt:'2026-10-06T21:00:00Z'},{independentSourceId:'a'},{value:40}])assert.throws(()=>fuseComparableReadings([rows[0],{...rows[1],...patch}],policy,now));});
-test('agent cadence and unavailable state',async()=>{const a=createBlaiseVectorRjAgent({now:()=>now,fetchImpl:async()=>{throw Error('down');}});assert.equal(a.snapshot().scheduler.refreshIntervalMs,300000);a.setSeverity(5);assert.equal(a.snapshot().scheduler.refreshIntervalMs,30000);a.start();await a.tick();assert.equal(a.snapshot().result.status,'UNAVAILABLE');a.stop();});
+test('agent cadence and unavailable state',async()=>{const a=createBlaiseVectorRjAgent({now:()=>now,fetchImpl:async()=>{throw Error('down');}});assert.equal(a.snapshot().scheduler.refreshIntervalMs,30000);a.setSeverity(5);assert.equal(a.snapshot().scheduler.refreshIntervalMs,30000);a.start();await a.tick();assert.equal(a.snapshot().result.status,'UNAVAILABLE');a.stop();});
 test('scientific jobs run through the agent without treating source outage as a validated live forecast',async()=>{
  const source={sourceId:'test',sourceUrl:'https://example.org',scopeId:'state:RJ',quality:'VALIDATED',nature:'OBSERVADO',observedAt:'2026-10-06T19:59:00Z',validAt:'2026-10-06T19:59:00Z'};
  const a=createBlaiseVectorRjAgent({now:()=>now,fetchImpl:async()=>{throw Error('down');},readScientificJobs:()=>[{id:'test-stress',method:'oceanWindStress',scopeId:'state:RJ',validAt:source.validAt,maxAgeMs:300000,sources:[source],inputs:{airDensityKgm3:1.2,dragCoefficient:0.001,wind10mMs:10}}]});
@@ -19,3 +19,14 @@ test('scientific provider failure leaves live observation failure explicit and s
  const a=createBlaiseVectorRjAgent({now:()=>now,fetchImpl:async()=>{throw Error('down');},readScientificJobs:()=>{throw Error('provider down');}});
  a.start();try{await a.tick();assert.equal(a.snapshot().result.scientificCalculations[0].reason,'scientific_provider_failed');}finally{a.stop();}
 });
+
+ test('unchanged scientific inputs are revalidated after 30 seconds and expire without changing source time',async()=>{
+ let clock=now;
+ const source={sourceId:'test',sourceUrl:'https://example.org/data',quality:'VALIDATED',nature:'OBSERVADO',scopeId:'state:RJ',observedAt:new Date(clock).toISOString(),validAt:new Date(clock).toISOString()};
+ const a=createBlaiseVectorRjAgent({now:()=>clock,fetchImpl:async()=>{throw Error('down');},readScientificJobs:()=>[{id:'stress',method:'oceanWindStress',scopeId:'state:RJ',validAt:source.validAt,maxAgeMs:45000,sources:[source],inputs:{airDensityKgm3:1.2,dragCoefficient:0.001,wind10mMs:10}}]});
+ a.start();try{
+ await a.tick();assert.equal(a.snapshot().result.scientificCycle.reason,'INPUT_CHANGE');
+ clock+=30000;await a.tick();assert.equal(a.snapshot().result.scientificCycle.reason,'REVALIDATION');assert.equal(a.snapshot().result.scientificCalculations[0].status,'CALCULATED_INPUTS_ONLY');
+ clock+=30000;await a.tick();assert.equal(a.snapshot().result.scientificCycle.reason,'BASELINE');assert.equal(a.snapshot().result.scientificCalculations[0].status,'UNAVAILABLE');
+ }finally{a.stop();}
+ });
