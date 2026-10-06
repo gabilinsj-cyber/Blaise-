@@ -251,6 +251,8 @@ export function createOfficialSourceWorker({
   fetchImpl = globalThis.fetch,
   autoSchedule = true,
   maxConcurrency = 2,
+  refreshIntervalsMs = null,
+  cadenceMode = 'after_completion',
   onEvent = () => {},
   probeAlertaRio = probeAlertaRioLiveRainfall,
   probeIneaStation = probeIneaStationSnapshot,
@@ -471,6 +473,8 @@ export function createOfficialSourceWorker({
     now,
     autoSchedule,
     maxConcurrency,
+    refreshIntervalsMs,
+    cadenceMode,
     onEvent,
   });
   if (config.initialMode === 'severe') scheduler.setMode('severe');

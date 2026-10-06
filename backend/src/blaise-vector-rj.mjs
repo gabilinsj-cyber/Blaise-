@@ -35,7 +35,7 @@ export function fuseComparableReadings(rows,policy,now=Date.now()){
 export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.now,onResult=()=>{},readEvidence=()=>({}),readScientificJobs=()=>[]}={}){
  let result=null;
  let lastCalculationAt=null,lastInputs=null;
- const scheduler=createOfficialSourceScheduler({now,refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
+ const scheduler=createOfficialSourceScheduler({now,cadenceMode:'fixed_start',refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
   try{
    const html=await fetchTextContract(ALERTA_RIO_LIVE_URL,{allowedHosts:[ALERTA_RIO_LIVE_HOST],fetchImpl,timeoutMs:7000,maxBytes:1048576});
    const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now())});

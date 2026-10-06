@@ -64,7 +64,14 @@ data class DashboardDataSnapshot(
     val currentSourceCount: Int,
     val rainfall: DashboardRainfallSummary,
     val sources: List<DashboardOfficialSourceState>,
-)
+) {
+    fun current(now: Instant): Boolean {
+        fun ageWithin(value: Instant, limit: Long): Boolean =
+            !value.isAfter(now) && java.time.Duration.between(value, now).seconds <= limit
+        return ageWithin(generatedAt, 120) && ageWithin(rainfall.observedAt, 900) &&
+            rainfall.fetchedAt?.let { ageWithin(it, if (mode == "severe") 120 else 900) } == true
+    }
+}
 
 sealed interface DashboardDataNetworkResult {
     data class Available(val snapshot: DashboardDataSnapshot) : DashboardDataNetworkResult

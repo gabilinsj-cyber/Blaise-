@@ -1,6 +1,6 @@
 # Vector RJ: ciclo científico e satélite
 
-Checagem e revalidação a cada 30 segundos em todos os níveis; ciclo base de 60 segundos e recálculo quando mudam as entradas. As rotinas também são avaliadas na revalidação para remover resultados vencidos. Intervalos alvo após conclusão, sem garantia de latência. Horários de processamento não substituem observedAt/validAt.
+Checagem e revalidação a cada 30 segundos em todos os níveis; ciclo base de 60 segundos e recálculo quando mudam as entradas. As rotinas também são avaliadas na revalidação para remover resultados vencidos. Backend usa intervalo entre inícios, pulando janelas perdidas em execuções demoradas e impedindo sobreposição; não garante latência operacional. Horários de processamento não substituem observedAt/validAt.
 
 NOAA e Windy ainda não possuem conectores operacionais nesta implementação. Windy Point Forecast exige chave privada no backend e fornece previsão de modelo; não é observação satelital. NOAA ABI modo 6: disco completo a cada 10 minutos, setores rápidos apenas quando cobertos e disponíveis. Consultas a cada 30 segundos não criam novas imagens. Preservar emissão, validade, origem/modelo, qualidade e georreferenciamento. Um modelo distribuído por dois canais não constitui confirmação independente.
 

@@ -176,6 +176,8 @@ async function main() {
   const sourceWorker = createOfficialSourceWorker({
     config: sourceWorkerConfig,
     publishInmetP0,
+    refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
+    cadenceMode: 'fixed_start',
   });
 
   const coreHandler = createHttpHandler({

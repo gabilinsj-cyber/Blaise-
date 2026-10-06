@@ -33,6 +33,20 @@ class WeatherConversationTest {
         assertTrue(WeatherConversation().accept("alertas na Baixada",selected) is ConversationAction.Reply)
         assertTrue(WeatherConversation().accept("ciclone em Niterói",selected) is ConversationAction.Reply)
     }
+    @Test fun mixedQuestionKeepsAvailableWeatherQueryWithoutClaimingUvOrHazardData() {
+        val result = WeatherConversation().accept("temperatura umidade vento e UV em Niterói", selected) as ConversationAction.Query
+        assertEquals(3303302, result.request.city.ibgeCode)
+        assertTrue(result.request.question.contains("UV"))
+        assertTrue(WeatherConversation().accept("UV em Niterói", selected) is ConversationAction.Reply)
+    }
+    @Test fun namedNeighbourhoodDoesNotInheritAnotherMunicipalityOrBecomeCentre() {
+        val conversation = WeatherConversation()
+        conversation.accept("temperatura em Niterói", selected)
+        val bangu = conversation.accept("e a temperatura em Bangu?", selected) as ConversationAction.Query
+        assertEquals(3304557, bangu.request.city.ibgeCode)
+        assertEquals("Bangu", bangu.request.localScope)
+        assertTrue(WeatherConversation().accept("temperatura em Irajá Niterói", selected) is ConversationAction.Reply)
+    }
     @Test fun remembersExplicitCityAndSelectedCityIsOptIn() {
         val c=WeatherConversation()
         c.accept("temperatura em Petrópolis", selected)

@@ -277,3 +277,21 @@ test('unknown source reads fail closed', () => {
     (error) => error.code === 'official_source_worker_unknown_source',
   );
 });
+
+test('runtime cadence override preserves source timestamps and requests 60s normal and 30s severe cycles', async () => {
+  const worker = createOfficialSourceWorker({
+    config: { enabled: true, initialMode: 'normal', ineaStationUrl: null },
+    now: () => NOW, autoSchedule: false,
+    refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
+    probeAlertaRio: async () => alertaRioSnapshot(),
+  });
+  worker.start();
+  try {
+    await worker.tick();
+    assert.equal(worker.status().scheduler.refreshIntervalMs, 60_000);
+    const before = worker.readSource(ALERTA_RIO_RAINFALL_TASK_ID).snapshot.freshestObservedAt;
+    worker.setMode('severe');
+    assert.equal(worker.status().scheduler.refreshIntervalMs, 30_000);
+    assert.equal(worker.readSource(ALERTA_RIO_RAINFALL_TASK_ID).snapshot.freshestObservedAt, before);
+  } finally { worker.stop(); }
+});

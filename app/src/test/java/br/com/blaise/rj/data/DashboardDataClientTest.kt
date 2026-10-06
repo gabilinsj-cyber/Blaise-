@@ -8,6 +8,15 @@ import org.junit.Test
 import java.time.Instant
 
 class DashboardDataClientTest {
+    @Test fun `display revalidates source time even when backend generated time is renewed`() {
+        val snapshot = DashboardDataParser.parse(validPayload())
+        assertTrue(snapshot.current(Instant.parse("2026-09-15T11:00:30Z")))
+        val later = Instant.parse("2026-09-15T12:00:00Z")
+        assertFalse(snapshot.copy(generatedAt = later).current(later))
+        assertFalse(snapshot.current(Instant.parse("2026-09-15T11:03:00Z")))
+        assertFalse(snapshot.current(Instant.parse("2026-09-15T10:58:00Z")))
+    }
+
     @Test
     fun `dashboard endpoint is derived only from exact HTTPS entitlement verifier path`() {
         assertEquals(

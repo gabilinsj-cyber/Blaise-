@@ -3,6 +3,11 @@ package br.com.blaise.rj
 import br.com.blaise.rj.bulletin.BulletinPolicy
 import java.time.ZonedDateTime
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -13,6 +18,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import br.com.blaise.rj.assistant.WeatherConversation
 import br.com.blaise.rj.assistant.ConversationAction
 import br.com.blaise.rj.data.OfficialWeatherClient
+import br.com.blaise.rj.data.CityWeatherResult
+import br.com.blaise.rj.data.DashboardDataHttpsClient
+import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.billing.PlayPurchaseCandidate
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import br.com.blaise.rj.voice.VoiceQuestionRecognizer
 import android.content.Context
 import android.content.Intent
@@ -103,6 +118,7 @@ class MainActivity : ComponentActivity() {
     private var billingSnapshot by mutableStateOf<BillingEntitlementSnapshot>(BillingEntitlementSnapshot.Unconfigured)
     private var offersSnapshot by mutableStateOf<SubscriptionOffersSnapshot>(SubscriptionOffersSnapshot.Unconfigured)
     private var purchaseLaunchCode by mutableStateOf<Int?>(null)
+    private var verifiedPurchase by mutableStateOf<PlayPurchaseCandidate?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,7 +132,9 @@ class MainActivity : ComponentActivity() {
                 endpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
                 packageName = packageName,
             )
-            billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier)
+            billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier) { candidate ->
+                runOnUiThread { verifiedPurchase = candidate }
+            }
         }
 
         setContent {
@@ -125,6 +143,7 @@ class MainActivity : ComponentActivity() {
                 billingSnapshot = billingSnapshot,
                 offersSnapshot = offersSnapshot,
                 purchaseLaunchCode = purchaseLaunchCode,
+                verifiedPurchase = verifiedPurchase,
                 onRefreshBilling = { billingSource?.refresh() },
                 onSubscribe = { offer ->
                     purchaseLaunchCode = null
@@ -158,6 +177,9 @@ private val AlertRed = Color(0xFFFF5D62)
 private val WarningAmber = Color(0xFFFFC857)
 private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
+private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
+private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
+private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 
 private val BlaiseScheme = darkColorScheme(
     primary = Gold,
@@ -176,6 +198,7 @@ fun BlaiseApp(
     billingSnapshot: BillingEntitlementSnapshot = BillingEntitlementSnapshot.Unconfigured,
     offersSnapshot: SubscriptionOffersSnapshot = SubscriptionOffersSnapshot.Unconfigured,
     purchaseLaunchCode: Int? = null,
+    verifiedPurchase: PlayPurchaseCandidate? = null,
     onRefreshBilling: () -> Unit = {},
     onSubscribe: (SubscriptionOffer) -> Unit = {},
 ) {
@@ -187,10 +210,59 @@ fun BlaiseApp(
     var selectedSection by remember { mutableStateOf(FinalDashboardSpec.primaryNavigation.first()) }
     var powerOn by remember { mutableStateOf(uiPreferences.getBoolean("power_on", true)) }
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
-    val officialFeedState = remember(officialFeedEvidence) {
-        OfficialFeedStatusPolicy.state(officialFeedEvidence, Instant.now())
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val weatherClient = remember { OfficialWeatherClient() }
+    var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
+    var observationClock by remember { mutableStateOf(Instant.now()) }
+    var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
+    val dashboardClient = remember(context) {
+        DashboardDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
+    }
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { observationClock = Instant.now(); delay(30_000) }
+        }
+    }
+    LaunchedEffect(powerOn, city1.ibgeCode, city2.ibgeCode, lifecycle) {
+        cityWeather = emptyMap()
+        if (!powerOn) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
+                val cities = listOf(rio, city1, city2).distinctBy { it.ibgeCode }
+                cityWeather = coroutineScope {
+                    cities.map { city -> async {
+                        city.ibgeCode to weatherClient.currentCity(br.com.blaise.rj.assistant.WeatherRequest(
+                            city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
+                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                        ))
+                    } }.map { it.await() }.toMap()
+                }
+                observationClock = Instant.now()
+                delay(60_000)
+            }
+        }
+    }
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
+        backendDashboard = DashboardDataNetworkResult.Unavailable
+        val candidate = verifiedPurchase
+        val client = dashboardClient
+        if (!powerOn || billingSnapshot !is BillingEntitlementSnapshot.Active || candidate == null || client == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                backendDashboard = suspendCancellableCoroutine { continuation ->
+                    client.fetch(candidate) { result -> if (continuation.isActive) continuation.resume(result) }
+                }
+                delay(30_000)
+            }
+        }
+    }
+    val officialFeedState = remember(officialFeedEvidence, observationClock) {
+        OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
 
+    CompositionLocalProvider(LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
+        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
         city2 = city2,
@@ -215,6 +287,7 @@ fun BlaiseApp(
         onChooseCity1 = { pickerSlot = 1 },
         onChooseCity2 = { pickerSlot = 2 },
     )
+    }
 
     val slot = pickerSlot
     if (slot != null) {
@@ -267,7 +340,7 @@ private fun BlaiseDashboard(
                     AccessPolicyStrip()
 
                     when (selectedSection) {
-                        "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
+                        "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                         "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
                         "Mapa" -> MapScreen(city1, city2)
                         "Alertas" -> AlertsScreen(city1, city2)
@@ -282,7 +355,7 @@ private fun BlaiseDashboard(
                             onPowerChange = onPowerChange,
                             onSilentModeChange = onSilentModeChange,
                         )
-                        else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2)
+                        else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                     }
 
                     PrimaryNavigation(selectedSection, onSelectSection)
@@ -303,8 +376,22 @@ private fun BlaiseDashboard(
     }
 }
 
+/** Render only the character's viewport from the approved reference, never its illustrative weather. */
+@Composable
+private fun BlaiseAvatar(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val portrait = remember(context) {
+        val reference = BitmapFactory.decodeResource(context.resources, R.drawable.blaise_reference)
+        Bitmap.createBitmap(reference, 84, 47, 80, 69).asImageBitmap()
+    }
+    Image(bitmap = portrait, contentDescription = "Blaise, assistente feminina", modifier = modifier,
+        contentScale = ContentScale.Fit)
+}
+
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
+    val clock = LocalObservationClock.current
+    val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
@@ -318,7 +405,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
                 Text(FinalDashboardSpec.TAGLINE, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                Text("Última atualização: aguardando primeira consolidação oficial", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             val statusColor = if (powerOn) StableGreen else AlertRed
             val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
@@ -396,22 +483,14 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     var expandedInput by remember { mutableStateOf(false) }
     LaunchedEffect(expandedInput) { if (expandedInput) { inputFocus.requestFocus(); keyboard?.show() } }
     var showBulletin by remember { mutableStateOf(false) }
-    var bulletinPeriod by remember { mutableStateOf(BulletinPolicy.currentPeriod(ZonedDateTime.now())) }
-    var bulletinText by remember { mutableStateOf("Aguardando consulta às fontes oficiais.") }
-    LaunchedEffect(appEnabled, selectedCity.ibgeCode) {
-        if (!appEnabled) return@LaunchedEffect
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-        while (true) {
-            bulletinPeriod = BulletinPolicy.currentPeriod(ZonedDateTime.now())
-            val today = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"))
-            val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
-            val centre = weather.answer(br.com.blaise.rj.assistant.WeatherRequest(rio, "temperatura umidade vento", today, "Centro do Rio"))
-            val chosen = if (selectedCity.ibgeCode == rio.ibgeCode) centre else weather.answer(br.com.blaise.rj.assistant.WeatherRequest(selectedCity, "temperatura umidade vento", today, null))
-            bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen\n\nAlertas, previsão e sensação térmica ainda sem integração validada."
-            delay(BulletinPolicy.refreshSeconds(1) * 1000)
-        }
-        }
-    }
+    val reports = LocalCityWeather.current
+    val clock = LocalObservationClock.current
+    val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
+    val centre = reports[3304557]?.summary(clock) ?: "Consultando medição oficial do Centro do Rio."
+    val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
+    val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen\n\nSensação térmica, UV, previsão e alertas: integração ainda indisponível. Fonte e horário referem-se à medição de cada estação."
+    fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
+    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Sensação térmica, UV e previsão ainda indisponíveis" else chosen)}."
     if (showBulletin) {
         Dialog(onDismissRequest = { showBulletin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(Modifier.fillMaxSize(), color = Navy) {
@@ -490,12 +569,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     border = BorderStroke(1.dp, Gold),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("B", color = GoldSoft, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                        BlaiseAvatar(Modifier.fillMaxSize())
                     }
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Boletim • 06:00 / 12:00 / 16:00", color = Gold, style = MaterialTheme.typography.labelSmall)
-                    Text("Resumo do Centro do Rio. Consulta para ${selectedCity.name}.", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    Text(bulletinSummary, color = Color.White, style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
                     Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold)
                     Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
@@ -574,6 +653,7 @@ private fun HomeScreen(
     wide: Boolean,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
+    onNavigate: (String) -> Unit,
 ) {
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -593,14 +673,14 @@ private fun HomeScreen(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             ForecastPanel(Modifier.weight(0.85f))
             DailyChartPanel(Modifier.weight(1.55f))
-            CompactNewsAndSeismicPanel(Modifier.weight(1.1f))
+            CompactNewsAndSeismicPanel(Modifier.weight(1.1f), onNavigate)
         }
     } else {
         ForecastPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
         DailyChartPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
-        CompactNewsAndSeismicPanel(Modifier.fillMaxWidth())
+        CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
 }
 
@@ -671,11 +751,19 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
                 }
             }
         }
+        BackendRainfallPanel()
     }
 }
 
 @Composable
-private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier) {
+private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
+    var seismicDetails by remember { mutableStateOf(false) }
+    if (seismicDetails) {
+        AlertDialog(onDismissRequest = { seismicDetails = false },
+            title = { Text("Abalos sísmicos • fontes e confirmação") },
+            text = { Text("Eventos e avisos ainda não integrados nesta tela. Magnitude isolada não confirma tsunami ou impacto no RJ. Não há conclusão de ausência de risco.") },
+            confirmButton = { TextButton(onClick = { seismicDetails = false }) { Text("Voltar") } })
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         DashboardSection(
             title = "ABALOS SÍSMICOS",
@@ -684,7 +772,7 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier) {
         ) {
             StatusLine("Evento 1", "Aguardando magnitude, local e horário")
             StatusLine("Evento 2", "Aguardando magnitude, local e horário")
-            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            OutlinedButton(onClick = { seismicDetails = true }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
         }
         DashboardSection(
             title = "NOTÍCIAS",
@@ -694,7 +782,7 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier) {
             Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("Internacional • aguardando notícia meteorológica traduzida", color = Gold, style = MaterialTheme.typography.labelSmall)
-            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            OutlinedButton(onClick = { onNavigate("Notícias") }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
         }
     }
 }
@@ -707,8 +795,8 @@ private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, on
         title = "CLIMA DO DIA • DUAS CIDADES",
         subtitle = "Temperatura, sensação térmica, chuva e severidade por município",
     ) {
-        StatusLine(city1.name, "Aguardando temperatura, térmica, chuva e horário de fonte oficial")
-        StatusLine(city2.name, "Aguardando temperatura, térmica, chuva e horário de fonte oficial")
+        StatusLine(city1.name, LocalCityWeather.current[city1.ibgeCode]?.summary(LocalObservationClock.current) ?: "Consultando medição oficial…")
+        StatusLine(city2.name, LocalCityWeather.current[city2.ibgeCode]?.summary(LocalObservationClock.current) ?: "Consultando medição oficial…")
         Text("A coluna preta mantém a separação visual entre Cidade 1 e Cidade 2.", color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -912,7 +1000,7 @@ private fun BlaiseHeroCard(modifier: Modifier = Modifier) {
                 border = BorderStroke(2.dp, Gold),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("B", color = GoldSoft, fontWeight = FontWeight.Black, style = MaterialTheme.typography.displaySmall)
+                    BlaiseAvatar(Modifier.fillMaxSize())
                 }
             }
             Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
@@ -1262,6 +1350,9 @@ private fun CityPanel(
     onChoose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val report = LocalCityWeather.current[city.ibgeCode]
+    val clock = LocalObservationClock.current
+    val observation = report?.currentObservation(clock)
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1273,9 +1364,30 @@ private fun CityPanel(
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.height(2.dp))
-            Text("— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-            Text("Aguardando dados oficiais", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Text(observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
+            Text(report?.summary(clock) ?: "Consultando medição oficial…", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Text("Sensação térmica • UV • probabilidade de chuva: indisponíveis", color = Muted, style = MaterialTheme.typography.labelSmall)
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
+        }
+    }
+}
+
+@Composable
+private fun BackendRainfallPanel() {
+    val response = LocalBackendDashboard.current
+    val clock = LocalObservationClock.current
+    val snapshot = (response as? DashboardDataNetworkResult.Available)?.snapshot?.takeIf { it.current(clock) }
+    DashboardSection(title = "CHUVA OBSERVADA • REDE ALERTA RIO", subtitle = "Município do Rio • resumo das estações") {
+        if (snapshot == null) {
+            Text(if (response is DashboardDataNetworkResult.Denied) "Dados completos disponíveis após verificação de acesso." else "Dados de chuva indisponíveis no momento.", color = Muted)
+        } else {
+            val rain = snapshot.rainfall
+            fun mm(value: Double?) = value?.let { String.format(java.util.Locale("pt", "BR"), "%.1f mm", it) } ?: "Indisponível"
+            StatusLine("Maior acumulado em estação • 15 min", mm(rain.max15mMm))
+            StatusLine("Maior acumulado em estação • 1 hora", mm(rain.max1hMm))
+            StatusLine("Maior acumulado em estação • 24 horas", mm(rain.max24hMm))
+            Text("Fonte: Alerta Rio • ${rain.stationCount} estações • medição ${rain.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted)
+            Text("Máximos da rede, não média da cidade nem medição do Centro ou de Niterói.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }

@@ -45,10 +45,20 @@ class PlayBillingEntitlementSource(
     context: Context,
     productIds: Set<String>,
     private val verifier: PurchaseVerifier,
+    private val onVerifiedPurchase: (PlayPurchaseCandidate?) -> Unit = {},
 ) : PurchasesUpdatedListener, BillingClientStateListener {
     private val catalog = SubscriptionCatalog(productIds)
     private var entitlementObserver: ((BillingEntitlementSnapshot) -> Unit)? = null
     private var offersObserver: ((SubscriptionOffersSnapshot) -> Unit)? = null
+    private val verificationGeneration = AtomicInteger(0)
+
+    private fun publishEntitlement(snapshot: BillingEntitlementSnapshot) {
+        if (snapshot !is BillingEntitlementSnapshot.Active) {
+            if (snapshot !is BillingEntitlementSnapshot.Verifying) verificationGeneration.incrementAndGet()
+            onVerifiedPurchase(null)
+        }
+        entitlementObserver?.invoke(snapshot)
+    }
 
     private val billingClient = BillingClient.newBuilder(context.applicationContext)
         .setListener(this)
@@ -67,11 +77,11 @@ class PlayBillingEntitlementSource(
         this.entitlementObserver = entitlementObserver
         this.offersObserver = offersObserver
         if (!catalog.configured) {
-            entitlementObserver(BillingEntitlementSnapshot.Unconfigured)
+            publishEntitlement(BillingEntitlementSnapshot.Unconfigured)
             offersObserver(SubscriptionOffersSnapshot.Unconfigured)
             return
         }
-        entitlementObserver(BillingEntitlementSnapshot.Connecting)
+        publishEntitlement(BillingEntitlementSnapshot.Connecting)
         offersObserver(SubscriptionOffersSnapshot.Loading)
         if (billingClient.isReady) {
             refreshPurchases()
@@ -83,13 +93,13 @@ class PlayBillingEntitlementSource(
 
     fun refresh() {
         if (!catalog.configured) {
-            entitlementObserver?.invoke(BillingEntitlementSnapshot.Unconfigured)
+            publishEntitlement(BillingEntitlementSnapshot.Unconfigured)
             offersObserver?.invoke(SubscriptionOffersSnapshot.Unconfigured)
         } else if (billingClient.isReady) {
             refreshPurchases()
             refreshOffers()
         } else {
-            entitlementObserver?.invoke(BillingEntitlementSnapshot.Connecting)
+            publishEntitlement(BillingEntitlementSnapshot.Connecting)
             offersObserver?.invoke(SubscriptionOffersSnapshot.Loading)
             billingClient.startConnection(this)
         }
@@ -134,6 +144,8 @@ class PlayBillingEntitlementSource(
     }
 
     fun stop() {
+        verificationGeneration.incrementAndGet()
+        onVerifiedPurchase(null)
         entitlementObserver = null
         offersObserver = null
         billingClient.endConnection()
@@ -144,13 +156,13 @@ class PlayBillingEntitlementSource(
             refreshPurchases()
             refreshOffers()
         } else {
-            entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+            publishEntitlement(BillingEntitlementSnapshot.Unavailable(result.responseCode))
             offersObserver?.invoke(SubscriptionOffersSnapshot.Unavailable(result.responseCode))
         }
     }
 
     override fun onBillingServiceDisconnected() {
-        entitlementObserver?.invoke(
+        publishEntitlement(
             BillingEntitlementSnapshot.Unavailable(BillingClient.BillingResponseCode.SERVICE_DISCONNECTED),
         )
         offersObserver?.invoke(
@@ -162,7 +174,7 @@ class PlayBillingEntitlementSource(
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> verifyPurchases(purchases.orEmpty())
             BillingClient.BillingResponseCode.USER_CANCELED -> refresh()
-            else -> entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+            else -> publishEntitlement(BillingEntitlementSnapshot.Unavailable(result.responseCode))
         }
     }
 
@@ -174,7 +186,7 @@ class PlayBillingEntitlementSource(
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                 verifyPurchases(purchases)
             } else {
-                entitlementObserver?.invoke(BillingEntitlementSnapshot.Unavailable(result.responseCode))
+                publishEntitlement(BillingEntitlementSnapshot.Unavailable(result.responseCode))
             }
         }
     }
@@ -232,27 +244,31 @@ class PlayBillingEntitlementSource(
         }
 
     private fun verifyPurchases(purchases: List<Purchase>) {
+        val generation = verificationGeneration.incrementAndGet()
+        onVerifiedPurchase(null)
         val candidates = purchases
             .map(::toCandidate)
             .filter { PlayEntitlementGate.canRequestVerification(it, catalog) }
 
         if (candidates.isEmpty()) {
-            entitlementObserver?.invoke(BillingEntitlementSnapshot.Inactive)
+            publishEntitlement(BillingEntitlementSnapshot.Inactive)
             return
         }
 
-        entitlementObserver?.invoke(BillingEntitlementSnapshot.Verifying)
+        publishEntitlement(BillingEntitlementSnapshot.Verifying)
         val remaining = AtomicInteger(candidates.size)
         val granted = AtomicBoolean(false)
 
         candidates.forEach { candidate ->
             verifier.verify(candidate) { verification ->
+                if (generation != verificationGeneration.get() || entitlementObserver == null) return@verify
                 val entitlement = PlayEntitlementGate.entitlement(candidate, verification)
                 if (entitlement.active && granted.compareAndSet(false, true)) {
-                    entitlementObserver?.invoke(BillingEntitlementSnapshot.Active(candidate.productIds.toSet()))
+                    onVerifiedPurchase(candidate)
+                    publishEntitlement(BillingEntitlementSnapshot.Active(candidate.productIds.toSet()))
                 }
                 if (remaining.decrementAndGet() == 0 && !granted.get()) {
-                    entitlementObserver?.invoke(BillingEntitlementSnapshot.Inactive)
+                    publishEntitlement(BillingEntitlementSnapshot.Inactive)
                 }
             }
         }
