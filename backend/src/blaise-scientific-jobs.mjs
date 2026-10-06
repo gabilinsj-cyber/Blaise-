@@ -17,6 +17,7 @@ export function evaluateScientificJobs(jobs,{now=Date.now()}={}) {
         if(!source.validAt||!Number.isFinite(Date.parse(source.validAt))||source.validAt!==job.validAt)throw TypeError('same_valid_time_required');
       }
       if(['calibratedMos','calibratedKdpRainRate','calibratedTurbulentGust'].includes(job.method)&&job.inputs?.policy?.scopeId!==job.scopeId)throw TypeError('calibration_scope_mismatch');
+      if(job.method==='conditionalMarineTravelTime'&&job.scopeId!==`municipality:${job.inputs?.destination?.cityIbge}`)throw TypeError('coastal_target_scope_mismatch');
       return {id:job.id,status:'CALCULATED_INPUTS_ONLY',scopeId:job.scopeId,validAt:job.validAt,calculatedAt:new Date(now).toISOString(),sources:job.sources,result:METHODS[job.method](job.inputs)};
     }catch(error){return {id:job?.id??null,status:'UNAVAILABLE',reason:error.message,result:null,officialAlert:false};}
   });

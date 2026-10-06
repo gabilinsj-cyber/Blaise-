@@ -1,4 +1,5 @@
 /** Numerical primitives, not hazard classifiers. SI unless the parameter names say otherwise. */
+export {significantWaveSpectrum,linearWaveDispersion,conditionalMarineTravelTime} from './blaise-marine-kernels.mjs';
 export const SCIENTIFIC_METHOD_VERSION = 'rj-kernels-20261006-v2';
 function number(value, name, min=-Infinity, max=Infinity) {
   if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max) throw RangeError(`invalid_${name}`);
