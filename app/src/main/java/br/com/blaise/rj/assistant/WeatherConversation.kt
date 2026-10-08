@@ -54,7 +54,7 @@ class WeatherConversation {
         val all = normalizedSpeech(question)
         if (all.contains("fim de semana") || all.contains("final de semana") || all.contains("semana que vem"))
             return ConversationAction.Reply("Entendi a consulta para ${resolved.name}. Ainda não tenho previsão validada para esse período; não vou usar as condições atuais como previsão.")
-        val supported = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover")
+        val supported = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover", "alerta", "aviso", "risco", "alagamento", "inundacao", "cheia", "deslizamento")
         if (supported.none(all::contains))
             return ConversationAction.Reply("Entendi a pergunta para ${resolved.name}, mas ainda não tenho dados oficiais validados para esse assunto. Não posso confirmar condições ou riscos agora.")
         val date = if (all.contains("amanha")) today.plusDays(1) else today

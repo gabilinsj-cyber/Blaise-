@@ -522,6 +522,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     var expandedInput by remember { mutableStateOf(false) }
     LaunchedEffect(expandedInput) { if (expandedInput) { inputFocus.requestFocus(); keyboard?.show() } }
     var showBulletin by remember { mutableStateOf(false) }
+    val statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
@@ -562,7 +563,16 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 answer = "Consultando fonte oficial para ${action.request.localScope ?: action.request.city.name}…"
                 queryJob = scope.launch {
                     val result = try {
-                        withTimeout(12_000L) { weather.answer(action.request) }
+                        val request = action.request
+                        val regional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
+                        val weatherQuestion = br.com.blaise.rj.assistant.normalizedSpeech(request.question)
+                        val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
+                        if (regional != null && !needsWeather) regional
+                        else {
+                            val measured = withTimeout(12_000L) { weather.answer(request) }
+                            val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
+                            listOfNotNull(measured, freshRegional).joinToString("\n\n")
+                        }
                     } catch (error: CancellationException) {
                         if (error !is TimeoutCancellationException) throw error
                         "A consulta para ${action.request.city.name} demorou além do limite. Não tenho uma medição atual confirmada. Tente novamente."
