@@ -39,3 +39,31 @@ Estes são **dez papéis de monitoramento e qualidade previstos**, e não dez se
 - O agendador GitHub não substitui um serviço de monitoramento contínuo; execuções agendadas podem atrasar.
 - **Interface:** seção `Mais → Manutenção e qualidade` informa horários e estado **não confirmado**, não simula que os agentes estão executando no aparelho.
 - O fluxo manual `Actions → Blaise RJ Maintenance → Run workflow` permite executar os modos hourly, nightly e monthly para verificação.
+
+## Milestone: 500.000 assinantes verificados — escala e cibersegurança
+
+O papel 10 também pesquisa sistemas, fornecedores e custos pagos; entrega comparativo, proposta técnica, URLs oficiais e valores com data, região e hipótese de consumo. A **criadora do aplicativo aprova e realiza pessoalmente** qualquer compra, contratação, aumento de quota ou instalação de ferramenta paga. Nenhuma cobrança automática é permitida pelo agente. Adequação técnica prevalece sobre preço mínimo.
+
+- Revisão antecipada quando **400.000 assinantes ativos verificados**, e revisão prioritária aos **500.000**.
+- Fonte obrigatória: contagem de assinatura **ativa e verificada** com horário UTC recente; sem ligação com métricas de billing, relatar NOT_CONFIGURED, nunca alegar crescimento. Variáveis de CI `BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS` e `BLAISE_SUBSCRIBERS_OBSERVED_AT` são **integração provisória**, não coleta real automatizada.
+- O workflow `scaling-milestone-review` roda no ciclo noturno e mensal; `scripts/rj-scale-policy.mjs` valida contagem e idade dos dados; `scripts/rj-scale-readiness.mjs` gera relatório sem compra/deploy.
+- **Assinantes != acessos concorrentes**: dimensionar com RPS/P95-P99, picos, sessões simultâneas, CPU/RAM, latência externa, quotas, taxa de erros e orçamento.
+- Separar ingestão oficial, cálculos críticos/alertas P0, pagamento e tráfego público; fila com limites, cache com TTL comprovado, backpressure, circuit breakers, proteção contra sobrecarga, estratégia de degradação e testes de recuperação. Não guardar tokens, áudios ou localização sem necessidade.
+- Preferir primeiro o mesmo provedor do backend Cloud Run (região southamerica-east1) e cotar opções adicionais somente quando tecnicamente justificadas.
+
+### Catálogo inicial de fornecedores oficiais (valores indicativos em USD em 08/10/2026)
+
+| Produto | Uso recomendado | Referência oficial e custo divulgado |
+|---|---|---|
+| Google Cloud Armor Enterprise Paygo | WAF, DDoS e proteção de borda; exige arquitetura de load balancer compatível | https://cloud.google.com/armor/pricing — USD 0,273972603/h de assinatura base (~USD 200/730h), mais processamento de dados e demais componentes |
+| Google Cloud Security Command Center Premium | Detecção/gestão de ameaças e vulnerabilidades na nuvem | https://cloud.google.com/security-command-center/pricing — cobrança pay-as-you-go por recursos ou assinatura anual mínima USD 15.000 |
+| Google Cloud Run | Autoescala de backend existente, concorrência e recursos | https://cloud.google.com/run/pricing — custo variável por CPU/RAM, requisições, região e transferência |
+| Google Cloud Load Balancing | Roteamento seguro e camada adequada ao Cloud Armor | https://cloud.google.com/load-balancing/pricing — primeiras cinco regras globais USD 0,025/h, mais uso de tráfego |
+| Google Cloud Storage / Cloud SQL / Memorystore | Evidência, históricos, backups, banco relacional ou cache conforme necessidade real | https://cloud.google.com/storage/pricing ; https://cloud.google.com/sql/pricing ; https://cloud.google.com/memorystore/docs/redis/pricing — orçamento depende da região, capacidade, disponibilidade e tráfego |
+| Grafana Cloud k6 Pro | Testes controlados de carga, latência e picos | https://grafana.com/pricing/ — plataforma a partir de USD 19/mês + uso; testes Pro a partir de USD 0,15 por hora de usuário virtual acima da franquia |
+
+Os preços são referências públicas, não propostas comerciais. A solução apropriada requer medição e contratação aprovada. Serviços de segurança **não são antivírus instalado dentro do aplicativo**: combinar análise de código e dependências, verificação de artefatos assinados, defesa do backend e atestação do cliente. App Check/Play Integrity pode proteger rotas, mas deve ser configurado/testado para **Google Play, Samsung e Amazon**, de modo a não bloquear clientes legítimos fora da Play Store (https://firebase.google.com/docs/app-check/android/play-integrity-provider).
+
+**Proteção de disponibilidade:** qualquer WAF, atestado, mudança de regras, cache ou antivírus externo deve começar em observação/ensaio, com testes de falso positivo para acesso a fontes oficiais, cidades, mapas, assinaturas e alertas P0 antes de bloqueio ativo. Alertas oficiais críticos devem continuar visíveis e não podem ser apagados por regras de segurança ou processamento estatístico.
+
+A proposta de aquisição produz recomendação e orçamento à proprietária; não existe autorização implícita de compra. Indicadores insuficientes => relatório de pendências, sem inventar preços específicos ou disponibilidade.
