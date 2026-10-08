@@ -2,6 +2,7 @@ package br.com.blaise.rj.data
 
 import br.com.blaise.rj.assistant.WeatherRequest
 import br.com.blaise.rj.assistant.normalizedSpeech
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -19,6 +20,21 @@ class OfficialWeatherClient {
         runCatching { currentCityBlocking(request) }.getOrElse {
             CityWeatherResult(request.city.ibgeCode, request.localScope,
                 unavailableReason = "Não foi possível confirmar uma medição oficial recente para ${request.localScope ?: request.city.name}.")
+        }
+    }
+
+    /** Separate station network: these readings never stand in for Centro or another municipality. */
+    suspend fun currentRioStations(): List<CityWeatherObservation> = withContext(Dispatchers.IO) {
+        try {
+            val url = "https://websempre.rio.rj.gov.br/estacoes/"
+            AlertaRioObservationParser.parse(get(url)).map { row ->
+                CityWeatherObservation(3304557, row.station, "Alerta Rio", url, row.observedAt,
+                    row.temperatureC, row.humidityPercent, row.windKmh, 1800)
+            }.filter { it.current(Instant.now()) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

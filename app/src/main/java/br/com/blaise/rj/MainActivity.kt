@@ -180,6 +180,7 @@ private val AlertRed = Color(0xFFFF5D62)
 private val WarningAmber = Color(0xFFFFC857)
 private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
+private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
@@ -215,6 +216,7 @@ fun BlaiseApp(
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val weatherClient = remember { OfficialWeatherClient() }
+    var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
@@ -224,6 +226,16 @@ fun BlaiseApp(
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) { observationClock = Instant.now(); delay(30_000) }
+        }
+    }
+    LaunchedEffect(powerOn, lifecycle) {
+        rioStations = emptyList()
+        if (!powerOn) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                rioStations = weatherClient.currentRioStations()
+                delay(60_000)
+            }
         }
     }
     LaunchedEffect(powerOn, city1.ibgeCode, city2.ibgeCode, lifecycle) {
@@ -264,7 +276,7 @@ fun BlaiseApp(
         OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
 
-    CompositionLocalProvider(LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
+    CompositionLocalProvider(LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -730,6 +742,28 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
                 }
             }
         }
+        RioStationMeasurementsPanel()
+    }
+}
+
+@Composable
+private fun RioStationMeasurementsPanel() {
+    val clock = LocalObservationClock.current
+    val stations = LocalRioStations.current.filter { it.current(clock) }
+    var expanded by remember { mutableStateOf(false) }
+    Text("MEDIÇÕES • ESTAÇÕES ALERTA RIO", color = Gold, fontWeight = FontWeight.Bold)
+    Text("Cobertura de cada estação; não são dados do Centro, de Niterói ou de São Gonçalo.", color = Muted, style = MaterialTheme.typography.labelSmall)
+    if (stations.isEmpty()) {
+        Text("Nenhuma medição recente validada nesta consulta.", color = Muted)
+    } else {
+        Text("${stations.size} estações com medições recentes.", color = Color.White)
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "Recolher medições" else "Ver temperatura, umidade e vento")
+        }
+        if (expanded) stations.forEach { station ->
+            Text(station.station, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(station.summary(clock), color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
@@ -827,7 +861,7 @@ private fun MapScreen(city1: City, city2: City) {
         PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
-        StatusLine("INEA / Alerta Rio", "Aguardando radar e chuva com horário por frame")
+        StatusLine("Alerta Rio / CEMADEN", "Aguardando radar e chuva com horário por frame")
     }
 }
 
@@ -1146,7 +1180,7 @@ private fun RiskPanel(modifier: Modifier) {
 private fun RadarPanel() {
     DashboardSection(
         title = "RADAR • ÚLTIMOS 30 MIN",
-        subtitle = "INEA Guaratiba/Macaé • Alerta Rio/Sumaré",
+        subtitle = "Alerta Rio • CEMADEN",
         modifier = Modifier.fillMaxWidth(),
     ) {
         Surface(
@@ -1383,7 +1417,15 @@ private fun CityPanel(
             Spacer(Modifier.height(2.dp))
             Text(observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
             Text(report?.summary(clock) ?: "Consultando medição oficial…", color = Muted, style = MaterialTheme.typography.bodySmall)
-            Text("Sensação térmica • UV • probabilidade de chuva: indisponíveis", color = Muted, style = MaterialTheme.typography.labelSmall)
+            fun metric(value: Double?, unit: String): String = value?.let {
+                String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
+            } ?: "Indisponível"
+            StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
+            StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
+            StatusLine("Sensação térmica", "Indisponível")
+            StatusLine("Índice UV", "Indisponível")
+            StatusLine("Chance de chuva", "Indisponível")
+            StatusLine("Rajadas / nuvens", "Indisponíveis")
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
         }
     }

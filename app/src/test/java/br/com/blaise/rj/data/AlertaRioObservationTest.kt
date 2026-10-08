@@ -17,4 +17,7 @@ class AlertaRioObservationTest {
  @Test fun staleAndFutureAreNotCurrent() {assertTrue(AlertaRioObservationParser.parse(html(date="06/10/2026 - 15:00:00"),now).isEmpty());assertTrue(AlertaRioObservationParser.parse(html(date="06/10/2026 - 18:00:00"),now).isEmpty())}
  @Test(expected=IllegalArgumentException::class) fun rejectsImpossibleHumidity(){AlertaRioObservationParser.parse(html(humidity="101"),now)}
  @Test(expected=java.time.format.DateTimeParseException::class) fun rejectsCalendarOverflow(){AlertaRioObservationParser.parse(html(date="31/02/2026 - 17:00:00"),now)}
+ @Test(expected=IllegalArgumentException::class) fun rejectsUnexpectedStationCoverage() {
+  AlertaRioObservationParser.parse(html().replace("São Cristóvão", "Centro do Rio"), now)
+ }
 }

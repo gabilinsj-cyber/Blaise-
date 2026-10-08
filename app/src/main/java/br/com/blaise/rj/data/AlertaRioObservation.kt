@@ -29,6 +29,7 @@ object AlertaRioObservationParser {
             val cells = Regex("<t[dh]\\b[^>]*>([\\s\\S]*?)</t[dh]>", RegexOption.IGNORE_CASE).findAll(row.value).map { text(it.groupValues[1]) }.toList()
             if (cells.firstOrNull()?.toIntOrNull() == null) return@mapNotNull null
             require(cells.size == 9)
+            require(stations.any { normalizedSpeech(it) == normalizedSpeech(cells[1]) })
             val time = LocalDateTime.parse(cells[2], stamp).atZone(ZoneId.of("America/Sao_Paulo")).toInstant()
             val age = java.time.Duration.between(time, now).seconds
             val temperature = number(cells[3], -30.0, 60.0)
