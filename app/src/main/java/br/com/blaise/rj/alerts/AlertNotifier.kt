@@ -15,10 +15,11 @@ import br.com.blaise.rj.core.Severity
 class AlertNotifier(private val context: Context) {
     companion object {
         const val P0_CHANNEL_ID = "blaise_p0"
+        const val SILENT_CHANNEL_ID = "blaise_official_visible_silent_v1"
         const val GENERAL_CHANNEL_ID = "blaise_alerts"
     }
 
-    fun notify(alert: OfficialAlert, entitlement: Entitlement): Boolean {
+    fun notify(alert: OfficialAlert, entitlement: Entitlement, automaticAudioAllowed: Boolean = false): Boolean {
         val decision = AlertNotificationPolicy.decide(alert, entitlement)
         if (!decision.deliver) return false
         if (
@@ -29,15 +30,17 @@ class AlertNotifier(private val context: Context) {
         }
 
         val urgent = alert.severity == Severity.P0 || alert.severity == Severity.RED
-        val channelId = if (urgent) P0_CHANNEL_ID else GENERAL_CHANNEL_ID
+        val audible = urgent && automaticAudioAllowed
+        val channelId = if (audible) P0_CHANNEL_ID else SILENT_CHANNEL_ID
         val channelName = if (urgent) "Alertas oficiais P0" else "Alertas Blaise"
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             channelId,
             channelName,
-            if (urgent) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT,
+            if (audible) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            if (urgent) enableVibration(true)
+            enableVibration(audible)
+            if (!audible) setSound(null, null)
         }
         manager.createNotificationChannel(channel)
 
@@ -45,7 +48,7 @@ class AlertNotifier(private val context: Context) {
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(alert.title)
             .setContentText("${alert.source} • ${alert.city?.name ?: "Estado do RJ"}")
-            .setCategory(if (urgent) Notification.CATEGORY_ALARM else Notification.CATEGORY_EVENT)
+            .setCategory(if (audible) Notification.CATEGORY_ALARM else Notification.CATEGORY_EVENT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
             .build()

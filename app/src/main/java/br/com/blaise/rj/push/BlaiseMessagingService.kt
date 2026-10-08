@@ -24,7 +24,9 @@ class BlaiseMessagingService : FirebaseMessagingService() {
             .getOrDefault(true)
         if (!firstDelivery) return
 
-        AlertNotifier(this).notify(alert, Entitlement(active = false))
+        val convergenceAllowed = message.data["convergencePolicy"] == "two-official-plus-blaise-v1" &&
+            message.data["automaticAudioAllowed"] == "true"
+        AlertNotifier(this).notify(alert, Entitlement(active = false), automaticAudioAllowed = convergenceAllowed)
     }
 
     override fun onNewToken(token: String) {

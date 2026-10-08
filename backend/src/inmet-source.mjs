@@ -11,7 +11,7 @@ export const INMET_MAX_WARNING_RECORDS = 128;
 const CAP_SEVERITIES = new Set(['Extreme', 'Severe', 'Moderate', 'Minor', 'Unknown']);
 const CAP_URGENCIES = new Set(['Immediate', 'Expected', 'Future', 'Past', 'Unknown']);
 const CAP_CERTAINTIES = new Set(['Observed', 'Likely', 'Possible', 'Unlikely', 'Unknown']);
-const CAP_MESSAGE_TYPES = new Set(['Alert', 'Update']);
+const CAP_MESSAGE_TYPES = new Set(['Alert', 'Update', 'Cancel']);
 
 export class InmetSourceContractError extends Error {
   constructor(code) {
@@ -143,6 +143,16 @@ function normalizeRecord(block) {
   const msgType = requiredText(block, 'msgType', 'inmet_msg_type_missing', 32);
   if (!CAP_MESSAGE_TYPES.has(msgType)) throw new InmetSourceContractError('inmet_msg_type_invalid');
 
+  let cancelledIdentifiers = [];
+  if (msgType === 'Cancel') {
+    const references = requiredText(block, 'references', 'inmet_cancel_references_missing', 16_384);
+    cancelledIdentifiers = references.split(/\s+/).map(reference => {
+      const parts = reference.split(',');
+      if (parts.length !== 3 || !/@inmet\.gov\.br$/i.test(parts[0]) || !parts[1].startsWith('urn:oid:2.49.0.0.76.0.')) throw new InmetSourceContractError('inmet_cancel_reference_untrusted');
+      parseCapDate(parts[2], 'inmet_cancel_reference_date_invalid');
+      return parts[1];
+    });
+  }
   const sent = parseCapDate(requiredText(block, 'sent', 'inmet_sent_missing', 64), 'inmet_sent_invalid');
   const event = requiredText(info, 'event', 'inmet_event_missing', 160);
   const urgency = requiredText(info, 'urgency', 'inmet_urgency_missing', 32);
@@ -170,6 +180,7 @@ function normalizeRecord(block) {
     sent,
     status,
     msgType,
+    cancelledIdentifiers: Object.freeze(cancelledIdentifiers),
     event,
     urgency,
     severity,
@@ -208,9 +219,12 @@ export function validateInmetCapFeedXml(xml) {
     throw new InmetSourceContractError('inmet_feed_record_count_invalid');
   }
 
-  const records = blocks.map(normalizeRecord);
+  const allRecords = blocks.map(normalizeRecord);
+  const cancellations = allRecords.filter(record => record.msgType === 'Cancel');
+  const cancelledIds = new Set(cancellations.flatMap(record => record.cancelledIdentifiers));
+  const records = allRecords.filter(record => record.msgType !== 'Cancel' && !cancelledIds.has(record.identifier));
   const identifiers = new Set();
-  for (const record of records) {
+  for (const record of allRecords) {
     if (identifiers.has(record.identifier)) throw new InmetSourceContractError('inmet_duplicate_identifier');
     identifiers.add(record.identifier);
   }
@@ -238,6 +252,7 @@ export function validateInmetCapFeedXml(xml) {
     feedShape,
     activeWarningCount: records.length,
     rjWarningCount: rjWarnings.length,
+    cancellations: Object.freeze(cancellations),
     warnings: Object.freeze(records),
     rjWarnings: Object.freeze(rjWarnings),
     warningInventorySha256: sha256(JSON.stringify(canonical)),
@@ -263,6 +278,42 @@ export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {
       throw new InmetSourceContractError(`inmet_${error.code}`);
     }
     throw error;
+  }
+  // RSS is an index, not CAP: resolve only bounded, same-host CAP document links.
+  if (tagBlocks(xml, 'alert').length === 0 && tagBlocks(xml, 'item').length > 0) {
+    const items = tagBlocks(xml, 'item');
+    if (items.length > INMET_MAX_WARNING_RECORDS) throw new InmetSourceContractError('inmet_feed_record_count_invalid');
+    const links = items.map(item => {
+      const raw = requiredText(item, 'link', 'inmet_cap_link_missing', 512);
+      const url = new URL(raw);
+      if (url.protocol !== 'https:' || url.hostname !== INMET_HOST || url.username || url.password || url.port ||
+          !/^\/avisos\/rss\/[1-9]\d{0,9}$/.test(url.pathname) || url.search || url.hash) {
+        throw new InmetSourceContractError('inmet_cap_link_untrusted');
+      }
+      return url.href;
+    });
+    if (new Set(links).size !== links.length) throw new InmetSourceContractError('inmet_duplicate_cap_link');
+    const documents = new Array(links.length);
+    let cursor = 0;
+    let totalBytes = 0;
+    const deadline = Date.now() + 90_000;
+    let failed = false;
+    await Promise.all(Array.from({length: Math.min(6, links.length)}, async () => {
+      while (!failed && cursor < links.length) {
+        if (Date.now() > deadline) throw new InmetSourceContractError('inmet_cap_resolution_deadline');
+        const index = cursor++;
+        let document;
+        try { document = await fetchXmlContract(links[index], {
+          allowedHosts: [INMET_HOST], fetchImpl, timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024,
+        }); } catch (error) { failed = true; throw error; }
+        totalBytes += Buffer.byteLength(document);
+        if (totalBytes > 16 * 1024 * 1024) throw new InmetSourceContractError('inmet_cap_aggregate_too_large');
+        if (tagBlocks(document, 'alert').length !== 1) throw new InmetSourceContractError('inmet_cap_document_invalid');
+        documents[index] = document.replace(/<\?xml[^?]*\?>/gi, '');
+      }
+    }));
+    const result = validateInmetCapFeedXml(`<feed>${documents.join('')}</feed>`);
+    return Object.freeze({...result, feedShape: 'RSS_INDEX_RESOLVED_CAP'});
   }
   return validateInmetCapFeedXml(xml);
 }

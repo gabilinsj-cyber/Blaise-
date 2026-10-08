@@ -1,5 +1,6 @@
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
+import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
@@ -144,7 +145,7 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
-  const sourceWorkerConfig = loadOfficialSourceWorkerConfig(process.env);
+  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
@@ -175,6 +176,8 @@ async function main() {
   const sourceWorker = createOfficialSourceWorker({
     config: sourceWorkerConfig,
     publishInmetP0,
+    refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
+    cadenceMode: 'fixed_start',
   });
 
   const coreHandler = createHttpHandler({
@@ -205,6 +208,12 @@ async function main() {
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
+  const vectorAgent = createBlaiseVectorRjAgent();
+  if (sourceWorkerConfig.enabled) {
+    vectorAgent.setSeverity(sourceWorkerConfig.initialMode === 'severe' ? 5 : 1);
+    vectorAgent.start();
+  }
+
   if (sourceWorker.start()) {
     console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
   } else {
@@ -217,7 +226,7 @@ async function main() {
       if (outcome !== 'graceful') process.exitCode = 1;
     },
   });
-  const shutdown = createCoordinatedShutdown(serverShutdown, sourceWorker);
+  const shutdown = createCoordinatedShutdown(serverShutdown, { stop() { vectorAgent.stop(); sourceWorker.stop(); } });
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 

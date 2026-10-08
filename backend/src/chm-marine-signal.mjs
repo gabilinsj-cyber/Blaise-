@@ -57,7 +57,7 @@ function parseMeters(token) {
 
 function buildExplicitSignal({ direction, minMeters, maxMeters, warningType }) {
   const normalizedDirection = String(direction).toUpperCase();
-  if (!DIRECTIONS.has(normalizedDirection)) {
+  if (!/^[NSEW]{1,3}(?:\/[NSEW]{1,3})?$/.test(normalizedDirection) || !normalizedDirection.split("/").every(d => DIRECTIONS.has(d))) {
     throw new ChmMarineSignalError('chm_marine_signal_wave_direction_invalid');
   }
   if (!Number.isFinite(minMeters)
@@ -89,7 +89,7 @@ export function parseChmMarineSignal(segment, warningType) {
   }
 
   const markerPresent = /\bONDAS?\s+DE\b/iu.test(segment);
-  const pattern = /\bONDAS?\s+DE\s+([NSEW]{1,3})\s+(\d{1,2}(?:[.,]\d{1,2})?)(?:\s*\/\s*(\d{1,2}(?:[.,]\d{1,2})?))?\s+METROS?\b/giu;
+  const pattern = /\bONDAS?\s+DE\s+([NSEW]{1,3}(?:\/[NSEW]{1,3})?)\s+(\d{1,2}(?:[.,]\d{1,2})?)(?:\s*\/\s*(\d{1,2}(?:[.,]\d{1,2})?))?\s+METROS?\b/giu;
   const matches = [...segment.matchAll(pattern)];
 
   if (!markerPresent) return emptySignal(warningType);

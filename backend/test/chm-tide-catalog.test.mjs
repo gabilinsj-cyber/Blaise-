@@ -217,3 +217,9 @@ test('RJ tide catalog probe fetches only the pinned official CHM catalog URL', a
   assert.equal(result.portSelectionValidation, 'PASS_OFFICIAL_RJ_TIDE_STATION_CATALOG');
   assert.equal(result.tideDocumentBindingValidation, CHM_RJ_TIDE_DOCUMENT_BINDING_CONTRACT);
 });
+
+test('preceding non-RJ station cannot contaminate the first RJ station identity', () => {
+  const html = fixture({rows: '<div>15 - PORTO DE LUÍS CORREIA 55 - 57 POINT (-41.65 -2.85) Piauí</div>' + stationRows()});
+  const result = validateChmRjTideCatalogHtml(html);
+  assert.equal(result.stations.find(s => s.stationNumber === 42).name, 'PORTO DO FORNO');
+});

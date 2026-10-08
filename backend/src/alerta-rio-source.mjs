@@ -280,3 +280,46 @@ export async function probeAlertaRioLiveRainfall({ fetchImpl = globalThis.fetch 
   }
   return validateAlertaRioLiveRainfallHtml(html);
 }
+
+/** Meteorological station readings; never regional or neighbourhood-wide estimates. */
+export function validateAlertaRioMeteorologyHtml(html, { now = new Date(), maxAgeMs = 30 * 60_000 } = {}) {
+  if (typeof html !== 'string' || !html.includes('Dados Meteorol')) {
+    throw new OfficialSourceContractError('alerta_rio_meteorology_marker_missing');
+  }
+  const fields = [
+    ['temperatureC', -30, 60], ['relativeHumidityPercent', 0, 100],
+    ['pressureHpa', 800, 1100], ['dewPointC', -60, 60],
+    ['windSpeedKmh', 0, 400], ['windDirectionDegrees', 0, 360],
+  ];
+  const number = (raw, min, max) => {
+    if (['-', 'ND', '', 'N/D'].includes(raw.toUpperCase())) return null;
+    if (!/^-?\d+(?:[.,]\d+)?$/.test(raw)) throw new OfficialSourceContractError('alerta_rio_meteorology_invalid_number');
+    const value = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(value) || value < min || value > max) throw new OfficialSourceContractError('alerta_rio_meteorology_out_of_range');
+    return value;
+  };
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)];
+  const table = tables.find(([raw]) => cellText(raw).includes('P. de Orvalho') && cellText(raw).includes('Umi. do Ar'));
+  if (!table) throw new OfficialSourceContractError('alerta_rio_meteorology_columns_missing');
+  const stations = [];
+  for (const [, row] of table[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const cells = extractCells(row);
+    if (!/^\d+$/.test(cells[0] ?? '')) continue;
+    if (cells.length !== 9) throw new OfficialSourceContractError('alerta_rio_meteorology_column_count');
+    const observedAt = parseObservedAt(cells[2]);
+    const ageMs = new Date(now).getTime() - new Date(observedAt).getTime();
+    if (!Number.isFinite(ageMs)) throw new OfficialSourceContractError('alerta_rio_meteorology_invalid_clock');
+    const item = { code: Number(cells[0]), name: cells[1], observedAt,
+      freshness: ageMs < 0 ? 'future' : ageMs > maxAgeMs ? 'stale' : 'recent',
+      coverage: 'station', municipalityIbge: 3304557 };
+    if (!item.name || stations.some(s => s.code === item.code)) throw new OfficialSourceContractError('alerta_rio_meteorology_invalid_station');
+    fields.forEach(([key, min, max], i) => { item[key] = number(cells[i + 3], min, max); });
+    // These fields are not present in this observational source.
+    Object.assign(item, { feelsLikeC: null, uvIndex: null, rainProbabilityPercent: null,
+      cloudCoverPercent: null, windGustKmh: null });
+    stations.push(Object.freeze(item));
+  }
+  if (!stations.length) throw new OfficialSourceContractError('alerta_rio_meteorology_no_stations');
+  return Object.freeze({ sourceId: 'alerta-rio-meteorology-live', sourceUrl: ALERTA_RIO_LIVE_URL,
+    fetchedAt: new Date(now).toISOString(), stations: Object.freeze(stations) });
+}

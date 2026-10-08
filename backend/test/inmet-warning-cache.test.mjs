@@ -127,3 +127,22 @@ test('preserves a current snapshot as degraded after a later bounded refresh fai
   assert.equal(reading.lastErrorCode, 'inmet_source_timeout');
   assert.equal(reading.snapshot.rjWarningCount, 1);
 });
+
+
+test('resolved official RSS CAP inventory survives the cache boundary', () => {
+  const cache = createInmetCapWarningsCache({ now: () => NOW });
+  cache.recordSuccess({ ...snapshot(), feedShape: 'RSS_INDEX_RESOLVED_CAP' });
+  assert.equal(cache.read().state, 'CURRENT');
+  assert.equal(cache.read().snapshot.rjWarningCount, 1);
+  assert.throws(() => cache.recordSuccess({ ...snapshot(), feedShape: 'UNVERIFIED_HTML' }),
+    error => error.code === 'inmet_warnings_cache_feed_shape_invalid');
+});
+test('validated cancellation can leave an empty active inventory without cache failure', () => {
+  const cache = createInmetCapWarningsCache({ now: () => NOW });
+  const original = snapshot();
+  cache.recordSuccess({ ...original, activeWarningCount: 0, rjWarningCount: 0, warnings: [], rjWarnings: [],
+    warningInventorySha256: createHash('sha256').update(JSON.stringify([])).digest('hex'),
+    cancellations: [{ ...original.warnings[0], msgType: 'Cancel', cancelledIdentifiers: [original.warnings[0].identifier] }] });
+  assert.equal(cache.read().state, 'CURRENT');
+  assert.equal(cache.read().snapshot.activeWarningCount, 0);
+});

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   CHM_TIDE_PDF_ARTIFACT_CONTRACT,
+  fetchChmTidePdfResponse,
   CHM_TIDE_PDF_ARTIFACT_VALIDATION,
   CHM_TIDE_PDF_MAX_BYTES,
   ChmTidePdfArtifactError,
@@ -141,4 +142,20 @@ test('validates all seven RJ station artifacts and emits a deterministic invento
   assert.equal(result.tideValueExtraction, 'NOT_IMPLEMENTED');
   assert.equal(result.contract, CHM_TIDE_PDF_ARTIFACT_CONTRACT);
   assert.equal(result.artifacts.some((artifact) => 'bytes' in artifact), false);
+});
+
+
+test('PDF redirect accepts only official assets host and exact publication path', async () => {
+  const source = station().tideTablePdfUrl;
+  const target = source.replace('www.marinha.mil.br', 'assets.marinha.mil.br');
+  const calls = [];
+  const result = await probeChmTidePdfArtifact(station(), {fetchImpl: async url => {
+    calls.push(String(url));
+    return calls.length === 1 ? new Response(null, {status:301, headers:{location:target}}) : responseFor();
+  }});
+  assert.deepEqual(calls, [source, target]);
+  assert.equal(result.pdfMagicValidation, 'PASS');
+  for (const location of [target.replace('assets.marinha.mil.br','example.com'), target.replace('40%20','41%20'), target.replace('https:', 'http:')]) {
+    await assert.rejects(() => fetchChmTidePdfResponse(source, {redirect:'manual'}, async()=>new Response(null,{status:301,headers:{location}})), e => e.code === 'source_redirect_rejected');
+  }
 });

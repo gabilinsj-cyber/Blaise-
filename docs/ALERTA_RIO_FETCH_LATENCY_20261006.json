@@ -1,0 +1,8 @@
+{
+  "url": "https://websempre.rio.rj.gov.br/estacoes/",
+  "status": 200,
+  "bytes": 73317,
+  "latencyMs": 9272,
+  "measuredAtUtc": "2026-10-06T20:33:22Z",
+  "interpretation": "single source fetch from development environment; not production latency or forecast accuracy"
+}

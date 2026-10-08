@@ -72,3 +72,15 @@ test('rejects nonofficial, non-P0, expired and overlong events', () => {
   assert.throws(() => buildP0TopicMessage({ ...alert(), expiresAt: '2026-09-06T02:59:59Z' }, config, nowMillis));
   assert.throws(() => buildP0TopicMessage({ ...alert(), expiresAt: '2026-09-07T02:55:01Z' }, config, nowMillis));
 });
+
+test('category5 messages are visible-only without convergence evidence',()=>{
+ const data=buildP0TopicMessage(alert(),config,nowMillis).message.data;
+ assert.equal(data.automaticAudioAllowed,'false');assert.equal(data.convergencePolicy,'two-official-plus-blaise-v1');
+});
+
+test('matching two-source and Blaise convergence authorizes delivery, wrong scope stays silent',()=>{
+ const a=alert();const base={alertId:a.id,sourceId:'a',independentSourceId:'a',sourceUrl:'https://example.org',scopeId:'state:RJ',phenomenon:'storm',level:5,validFrom:a.issuedAt,validUntil:a.expiresAt};
+ const evidence={scopeId:'state:RJ',phenomenon:'storm',officialAlerts:[base,{...base,sourceId:'b',independentSourceId:'b'}],analyses:[{...base,sourceId:'vector'}]};
+ assert.equal(buildP0TopicMessage(a,config,nowMillis,evidence).message.data.automaticAudioAllowed,'true');
+ assert.equal(buildP0TopicMessage(a,config,nowMillis,{...evidence,scopeId:'municipality:3303302'}).message.data.automaticAudioAllowed,'false');
+});

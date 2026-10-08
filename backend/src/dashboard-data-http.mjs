@@ -1,3 +1,4 @@
+import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID } from './official-source-worker.mjs';
@@ -62,7 +63,7 @@ function setCommonHeaders(res) {
 function sendJson(res, statusCode, body) {
   setCommonHeaders(res);
   const serialized = JSON.stringify(body);
-  if (Buffer.byteLength(serialized, 'utf8') > DASHBOARD_DATA_HTTP_MAX_RESPONSE_BYTES) {
+  if (Buffer.byteLength(serialized, 'utf8') > (body.contract === STATEWIDE_DASHBOARD_CONTRACT ? STATEWIDE_DASHBOARD_MAX_BYTES : DASHBOARD_DATA_HTTP_MAX_RESPONSE_BYTES)) {
     throw new Error('dashboard_response_too_large');
   }
   res.statusCode = statusCode;
@@ -200,7 +201,7 @@ export function createPaidDashboardDataHttpHandler(
   const gate = createConcurrencyGate({ maxConcurrent });
 
   return async (req, res) => {
-    if (req.url !== DASHBOARD_DATA_HTTP_PATH) return delegate(req, res);
+    if (req.url !== DASHBOARD_DATA_HTTP_PATH && req.url !== STATEWIDE_DASHBOARD_PATH) return delegate(req, res);
 
     increment(metrics, 'requests_total');
     try {
@@ -219,7 +220,9 @@ export function createPaidDashboardDataHttpHandler(
       const result = await gate.run(async () => {
         const entitlement = await verifyPurchasePayload(payload, { config, gateway });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
-        const snapshot = buildPaidDashboardSnapshot(sourceWorker);
+        const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
+          ? buildStatewideDashboardSnapshot(sourceWorker)
+          : buildPaidDashboardSnapshot(sourceWorker);
         return snapshot
           ? Object.freeze({ kind: 'snapshot', snapshot })
           : Object.freeze({ kind: 'unavailable' });

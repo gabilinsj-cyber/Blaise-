@@ -13,6 +13,7 @@ import {
 } from '../src/chm-tide-catalog.mjs';
 import {
   CHM_TIDE_PDF_MAX_BYTES,
+  fetchChmTidePdfResponse,
   ChmTidePdfArtifactError,
   probeChmRjTidePdfArtifacts,
   validateChmTidePdfBytes,
@@ -127,6 +128,7 @@ async function probeChmTideCacheIngestions(catalog, pdfArtifacts) {
 
     const { bytes } = await fetchBinaryContract(station.tideTablePdfUrl, {
       allowedHosts: [CHM_TIDE_CATALOG_HOST],
+      fetchImpl: fetchChmTidePdfResponse,
       allowedContentTypes: ['application/pdf'],
       accept: 'application/pdf',
       timeoutMs: 12_000,

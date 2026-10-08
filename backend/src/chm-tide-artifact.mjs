@@ -142,6 +142,25 @@ export function validateChmTidePdfBytes(bytes) {
   });
 }
 
+// The CHM publication now redirects PDF bytes to its official assets host.
+// Permit one exact-path HTTPS transfer only; all other redirects remain rejected.
+export async function fetchChmTidePdfResponse(url, options, fetchImpl = globalThis.fetch) {
+  const original = new URL(String(url));
+  const response = await fetchImpl(url, options);
+  if (![301, 302, 307, 308].includes(response.status)) return response;
+  const target = new URL(response.headers.get('location') ?? '', original);
+  if (original.hostname !== CHM_TIDE_CATALOG_HOST || original.protocol !== 'https:' ||
+      target.protocol !== 'https:' || target.hostname !== 'assets.marinha.mil.br' ||
+      target.username || target.password || target.port || target.search || target.hash ||
+      decodeURIComponent(target.pathname) !== decodeURIComponent(original.pathname) ||
+      !original.pathname.startsWith(CHM_TIDE_PDF_PATH_PREFIX)) {
+    await response.body?.cancel();
+    throw new SourceContractError('source_redirect_rejected');
+  }
+  await response.body?.cancel();
+  return fetchImpl(target, {...options, redirect: 'manual'});
+}
+
 export async function probeChmTidePdfArtifact(station, { fetchImpl = globalThis.fetch } = {}) {
   const descriptor = validateStationDescriptor(station);
   try {
@@ -149,7 +168,7 @@ export async function probeChmTidePdfArtifact(station, { fetchImpl = globalThis.
       allowedHosts: [CHM_TIDE_CATALOG_HOST],
       allowedContentTypes: ['application/pdf'],
       accept: 'application/pdf',
-      fetchImpl,
+      fetchImpl: (url, options) => fetchChmTidePdfResponse(url, options, fetchImpl),
       timeoutMs: 12_000,
       maxBytes: CHM_TIDE_PDF_MAX_BYTES,
     });

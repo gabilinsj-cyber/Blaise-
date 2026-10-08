@@ -69,6 +69,8 @@ export function createOfficialSourceScheduler({
   clearTimer = clearTimeout,
   maxConcurrency = 2,
   autoSchedule = true,
+  refreshIntervalsMs = null,
+  cadenceMode = 'after_completion',
   onEvent = () => {},
 } = {}) {
   if (typeof now !== 'function') {
@@ -86,6 +88,21 @@ export function createOfficialSourceScheduler({
   if (typeof onEvent !== 'function') {
     throw new OfficialSourceSchedulerError('official_source_scheduler_invalid_event_handler');
   }
+  if (!['after_completion', 'fixed_start'].includes(cadenceMode)) {
+    throw new OfficialSourceSchedulerError('official_source_scheduler_invalid_cadence_mode');
+  }
+
+  const intervals = refreshIntervalsMs === null ? null : { ...refreshIntervalsMs };
+  if (intervals && ['normal', 'severe'].some(key => !Number.isInteger(intervals[key]) || intervals[key] < 30_000 || intervals[key] > 86_400_000)) {
+    throw new OfficialSourceSchedulerError('official_source_scheduler_invalid_intervals');
+  }
+  const intervalFor = selected => intervals ? intervals[selected] : officialSourceRefreshIntervalMs(selected);
+  const nextDue = (start, finish) => {
+    const interval = intervalFor(mode);
+    if (cadenceMode === 'after_completion') return finish + interval;
+    // Skip missed slots rather than launching overlapping or catch-up requests.
+    return start + Math.max(1, Math.ceil((finish - start) / interval)) * interval;
+  };
 
   const validatedTasks = validateTasks(tasks);
   const states = validatedTasks.map((task) => ({
@@ -164,7 +181,7 @@ export function createOfficialSourceScheduler({
       state.lastFinishedAtMs = finishedAtMs;
       state.lastOutcome = 'SUCCESS';
       state.lastErrorCode = null;
-      state.nextDueAtMs = finishedAtMs + officialSourceRefreshIntervalMs(mode);
+      state.nextDueAtMs = nextDue(startedAtMs, finishedAtMs);
       emit({
         type: 'task_finished',
         taskId: state.id,
@@ -180,7 +197,7 @@ export function createOfficialSourceScheduler({
       state.lastFinishedAtMs = finishedAtMs;
       state.lastOutcome = 'FAILURE';
       state.lastErrorCode = safeErrorCode(error);
-      state.nextDueAtMs = finishedAtMs + officialSourceRefreshIntervalMs(mode);
+      state.nextDueAtMs = nextDue(startedAtMs, finishedAtMs);
       emit({
         type: 'task_finished',
         taskId: state.id,
@@ -229,7 +246,7 @@ export function createOfficialSourceScheduler({
     if (started) return false;
 
     const currentMs = clockValue(now);
-    const intervalMs = officialSourceRefreshIntervalMs(mode);
+    const intervalMs = intervalFor(mode);
     started = true;
     for (const state of states) {
       state.nextDueAtMs = immediate ? currentMs : currentMs + intervalMs;
@@ -265,7 +282,7 @@ export function createOfficialSourceScheduler({
 
     const currentMs = clockValue(now);
     mode = nextMode;
-    const cappedDueAtMs = currentMs + officialSourceRefreshIntervalMs(mode);
+    const cappedDueAtMs = currentMs + intervalFor(mode);
     for (const state of states) {
       if (!state.running && (state.nextDueAtMs === null || state.nextDueAtMs > cappedDueAtMs)) {
         state.nextDueAtMs = cappedDueAtMs;
@@ -297,7 +314,7 @@ export function createOfficialSourceScheduler({
       contract: 'OFFICIAL_SOURCE_BOUNDED_REFRESH_SCHEDULER',
       started,
       mode,
-      refreshIntervalMs: officialSourceRefreshIntervalMs(mode),
+      refreshIntervalMs: intervalFor(mode),
       maxConcurrency,
       taskCount: states.length,
       activeCount: states.filter((state) => state.running).length,

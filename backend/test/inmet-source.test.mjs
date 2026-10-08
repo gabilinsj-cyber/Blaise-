@@ -153,3 +153,34 @@ test('probe rejects HTML instead of silently parsing a portal fallback', async (
     (error) => error instanceof InmetSourceContractError && error.code === 'inmet_source_content_type_rejected',
   );
 });
+test('RSS index resolves official CAP links before validating areas', async () => {
+  const calls = [];
+  const link = `${INMET_CAP_RSS_URL}/55976`;
+  const result = await probeInmetCapWarnings({fetchImpl: async url => {
+    calls.push(String(url));
+    return new Response(String(url) === INMET_CAP_RSS_URL
+      ? `<rss><channel><title>Avisos oficiais para teste de contrato</title><item><link>${link}</link><description>Index only, no CAP areas</description></item></channel></rss>`
+      : alertXml(), {headers: {'content-type': 'application/xml'}});
+  }});
+  assert.deepEqual(calls, [INMET_CAP_RSS_URL, link]);
+  assert.equal(result.feedShape, 'RSS_INDEX_RESOLVED_CAP');
+  assert.equal(result.rjWarningCount, 1);
+});
+
+test('RSS cannot redirect CAP retrieval to an arbitrary host', async () => {
+  let calls = 0;
+  await assert.rejects(() => probeInmetCapWarnings({fetchImpl: async () => {
+    calls++;
+    return new Response('<rss><channel><title>Avisos oficiais para teste de contrato</title><item><link>https://example.com/avisos/rss/123</link><description>Index only, no CAP areas</description></item></channel></rss>', {headers: {'content-type': 'application/xml'}});
+  }}), error => error.code === 'inmet_cap_link_untrusted');
+  assert.equal(calls, 1);
+});
+
+test('CAP cancellation removes referenced warning and never becomes an active alert', () => {
+  const original = 'urn:oid:2.49.0.0.76.0.2026.28224.1';
+  const cancel = alertXml({identifier: original.replace('.1', '.2'), msgType:'Cancel'}).replace('<scope>Public</scope>', `<scope>Public</scope><references>info.aviso@inmet.gov.br,${original},2026-09-09T14:55:00-03:00</references>`);
+  const result = validateInmetCapFeedXml(feedXml([alertXml(), cancel]));
+  assert.equal(result.activeWarningCount, 0);
+  assert.equal(result.cancellations.length, 1);
+  assert.throws(() => validateInmetCapFeedXml(feedXml([alertXml({msgType:'Cancel'})])), e => e.code === 'inmet_cancel_references_missing');
+});

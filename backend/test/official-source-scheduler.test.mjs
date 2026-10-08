@@ -158,3 +158,25 @@ test('stopped scheduler never starts new work', async () => {
   assert.equal(calls, 0);
   assert.equal(scheduler.snapshot().started, false);
 });
+
+for (const [duration, expected] of [[7000, 30000], [65000, 90000]]) {
+ test(`fixed start cadence with ${duration}ms work skips missed slots without drifting by processing time`, async () => {
+  let time=0;
+  const scheduler=createOfficialSourceScheduler({now:()=>time,autoSchedule:false,
+   cadenceMode:'fixed_start',refreshIntervalsMs:{normal:30000,severe:30000},
+   tasks:[{id:'fixture',run:async()=>{time=duration;}}]});
+  scheduler.start();await scheduler.tick();
+  assert.equal(scheduler.snapshot().tasks[0].nextDueAt,new Date(expected).toISOString());
+  scheduler.stop();
+ });
+}
+test('fixed start cadence rejects unknown policy and applies to failed requests',async()=>{
+ assert.throws(()=>createOfficialSourceScheduler({cadenceMode:'invented',tasks:[{id:'fixture',run:async()=>{}}]}));
+ let time=0;
+ const scheduler=createOfficialSourceScheduler({now:()=>time,autoSchedule:false,cadenceMode:'fixed_start',
+ refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'fixture',run:async()=>{time=7000;throw Error('fixture failure');}}]});
+ scheduler.start();await scheduler.tick();
+ assert.equal(scheduler.snapshot().tasks[0].nextDueAt,new Date(30000).toISOString());
+ assert.equal(scheduler.snapshot().tasks[0].lastOutcome,'FAILURE');
+ scheduler.stop();
+});
