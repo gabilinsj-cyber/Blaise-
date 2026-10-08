@@ -212,3 +212,27 @@ test('paid dashboard endpoint rejects unexpected fields before Play lookup', asy
   });
   assert.equal(lookups, 0);
 });
+
+
+test('statewide route requires the same active purchase and never exposes credentials', async () => {
+  const { handler } = handlerWith({});
+  await withServer(handler, async base => {
+    const response = await fetch(`${base}/v1/data/municipalities`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validRequest()),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.contract, 'RJ_92_MUNICIPALITIES_V1');
+    assert.equal(body.municipalities.length, 92);
+    assert.equal(JSON.stringify(body).includes('token-12345678'), false);
+    assert.equal(JSON.stringify(body).includes('purchaseToken'), false);
+  });
+  const denied = handlerWith({ gateway: { async getSubscription() { return { subscriptionState: 'SUBSCRIPTION_STATE_EXPIRED', lineItems: [] }; } } });
+  await withServer(denied.handler, async base => {
+    const response = await fetch(`${base}/v1/data/municipalities`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validRequest()),
+    });
+    assert.equal(response.status, 403);
+    assert.equal((await response.text()).includes('municipalities'), false);
+  });
+});

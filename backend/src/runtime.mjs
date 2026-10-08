@@ -145,7 +145,7 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
-  const sourceWorkerConfig = loadOfficialSourceWorkerConfig(process.env);
+  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),

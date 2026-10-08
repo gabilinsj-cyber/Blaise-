@@ -22,6 +22,8 @@ import br.com.blaise.rj.assistant.WeatherConversation
 import br.com.blaise.rj.assistant.ConversationAction
 import br.com.blaise.rj.data.OfficialWeatherClient
 import br.com.blaise.rj.data.CityWeatherResult
+import br.com.blaise.rj.data.StatewideDataHttpsClient
+import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
@@ -183,6 +185,7 @@ private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
+private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 
 private val BlaiseScheme = darkColorScheme(
@@ -220,6 +223,10 @@ fun BlaiseApp(
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
+    var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
+    val statewideClient = remember(context) {
+        StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
+    }
     val dashboardClient = remember(context) {
         DashboardDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
     }
@@ -272,11 +279,25 @@ fun BlaiseApp(
             }
         }
     }
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
+        statewideDashboard = StatewideDataResult.Unavailable
+        val candidate = verifiedPurchase
+        val client = statewideClient
+        if (!powerOn || billingSnapshot !is BillingEntitlementSnapshot.Active || candidate == null || client == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                statewideDashboard = suspendCancellableCoroutine { continuation ->
+                    client.fetch(candidate) { result -> if (continuation.isActive) continuation.resume(result) }
+                }
+                delay(30_000)
+            }
+        }
+    }
     val officialFeedState = remember(officialFeedEvidence, observationClock) {
         OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
 
-    CompositionLocalProvider(LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
+    CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -839,8 +860,55 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
 }
 
 @Composable
+private fun StatewideMunicipalitiesPanel() {
+    val clock = LocalObservationClock.current
+    val response = LocalStatewideDashboard.current
+    val snapshot = (response as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
+    var query by remember { mutableStateOf("") }
+    DashboardSection("ESTADO DO RJ • 92 MUNICÍPIOS", "Riscos e avisos por município, fonte e horário") {
+        OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("Buscar município do RJ") },
+            singleLine = true, modifier = Modifier.fillMaxWidth())
+        if (snapshot == null) {
+            Text(if (response is StatewideDataResult.Denied) "Acesso aos dados estaduais não confirmado." else "Dados estaduais indisponíveis no momento.", color = Muted)
+        } else if (!snapshot.workerActive) {
+            Text("Coleta estadual indisponível. O cadastro de municípios não confirma monitoramento ativo.", color = WarningAmber)
+        }
+        val cities = RioMunicipalities.search(query)
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+            items(cities, key = { it.ibgeCode }) { city ->
+                val row = snapshot?.municipalities?.firstOrNull { it.ibge == city.ibgeCode }
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    Text(city.name, color = Color.White, fontWeight = FontWeight.Bold)
+                    val risk = row?.risk?.takeIf { it.current(clock) }
+                    Text(if (risk == null) "Risco hidrológico: indisponível ou desatualizado." else
+                        "Risco hidrológico: ${risk.label} • CEMADEN-RJ • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    val warnings = snapshot?.warnings?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
+                    warnings.forEach { warning ->
+                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (warnings.isEmpty()) Text("Sem aviso atribuído nesta consulta; não confirma ausência de risco.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    if (row?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS") Text("Há avisos estaduais cuja área municipal ainda não foi confirmada.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        if (snapshot != null) {
+            Text("FONTES E COBERTURA", color = Gold, fontWeight = FontWeight.Bold)
+            snapshot.sources.forEach { source ->
+                Text("${source.name}: ${source.connectedProduct?.replace('-', ' ') ?: "dados ainda não conectados"} • ${when(source.state) {
+                    "CURRENT", "CURRENT_DEGRADED" -> "produto recebido; cobertura e validade por local"
+                    "STALE" -> "desatualizado"
+                    else -> "indisponível"
+                }}", color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    StatewideMunicipalitiesPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "CLIMA DO DIA • DUAS CIDADES",
