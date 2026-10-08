@@ -69,3 +69,24 @@ Os preços são referências públicas, não propostas comerciais. A solução a
 **Proteção de disponibilidade:** qualquer WAF, atestado, mudança de regras, cache ou antivírus externo deve começar em observação/ensaio, com testes de falso positivo para acesso a fontes oficiais, cidades, mapas, assinaturas e alertas P0 antes de bloqueio ativo. Alertas oficiais críticos devem continuar visíveis e não podem ser apagados por regras de segurança ou processamento estatístico.
 
 A proposta de aquisição produz recomendação e orçamento à proprietária; não existe autorização implícita de compra. Indicadores insuficientes => relatório de pendências, sem inventar preços específicos ou disponibilidade.
+
+
+## Revisões sucessivas a cada 500.000 assinantes
+
+Revisar novamente a cada incremento de **500.000 assinantes ativos verificados**: 500 mil, 1 milhão, 1,5 milhão, 2 milhões, 2,5 milhões, 3 milhões e assim por diante, sem teto. A prioridade a partir de 2 milhões é reforçar resiliência, alta disponibilidade, proteção de APIs, segurança de CI/APK, capacidade de pico e retenção mínima de dados. Volume de assinantes não equivale a requisições concorrentes.
+
+O módulo `scripts/rj-scale-policy.mjs` agora exige uma contagem recente com horário de medição E histórico persistido do último marco já relatado; o status `MILESTONE_REPORT_DUE` informa os marcos vencidos. Nunca utilizar contagem estimada, downloads, visitantes ou quantidade de dispositivos como assinantes ativos. A variável `BLAISE_LAST_REPORTED_MILESTONE` precisa ser alimentada por uma trilha auditável de relatórios enviados; **este workflow não modifica automaticamente essa variável, não envia e-mail e não compra serviços**. Os estados `REPORT_HISTORY_NOT_CONFIGURED` e `NOT_CONFIGURED` são bloqueios explícitos.
+
+Conteúdo exigido em cada relatório: marco confirmado, horário, fontes do número, picos observados, custos previstos mensais e anuais na moeda oficial USD ou EUR (conversão só quando identificada e com cotação), região, impostos e hipóteses, links oficiais para contratação, procedimentos de integração com Cloud Run/backend/Android, testes que garantam que segurança não bloqueie fontes e alertas oficiais, comparação baseada em adequação e riscos, e aprovação exclusiva da proprietária antes da compra.
+
+O canal de envio deve ser configurado **fora do repositório público**, por um mecanismo de e-mail autorizado e trilha de mensagens enviadas; não cadastrar o endereço privado da proprietária neste arquivo, em YAML público ou em código. Uma automação de acompanhamento externa foi solicitada, mas entrega de e-mail depende de contagem confiável e permissão operacional no momento do marco.
+
+Referências oficiais para cotações correntes (consultar novamente a cada marco):
+- Cloud Armor Enterprise: https://cloud.google.com/armor/pricing
+- Security Command Center Premium: https://cloud.google.com/security-command-center/pricing
+- Cloud Run e ajuste de concorrência: https://cloud.google.com/run/pricing ; https://cloud.google.com/run/docs/about-concurrency
+- Cloud Storage: https://cloud.google.com/storage/pricing
+- Grafana/k6: https://grafana.com/pricing/
+- GitHub Security: https://github.com/security/plans
+
+Todas as despesas são facultativas até uma proposta baseada em testes de carga e na carga real. Ferramentas de segurança devem ser testadas para evitar falsos positivos e manter as fontes oficiais de alerta e a distribuição das três lojas funcionais.
