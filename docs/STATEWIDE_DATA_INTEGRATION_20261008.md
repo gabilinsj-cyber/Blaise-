@@ -33,3 +33,12 @@ Nova rota protegida `/v1/data/municipalities`, consumida pelo cliente Android e 
 | Cálculos Vector RJ | Núcleos numéricos existentes; perfis/radares/hidrologia/oceano operacionais e validação física pendentes |
 
 Esta revisão amplia a ligação estadual dos conectores já disponíveis e torna as lacunas explícitas. Não conclui todos os produtos, não implanta Cloud Run, não atualiza o aparelho e não comprova precisão operacional. Memória é especificação, não banco de observações atuais, credenciais ou prova de conectores já ativos.
+
+
+## Falha encontrada no ensaio integrado
+
+O parser do INMET resolve o índice RSS em documentos CAP e identifica o resultado como RSS_INDEX_RESOLVED_CAP. O cache ainda recusava esse formato, apesar de cada CAP ter passado pelos controles de identidade, domínio, validade e IBGE. Corrigida a lista de formatos normalizados aceitos no cache, preservando essas verificações. Inventário ativo vazio após cancelamento também passa a ser aceito; não vira declaração genérica de ausência de risco.
+
+Primeiro ensaio ao vivo: cadastro estadual 92/92; CEMADEN-RJ recusado como atual por observações vencidas; Alerta Rio sofreu timeout; CHM forneceu inventário atual sem atribuição municipal validada; INMET bloqueou no formato do cache. Nenhum alerta automático foi emitido. A rota estadual do Cloud Run atual devolveu 404, comprovando que o serviço ainda não recebeu esta revisão.
+
+Após a correção do cache, segundo ensaio ao vivo: Alerta Rio CURRENT e INMET CURRENT; 92 municípios na projeção; um aviso INMET vigente de âmbito RJ sem IBGEs municipais confirmados, mantido como área não resolvida e não atribuído às cidades. Nenhum alerta automático emitido. 424 testes locais backend passaram. Compilação Android desta revisão é verificada separadamente pelo CI; não comprova dados completos por município.

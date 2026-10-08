@@ -886,7 +886,10 @@ private fun StatewideMunicipalitiesPanel() {
                     warnings.forEach { warning ->
                         Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                     }
-                    if (warnings.isEmpty()) Text("Sem aviso atribuído nesta consulta; não confirma ausência de risco.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    if (warnings.isEmpty()) Text(if (row?.warningCoverage == "EXACT_IBGE_ONLY")
+                        "Nenhum aviso municipal atribuído nesta consulta; não confirma ausência de risco."
+                        else "Consulta de avisos municipais indisponível ou com cobertura parcial.",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
                     if (row?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS") Text("Há avisos estaduais cuja área municipal ainda não foi confirmada.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                 }
             }

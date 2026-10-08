@@ -190,11 +190,11 @@ function validateSnapshot(snapshot) {
       || snapshot.sourceUrl !== INMET_CAP_RSS_URL) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_source_contract_invalid');
   }
-  if (!['CAP_ALERT', 'RSS_ITEM', 'ATOM_ENTRY'].includes(snapshot.feedShape)) {
+  if (!['CAP_ALERT', 'RSS_ITEM', 'ATOM_ENTRY', 'RSS_INDEX_RESOLVED_CAP'].includes(snapshot.feedShape)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_feed_shape_invalid');
   }
   if (!Number.isInteger(snapshot.activeWarningCount)
-      || snapshot.activeWarningCount < 1
+      || snapshot.activeWarningCount < 0
       || snapshot.activeWarningCount > INMET_MAX_WARNING_RECORDS) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_count_invalid');
   }
