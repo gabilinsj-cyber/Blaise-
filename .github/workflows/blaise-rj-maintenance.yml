@@ -93,6 +93,29 @@ jobs:
           path: evidence/maintenance/nightly.txt
           if-no-files-found: warn
 
+  scaling-milestone-review:
+    if: github.event.schedule == '0 4 * * *' || github.event.schedule == '15 4 20 * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.20.0'
+      - name: Test scaling threshold policy
+        run: node --test scripts/rj-scale-policy.test.mjs
+      - name: Evaluate verified subscriber milestone (read only)
+        env:
+          BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS: ${{ vars.BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS }}
+          BLAISE_SUBSCRIBERS_OBSERVED_AT: ${{ vars.BLAISE_SUBSCRIBERS_OBSERVED_AT }}
+        run: node scripts/rj-scale-readiness.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: blaise-rj-scale-${{ github.run_id }}
+          path: evidence/maintenance/scale.json
+          if-no-files-found: warn
+
   monthly-readiness:
     if: github.event.schedule == '15 4 20 * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
     runs-on: ubuntu-24.04
