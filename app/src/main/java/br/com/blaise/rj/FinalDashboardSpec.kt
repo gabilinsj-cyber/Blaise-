@@ -32,7 +32,7 @@ object FinalDashboardSpec {
 
     val officialSources = listOf(
         "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
-        "Defesa Civil Municipal", "Defesa Civil Estadual", "INEA",
+        "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
         "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
     )
 
