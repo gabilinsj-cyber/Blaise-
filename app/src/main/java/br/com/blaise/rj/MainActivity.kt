@@ -1101,6 +1101,21 @@ private fun MoreScreen(
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
     }
+    Spacer(Modifier.height(14.dp))
+    DashboardSection(
+        title = "MANUTENÇÃO E QUALIDADE",
+        subtitle = "Agentes 9 e 10 • execução no dispositivo não confirmada",
+    ) {
+        StatusLine("Correção horária RJ", "Verificação de saúde do backend a cada hora, quando configurada")
+        StatusLine("Auditoria profunda RJ", "Testes de camadas todos os dias às 01:00 (Brasília)")
+        StatusLine("Preparação de atualização", "Dia 20 ou urgência • publicação nas lojas depende de aprovação")
+        StatusLine("Escala de 500 mil assinantes", "Revisão de segurança, capacidade, armazenamento e fornecedores pagos; contratação somente com autorização")
+        Text(
+            "Verificações agendadas do GitHub não comprovam dados meteorológicos ao vivo, reparo automático ou atualização deste APK.",
+            color = Muted,
+            style = MaterialTheme.typography.labelSmall,
+        )
+    }
 }
 
 @Composable

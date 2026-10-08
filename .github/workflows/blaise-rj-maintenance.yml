@@ -1,0 +1,142 @@
+name: Blaise RJ Maintenance
+
+on:
+  schedule:
+    # GitHub Actions uses UTC; Rio de Janeiro currently uses UTC-03.
+    - cron: '0 * * * *'
+    - cron: '0 4 * * *'
+    - cron: '15 4 20 * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Select the maintenance audit'
+        required: true
+        type: choice
+        default: hourly
+        options: [hourly, nightly, monthly]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blaise-rj-maintenance-${{ github.event.schedule || inputs.mode || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  hourly-check:
+    if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'hourly')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.20.0'
+      - name: Backend health and readiness (read-only)
+        env:
+          BLAISE_BACKEND_BASE_URL: ${{ vars.BLAISE_BACKEND_BASE_URL }}
+        run: node scripts/rj-hourly-health.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: blaise-rj-hourly-${{ github.run_id }}
+          path: evidence/maintenance/hourly.json
+          if-no-files-found: warn
+
+  nightly-audit:
+    if: github.event.schedule == '0 4 * * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'nightly')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.20.0'
+      - name: Verify backend data-contract and unit layers
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          sha256sum -c package-lock.sha256
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm test
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Install Android SDK 35
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify Android interface layer
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest
+      - name: Write scope and limitations
+        if: always()
+        run: |
+          mkdir -p evidence/maintenance
+          printf '%s\n' \
+            'BLAISE_RJ_NIGHTLY_SCOPE=backend_syntax+backend_unit+android_lint+android_unit' \
+            'AUTO_CODE_REPAIR=NOT_IMPLEMENTED_NEEDS_REVIEW' \
+            'LIVE_OFFICIAL_SOURCES=NOT_PROBED' \
+            'PHYSICAL_ANDROID_DEVICE=NOT_TESTED' \
+            'DEPLOYMENT=NOT_PERFORMED' > evidence/maintenance/nightly.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: blaise-rj-nightly-${{ github.run_id }}
+          path: evidence/maintenance/nightly.txt
+          if-no-files-found: warn
+
+  scaling-milestone-review:
+    if: github.event.schedule == '0 4 * * *' || github.event.schedule == '15 4 20 * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.20.0'
+      - name: Test scaling threshold policy
+        run: node --test scripts/rj-scale-policy.test.mjs
+      - name: Evaluate verified subscriber milestone (read only)
+        env:
+          BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS: ${{ vars.BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS }}
+          BLAISE_SUBSCRIBERS_OBSERVED_AT: ${{ vars.BLAISE_SUBSCRIBERS_OBSERVED_AT }}
+          BLAISE_LAST_REPORTED_MILESTONE: ${{ vars.BLAISE_LAST_REPORTED_MILESTONE }}
+        run: node scripts/rj-scale-readiness.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: blaise-rj-scale-${{ github.run_id }}
+          path: evidence/maintenance/scale.json
+          if-no-files-found: warn
+
+  monthly-readiness:
+    if: github.event.schedule == '15 4 20 * *' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'monthly')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Prepare release review on day 20, without store publishing
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/maintenance
+          printf '%s\n' \
+            'BLAISE_RJ_RELEASE_READINESS=REQUIRES_REVIEW' \
+            "commit=$GITHUB_SHA" \
+            'ANDROID_CI_AND_RUNTIME=REQUIRES_SAME_SHA_PASS' \
+            'LIVE_SOURCE_VALIDATION=REQUIRES_EVIDENCE' \
+            'SIGNED_STORE_PACKAGES=REQUIRES_MANUAL_GATE' \
+            'PLAY_SAMSUNG_AMAZON_PUBLICATION=NOT_AUTOMATED' \
+            > evidence/maintenance/monthly.txt
+          cat evidence/maintenance/monthly.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: blaise-rj-monthly-${{ github.run_id }}
+          path: evidence/maintenance/monthly.txt
