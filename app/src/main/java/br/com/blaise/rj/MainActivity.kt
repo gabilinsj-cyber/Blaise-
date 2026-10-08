@@ -2,6 +2,9 @@ package br.com.blaise.rj
 
 import br.com.blaise.rj.bulletin.BulletinPolicy
 import java.time.ZonedDateTime
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
@@ -435,7 +438,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     var speechJob by remember { mutableStateOf<Job?>(null) }
     var speechRequest by remember { mutableStateOf(0) }
     var speaking by remember { mutableStateOf(false) }
-    var question by remember { mutableStateOf("") }
+    var typedQuestion by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf("Pronto para orientar sem criar dados ou alertas.") }
     var voiceError by remember { mutableStateOf<String?>(null) }
     fun stopSpeaking() {
@@ -446,7 +449,10 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     }
     fun readAloud(text: String) {
         stopSpeaking()
-        if (!voiceEnabled) return
+        if (!voiceEnabled) {
+            voiceError = "A resposta por voz está silenciada. Desative o modo silencioso para ouvir."
+            return
+        }
         val request = speechRequest
         voiceError = null
         speaking = true
@@ -522,7 +528,14 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 loading = true
                 answer = "Consultando fonte oficial para ${action.request.localScope ?: action.request.city.name}…"
                 queryJob = scope.launch {
-                    val result = weather.answer(action.request)
+                    val result = try {
+                        withTimeout(12_000L) { weather.answer(action.request) }
+                    } catch (error: CancellationException) {
+                        if (error !is TimeoutCancellationException) throw error
+                        "A consulta para ${action.request.city.name} demorou além do limite. Não tenho uma medição atual confirmada. Tente novamente."
+                    } catch (_: Exception) {
+                        "Não consegui consultar os dados oficiais de ${action.request.city.name} agora. Não tenho uma medição atual confirmada. Tente novamente."
+                    }
                     if (version == queryVersion) {
                         loading = false
                         answer = result
@@ -533,8 +546,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         }
     }
     val latestAsk by rememberUpdatedState<(String) -> Unit>({ ask(it, true) })
+    val latestVoiceError by rememberUpdatedState<(String) -> Unit>({ message ->
+        readAloud(message)
+        voiceError = message
+    })
     val recognizer = remember(context) {
-        VoiceQuestionRecognizer(context, { latestAsk(it) }, { voiceError = it }, { listening = it })
+        VoiceQuestionRecognizer(context, { latestAsk(it) }, { latestVoiceError(it) }, { listening = it })
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && appEnabled) recognizer.start() else voiceError = "Permita o microfone para perguntar por voz."
@@ -554,7 +571,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     LaunchedEffect(appEnabled) {
         if (!appEnabled) { recognizer.cancel(); queryJob?.cancel(); queryVersion += 1; loading = false }
     }
-    fun submit() { ask(question, false) }
+    fun submit() { ask(typedQuestion, false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
@@ -578,7 +595,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
                     Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold)
                     Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
-                    Text(if (listening) "Ouvindo… termine sua pergunta para receber a resposta." else if (loading) "Consultando dados…" else "Pergunte por voz ou digite sua pergunta.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text(if (listening) "Ouvindo… termine sua pergunta para receber a resposta." else if (loading) "Consultando dados…" else "Microfone: pergunta e resposta por voz, sem apertar Enviar. Digitação: resposta escrita.", color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
                 OutlinedButton(
                     onClick = {
@@ -591,19 +608,19 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     modifier = Modifier.testTag("assistant-microphone"),
                     enabled = appEnabled,
                 ) {
-                    Text("🎙")
+                    Text(if (listening) "Parar microfone" else "🎙 Perguntar por voz")
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (!expandedInput) TextButton(onClick = { expandedInput = true }) { Text("Digite aqui… ⤢") }
                 if (expandedInput)                 OutlinedTextField(
-                    value = question,
-                    onValueChange = { question = it },
-                    label = { Text("Digite o que deseja saber") },
+                    value = typedQuestion,
+                    onValueChange = { typedQuestion = it },
+                    label = { Text("Pergunta escrita — enviar pelo botão") },
                     singleLine = true,
                     modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("assistant-input"),
                 )
-                Button(onClick = ::submit, enabled = appEnabled && expandedInput && question.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar") }
+                if (expandedInput) Button(onClick = ::submit, enabled = appEnabled && typedQuestion.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar texto") }
             }
             Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
