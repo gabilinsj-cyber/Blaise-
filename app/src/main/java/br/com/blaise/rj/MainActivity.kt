@@ -364,48 +364,56 @@ private fun BlaiseDashboard(
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val wide = maxWidth >= 760.dp
-                Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    AppHeader(powerOn, onPowerChange)
-                    AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
-                    OfficialStatusBanner(officialFeedState)
-                    AccessPolicyStrip()
+                Column(Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        AppHeader(powerOn, onPowerChange)
+                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                        OfficialStatusBanner(officialFeedState)
 
-                    when (selectedSection) {
-                        "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
-                        "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
-                        "Mapa" -> MapScreen(city1, city2)
-                        "Alertas" -> AlertsScreen(city1, city2)
-                        "Trânsito" -> TrafficScreen()
-                        "Mar e Ondas" -> MarineScreen()
-                        "Qualidade do Ar" -> AirQualityScreen()
-                        "Notícias" -> NewsScreen()
-                        "Histórico" -> HistoryScreen(city1, city2)
-                        "Mais" -> MoreScreen(
-                            powerOn = powerOn,
-                            silentMode = silentMode,
-                            onPowerChange = onPowerChange,
-                            onSilentModeChange = onSilentModeChange,
-                        )
-                        else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                        when (selectedSection) {
+                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
+                            "Mapa" -> MapScreen(city1, city2)
+                            "Alertas" -> AlertsScreen(city1, city2)
+                            "Trânsito" -> TrafficScreen()
+                            "Mar e Ondas" -> MarineScreen()
+                            "Qualidade do Ar" -> AirQualityScreen()
+                            "Notícias" -> NewsScreen()
+                            "Histórico" -> HistoryScreen(city1, city2)
+                            "Mais" -> MoreScreen(
+                                powerOn = powerOn,
+                                silentMode = silentMode,
+                                onPowerChange = onPowerChange,
+                                onSilentModeChange = onSilentModeChange,
+                            )
+                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                        }
+
+                        if (selectedSection == "Mais") {
+                            AccessPolicyStrip()
+                            BillingPanel(
+                                storeChannel = BuildConfig.BLAISE_STORE_CHANNEL,
+                                entitlement = billingSnapshot,
+                                offers = offersSnapshot,
+                                purchaseLaunchCode = purchaseLaunchCode,
+                                onRefresh = onRefreshBilling,
+                                onSubscribe = onSubscribe,
+                            )
+
+                        }
+                        FooterSources()
                     }
-
-                    PrimaryNavigation(selectedSection, onSelectSection)
-
-                    BillingPanel(
-                        storeChannel = BuildConfig.BLAISE_STORE_CHANNEL,
-                        entitlement = billingSnapshot,
-                        offers = offersSnapshot,
-                        purchaseLaunchCode = purchaseLaunchCode,
-                        onRefresh = onRefreshBilling,
-                        onSubscribe = onSubscribe,
-                    )
-
-                    FooterSources()
+                    Surface(color = NavyRaised, modifier = Modifier.fillMaxWidth()) {
+                        Box(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                            PrimaryNavigation(selectedSection, onSelectSection)
+                        }
+                    }
                 }
             }
         }
@@ -438,9 +446,10 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            BlaiseAvatar(Modifier.size(48.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
-                Text(FinalDashboardSpec.TAGLINE, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text("Clima e Tempo • Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
                 Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             val statusColor = if (powerOn) StableGreen else AlertRed
@@ -651,7 +660,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     modifier = Modifier.testTag("assistant-microphone"),
                     enabled = appEnabled,
                 ) {
-                    Text(if (listening) "Parar microfone" else "🎙 Perguntar por voz")
+                    Text(if (listening) "■ Parar" else "🎙 Voz")
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -722,9 +731,9 @@ private fun HomeScreen(
             CityPanel("Cidade 2", city2, "Selecionar cidade", onChooseCity2, Modifier.weight(0.78f))
         }
     } else {
-        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(14.dp))
         ExpandedRadarPanel(Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
     }
     Spacer(Modifier.height(14.dp))
     MarineAndRiskRow(wide)
@@ -1461,14 +1470,14 @@ private fun OfficialStatusBanner(state: OfficialFeedState) {
         border = BorderStroke(1.dp, color.copy(alpha = 0.85f)),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Surface(modifier = Modifier.size(14.dp), shape = CircleShape, color = color) {}
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(headline, color = color, fontWeight = FontWeight.ExtraBold)
-                Text(detail, color = Color.White)
+                Text(headline, color = color, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelMedium)
+                Text(detail, color = Color.White, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
