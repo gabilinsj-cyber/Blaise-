@@ -4,6 +4,7 @@ import {evaluateScaleReadiness} from './rj-scale-policy.mjs';
 const result=evaluateScaleReadiness({
  activeSubscribers:process.env.BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS,
  observedAt:process.env.BLAISE_SUBSCRIBERS_OBSERVED_AT,
+ lastReportedMilestone:process.env.BLAISE_LAST_REPORTED_MILESTONE,
 });
 const report={product:'Blaise V6 RJ',checkedAt:new Date().toISOString(),milestone:500000,...result,limits:[
  'Subscriber count is not concurrent sessions or requests per second.',
@@ -16,9 +17,10 @@ await mkdir('evidence/maintenance',{recursive:true});
 await writeFile('evidence/maintenance/scale.json',JSON.stringify(report,null,2)+'\n',{mode:0o600});
 console.log('BLAISE_RJ_SCALE='+report.status);
 if(report.count!==undefined)console.log('VERIFIED_ACTIVE_SUBSCRIBERS='+report.count);
+if(report.pendingMilestones)console.log('REPORT_DUE_MILESTONES='+report.pendingMilestones.join(','));
 if(process.env.GITHUB_STEP_SUMMARY)await (async()=>{
  const {appendFile}=await import('node:fs/promises');
  await appendFile(process.env.GITHUB_STEP_SUMMARY,
    '\n### Blaise V6 RJ — revisão de escala\n\n- Status: **'+report.status+'**\n- Ação: '+(report.action||'Validar métricas')+'\n- Nenhuma compra, deploy ou alteração automática.\n');
 })();
-if(report.status==='INVALID_INPUT')process.exitCode=2;
+if(report.status==='INVALID_INPUT'||report.status==='STALE_METRIC')process.exitCode=2;
