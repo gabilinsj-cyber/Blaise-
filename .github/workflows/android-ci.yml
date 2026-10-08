@@ -196,6 +196,14 @@ jobs:
           echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum -c -
           echo "BUNDLETOOL_JAR=$RUNNER_TEMP/bundletool.jar" >> "$GITHUB_ENV"
       - name: Verify, test, build and SBOM
+        env:
+          BLAISE_MONTHLY_PRODUCT_ID: ${{ vars.BLAISE_MONTHLY_PRODUCT_ID }}
+          BLAISE_ANNUAL_PRODUCT_ID: ${{ vars.BLAISE_ANNUAL_PRODUCT_ID }}
+          BLAISE_ENTITLEMENT_VERIFY_URL: ${{ vars.BLAISE_ENTITLEMENT_VERIFY_URL }}
+          BLAISE_FIREBASE_APPLICATION_ID: ${{ vars.BLAISE_FIREBASE_APPLICATION_ID }}
+          BLAISE_FIREBASE_API_KEY: ${{ vars.BLAISE_FIREBASE_API_KEY }}
+          BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+          BLAISE_FIREBASE_SENDER_ID: ${{ vars.BLAISE_FIREBASE_SENDER_ID }}
         run: ./scripts/ci.sh
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
