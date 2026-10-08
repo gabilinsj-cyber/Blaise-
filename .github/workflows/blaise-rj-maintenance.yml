@@ -108,6 +108,7 @@ jobs:
         env:
           BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS: ${{ vars.BLAISE_VERIFIED_ACTIVE_SUBSCRIBERS }}
           BLAISE_SUBSCRIBERS_OBSERVED_AT: ${{ vars.BLAISE_SUBSCRIBERS_OBSERVED_AT }}
+          BLAISE_LAST_REPORTED_MILESTONE: ${{ vars.BLAISE_LAST_REPORTED_MILESTONE }}
         run: node scripts/rj-scale-readiness.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
