@@ -4,6 +4,7 @@ import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID } from './official-source-worker.mjs';
 import { ServiceBusyError, createConcurrencyGate } from './resilience.mjs';
 import { verifyPurchasePayload } from './server.mjs';
+import { requireSubscriberUid } from './firebase-subscriber-auth-rj.mjs';
 
 export const DASHBOARD_DATA_HTTP_PATH = '/v1/data/dashboard';
 export const DASHBOARD_DATA_HTTP_CONTRACT = 'PAID_OFFICIAL_DASHBOARD_SNAPSHOT_V1';
@@ -185,6 +186,7 @@ export function createPaidDashboardDataHttpHandler(
     gateway,
     sourceWorker,
     metrics = null,
+    subscriberVerifier = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
   } = {},
 ) {
@@ -216,9 +218,15 @@ export function createPaidDashboardDataHttpHandler(
         return;
       }
 
+      const authenticatedUid = await requireSubscriberUid(req, config, subscriberVerifier);
+      if (config.requireSubscriberIdentity === true && !authenticatedUid) {
+        increment(metrics, 'auth_rejected_total');
+        sendJson(res, 401, { error: 'unauthorized' });
+        return;
+      }
       const payload = parseRequest(await readJson(req, DASHBOARD_DATA_HTTP_MAX_REQUEST_BYTES));
       const result = await gate.run(async () => {
-        const entitlement = await verifyPurchasePayload(payload, { config, gateway });
+        const entitlement = await verifyPurchasePayload(payload, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
         const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
           ? buildStatewideDashboardSnapshot(sourceWorker)

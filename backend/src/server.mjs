@@ -9,6 +9,8 @@ import {
 } from './core.mjs';
 import { buildP0TopicMessage, createFcmGateway } from './fcm.mjs';
 import { createDeniedTokenShield } from './blaise-shield-rj.mjs';
+import { matchesVerifiedPlayOwner } from './subscription-account-binding-rj.mjs';
+import { createFirebaseSubscriberVerifier, requireSubscriberUid } from './firebase-subscriber-auth-rj.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
   ServiceBusyError,
@@ -32,6 +34,11 @@ export function loadConfig(env = process.env) {
     throw new Error('production_billing_configuration_missing');
   }
 
+  const subscriberAuthFlag = (env.BLAISE_REQUIRE_SUBSCRIBER_IDENTITY || 'false').trim();
+  if (!['true', 'false'].includes(subscriberAuthFlag)) throw new Error('invalid_subscriber_identity_flag');
+  if (subscriberAuthFlag === 'true' && !(env.BLAISE_FIREBASE_PROJECT_ID || '').trim()) {
+    throw new Error('subscriber_identity_firebase_project_missing');
+  }
   const pubsubAudience = (env.BLAISE_PUBSUB_AUDIENCE || '').trim();
   const pubsubServiceAccount = (env.BLAISE_PUBSUB_SERVICE_ACCOUNT || '').trim();
   const p0Audience = (env.BLAISE_P0_AUDIENCE || '').trim();
@@ -54,6 +61,7 @@ export function loadConfig(env = process.env) {
     observabilityAudience,
     observabilityServiceAccount,
     firebaseProjectId: (env.BLAISE_FIREBASE_PROJECT_ID || '').trim(),
+    requireSubscriberIdentity: subscriberAuthFlag === 'true',
     fcmP0Topic: (env.BLAISE_FCM_P0_TOPIC || '').trim(),
     verifyMaxConcurrent: positiveIntEnv(
       env.BLAISE_VERIFY_MAX_CONCURRENT,
@@ -188,7 +196,7 @@ export async function createPubSubOidcVerifier(config) {
   return createServiceOidcVerifier(config.pubsubAudience, config.pubsubServiceAccount);
 }
 
-export async function verifyPurchasePayload(payload, { config, gateway, nowMillis = Date.now() }) {
+export async function verifyPurchasePayload(payload, { config, gateway, nowMillis = Date.now(), authenticatedUid = null }) {
   const validated = validateVerifyPayload(payload, config);
   const subscription = await gateway.getSubscription(validated.purchaseToken);
   let decision = evaluateSubscription(subscription, {
@@ -198,6 +206,8 @@ export async function verifyPurchasePayload(payload, { config, gateway, nowMilli
     nowMillis,
   });
   if (!decision.active) return { active: false };
+  if (config.requireSubscriberIdentity === true &&
+      !matchesVerifiedPlayOwner(subscription, authenticatedUid)) return { active: false };
 
   if (decision.acknowledgementPending) {
     try {
@@ -271,6 +281,7 @@ export function createHttpHandler({
   replayGuard = createRtdnReplayGuard(),
   p0ReplayGuard = createRtdnReplayGuard(),
   deniedTokenShield = createDeniedTokenShield(),
+  subscriberVerifier = null,
   verifyGate = createConcurrencyGate({ maxConcurrent: config.verifyMaxConcurrent ?? DEFAULT_VERIFY_MAX_CONCURRENT }),
   rtdnGate = createConcurrencyGate({ maxConcurrent: config.rtdnMaxConcurrent ?? DEFAULT_RTDN_MAX_CONCURRENT }),
   p0Gate = createConcurrencyGate({ maxConcurrent: config.p0MaxConcurrent ?? DEFAULT_P0_MAX_CONCURRENT }),
@@ -317,6 +328,12 @@ export function createHttpHandler({
           sendJson(res, 415, { error: 'unsupported_media_type' });
           return;
         }
+        const authenticatedUid = await requireSubscriberUid(req, config, subscriberVerifier);
+        if (config.requireSubscriberIdentity === true && !authenticatedUid) {
+          metrics.increment('auth_rejected_total');
+          sendJson(res, 401, { error: 'unauthorized' });
+          return;
+        }
         const payload = await readJson(req, MAX_REQUEST_BYTES);
         const { purchaseToken } = validateVerifyPayload(payload, config);
         if (!deniedTokenShield.allows(purchaseToken)) {
@@ -325,7 +342,7 @@ export function createHttpHandler({
           sendJson(res, 429, { error: 'rate_limited' });
           return;
         }
-        const result = await verifyGate.run(() => verifyPurchasePayload(payload, { config, gateway }));
+        const result = await verifyGate.run(() => verifyPurchasePayload(payload, { config, gateway, authenticatedUid }));
         if (!result.active) deniedTokenShield.recordDenied(purchaseToken);
         metrics.increment(result.active ? 'verify_active_total' : 'verify_denied_total');
         sendJson(res, 200, result);
@@ -466,6 +483,8 @@ async function main() {
     : null;
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
+  const subscriberVerifier = config.requireSubscriberIdentity
+    ? createFirebaseSubscriberVerifier({ projectId: config.firebaseProjectId }) : null;
   const server = http.createServer(createHttpHandler({
     config,
     gateway,
@@ -473,6 +492,7 @@ async function main() {
     fcmGateway,
     p0OidcVerifier,
     metricsOidcVerifier,
+    subscriberVerifier,
     metrics,
     replayGuard,
     p0ReplayGuard,
