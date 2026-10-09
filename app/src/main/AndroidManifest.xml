@@ -22,6 +22,7 @@
         android:label="Blaise V6 RJ"
         android:supportsRtl="true"
         android:theme="@style/Theme.Blaise">
+        <activity android:name=".billing.SubscriberAccountActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
