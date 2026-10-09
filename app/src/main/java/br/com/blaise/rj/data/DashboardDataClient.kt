@@ -1,5 +1,8 @@
 package br.com.blaise.rj.data
 
+import br.com.blaise.rj.BuildConfig
+import br.com.blaise.rj.billing.FirebaseSubscriberAccess
+
 import br.com.blaise.rj.billing.LocalPurchaseState
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import org.json.JSONArray
@@ -266,6 +269,8 @@ class DashboardDataHttpsClient private constructor(
     }
 
     private fun fetchBlocking(candidate: PlayPurchaseCandidate): DashboardDataNetworkResult {
+        val bearer = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
+            FirebaseSubscriberAccess.authorizationHeader() ?: return DashboardDataNetworkResult.Unavailable else null
         val connection = endpointUrl.openConnection() as? HttpURLConnection
             ?: return DashboardDataNetworkResult.Unavailable
         return try {
@@ -277,6 +282,7 @@ class DashboardDataHttpsClient private constructor(
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            if (bearer != null) connection.setRequestProperty("Authorization", bearer)
 
             val payload = JSONObject()
                 .put("packageName", packageName)
