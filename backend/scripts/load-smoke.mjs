@@ -20,10 +20,11 @@ function activeSubscription() {
   };
 }
 
+let tokenCounter = 0;
 function requestBody() {
   return JSON.stringify({
     packageName: config.packageName,
-    purchaseToken: 'ci-load-token-12345678',
+    purchaseToken: `ci-load-token-${++tokenCounter}`,
     productIds: ['ci.monthly'],
   });
 }
