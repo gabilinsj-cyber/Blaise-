@@ -17,6 +17,11 @@ export function validateVerifyPayload(payload, config) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new ClientInputError('invalid_payload');
   }
+  const expectedFields = new Set(['packageName', 'purchaseToken', 'productIds']);
+  const fields = Object.keys(payload);
+  if (fields.length !== expectedFields.size || fields.some((field) => !expectedFields.has(field))) {
+    throw new ClientInputError('unexpected_verify_fields');
+  }
   if (payload.packageName !== config.packageName) {
     throw new ClientInputError('package_mismatch');
   }
