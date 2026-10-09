@@ -2,6 +2,7 @@ import { ClientInputError } from './core.mjs';
 import { buildChmTideDelivery } from './chm-tide-pipeline.mjs';
 import { ServiceBusyError, createConcurrencyGate } from './resilience.mjs';
 import { verifyPurchasePayload } from './server.mjs';
+import { requireSubscriberUid } from './firebase-subscriber-auth-rj.mjs';
 
 export const CHM_TIDE_HTTP_PATH = '/v1/data/chm/tide';
 export const CHM_TIDE_HTTP_CONTRACT = 'PAID_ENTITLEMENT_CHM_TIDE_HTTPS_V1';
@@ -82,6 +83,7 @@ export function createChmTideHttpHandler(
     gateway,
     chmTideCache = null,
     metrics = null,
+    subscriberVerifier = null,
     maxConcurrent = CHM_TIDE_HTTP_DEFAULT_MAX_CONCURRENT,
   } = {},
 ) {
@@ -113,9 +115,15 @@ export function createChmTideHttpHandler(
         return;
       }
 
+      const authenticatedUid = await requireSubscriberUid(req, config, subscriberVerifier);
+      if (config.requireSubscriberIdentity === true && !authenticatedUid) {
+        increment(metrics, 'auth_rejected_total');
+        sendJson(res, 401, { error: 'unauthorized' });
+        return;
+      }
       const payload = parseRequest(await readJson(req, CHM_TIDE_HTTP_MAX_REQUEST_BYTES));
       const delivery = await gate.run(async () => {
-        const entitlement = await verifyPurchasePayload(payload.entitlement, { config, gateway });
+        const entitlement = await verifyPurchasePayload(payload.entitlement, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
         if (!chmTideCache) return Object.freeze({ kind: 'unavailable' });
 
