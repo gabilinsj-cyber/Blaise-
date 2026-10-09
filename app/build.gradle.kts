@@ -59,7 +59,7 @@ android {
         buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
         buildConfigField("String", "BLAISE_FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
         buildConfigField("String", "BLAISE_STORE_CHANNEL", buildConfigString(storeChannel))
-        buildConfigField("Boolean", "BLAISE_SUBSCRIBER_AUTH_ENABLED", subscriberAuthFlag)
+        buildConfigField("boolean", "BLAISE_SUBSCRIBER_AUTH_ENABLED", subscriberAuthFlag)
     }
     signingConfigs {
         if (releaseSigningReady) {
