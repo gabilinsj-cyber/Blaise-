@@ -9,6 +9,7 @@ import {
   validateVerifyPayload,
 } from './core.mjs';
 import { buildP0TopicMessage, createFcmGateway } from './fcm.mjs';
+import { createDeniedTokenShield } from './blaise-shield-rj.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
   ServiceBusyError,
@@ -270,6 +271,7 @@ export function createHttpHandler({
   metrics = createOperationalMetrics(),
   replayGuard = createRtdnReplayGuard(),
   p0ReplayGuard = createRtdnReplayGuard(),
+  deniedTokenShield = createDeniedTokenShield(),
   verifyGate = createConcurrencyGate({ maxConcurrent: config.verifyMaxConcurrent ?? DEFAULT_VERIFY_MAX_CONCURRENT }),
   rtdnGate = createConcurrencyGate({ maxConcurrent: config.rtdnMaxConcurrent ?? DEFAULT_RTDN_MAX_CONCURRENT }),
   p0Gate = createConcurrencyGate({ maxConcurrent: config.p0MaxConcurrent ?? DEFAULT_P0_MAX_CONCURRENT }),
@@ -324,7 +326,15 @@ export function createHttpHandler({
           return;
         }
         const payload = await readJson(req, MAX_REQUEST_BYTES);
+        const { purchaseToken } = validateVerifyPayload(payload, config);
+        if (!deniedTokenShield.allows(purchaseToken)) {
+          metrics.increment('verify_shield_rejected_total');
+          res.setHeader('Retry-After', '60');
+          sendJson(res, 429, { error: 'rate_limited' });
+          return;
+        }
         const result = await verifyGate.run(() => verifyPurchasePayload(payload, { config, gateway }));
+        if (!result.active) deniedTokenShield.recordDenied(purchaseToken);
         metrics.increment(result.active ? 'verify_active_total' : 'verify_denied_total');
         sendJson(res, 200, result);
         return;

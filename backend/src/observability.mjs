@@ -5,6 +5,7 @@ const COUNTERS = Object.freeze([
   'auth_rejected_total',
   'verify_active_total',
   'verify_denied_total',
+  'verify_shield_rejected_total',
   'verify_busy_total',
   'rtdn_success_total',
   'rtdn_duplicate_total',
