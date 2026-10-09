@@ -26,8 +26,7 @@ export function verifiedSubscriberUid(payload, projectId, nowSeconds = Math.floo
   if (!payload || typeof payload !== 'object' || payload.aud !== projectId ||
       payload.iss !== `https://securetoken.google.com/${projectId}` ||
       payload.email_verified !== true ||
-      payload.firebase?.sign_in_provider === 'anonymous' ||
-      payload.firebase?.sign_in_provider === 'custom' ||
+      !['password', 'google.com'].includes(payload.firebase?.sign_in_provider) ||
       !Number.isSafeInteger(payload.iat) || payload.iat > nowSeconds ||
       !Number.isSafeInteger(payload.exp) || payload.exp <= nowSeconds ||
       payload.exp - payload.iat > 3_600 ||
@@ -78,7 +77,7 @@ export function createFirebaseSubscriberVerifier({
         }
         const match = /(?:^|[, ]+)max-age=(\d+)(?:[, ]+|$)/.exec(response.headers.get('cache-control') || '');
         const ageSeconds = match ? Number(match[1]) : 300;
-        const cacheSeconds = Math.max(30, Math.min(1_800, ageSeconds));
+        const cacheSeconds = Math.max(1, Math.min(1_800, ageSeconds));
         cache = { keys, validUntil: now() + cacheSeconds * 1_000 };
         return keys;
       })().finally(() => { inflight = null; });
