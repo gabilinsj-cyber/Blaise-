@@ -3,6 +3,7 @@ import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
+import { createFirebaseSubscriberVerifier } from './firebase-subscriber-auth-rj.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
@@ -161,6 +162,8 @@ async function main() {
     : null;
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
+  const subscriberVerifier = config.requireSubscriberIdentity
+    ? createFirebaseSubscriberVerifier({ projectId: config.firebaseProjectId }) : null;
   const chmTideCache = createChmTideValuesCache();
   const readiness = createReadinessState();
 
@@ -190,18 +193,21 @@ async function main() {
     metrics,
     replayGuard,
     p0ReplayGuard,
+    subscriberVerifier,
   });
   const paidDataHandler = createChmTideHttpHandler(coreHandler, {
     config,
     gateway,
     chmTideCache,
     metrics,
+    subscriberVerifier,
   });
   const dashboardDataHandler = createPaidDashboardDataHttpHandler(paidDataHandler, {
     config,
     gateway,
     sourceWorker,
     metrics,
+    subscriberVerifier,
   });
   const server = http.createServer(createDrainingHandler(dashboardDataHandler, readiness));
   server.requestTimeout = 10_000;
