@@ -28,6 +28,13 @@ val firebaseApplicationId = System.getenv("BLAISE_FIREBASE_APPLICATION_ID").orEm
 val firebaseApiKey = System.getenv("BLAISE_FIREBASE_API_KEY").orEmpty().trim()
 val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().trim()
 val firebaseSenderId = System.getenv("BLAISE_FIREBASE_SENDER_ID").orEmpty().trim()
+val subscriberAuthFlag = System.getenv("BLAISE_SUBSCRIBER_AUTH_ENABLED").orEmpty().trim().ifEmpty { "false" }
+require(subscriberAuthFlag in setOf("true", "false")) { "invalid_subscriber_auth_enabled" }
+if (subscriberAuthFlag == "true") {
+    require(listOf(firebaseApplicationId, firebaseApiKey, firebaseProjectId, firebaseSenderId).all { it.isNotBlank() }) {
+        "subscriber_firebase_config_missing"
+    }
+}
 val storeChannel = System.getenv("BLAISE_STORE_CHANNEL").orEmpty().trim().uppercase().ifEmpty { "GOOGLE_PLAY" }
 require(storeChannel in setOf("GOOGLE_PLAY", "SAMSUNG_GALAXY_STORE", "AMAZON_APPSTORE")) {
     "BLAISE_STORE_CHANNEL must be GOOGLE_PLAY, SAMSUNG_GALAXY_STORE or AMAZON_APPSTORE"
@@ -52,6 +59,7 @@ android {
         buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
         buildConfigField("String", "BLAISE_FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
         buildConfigField("String", "BLAISE_STORE_CHANNEL", buildConfigString(storeChannel))
+        buildConfigField("boolean", "BLAISE_SUBSCRIBER_AUTH_ENABLED", subscriberAuthFlag)
     }
     signingConfigs {
         if (releaseSigningReady) {
@@ -96,6 +104,7 @@ dependencies {
     implementation(libs.play.billing)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.auth)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)

@@ -94,6 +94,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import br.com.blaise.rj.billing.BillingEntitlementSnapshot
+import br.com.blaise.rj.billing.FirebaseSubscriberAccess
+import br.com.blaise.rj.billing.SubscriberAccountActivity
 import br.com.blaise.rj.billing.PlayBillingEntitlementSource
 import br.com.blaise.rj.billing.PurchaseVerifierFactory
 import br.com.blaise.rj.billing.SubscriptionOffer
@@ -136,8 +138,14 @@ class MainActivity : ComponentActivity() {
             val verifier = PurchaseVerifierFactory.create(
                 endpoint = BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
                 packageName = packageName,
+                requireSubscriberIdentity = BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED,
+                authorizationProvider = FirebaseSubscriberAccess::authorizationHeader,
             )
-            billingSource = PlayBillingEntitlementSource(applicationContext, products, verifier) { candidate ->
+            billingSource = PlayBillingEntitlementSource(
+                applicationContext, products, verifier,
+                requireAccountId = BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED,
+                accountIdProvider = FirebaseSubscriberAccess::obfuscatedAccountId,
+            ) { candidate ->
                 runOnUiThread { verifiedPurchase = candidate }
             }
         }
@@ -163,6 +171,11 @@ class MainActivity : ComponentActivity() {
             entitlementObserver = { snapshot -> runOnUiThread { billingSnapshot = snapshot } },
             offersObserver = { snapshot -> runOnUiThread { offersSnapshot = snapshot } },
         )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        billingSource?.refresh()
     }
 
     override fun onDestroy() {
@@ -1385,6 +1398,7 @@ private fun BillingPanel(
     onSubscribe: (SubscriptionOffer) -> Unit,
 ) {
     val storeName = FinalDashboardSpec.storeDisplayName(storeChannel)
+    val context = LocalContext.current
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
@@ -1392,6 +1406,12 @@ private fun BillingPanel(
     ) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Assinatura • $storeName", color = Gold, fontWeight = FontWeight.Bold)
+            if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED && storeChannel == FinalDashboardSpec.STORE_GOOGLE_PLAY) {
+                OutlinedButton(
+                    onClick = { context.startActivity(Intent(context, SubscriberAccountActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Minha conta • entrar ou verificar e-mail") }
+            }
             if (storeChannel != FinalDashboardSpec.STORE_GOOGLE_PLAY) {
                 Text(
                     "Canal separado com acesso bloqueado até a integração e validação do faturamento oficial da loja.",

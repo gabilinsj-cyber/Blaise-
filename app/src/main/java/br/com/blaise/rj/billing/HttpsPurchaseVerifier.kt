@@ -20,9 +20,17 @@ object VerifierEndpointPolicy {
 }
 
 object PurchaseVerifierFactory {
-    fun create(endpoint: String, packageName: String): PurchaseVerifier {
+    fun create(
+        endpoint: String,
+        packageName: String,
+        requireSubscriberIdentity: Boolean = false,
+        authorizationProvider: () -> String? = { null },
+    ): PurchaseVerifier {
         val normalized = VerifierEndpointPolicy.normalizedHttpsUrl(endpoint) ?: return FailClosedPurchaseVerifier
-        return HttpsPurchaseVerifier(normalized, packageName)
+        return HttpsPurchaseVerifier(
+            normalized, packageName, requireSubscriberIdentity = requireSubscriberIdentity,
+            authorizationProvider = authorizationProvider,
+        )
     }
 }
 
@@ -30,6 +38,8 @@ class HttpsPurchaseVerifier(
     endpoint: String,
     private val packageName: String,
     private val executor: Executor = sharedExecutor,
+    private val requireSubscriberIdentity: Boolean = false,
+    private val authorizationProvider: () -> String? = { null },
 ) : PurchaseVerifier {
     private val endpointUrl: URL = URL(requireNotNull(VerifierEndpointPolicy.normalizedHttpsUrl(endpoint)))
 
@@ -40,6 +50,10 @@ class HttpsPurchaseVerifier(
     }
 
     private fun verifyBlocking(candidate: PlayPurchaseCandidate): ServerVerification {
+        val bearer = if (requireSubscriberIdentity) authorizationProvider() else null
+        if (requireSubscriberIdentity && (bearer == null || !bearer.startsWith("Bearer "))) {
+            return ServerVerification.UNAVAILABLE
+        }
         val connection = endpointUrl.openConnection() as? HttpURLConnection ?: return ServerVerification.UNAVAILABLE
         return try {
             connection.instanceFollowRedirects = false
@@ -50,6 +64,7 @@ class HttpsPurchaseVerifier(
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            if (bearer != null) connection.setRequestProperty("Authorization", bearer)
 
             val payload = JSONObject()
                 .put("packageName", packageName)

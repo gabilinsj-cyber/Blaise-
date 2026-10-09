@@ -45,6 +45,8 @@ class PlayBillingEntitlementSource(
     context: Context,
     productIds: Set<String>,
     private val verifier: PurchaseVerifier,
+    private val requireAccountId: Boolean = false,
+    private val accountIdProvider: () -> String? = { null },
     private val onVerifiedPurchase: (PlayPurchaseCandidate?) -> Unit = {},
 ) : PurchasesUpdatedListener, BillingClientStateListener {
     private val catalog = SubscriptionCatalog(productIds)
@@ -115,6 +117,12 @@ class PlayBillingEntitlementSource(
             return
         }
 
+        val boundAccountId = if (requireAccountId) accountIdProvider()?.takeIf { it.length == 64 && it.matches(Regex("[0-9a-f]{64}")) } else null
+        if (requireAccountId && boundAccountId == null) {
+            onLaunchResult(BillingClient.BillingResponseCode.DEVELOPER_ERROR)
+            return
+        }
+
         queryProductDetails(setOf(offer.productId)) { result, details ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 onLaunchResult(result.responseCode)
@@ -133,9 +141,10 @@ class PlayBillingEntitlementSource(
                 .setProductDetails(product)
                 .setOfferToken(currentOffer.offerToken)
                 .build()
-            val flowParams = BillingFlowParams.newBuilder()
+            val flowBuilder = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(listOf(productParams))
-                .build()
+            if (boundAccountId != null) flowBuilder.setObfuscatedAccountId(boundAccountId)
+            val flowParams = flowBuilder.build()
 
             activity.runOnUiThread {
                 onLaunchResult(billingClient.launchBillingFlow(activity, flowParams).responseCode)
