@@ -1,5 +1,8 @@
 package br.com.blaise.rj.data
 
+import br.com.blaise.rj.BuildConfig
+import br.com.blaise.rj.billing.FirebaseSubscriberAccess
+
 import br.com.blaise.rj.billing.LocalPurchaseState
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import org.json.JSONArray
@@ -70,6 +73,8 @@ class ChmTideHttpsClient private constructor(
         stationNumber: Int,
         calendarYear: Int,
     ): ChmTideNetworkResult {
+        val bearer = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
+            FirebaseSubscriberAccess.authorizationHeader() ?: return ChmTideNetworkResult.Unavailable else null
         val connection = endpointUrl.openConnection() as? HttpURLConnection
             ?: return ChmTideNetworkResult.Unavailable
         return try {
@@ -81,6 +86,7 @@ class ChmTideHttpsClient private constructor(
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            if (bearer != null) connection.setRequestProperty("Authorization", bearer)
 
             val payload = JSONObject()
                 .put("packageName", packageName)
