@@ -1,5 +1,8 @@
 package br.com.blaise.rj.data
 
+import br.com.blaise.rj.BuildConfig
+import br.com.blaise.rj.billing.FirebaseSubscriberAccess
+
 import br.com.blaise.rj.billing.LocalPurchaseState
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import br.com.blaise.rj.cities.RioMunicipalities
@@ -84,6 +87,8 @@ class StatewideDataHttpsClient private constructor(private val endpoint: URI, pr
         executor.execute { callback(runCatching { fetchBlocking(candidate) }.getOrDefault(StatewideDataResult.Unavailable)) }
     }
     private fun fetchBlocking(candidate: PlayPurchaseCandidate): StatewideDataResult {
+        val bearer = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
+            FirebaseSubscriberAccess.authorizationHeader() ?: return StatewideDataResult.Unavailable else null
         val connection = endpoint.toURL().openConnection() as HttpURLConnection
         try {
             connection.instanceFollowRedirects = false
@@ -92,6 +97,7 @@ class StatewideDataHttpsClient private constructor(private val endpoint: URI, pr
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            if (bearer != null) connection.setRequestProperty("Authorization", bearer)
             val body = JSONObject().put("packageName", packageName).put("purchaseToken", candidate.purchaseToken)
                 .put("productIds", JSONArray(candidate.productIds)).toString().toByteArray(Charsets.UTF_8)
             connection.setFixedLengthStreamingMode(body.size)
