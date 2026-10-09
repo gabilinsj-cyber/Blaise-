@@ -3,6 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFirebaseSubscriberVerifier, verifiedSubscriberUid, requireSubscriberUid } from '../src/firebase-subscriber-auth-rj.mjs';
 import { createHttpHandler, loadConfig, verifyPurchasePayload } from '../src/server.mjs';
+import { createChmTideHttpHandler } from '../src/chm-tide-http.mjs';
+import { createPaidDashboardDataHttpHandler } from '../src/dashboard-data-http.mjs';
+
 import { obfuscatedPlayAccountId } from '../src/subscription-account-binding-rj.mjs';
 
 const projectId = 'blaise-v6-rj';
@@ -135,4 +138,33 @@ test('subscriber verification fails closed when identity verifier is not configu
   assert.equal(await requireSubscriberUid({ headers: { authorization: 'Bearer anything' } }, config, null), null);
   assert.equal(await requireSubscriberUid({ headers: { authorization: 'Bearer anything' } }, config, async () => { throw Error('unavailable'); }), null);
   assert.equal(await requireSubscriberUid({ headers: { authorization: 'Bearer anything' } }, config, async () => 'x@y.invalid'), null);
+});
+
+test('each paid data route rejects missing verified Firebase identity before Play lookup', async () => {
+  let lookups = 0;
+  const gateway = {
+    async getSubscription() { lookups += 1; return subscription(); },
+    async acknowledge() {},
+  };
+  const core = createHttpHandler({ config, gateway, oidcVerifier: null });
+  const tide = createChmTideHttpHandler(core, { config, gateway, chmTideCache: null });
+  const dashboard = createPaidDashboardDataHttpHandler(tide, {
+    config, gateway, sourceWorker: { status() { return {}; }, readSource() { return {}; } },
+  });
+  await withServer(dashboard, async (base) => {
+    for (const [path, body] of [
+      ['/v1/data/dashboard', purchase],
+      ['/v1/data/municipalities', purchase],
+      ['/v1/data/chm/tide', { ...purchase, stationNumber: 1, calendarYear: 2026 }],
+    ]) {
+      const response = await fetch(base + path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      assert.equal(response.status, 401);
+      assert.deepEqual(await response.json(), { error: 'unauthorized' });
+    }
+    assert.equal(lookups, 0);
+    // Public availability probes do not use the subscriber identity gate.
+    assert.equal((await fetch(base + '/healthz')).status, 200);
+  });
 });
