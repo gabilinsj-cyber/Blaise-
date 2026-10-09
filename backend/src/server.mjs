@@ -1,5 +1,4 @@
 import http from 'node:http';
-import { createRequestLimiter } from './blaise-shield-rj.mjs';
 import { pathToFileURL } from 'node:url';
 import {
   ClientInputError,
@@ -276,7 +275,6 @@ export function createHttpHandler({
   rtdnGate = createConcurrencyGate({ maxConcurrent: config.rtdnMaxConcurrent ?? DEFAULT_RTDN_MAX_CONCURRENT }),
   p0Gate = createConcurrencyGate({ maxConcurrent: config.p0MaxConcurrent ?? DEFAULT_P0_MAX_CONCURRENT }),
 }) {
-  const shieldCheck = createRequestLimiter({ limit: 60, windowMs: 60000 });
   return async (req, res) => {
     setCommonHeaders(res);
     metrics.increment('requests_total');
@@ -314,12 +312,6 @@ export function createHttpHandler({
 
       if (req.method === 'POST' && req.url === '/v1/entitlements/verify') {
         busyRoute = 'verify';
-      const shieldResult = shieldCheck('verify');
-      if (!shieldResult.allowed) {
-        res.setHeader('Retry-After', String(shieldResult.retryAfter));
-        sendJson(res, 429, { error: 'too_many_requests' });
-        return;
-      }
         if (!isJsonContentType(req)) {
           metrics.increment('client_error_total');
           sendJson(res, 415, { error: 'unsupported_media_type' });
