@@ -28,6 +28,8 @@ object FirebaseSubscriberAccess {
         val result = runCatching {
             Tasks.await(user.getIdToken(false), 7, TimeUnit.SECONDS).token
         }.getOrNull() ?: return null
+        // Reject stale in-flight verification after logout or account switch.
+        if (runCatching { FirebaseAuth.getInstance().currentUser?.uid }.getOrNull() != user.uid) return null
         return result.takeIf { it.isNotBlank() && it.length < 12_000 }?.let { "Bearer $it" }
     }
 }
