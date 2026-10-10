@@ -49,7 +49,7 @@ export function vaporPressureFromDewPoint({dewPointC}) {
 }
 export function relativeHumidityFromDewPoint({temperatureC,dewPointC}) {
   finite(temperatureC,'temperature',-45,60);
-  finite(dewPointC,'dew_point',-65,temperatureC+0.2);
+  finite(dewPointC,'dew_point',-45,temperatureC+0.2);
   const rh=100*saturationVaporPressureHpa(dewPointC)/saturationVaporPressureHpa(temperatureC);
   return result(Math.min(rh,100),'%','Magnus_vapor_pressure_ratio',
     {limitation:'Td and T must be matched in time and location; result is derived, not station RH.'});
@@ -65,7 +65,7 @@ export function specificHumidityFromMixingRatio({mixingRatioKgKg}) {
   finite(mixingRatioKgKg,'mixing_ratio',0,0.1);
   return result(mixingRatioKgKg/(1+mixingRatioKgKg),'kg/kg','r/(1+r)');
 }
-export function dryAdiabaticLapseRate({temperatureAtBottomC,temperatureAtTopC,bottomHeightM,topHeightM}) {
+export function observedEnvironmentalLapseRate({temperatureAtBottomC,temperatureAtTopC,bottomHeightM,topHeightM}) {
   finite(temperatureAtBottomC,'lower_temp',-90,60);
   finite(temperatureAtTopC,'upper_temp',-90,60);
   finite(bottomHeightM,'bottom_height',-500,18000);
