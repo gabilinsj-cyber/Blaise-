@@ -924,8 +924,8 @@ private fun HomeScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Column(Modifier.weight(0.91f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.fillMaxWidth())
-                MarinePanel(Modifier.fillMaxWidth())
+                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.fillMaxWidth(), onNavigate)
+                MarinePanel(Modifier.fillMaxWidth(), onNavigate)
                 ForecastPanel(Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -934,7 +934,7 @@ private fun HomeScreen(
                 ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.fillMaxWidth())
+                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
                 TrafficSummaryPanel(Modifier.fillMaxWidth(), onNavigate)
                 RiskPanel(Modifier.fillMaxWidth())
                 AirQualitySummaryPanel(Modifier.fillMaxWidth(), onNavigate)
@@ -945,7 +945,7 @@ private fun HomeScreen(
         // Portrait: preserve the weather map as the first, largest panel.
         ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
-        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
         MarineAndRiskRow(false)
         Spacer(Modifier.height(10.dp))
@@ -1755,6 +1755,7 @@ private fun CityPair(
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigate: ((String) -> Unit)? = null,
 ) {
     Card(
         modifier = modifier,
@@ -1765,9 +1766,9 @@ private fun CityPair(
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("MUNICÍPIOS MONITORADOS", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.weight(1f))
+                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.weight(1f), onNavigate)
                 Box(Modifier.width(2.dp).height(190.dp).background(Color.Black))
-                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.weight(1f))
+                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.weight(1f), onNavigate)
             }
         }
     }
@@ -2079,6 +2080,7 @@ private fun CityPanel(
     chooseLabel: String,
     onChoose: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigate: ((String) -> Unit)? = null,
 ) {
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
@@ -2163,6 +2165,15 @@ private fun CityPanel(
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            if (onNavigate != null) {
+                TextButton(
+                    onClick = { onNavigate("Alertas") },
+                    modifier = Modifier.fillMaxWidth().testTag("city-alerts-${city.ibgeCode}"),
+                ) {
+                    Text("⚠ Alertas da cidade • ver todos ›",
+                        color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                }
+            }
             OutlinedButton(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
                 Text(chooseLabel, style = MaterialTheme.typography.labelSmall)
             }
