@@ -1111,13 +1111,13 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         }
         Surface(
             modifier = Modifier.fillMaxWidth()
-                .height(if (enlarged) 440.dp else 300.dp)
+                .height(if (enlarged) 510.dp else 360.dp)
                 .testTag("expanded-radar-map"),
             color = Color(0xFF071421),
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, Color(0xFF2777B0)),
         ) {
-            Box {
+            BoxWithConstraints {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
                 if (stationMetric != null) {
                     InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
@@ -1133,19 +1133,46 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     }
                 }
                 Column(
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(7.dp),
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .padding(start = 8.dp, top = 70.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Surface(
-                        modifier = Modifier.clickable { mapZoom = (mapZoom + 0.2f).coerceAtMost(1.8f) },
+                        modifier = Modifier.testTag("map-zoom-in")
+                            .clickable { mapZoom = (mapZoom + 0.2f).coerceAtMost(1.8f) },
                         color = Color(0xE80B2541), shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("+", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
                     Surface(
-                        modifier = Modifier.clickable { mapZoom = (mapZoom - 0.2f).coerceAtLeast(1f) },
+                        modifier = Modifier.testTag("map-zoom-out")
+                            .clickable { mapZoom = (mapZoom - 0.2f).coerceAtLeast(1f) },
                         color = Color(0xE80B2541), shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+                if (maxWidth >= 470.dp) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
+                            .width(134.dp).testTag("map-overlay-menu"),
+                        color = Color(0xEB09233F),
+                        shape = RoundedCornerShape(11.dp),
+                        border = BorderStroke(1.dp, Color(0xFF2977B2)),
+                    ) {
+                        Column(Modifier.padding(5.dp),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            supplementalLayers.forEach { layer ->
+                                Text(
+                                    (if (selectedSupplement == layer) "● " else "◦ ") + layer,
+                                    color = if (selectedSupplement == layer) Gold else Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .testTag("map-overlay-${layer}")
+                                        .clickable { selectedSupplement = layer }
+                                        .padding(horizontal = 6.dp, vertical = 5.dp),
+                                )
+                            }
+                        }
+                    }
                 }
                 Surface(
                     modifier = Modifier.align(Alignment.BottomCenter).padding(start = 7.dp, end = 7.dp, bottom = 30.dp),
