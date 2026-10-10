@@ -389,8 +389,9 @@ private fun BlaiseDashboard(
                         modifier = Modifier
                             .weight(1f)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = if (wide) 16.dp else 10.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(9.dp),
+                            .padding(horizontal = if (wide) 10.dp else 10.dp,
+                                vertical = if (wide) 4.dp else 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (wide) 6.dp else 9.dp),
                     ) {
                         if (wide) {
                             Row(
@@ -448,7 +449,7 @@ private fun BlaiseDashboard(
                         FooterSources()
                     }
                     Surface(color = NavyRaised, modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                        Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                             PrimaryNavigation(selectedSection, onSelectSection)
                         }
                     }
@@ -482,13 +483,14 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Color(0xFF1762A2)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = if (compact) 5.dp else 9.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 5.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(46.dp),
+                    modifier = Modifier.size(if (compact) 39.dp else 46.dp),
                     shape = RoundedCornerShape(12.dp),
                     color = Panel,
                     border = BorderStroke(1.dp, Gold),
@@ -702,8 +704,8 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.50f)),
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(if (compact) 6.dp else 8.dp),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 5.dp),
+            Modifier.fillMaxWidth().padding(if (compact) 4.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else 5.dp),
         ) {
             if (compact) {
                 // Reference-style horizontal command strip: one short row,
@@ -725,7 +727,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         enabled = appEnabled,
                     ) { Text(if (listening) "■" else "🎙") }
                     Surface(
-                        modifier = Modifier.weight(1f).height(45.dp),
+                        modifier = Modifier.weight(1f).height(39.dp),
                         color = Navy, shape = RoundedCornerShape(9.dp),
                         border = BorderStroke(1.dp, Divider),
                     ) {
@@ -879,7 +881,7 @@ private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
                 border = BorderStroke(1.dp, if (active) Gold else Divider),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
@@ -2115,15 +2117,29 @@ private fun OfficialStatusBanner(state: OfficialFeedState, onNavigate: (String) 
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, accent),
     ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("⚠", color = accent, fontWeight = FontWeight.Black)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(headline, color = accent, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelSmall)
-                Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall)
-            }
-            TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("alerts-ribbon-open")) {
-                Text("Ver alertas", color = Gold, style = MaterialTheme.typography.labelSmall)
+        BoxWithConstraints {
+            val singleLine = maxWidth >= 690.dp
+            Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp,
+                vertical = if (singleLine) 2.dp else 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("⚠", color = accent, fontWeight = FontWeight.Black)
+                if (singleLine) {
+                    Text(headline, color = accent, fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1, modifier = Modifier.weight(1f))
+                } else {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(headline, color = accent, fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                TextButton(onClick = { onNavigate("Alertas") },
+                    modifier = Modifier.testTag("alerts-ribbon-open")) {
+                    Text("Ver alertas", color = Gold, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
