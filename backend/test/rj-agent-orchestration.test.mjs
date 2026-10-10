@@ -101,7 +101,7 @@ test('Blaise Fusion exposes both discrepant official readings and INPE/Windy mod
   assert.equal(plan.showBothDiscrepantSources,true);
   assert.equal(plan.observedOfficialReadingCount,2);
   assert.deepEqual(plan.officialReadingsForDisplay.map(v=>v.value),[36,29]);
-  assert.equal(plan.modelTieBreakEvidence.favoredSourceId,'INMET');
+  assert.equal(plan.modelTieBreakEvidence.favoredSourceId,'INMET_STATION');
   assert.equal(plan.observedOrEstimatedValue,29);
   assert.equal(plan.calculatedValues,null);
   assert.equal(plan.publishersTriggered,false);
