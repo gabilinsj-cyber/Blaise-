@@ -138,6 +138,8 @@ class OfficialWeatherClient {
             OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
             OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
             OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
+            windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
+            hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
         ))
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
