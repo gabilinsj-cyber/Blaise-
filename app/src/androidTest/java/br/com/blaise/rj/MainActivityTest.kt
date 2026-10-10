@@ -73,6 +73,8 @@ class MainActivityTest {
         assertCriticalStatusVisible()
         rule.onNodeWithTag("assistant-compact-strip").assertIsDisplayed()
         rule.onNodeWithTag("assistant-microphone").assertIsEnabled()
+        rule.onNodeWithTag("map-overlay-menu").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("nav-Mais").assertIsDisplayed()
 
         rule.activityRule.scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT }
