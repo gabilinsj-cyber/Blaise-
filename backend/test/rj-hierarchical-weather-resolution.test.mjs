@@ -36,7 +36,7 @@ test('Rio city uses the first independent compatible official pair in hierarchy'
   assert.equal(resolved.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
   assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
   assert.equal(resolved.value,29);
-  assert.equal(resolved.officialMeasurement,undefined); // output is a calculation, not an observation
+  assert.equal(resolved.officialMeasurement,false); // output is a calculation, not an observation
   assert.equal(resolved.automaticAlertAuthorized,false);
   assert.equal(resolved.audibleAlertAuthorized,false);
 });
@@ -53,6 +53,37 @@ test('first two sources disagree so continue to third and choose first compatibl
   assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','INMET_STATION']);
   assert.equal(resolved.value,24.5);
   assert.ok(resolved.conflictsEncountered.some(x=>x.sourceB==='DEFESA_CIVIL_RJ_REGIONAL'));
+});
+test('skips stale or invalid priority source then uses two fresh compatible independent sources',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[
+      measurement('ALERTA_RIO','AR-RJ',31,{observedAt:'2026-10-10T12:00:00Z'}),
+      measurement('DEFESA_CIVIL','DC-1',25),
+      measurement('INMET','A652',26),
+    ],
+  });
+  assert.equal(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
+  assert.deepEqual(r.selectedSourceIds,['DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION']);
+  assert.equal(r.value,25.5);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
+test('different units, source types, times or station distances cannot be blended just to obtain a value',()=>{
+  for(const changed of [
+    {observedAt:'2026-10-10T16:55:00Z'},
+    {latitude:-22.35,longitude:-42.40},
+    {weight:-1},
+    {unit:'km/h'},
+  ]) {
+    const r=resolveRjCompatibleSources({
+      ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+      observations:[measurement('ALERTA_RIO','AR-RJ',25),
+        measurement('DEFESA_CIVIL','DC-1',25.5,changed)],
+    });
+    assert.equal(r.state,'ONE_VERIFIED_OFFICIAL_SOURCE');
+    assert.equal(r.value,25);
+    assert.equal(r.automaticAlertAuthorized,false);
+  }
 });
 test('a second station from the SAME provider is not a second independent source',()=>{
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
