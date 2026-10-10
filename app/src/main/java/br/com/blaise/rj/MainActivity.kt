@@ -1573,29 +1573,83 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    val context = LocalContext.current
+    var details by remember(city.ibgeCode) { mutableStateOf(false) }
+    // Scenic header cropped from the approved visual reference. Only use for
+    // Rio and Niterói, and NEVER crop weather readings or alerts from the mock.
+    val skyline = remember(city.ibgeCode) {
+        val frame = when (city.ibgeCode) {
+            3304557 -> intArrayOf(16, 190, 350, 49)
+            3303302 -> intArrayOf(1178, 190, 338, 49)
+            else -> null
+        }
+        frame?.let { slice ->
+            runCatching {
+                val image = BitmapFactory.decodeResource(context.resources, R.drawable.blaise_reference)
+                Bitmap.createBitmap(image, slice[0], slice[1], slice[2], slice[3]).asImageBitmap()
+            }.getOrNull()
+        }
+    }
     Surface(
         modifier = modifier,
         color = Panel,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Divider),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, Color(0xFF2777B0)),
     ) {
-        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(label, color = Gold, fontWeight = FontWeight.Bold)
-            Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.fillMaxWidth().padding(9.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(label, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f))
+                Text("RJ", color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+            if (skyline != null) {
+                Image(
+                    bitmap = skyline,
+                    contentDescription = "Imagem ilustrativa de ${city.name}; não representa condições meteorológicas.",
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Surface(
+                    color = Color(0xFF12436B),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("Estado do Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.height(2.dp))
-            Text(observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-            Text(report?.summary(clock) ?: "Consultando medição oficial…", color = Muted, style = MaterialTheme.typography.bodySmall)
-            fun metric(value: Double?, unit: String): String = value?.let {
+            Text(
+                observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
+                color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium,
+            )
+            Text(
+                if (observation == null) "Medição oficial indisponível" else "Medição oficial com horário válido",
+                color = if (observation == null) WarningAmber else StableGreen,
+                style = MaterialTheme.typography.labelSmall,
+            )
+            fun metric(value: Double?, unit: String) = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
-            } ?: "Indisponível"
-            StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
-            StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", "Indisponível")
-            StatusLine("Índice UV", "Indisponível")
-            StatusLine("Chance de chuva", "Indisponível")
-            StatusLine("Rajadas / nuvens", "Indisponíveis")
-            Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
+            } ?: "—"
+            Text("Umidade ${metric(observation?.humidityPercent, "%")}  •  Vento ${metric(observation?.windKmh, "km/h")}",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            OutlinedButton(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
+                Text(chooseLabel, style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (details) "Ocultar detalhes" else "Ver detalhes")
+            }
+            if (details) {
+                Text(report?.summary(clock) ?: "Nenhum dado meteorológico atual confirmado para este município.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("Sensação térmica, UV, chance de chuva e rajadas: apenas com fonte oficial válida.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("Avisos: ver seção Alertas. Ausência de dados não significa ausência de risco.",
+                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }
