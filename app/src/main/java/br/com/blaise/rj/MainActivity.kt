@@ -1099,7 +1099,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     border = BorderStroke(1.dp, Divider),
                 ) {
                     Column(Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
-                        Text("RJ • BASE GEOGRÁFICA", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        Text("MAPA PRÓPRIO • BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                         Text("92 municípios • não é radar", color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
                 }
@@ -1136,7 +1136,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("● Contornos geográficos • ponto INMET só onde existe medição válida", modifier = Modifier.weight(1f),
+            Text("● Mapa desenhado pelo Blaise • estação INMET só com medição válida", modifier = Modifier.weight(1f),
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { enlarged = !enlarged }) {
                 Text(if (enlarged) "Reduzir" else "Ampliar")
@@ -1157,7 +1157,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             }
         }
         Text(if (selectedSupplement == "Cidades")
-            "Cidades: limites geográficos dos 92 municípios exibidos no mapa, sem dados meteorológicos simulados."
+            "Cidades: desenho próprio do Blaise, limites de base cartográfica aberta dos 92 municípios; sem chuva ou radar simulados."
             else "${selectedSupplement}: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("map-extra-status"))
