@@ -39,7 +39,7 @@ function time(row) {
   if (!/^\d{4}$/.test(hhmm)) return null;
   const iso = row.DT_MEDICAO + 'T' + hhmm.slice(0, 2) + ':' + hhmm.slice(2) + ':00Z';
   const ms = Date.parse(iso);
-  return Number.isFinite(ms) && new Date(ms).toISOString() === iso ? ms : null;
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 19) === iso.slice(0, 19) ? ms : null;
 }
 
 try {
