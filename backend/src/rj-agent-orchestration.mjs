@@ -7,11 +7,11 @@ import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
-const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO']);
-const OCEAN = new Set(['RESSACA','ONDAS','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR']);
-const TRACK = new Set(['TEMPORAL','TEMPESTADE','CICLONE_EXTRATROPICAL']);
+const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
+const OCEAN = new Set(['RESSACA','ONDAS','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','TSUNAMI']);
+const TRACK = new Set(['TEMPORAL','TEMPESTADE','CICLONE_EXTRATROPICAL','GRANIZO','FRENTE_FRIA']);
 const DIAGNOSTIC = new Set(['TEMPERATURA','SENSACAO_TERMICA','UMIDADE','VENTO','RAJADA','CHUVA_ACUMULADA',
-  'TEMPORAL','TEMPESTADE','CICLONE_EXTRATROPICAL','MASSA_AR']);
+  'TEMPORAL','TEMPESTADE','CICLONE_EXTRATROPICAL','MASSA_AR','GRANIZO','FRENTE_FRIA']);
 export const RJ_10_AGENT_PLAN_VERSION = 'rj-10-agent-plan-2026-10-10';
 
 /**
@@ -27,6 +27,7 @@ export function planRjPhenomenonCase({ibge=null,phenomenon,region='MUNICIPAL',le
   if(HYDRO.has(phenomenon)) relevant.add(5);
   if(OCEAN.has(phenomenon)||region!=='MUNICIPAL') relevant.add(6);
   if(phenomenon==='RADAR') { relevant.add(2); relevant.add(4); }
+  if(phenomenon==='SISMO'||phenomenon==='TSUNAMI') relevant.add(7);
   // Seismic and tsunami source routing is a separate product input requiring
   // authoritative earthquake+tsunami contracts before dispatching Agent 7.
   const participants=BLAISE_RJ_AGENTS.filter(a=>relevant.has(a.number)).map(a=>Object.freeze({
