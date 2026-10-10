@@ -4,6 +4,7 @@ import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 import {
   assessRjMeteorologicalDisagreement,
   weightedComparableForecastMean,
+  compareInpeWindyToDiscrepantObservations,
 } from '../src/rj-weather-source-reconciliation.mjs';
 
 const NOW=Date.parse('2026-10-10T18:00:00Z');
@@ -26,6 +27,100 @@ const forecast=(sourceId,value,change={})=>({
   skillEvidenceId:'historical-backtest-id',
   ...change,
 });
+const triangulation=(sourceId,value,changes={})=>forecast(sourceId,value,{
+  modelFamilyId:sourceId==='INPE_CPTEC_FORECAST'?'INPE-BRAMS':'ECMWF-IFS',
+  skillEvidenceId:'documented-independent-local-skill-test',
+  latitude:-22.9,longitude:-43.2,gridResolutionKm:10,
+  ...changes,
+});
+test('INPE and Windy independently favor closer official measurement, without hiding either original value',()=>{
+  const readings=[obs('A652',25),obs('DEF-1',33)];
+  const tie=compareInpeWindyToDiscrepantObservations({
+    observations:readings,
+    forecasts:[
+      triangulation('INPE_CPTEC_FORECAST',26),
+      triangulation('WINDY_MODELO',27,{sourceUrl:'https://www.windy.com/'}),
+    ],ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+  });
+  assert.equal(tie.state,'BOTH_OFFICIAL_VALUES_WITH_MODEL_FAVORED_REFERENCE');
+  assert.equal(tie.favoredSourceId,'INMET');
+  assert.equal(tie.favoredOfficialValue,25);
+  assert.equal(tie.officialMeasurements.length,2);
+  assert.deepEqual(tie.officialMeasurements.map(o=>o.value),[25,33]);
+  assert.equal(tie.weightedOfficialValue,null);
+  assert.equal(tie.automaticAlertAuthorized,false);
+  const integrated=assessRjMeteorologicalDisagreement({
+    observations:readings,
+    forecasts:[triangulation('INPE_CPTEC_FORECAST',26),
+      triangulation('WINDY_MODELO',27,{sourceUrl:'https://www.windy.com/'})],
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+  });
+  assert.equal(integrated.calculatedValue,null);
+  assert.equal(integrated.modelTieBreak.favoredStationId,'A652');
+});
+test('split model votes present BOTH discrepant official readings with source and time',()=>{
+  const tie=compareInpeWindyToDiscrepantObservations({
+    observations:[obs('A652',25),obs('DEF-1',33)],
+    forecasts:[
+      triangulation('INPE_CPTEC_FORECAST',26),
+      triangulation('WINDY_MODELO',32,{sourceUrl:'https://www.windy.com/'}),
+    ],ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+  });
+  assert.equal(tie.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
+  assert.equal(tie.reason,'INPE_WINDY_DISAGREE_OR_NEARLY_TIED');
+  assert.equal(tie.favoredOfficialValue,null);
+  assert.equal(tie.officialMeasurements[0].sourceId,'INMET');
+  assert.equal(tie.officialMeasurements[1].stationId,'DEF-1');
+  assert.equal(tie.automaticAlertAuthorized,false);
+});
+test('one model or duplicate underlying models never creates a false independent tie breaker',()=>{
+  const records=[obs('A652',25),obs('DEF-1',33)];
+  for(const inputs of [
+    [triangulation('INPE_CPTEC_FORECAST',25)],
+    [triangulation('INPE_CPTEC_FORECAST',25),
+      triangulation('WINDY_MODELO',26,{modelFamilyId:'INPE-BRAMS'})],
+    [triangulation('INPE_CPTEC_FORECAST',25),
+      triangulation('WINDY_MODELO',26,{skillEvidenceId:'X'})],
+    [triangulation('INPE_CPTEC_FORECAST',25),
+      triangulation('WINDY_MODELO',26,{latitude:-20.75,longitude:-41})],
+    [triangulation('INPE_CPTEC_FORECAST',25),
+      triangulation('WINDY_MODELO',26,{usagePermissionStatus:'UNKNOWN'})],
+  ]) {
+    const result=compareInpeWindyToDiscrepantObservations({
+      observations:records,forecasts:inputs,ibge:'3304557',
+      variable:'TEMPERATURA_C',now:NOW,
+    });
+    assert.equal(result.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
+    assert.equal(result.officialMeasurements.length,2);
+    assert.equal(result.weightedOfficialValue,null);
+  }
+});
+test('geographically distant or asynchronous official readings cannot be model-certified',()=>{
+  for(const change of [
+    {observedAt:'2026-10-10T17:00:00Z'},
+    {latitude:-22.4,longitude:-42.4},
+  ]){
+    const result=compareInpeWindyToDiscrepantObservations({
+      observations:[obs('A652',25),obs('DEF-1',33,change)],
+      forecasts:[triangulation('INPE_CPTEC_FORECAST',26),
+        triangulation('WINDY_MODELO',27)],
+      ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    });
+    assert.equal(result.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
+    assert.equal(result.reason,'STATIONS_TOO_FAR_APART_OR_DIFFERENT_OBSERVATION_TIMES');
+  }
+});
+test('all 92 RJ municipalities can retain official provenance with no invented model preference',()=>{
+  for(const {ibge} of RJ_MUNICIPALITIES) {
+    const tie=compareInpeWindyToDiscrepantObservations({
+      observations:[],forecasts:[],ibge,variable:'TEMPERATURA_C',now:NOW,
+    });
+    assert.equal(tie.favoredOfficialValue,null);
+    assert.equal(tie.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
+    assert.equal(tie.automaticAlertAuthorized,false);
+  }
+});
+
 test('INPE CPTEC is consulted as third source for discrepant official readings; does not erase discrepancy',()=>{
   const result=assessRjMeteorologicalDisagreement({
     observations:[obs('A652',25),obs('DEF-1',32)],
