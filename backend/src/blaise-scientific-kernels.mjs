@@ -4,7 +4,7 @@ export {
   relativeHumidityFromDewPoint,
   mixingRatio,
   specificHumidityFromMixingRatio,
-  dryAdiabaticLapseRate,
+  observedEnvironmentalLapseRate,
   meanVirtualTemperatureSeaLevelPressure,
   wetBulbStullApprox,
   verifiedRainfallAccumulation,
