@@ -53,6 +53,7 @@ const safe = (state, extra = {}) => Object.freeze({
   value: null,
   unit: null,
   resultKind: 'NOT_A_WEATHER_MEASUREMENT',
+  officialMeasurement: false,
   selectedSourceIds: Object.freeze([]),
   ...noWarning,
   ...extra,
@@ -172,6 +173,9 @@ export function resolveRjCompatibleSources({
     const best=confirmed[0];
     return safe('ONE_VERIFIED_OFFICIAL_SOURCE', {
       value:best.value,unit:entry.unit,resultKind:'OBSERVACAO_PONTUAL_OFICIAL_FONTE_UNICA',
+      officialMeasurement:true,
+      requiresDisagreementReview:conflicts.length>0,
+      consensusConfirmed:false,
       selectedSourceIds:Object.freeze([best.canonicalSourceId]),
       selectedStationIds:Object.freeze([best.stationId]),
       observedAt:best.observedAt,sourceUrl:best.sourceUrl,
