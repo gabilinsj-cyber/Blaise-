@@ -372,7 +372,7 @@ private fun BlaiseDashboard(
                             .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        AppHeader(powerOn, onPowerChange)
+                        AppHeader(powerOn, onPowerChange, onSelectSection)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState, onSelectSection)
 
@@ -433,7 +433,7 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
+private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
@@ -475,12 +475,17 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
                     )
                 }
             }
-            Text(
-                latest?.let { "Medição oficial mais recente: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília)" }
-                    ?: "Medições oficiais: aguardando informações válidas",
-                color = Muted,
-                style = MaterialTheme.typography.labelSmall,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    latest?.let { "Medição oficial: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}" }
+                        ?: "Medições oficiais: aguardando dados válidos",
+                    color = Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("top-notifications")) { Text("♧ Alertas") }
+                TextButton(onClick = { onNavigate("Mais") }, modifier = Modifier.testTag("top-settings")) { Text("⚙") }
+            }
         }
     }
 }
