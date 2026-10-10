@@ -5,6 +5,7 @@
  */
 import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
+import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -58,5 +59,47 @@ export function planRjPhenomenonCase({ibge=null,phenomenon,region='MUNICIPAL',le
     agents:Object.freeze(participants),
     rosterNumbers:ALL,
     nextAction:'VERIFY_LIVE_OFFICIAL_SOURCE_TIME_SCOPE_LICENSE_AND_PHYSICS_INPUTS',
+  });
+}
+
+/**
+ * Blaise Sentinel (1) -> Fusion (3) -> Vector (2) processing contract.
+ * Authorized, live source adapters must be registered separately by the
+ * deploying backend; this function does not claim any connector is running.
+ */
+export async function reconcileRjWeatherCase({
+  ibge, variable, level=1, adapters={}, now=Date.now(),
+}={}) {
+  const phenomenonByVariable = Object.freeze({
+    TEMPERATURA_C:'TEMPERATURA',
+    VENTO_KMH:'VENTO',
+    RAJADA_KMH:'RAJADA',
+    CHUVA_MM_1H:'CHUVA_ACUMULADA',
+    UMIDADE_PERCENTUAL:'UMIDADE',
+  });
+  if(!Object.hasOwn(phenomenonByVariable,variable))
+    throw new TypeError('rj_unsupported_weather_variable');
+  const policyPlan=planRjPhenomenonCase({
+    ibge,phenomenon:phenomenonByVariable[variable],level,
+  });
+  const determination=await consultRjSourcesUntilTwo({
+    ibge,variable,adapters,now,
+  });
+  return Object.freeze({
+    ...policyPlan,
+    reconciliationVersion:'rj-two-compatible-2026-10-10-v1',
+    dataHandlingAgents:Object.freeze([1,3,2,8]),
+    latestVerifiedResult:determination,
+    resultKind:determination.resultKind,
+    verifiedSourceCount:determination.selectedSourceIds.length,
+    observedOrEstimatedValue:determination.value,
+    calculatedValues:determination.resultKind==='CALCULO_BLAISE_SOBRE_DUAS_MEDICOES_OFICIAIS'
+      ||determination.resultKind==='PREVISAO_PONDERADA_BLAISE_NAO_OBSERVACAO'
+      ?determination.value:null,
+    sourceStatus:determination.state,
+    audibleAlert:false,
+    publishersTriggered:false,
+    purchasesTriggered:false,
+    sourcePollingState:'NO_AUTONOMOUS_SOURCE_CONNECTORS_REGISTERED_HERE',
   });
 }
