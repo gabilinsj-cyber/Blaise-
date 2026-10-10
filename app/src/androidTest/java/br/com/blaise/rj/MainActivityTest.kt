@@ -119,6 +119,23 @@ class MainActivityTest {
         }
     }
 
+    @Test fun referenceHomeContainsScientificAgentsAndOfficialServicePanels() {
+        rule.onNodeWithTag("scientific-calculator-panel").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("ten-agents-panel").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("traffic-official-status").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("air-quality-official-status").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("10 agentes cadastrados • execução autônoma em produção ainda não validada.")
+        assertTextDisplayed("CÁLCULO BLAISE • NÃO É MEDIÇÃO OFICIAL")
+    }
+
+    @Test fun tenAgentDescriptionsAreAccessibleWithoutSimulatingProduction() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        assertTextDisplayed("BLAISE • 10 AGENTES CIENTÍFICOS E DE SEGURANÇA")
+        rule.onNodeWithText("Ver funções dos 10 agentes").performScrollTo().performClick()
+        assertTextDisplayed("1. Blaise Sentinel RJ")
+        assertTextDisplayed("10. Auditoria Profunda RJ")
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
