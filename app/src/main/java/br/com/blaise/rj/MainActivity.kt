@@ -587,6 +587,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     var listening by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var showBulletin by remember { mutableStateOf(false) }
+    var showQuickHelp by remember { mutableStateOf(false) }
     val statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
@@ -596,6 +597,20 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen\n\nSensação térmica, UV, previsão e alertas: integração ainda indisponível. Fonte e horário referem-se à medição de cada estação."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
     val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Sensação térmica, UV e previsão ainda indisponíveis" else chosen)}."
+    if (showQuickHelp) {
+        AlertDialog(
+            onDismissRequest = { showQuickHelp = false },
+            title = { Text("Ajuda • Blaise V6 RJ") },
+            text = {
+                Text("Selecione uma cidade do Rio de Janeiro, consulte o mapa, os gráficos e os avisos. " +
+                    "Faça perguntas pelo microfone ou digite. Os dados só aparecem com fonte e horário válidos. " +
+                    "A falta de informações não significa ausência de risco. Em emergência, siga a Defesa Civil.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showQuickHelp = false }) { Text("Entendi") }
+            },
+        )
+    }
     if (showBulletin) {
         Dialog(onDismissRequest = { showBulletin = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(Modifier.fillMaxSize(), color = Navy) {
@@ -749,8 +764,20 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     Text(
                         "Leia mais ›", color = Gold, style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.clickable { showBulletin = true }
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                            .padding(horizontal = 6.dp, vertical = 5.dp),
                     )
+                    Text("🔔", color = WarningAmber, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("top-notifications")
+                            .clickable { onNavigate("Alertas") }
+                            .padding(horizontal = 6.dp, vertical = 7.dp))
+                    Text("⚙", color = Gold, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("top-settings")
+                            .clickable { onNavigate("Mais") }
+                            .padding(horizontal = 6.dp, vertical = 7.dp))
+                    Text("?", color = Gold, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("top-help")
+                            .clickable { showQuickHelp = true }
+                            .padding(horizontal = 6.dp, vertical = 7.dp))
                 }
                 if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
                     Text(answer, color = Color.White,
@@ -802,6 +829,8 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Boletim • 06h / 12h / 16h", color = Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
+                TextButton(onClick = { showQuickHelp = true },
+                    modifier = Modifier.testTag("top-help")) { Text("Ajuda") }
             }
             if (!compact) {
                 Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
