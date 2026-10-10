@@ -331,6 +331,40 @@ export function resolveRjCompatibleSources({
       });
     }
   }
+  // If only ONE valid station is available, a forecast can still be shown
+  // alongside it for transparency. This is NOT two station measurements and
+  // does not imply meteorological agreement.
+  if(confirmed.length===1 && predictions.length>0) {
+    const observed=confirmed[0];
+    const model=predictions.find(f=>f.sourceId==='INPE_CPTEC_FORECAST')
+      ||predictions.find(f=>f.sourceId==='WINDY_MODELO');
+    if(model) return safe('ONE_OFFICIAL_PLUS_FORECAST_CONTEXT',{
+      value:observed.value,unit:entry.unit,
+      resultKind:'OFFICIAL_POINT_AND_INDEPENDENT_FORECAST_NOT_RECONCILED',
+      officialMeasurement:true,
+      selectedSourceIds:Object.freeze([observed.canonicalSourceId,model.sourceId]),
+      sourcePairForDisplay:Object.freeze([
+        Object.freeze({sourceId:observed.canonicalSourceId,stationId:observed.stationId,
+          value:observed.value,unit:observed.unit,observedAt:observed.observedAt,
+          sourceUrl:observed.sourceUrl,dataType:'OFFICIAL_STATION_OBSERVATION'}),
+        Object.freeze({sourceId:model.sourceId,value:model.value,
+          unit:model.unit,validAt:model.validAt,
+          sourceUrl:model.sourceUrl,productId:model.productId,
+          dataType:'MODEL_FORECAST_NOT_A_MEASURED_STATION'}),
+      ]),
+      officialReadings:Object.freeze([Object.freeze({
+        sourceId:observed.canonicalSourceId,stationId:observed.stationId,
+        value:observed.value,unit:observed.unit,
+        observedAt:observed.observedAt,sourceUrl:observed.sourceUrl,
+        dataType:'OFFICIAL_STATION_OBSERVATION',
+      })]),
+      consensusConfirmed:false,weightedMeanApplied:false,
+      missingSecondCompatibleSource:true,
+      examinedSourceIds:Object.freeze(examined),
+      conflictsEncountered:Object.freeze(conflicts),
+      note:'One official station plus model forecast for context. No measured agreement established.',
+    });
+  }
   // If official stations fail to form a pair, retain one *measured* value,
   // clearly attributed and with no false weighted mean.
   if(confirmed.length>0) {
