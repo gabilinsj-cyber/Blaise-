@@ -1621,9 +1621,15 @@ private fun MoreScreen(
         subtitle = "Prioridade local e origem preservada",
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
-        Text("INEA excluído do Blaise V6 RJ. Alerta Rio atua apenas na cidade do Rio. " +
-            "ANA/CEMADEN/SGB/SACE e INMET conforme município e variável; " +
-            "Marinha/NOAA no litoral e Atlântico, Windy apenas como comparação.",
+        Text("Cinco fontes meteorológicas por situação: " +
+            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" • ") +
+            ". Alerta Rio limitado ao município do Rio; INMET é medição por estação, " +
+            "CPTEC/INPE oferece previsões oficiais e Windy compara modelos.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("five-weather-sources-status"))
+        Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
+            "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
+            "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
