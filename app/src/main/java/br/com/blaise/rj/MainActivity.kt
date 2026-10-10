@@ -976,6 +976,8 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
     var enlarged by remember { mutableStateOf(false) }
     var showStations by remember { mutableStateOf(false) }
     var mapZoom by remember { mutableStateOf(1f) }
+    val supplementalLayers = listOf("Cidades", "Rodovias", "CET-Rio", "Sirenes", "Deslizamentos", "Pluviômetros", "Satélite")
+    var selectedSupplement by remember { mutableStateOf("Cidades") }
     DashboardSection(
         title = "ESTADO DO RIO DE JANEIRO",
         subtitle = "Mapa geográfico com 92 municípios • visão estadual",
@@ -1060,6 +1062,28 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                 Text(if (enlarged) "Reduzir" else "Ampliar")
             }
         }
+        Text("SOBREPOSIÇÕES DO MAPA • verificar disponibilidade", color = Gold,
+            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            supplementalLayers.forEach { extra ->
+                OutlinedButton(
+                    modifier = Modifier.testTag("map-extra-${extra}"),
+                    onClick = { selectedSupplement = extra },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (selectedSupplement == extra) Gold else Color.White,
+                    ),
+                ) { Text(extra, style = MaterialTheme.typography.labelSmall) }
+            }
+        }
+        Text(if (selectedSupplement == "Cidades")
+            "Cidades: limites geográficos dos 92 municípios exibidos no mapa, sem dados meteorológicos simulados."
+            else "${selectedSupplement}: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("map-extra-status"))
+        OutlinedButton(
+            onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
+        ) { Text("▶ Últimos 30 minutos de radar • aguardando frames oficiais") }
         OutlinedButton(onClick = { onNavigate("Mapa") }, modifier = Modifier.fillMaxWidth()) {
             Text("Mais camadas e mapa do RJ")
         }
