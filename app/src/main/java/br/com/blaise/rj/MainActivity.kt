@@ -1406,11 +1406,22 @@ private fun BillingPanel(
     ) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Assinatura • $storeName", color = Gold, fontWeight = FontWeight.Bold)
-            if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED && storeChannel == FinalDashboardSpec.STORE_GOOGLE_PLAY) {
+            if (storeChannel == FinalDashboardSpec.STORE_GOOGLE_PLAY &&
+                (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED || BuildConfig.DEBUG)
+            ) {
                 OutlinedButton(
                     onClick = { context.startActivity(Intent(context, SubscriberAccountActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Minha conta • entrar ou verificar e-mail") }
+                if (BuildConfig.DEBUG) {
+                    Text(
+                        if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
+                            "Diagnóstico do APK de teste: login Firebase habilitado."
+                        else
+                            "Diagnóstico do APK de teste: login Firebase desabilitado.",
+                        color = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED) StableGreen else WarningAmber,
+                    )
+                }
             }
             if (storeChannel != FinalDashboardSpec.STORE_GOOGLE_PLAY) {
                 Text(
@@ -1454,7 +1465,17 @@ private fun BillingPanel(
                 }
                 Text(message, color = if (code == BillingClient.BillingResponseCode.OK) Gold else WarningAmber)
             }
-            Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("Atualizar assinatura") }
+            if (offers == SubscriptionOffersSnapshot.Unconfigured) {
+                Text(
+                    "Compras desativadas nesta versão. Para testar cadastro e e-mail, abra Minha conta.",
+                    color = WarningAmber,
+                )
+            }
+            Button(
+                onClick = onRefresh,
+                enabled = offers != SubscriptionOffersSnapshot.Unconfigured,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (offers == SubscriptionOffersSnapshot.Unconfigured) "Compra indisponível neste teste" else "Atualizar assinatura") }
         }
     }
 }

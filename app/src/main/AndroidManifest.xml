@@ -19,7 +19,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:icon="@drawable/ic_launcher_foreground"
-        android:label="Blaise V6 RJ"
+        android:label="${blaiseAppLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.Blaise">
         <activity android:name=".billing.SubscriberAccountActivity" android:exported="false" />
