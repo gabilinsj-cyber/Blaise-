@@ -98,7 +98,10 @@ test('if two official sources differ too much, preserve best verified station no
     observations:[measurement('INMET','A652',29),measurement('DEFESA_CIVIL','DC-1',36)],
     forecasts:[forecast('INPE_CPTEC_FORECAST',30),forecast('WINDY_MODELO',30)]});
   assert.equal(r.state,'ONE_VERIFIED_OFFICIAL_SOURCE');
-  assert.equal(r.value,29);
+  // Civil Defence precedes INMET in Rio city's weather hierarchy.
+  assert.equal(r.value,36);
+  assert.deepEqual(r.selectedSourceIds,['DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.equal(r.requiresDisagreementReview,true);
   assert.equal(r.resultKind,'OBSERVACAO_PONTUAL_OFICIAL_FONTE_UNICA');
   assert.equal(r.automaticAlertAuthorized,false);
   assert.ok(r.conflictsEncountered.length>0);
