@@ -1,0 +1,66 @@
+name: Blaise RJ UI visual and functional review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'scripts/rj-interface-emulator-review.sh'
+      - '.github/workflows/rj-ui-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rj-ui-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  emulator-review:
+    # Run only for the isolated RJ interface PR; do not spend emulator minutes
+    # on unrelated subscription, store-release, or backend pull requests.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Allow hardware acceleration for Android emulator
+        run: |
+          set -euo pipefail
+          if test -e /dev/kvm; then
+            sudo chmod a+rw /dev/kvm
+          else
+            echo '/dev/kvm missing: hardware-accelerated emulator is unavailable'
+            exit 1
+          fi
+      - name: Build debug app and instrumentation test runner
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Run visual/functional emulator checks and capture evidence
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 6G
+          disable-animations: true
+          emulator-options: '-no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -no-snapshot -camera-back none'
+          script: bash scripts/rj-interface-emulator-review.sh
+      - name: Upload only visual evidence and test logs (no heavy APK)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-ui-visual-functional-evidence
+          path: evidence/rj-interface-review/
+          if-no-files-found: warn
+          retention-days: 5
