@@ -770,6 +770,8 @@ private fun HomeScreen(
     }
     Spacer(Modifier.height(14.dp))
     MarineAndRiskRow(wide)
+    Spacer(Modifier.height(10.dp))
+    CompactServicesRow(onNavigate)
     Spacer(Modifier.height(14.dp))
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -783,6 +785,38 @@ private fun HomeScreen(
         DailyChartPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
+    }
+}
+
+@Composable
+private fun CompactServicesRow(onNavigate: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onNavigate("Trânsito") },
+            color = PanelSoft, shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("TRÂNSITO • COR.Rio", color = Gold, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall)
+                Text("Ocorrências: —", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Aguardando ocorrências oficiais. Ver detalhes →", color = Muted,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onNavigate("Qualidade do Ar") },
+            color = PanelSoft, shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("QUALIDADE DO AR", color = Gold, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall)
+                Text("IQAr: —", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Índice oficial indisponível. Ver detalhes →", color = Muted,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
 }
 
