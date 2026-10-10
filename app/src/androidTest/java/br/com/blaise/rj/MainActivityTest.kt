@@ -145,6 +145,32 @@ class MainActivityTest {
         assertTextDisplayed("Satélite: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.")
     }
 
+    @Test fun headerHelpExplainsUnavailableDataAndAlertsShortcutOpensOfficialPanel() {
+        rule.onNodeWithTag("top-help").performScrollTo().performClick()
+        assertTextDisplayed("Ajuda • Blaise V6 RJ")
+        rule.onNodeWithText("Entendi").performClick()
+        rule.onNodeWithTag("city-alerts-3304557").performScrollTo().performClick()
+        assertTextDisplayed("ALERTAS POR MUNICÍPIO")
+    }
+
+    @Test fun seasideAndRegionalNewsPanelsExposeWorkingNavigationAndScopeTabs() {
+        rule.onNodeWithTag("marine-more").performScrollTo().performClick()
+        assertTextDisplayed("RESSACA • TSUNAMI • MAREMOTO")
+        rule.onNodeWithTag("nav-Início").performScrollTo().performClick()
+        rule.onNodeWithTag("news-scope-Internacional").performScrollTo().performClick()
+        rule.onNodeWithTag("news-scope-status").assertIsDisplayed()
+        rule.onNodeWithTag("news-more").performScrollTo().performClick()
+        assertTextDisplayed("NOTICIÁRIO LOCAL")
+    }
+
+    @Test fun mapZoomAndLayerControlsAreClickableButDoNotSimulateRadar() {
+        rule.onNodeWithTag("map-zoom-in").performScrollTo().performClick()
+        rule.onNodeWithTag("map-zoom-out").performScrollTo().performClick()
+        rule.onNodeWithTag("map-extra-Vento").performScrollTo().performClick()
+        assertTextDisplayed("Vento: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.")
+        assertTextDisplayed("MAPA PRÓPRIO • BLAISE V6 RJ")
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
