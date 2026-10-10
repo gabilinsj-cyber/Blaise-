@@ -8,15 +8,23 @@ A interface **renderiza seu próprio mapa** com código Android/Canvas do Blaise
 
 **Dados de fonte ≠ imagem de fonte.** Dados observados (chuva por estação, temperatura, vento, rajada, avisos, etc.) podem ser representados graficamente de modo original pelo Blaise, respeitando origem, unidade, data, coordenadas, cobertura e condições de uso dos dados. Não precisamos copiar imagens ou o mapa dos provedores. A utilização comercial de *cada base de dados*, inclusive redistribuição por API/produto, continua sujeita a sua licença/termos específicos, diferentemente da geometria CC0 usada como fundo.
 
-A matriz inicial distingue quatro canais discutidos: **Alerta Rio** (cidade do Rio), **Defesa Civil regional**, **INMET** (estações existentes), e **Windy** (modelo comparativo, NÃO uma medição oficial). CEMADEN, ANA, SGB/SACE, Marinha, NOAA e USGS seguem como fontes adicionais por categoria; o nome de uma fonte na lista não afirma que sua API, dados ou licença foram confirmados. O contrato `backend/src/rj-own-map-observations.mjs` somente prepara **pontos de estação oficiais recentes georreferenciados**, exigindo autorização de apresentação verificada. Não gera mapa de radar, chuva interpolada, imagens copiadas ou média municipal fictícia.
+A matriz meteorológica principal tem **cinco fontes**, selecionadas conforme a situação: **Alerta Rio** (somente município do Rio), **Defesa Civil regional**, **INMET** (estações de observação e avisos), **Windy** (comparação de modelos, não medição oficial) e **INPE/CPTEC** (previsões, monitoramento e produtos meteorológicos oficiais conforme cobertura, não estação INMET). CEMADEN, ANA, SGB/SACE, Marinha, NOAA e USGS seguem como fontes adicionais por categoria; o nome de uma fonte na lista não afirma que sua API, dados ou licença foram confirmados. O contrato `backend/src/rj-own-map-observations.mjs` somente prepara **pontos de estação oficiais recentes georreferenciados**, exigindo autorização de apresentação verificada. Não gera mapa de radar, chuva interpolada, imagens copiadas ou média municipal fictícia.
 
 Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializados reais* (por exemplo, células/grade de radar ou satélite com resolução, hora, refletividade/intensidade e georreferenciamento) devidamente autorizados; quatro leituras pontuais **não permitem deduzir esses pixels**. Até existir a entrada, a camada permanece indisponível.
 
 ## Classes de origem
 - **Medição/aviso oficial:** só quando for do órgão competente, identificando produto, coordenada ou município coberto, valor e unidade, observação/emissão em data válida e URL de origem. NOAA é agência oficial para seus produtos, mas previsões numéricas não são medições locais.
-- **Contexto de modelo e comparação:** Windy, suas visualizações de modelos e estimativas de terceiros. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.
+- **Contexto de modelo e comparação:** INPE/CPTEC (produtos oficiais de previsão meteorológica e satélite) e Windy (visualização/consulta de modelos); registrar tipo de produto, execução, validade, resolução espacial e autoria. Windy e as previsões do INPE não são automaticamente estações de observação. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.
 - **Cálculo Blaise:** derivação física e matemática sobre entradas identificadas, distinguida de medição. Não preencher lacunas sem dados ou estimar falsa precisão.
 - **Indisponível:** falha de rede, HTTP 204, medição antiga, sem licença, fora da cobertura, variável ausente, georreferenciamento desconhecido ou divergência inconclusiva.
+
+## Divergências entre as cinco fontes meteorológicas
+
+1. Uma leitura recente do **INMET**, Alerta Rio ou Defesa Civil (conforme estação e competência) permanece observação/aviso oficial; uma previsão do **INPE/CPTEC** ou modelo visualizado no **Windy** permanece previsão, mesmo que coincida numericamente com uma estação.
+2. Se duas medições oficiais discordarem, verificar município, coordenadas, distância entre estações, mesmo intervalo/unidade, carimbo de tempo, calibração e qualidade. Consultar o **INPE/CPTEC como terceira referência independente de previsão**, sem atribuir sua previsão à estação nem afirmar que ela desempatou o valor medido.
+3. **Média ponderada de observações**: somente após validar variáveis, horários, distâncias, pesos tecnicamente justificados e uma divergência abaixo do limiar de investigação. Diferença relevante => destacar divergência e não calcular média destinada a ocultá-la.
+4. **Média ponderada de previsões**: grupo separado, nunca misturar previsões com observações. Exigir mesmo fenômeno, município/célula, prazo, unidade, modelos/produtos independentes e pesos derivados de verificação histórica documentada. Sem calibração, indisponível.
+5. O diagnóstico está em `backend/src/rj-weather-source-reconciliation.mjs` e `backend/test/rj-weather-source-reconciliation.test.mjs`. **É algoritmo local e roteamento, ainda não comprova acesso vivo ou licença de API do INPE.** Todos os resultados derivados permanecem não oficiais e não autorizam alertas automáticos.
 
 ## Fontes por região e fenômeno
 
@@ -24,7 +32,7 @@ Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializ
 |---|---|---|
 | Rio de Janeiro (município): chuva, radar, acumulados, alertas | Alerta Rio e avisos locais da Defesa Civil; CEMADEN conforme cobertura | INMET para amostra pontual de estação; não chamar estação de radar nem interpolar municípios |
 | Demais 91 municípios: chuva/temporal/risco | Defesa Civil competente e CEMADEN; INMET para observações nas estações disponíveis | Comparar Windy apenas como contexto, nunca afirmar que Alerta Rio cobre todo o estado |
-| Todos os 92 municípios: temperatura, sensação térmica, umidade, vento/rajadas | INMET e redes oficiais municipais/Defesa Civil **onde houver observações**, com local, horário e qualidade | Sensação térmica calculada quando temperatura, umidade/vento e fórmula se aplicarem; Windy é critério comparativo subsidiário, não desempate autoritativo |
+| Todos os 92 municípios: temperatura, sensação térmica, umidade, vento/rajadas | INMET e redes oficiais municipais/Defesa Civil **onde houver observações**, com local, horário e qualidade | Sensação térmica calculada quando temperatura, umidade/vento e fórmula se aplicarem; INPE/CPTEC e Windy oferecem previsão complementar; Windy é critério comparativo subsidiário, não desempate autoritativo |
 | Nível de rios, cota e vazão | ANA (HidroWeb / serviços hidrológicos) | CEMADEN e SGB/SACE para contexto e situação de cheia; conferir identificação da estação e atualização |
 | Risco hidrológico/inundação | CEMADEN, Defesa Civil e SGB/SACE segundo competência | Cruzar com ANA quando disponível; risco não é substituível por vazão isolada |
 | Mar, ressaca, ondas, vento marítimo, avisos à navegação | Marinha do Brasil/CHM | NOAA para produtos oficiais pertinentes; INMET costeiro e Windy apenas complemento com tipo de dado explicitado |
@@ -51,6 +59,6 @@ A implementação inicial está em `backend/src/rj-scientific-calculator.mjs` e 
 5. Aviso nível 5 só aciona som e voz conforme regra específica de confirmação e elegibilidade do projeto. Dados de terceiros ou cálculos experimentais não são substitutos de avisos oficiais.
 6. Radar real requer fonte licenciada, prova de data do frame, projeção e georreferenciamento; caso contrário a camada permanece **indisponível**.
 7. Capturar falhas de autorização, domínios e mudanças de API, com auditoria; nunca alterar origem automaticamente para página não autorizada.
-8. Conectores ANA, SGB/SACE, NOAA e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
+8. Conectores INPE/CPTEC, ANA, SGB/SACE, NOAA e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
 
 **Situação atual de validação:** o INMET já possui modelo de leitura pontual e testes; última consulta externa reportou HTTP 204 em quatro estações do Rio, portanto **dados horários recentes não comprovados**. As camadas oceânicas, radar espacial, assinatura Google Play e voz física permanecem sujeitas à validação e/ou à autorização aplicável.
