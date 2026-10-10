@@ -1677,8 +1677,11 @@ private fun AlertsScreen(city1: City, city2: City) {
         title = "ALERTAS POR MUNICÍPIO",
         subtitle = "Verde • Amarelo • Amarelo piscando • Vermelho • COR.Rio 1–5",
     ) {
-        StatusLine(city1.name, "Sem conclusão até receber evidência oficial válida")
-        StatusLine(city2.name, "Sem conclusão até receber evidência oficial válida")
+        Text(city1.name, color = Gold, fontWeight = FontWeight.Bold)
+        PublicMunicipalStatusLine(city1.ibgeCode)
+        Spacer(Modifier.height(5.dp))
+        Text(city2.name, color = Gold, fontWeight = FontWeight.Bold)
+        PublicMunicipalStatusLine(city2.ibgeCode)
         Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
