@@ -869,7 +869,7 @@ private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
     )
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("primary-navigation"),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FinalDashboardSpec.primaryNavigation.forEach { item ->
@@ -881,12 +881,13 @@ private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
                 border = BorderStroke(1.dp, if (active) Gold else Divider),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(labels[item] ?: "•", color = if (active) Navy else Gold, fontWeight = FontWeight.Bold)
-                    Text(item, color = if (active) Navy else Color.White, style = MaterialTheme.typography.labelMedium,
+                    Text(labels[item] ?: "•", color = if (active) Navy else Gold,
+                        fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                    Text(item, color = if (active) Navy else Color.White, style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
                 }
             }
@@ -1167,10 +1168,10 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
                 }
-                if (maxWidth >= 470.dp) {
+                if (maxWidth >= 360.dp) {
                     Surface(
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
-                            .width(134.dp).testTag("map-overlay-menu"),
+                            .width(105.dp).testTag("map-overlay-menu"),
                         color = Color(0xEB09233F),
                         shape = RoundedCornerShape(11.dp),
                         border = BorderStroke(1.dp, Color(0xFF2977B2)),
