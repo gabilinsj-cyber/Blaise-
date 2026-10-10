@@ -1995,6 +1995,8 @@ private fun CityPanel(
             } ?: "—"
             Text("Umidade ${metric(observation?.humidityPercent, "%")}  •  Vento ${metric(observation?.windKmh, "km/h")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             OutlinedButton(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
                 Text(chooseLabel, style = MaterialTheme.typography.labelSmall)
             }
