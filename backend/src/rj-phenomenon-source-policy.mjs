@@ -35,6 +35,7 @@ const sources = Object.freeze({
   DEFESA_CIVIL: definition('DEFESA_CIVIL_RJ_REGIONAL', OFFICIAL, 'CONFORME_COMPETENCIA_MUNICIPIO'),
   CEMADEN: definition('CEMADEN_RJ', OFFICIAL, 'CONFORME_COBERTURA_MUNICIPIO'),
   INMET: definition('INMET_STATION', OFFICIAL, 'ESTACOES_PRESENTES_NAO_92_GARANTIDOS'),
+  INPE: definition('INPE_CPTEC_FORECAST', MODEL, 'FORECAST_MODELS_AND_SATELLITE_PRODUCTS_RJ_AS_APPLICABLE'),
   ANA: definition('ANA_HIDROWEB', OFFICIAL, 'ESTACAO_HIDROLOGICA'),
   SGB: definition('SGB_SACE', OFFICIAL, 'AREA_HIDROLOGICA'),
   MARINHA: definition('MARINHA_CHM', OFFICIAL, 'LITORAL_E_ATLANTICO_CONFORME_AVISO'),
@@ -45,27 +46,27 @@ const sources = Object.freeze({
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
 const ROUTES = Object.freeze({
-  TEMPERATURA: series(['INMET','DEFESA_CIVIL','WINDY']),
-  SENSACAO_TERMICA: series(['INMET','DEFESA_CIVIL','WINDY']),
-  UMIDADE: series(['INMET','DEFESA_CIVIL','WINDY']),
-  VENTO: series(['INMET','DEFESA_CIVIL','WINDY']),
-  RAJADA: series(['DEFESA_CIVIL','INMET','WINDY']),
-  CHUVA_ACUMULADA: series(['CEMADEN','DEFESA_CIVIL','INMET','WINDY']),
-  TEMPORAL: series(['DEFESA_CIVIL','CEMADEN','INMET','WINDY']),
-  TEMPESTADE: series(['DEFESA_CIVIL','CEMADEN','INMET','WINDY']),
+  TEMPERATURA: series(['INMET','DEFESA_CIVIL','INPE','WINDY']),
+  SENSACAO_TERMICA: series(['INMET','DEFESA_CIVIL','INPE','WINDY']),
+  UMIDADE: series(['INMET','DEFESA_CIVIL','INPE','WINDY']),
+  VENTO: series(['INMET','DEFESA_CIVIL','INPE','WINDY']),
+  RAJADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
+  CHUVA_ACUMULADA: series(['CEMADEN','DEFESA_CIVIL','INMET','INPE','WINDY']),
+  TEMPORAL: series(['DEFESA_CIVIL','CEMADEN','INMET','INPE','WINDY']),
+  TEMPESTADE: series(['DEFESA_CIVIL','CEMADEN','INMET','INPE','WINDY']),
   RISCO_HIDROLOGICO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   VAZAO_RIO: series(['ANA','SGB']),
-  RESSACA: series(['MARINHA','INMET','NOAA','WINDY']),
-  ONDAS: series(['MARINHA','NOAA','WINDY']),
-  CICLONE_EXTRATROPICAL: series(['MARINHA','INMET','DEFESA_CIVIL','NOAA','WINDY']),
-  CHUVA_ATLANTICO: series(['MARINHA','NOAA','WINDY']),
-  MASSA_AR: series(['INMET','MARINHA','NOAA','WINDY']),
+  RESSACA: series(['MARINHA','INMET','NOAA','INPE','WINDY']),
+  ONDAS: series(['MARINHA','NOAA','INPE','WINDY']),
+  CICLONE_EXTRATROPICAL: series(['MARINHA','INMET','DEFESA_CIVIL','NOAA','INPE','WINDY']),
+  CHUVA_ATLANTICO: series(['MARINHA','NOAA','INPE','WINDY']),
+  MASSA_AR: series(['INMET','MARINHA','NOAA','INPE','WINDY']),
   RADAR: series(['CEMADEN','DEFESA_CIVIL']),
-  GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','WINDY']),
+  GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','INPE','WINDY']),
   DESLIZAMENTO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   ALAGAMENTO: series(['DEFESA_CIVIL','CEMADEN','ANA','SGB']),
-  FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','MARINHA','NOAA','WINDY']),
-  EL_NINO_LA_NINA: series(['INMET','NOAA','WINDY']),
+  FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','MARINHA','NOAA','INPE','WINDY']),
+  EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
   SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
   TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
 });
@@ -83,7 +84,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
-    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','USGS_EARTHQUAKE'].includes(s.id);
+    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
@@ -96,6 +97,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     liveData: 'NOT_CONFIRMED',
     disputePolicy: 'OFFICIAL_OBSERVATIONS_SAME_PLACE_TIME_VARIABLE_FIRST',
     windyPolicy: 'MODEL_COMPARISON_NO_OFFICIAL_TIE_BREAK',
+    inpePolicy: 'OFFICIAL_FORECAST_GUIDANCE_NOT_OBSERVATION_OR_AUTOMATIC_TIE_BREAK',
     ineaPolicy: 'EXCLUDED',
   });
 }
