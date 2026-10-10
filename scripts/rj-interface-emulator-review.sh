@@ -23,7 +23,7 @@ adb install -r "$TEST_APK"
 # visual approval. First let the emulator settle and run functional tests.
 sleep 12
 set +e
-adb shell am instrument -w -r \
+timeout 240s adb shell am instrument -w -r \
     br.com.blaise.rj.debug.test/androidx.test.runner.AndroidJUnitRunner \
     > "$OUT/android-instrumentation.txt" 2>&1
 instrument_exit=$?
@@ -79,25 +79,34 @@ adb shell input swipe 500 1680 500 470 700
 sleep 2
 snapshot 03-portrait-lower.png
 
-# Changing orientation alone does not prove that the UI reflows: capture
-# actual pixels in landscape and reject system dialogs in that orientation.
+# Move back to the first section; a landscape screenshot of an already
+# scrolled view cannot establish that the complete three-column layout exists.
+for _ in 1 2 3 4; do
+    adb shell input swipe 500 390 500 1750 450
+done
+sleep 2
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 sleep 5
-snapshot 04-landscape.png
+snapshot 04-landscape-top.png
+adb shell input swipe 1180 870 1180 280 660
+sleep 2
+snapshot 05-landscape-map.png
 adb shell settings put system user_rotation 0
 
 # Simple non-negotiable visual evidence gates (screenshots cannot be identical).
 if cmp -s "$OUT/01-portrait-home.png" "$OUT/02-portrait-middle.png" \
-   || cmp -s "$OUT/02-portrait-middle.png" "$OUT/03-portrait-lower.png"; then
+   || cmp -s "$OUT/02-portrait-middle.png" "$OUT/03-portrait-lower.png" \
+   || cmp -s "$OUT/04-landscape-top.png" "$OUT/05-landscape-map.png"; then
     echo "RJ_UI_VISUAL_REVIEW=FAIL identical scrolling screenshots"
     exit 1
 fi
+test_count="$(sed -n 's/^OK (\([0-9]*\) tests).*/\1/p' "$OUT/android-instrumentation.txt" | tail -1)"
 printf '%s\n' \
   "RJ_UI_FUNCTIONAL_REVIEW=PASS" \
   "RJ_UI_VISUAL_EVIDENCE_GATE=PASS" \
-  "INSTRUMENTATION_TESTS=13 (per log; review count if tests change)" \
-  "RENDERED_SCREENSHOTS=4" \
+  "INSTRUMENTATION_TESTS=$test_count" \
+  "RENDERED_SCREENSHOTS=5" \
   "EMULATOR_PORTRAIT_LANDSCAPE=CAPTURED" \
   "HUMAN_VISUAL_PARITY=REQUIRES_MANUAL_REVIEW" \
   "REAL_WEATHER_DATA=NOT_CLAIMED" \
