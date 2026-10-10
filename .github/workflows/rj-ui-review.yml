@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'scripts/rj-interface-emulator-review.sh'
+      - 'scripts/rj-inmet-live-probe.mjs'
       - '.github/workflows/rj-ui-review.yml'
   workflow_dispatch:
 
@@ -43,6 +44,10 @@ jobs:
           fi
       - name: Build debug app and instrumentation test runner
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Probe current public INMET RJ station readings (non-blocking)
+        run: |
+          node --check scripts/rj-inmet-live-probe.mjs
+          node scripts/rj-inmet-live-probe.mjs
       - name: Run visual/functional emulator checks and capture evidence
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
