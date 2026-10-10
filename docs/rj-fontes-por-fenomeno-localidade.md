@@ -26,6 +26,21 @@ A seleção das fontes varia conforme o evento e o município. Alerta Rio só co
 
 No conflito entre medições oficiais, o Blaise compara horário, unidade, tipo de sensor, distância e consistência antes de qualquer média. **Windy pode ser consultado como referência de desempate investigativo**, apresentando se a previsão se aproxima mais de uma ou outra medição, mas **não certifica uma delas**. A diferença entre leituras poderá ser mostrada como intervalo; quando a divergência for significativa, não publicar uma média que a esconda. Se houver duas ou mais previsões independentes com pesos de habilidade histórica verificados, a média ponderada será rotulada estritamente como **estimativa de modelos**, jamais como medição oficial ou alerta.
 
+## Regra de decisão — duas primeiras fontes compatíveis na ordem hierárquica
+
+**Objetivo operacional do Blaise V6 RJ:** evitar encerrar a análise só porque as primeiras duas fontes discordam. O **Sentinel RJ** consulta fontes na prioridade definida por fenômeno e cidade (no município do Rio, por exemplo: Alerta Rio → Defesa Civil → INMET → INPE/CPTEC → Windy para temperatura; chuva pode requerer também CEMADEN). O **Fusion RJ** usa a **primeira dupla de provedores independentes com observações oficiais atuais e compatíveis**; o Vector RJ calcula a estimativa derivada com a fórmula e proveniência. Não é necessário esperar que as cinco fontes respondam após validar a dupla.
+
+A compatibilidade exige: mesma variável/unidade/intervalo; município do RJ comprovado; fontes independentes; data/hora válida e sincronizada; estações próximas o bastante para comparação; valores físicos plausíveis; pesos de qualidade documentados. A discordância entre fontes 1 e 2 não encerra a busca: o aplicativo tenta fontes 3, 4 e 5 conforme o tipo de dado, evitando comparar uma previsão com uma medição de estação. Comparações de modelos do INPE e Windy só são usadas como **previsões**, nunca como segundo sensor para validar observação.
+
+**Soluções prioritárias conforme as evidências recuperadas:**
+- **Duas medições oficiais compatíveis:** mostrar valor derivado pelo Blaise, fontes/estações e hora; não chamar a estimativa de média de todo o município ou aviso.
+- **Medições em conflito, sem dupla compatível:** exibir ao menos a medição individual validada com sua fonte/estação e horário, e sinalizar a discordância; não inventar uma média que esconda diferença importante.
+- **Sem medições oficiais, mas duas previsões independentes compatíveis e com pesos de habilidade histórica demonstrados:** apresentar **previsão ponderada**, separada de medição oficial.
+- **Uma previsão validada apenas:** apresentar como previsão individual, sem inventar concordância de uma segunda fonte.
+- **Nenhuma leitura verificável:** continuar retentativas conforme acesso/frescor da fonte e indicar o último dado oficial com o horário real, quando houver cache ainda permitido. **Não existe fórmula que crie medições reais inexistentes**; o sistema deve evitar concluir ou emitir alerta meteorológico sem evidência.
+
+Implementação: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/src/rj-agent-orchestration.mjs` e testes `backend/test/rj-hierarchical-weather-resolution.test.mjs`. A função `consultRjSourcesUntilTwo` **recebe adapters explicitamente configurados**; por si só, não é uma integração de rede ou uma coleta continuamente implantada. O código rejeita uma fonte tentando se passar por duas independentes.
+
 ## Divergências entre as cinco fontes meteorológicas
 
 1. Uma leitura recente do **INMET**, Alerta Rio ou Defesa Civil (conforme estação e competência) permanece observação/aviso oficial; uma previsão do **INPE/CPTEC** ou modelo visualizado no **Windy** permanece previsão, mesmo que coincida numericamente com uma estação.
