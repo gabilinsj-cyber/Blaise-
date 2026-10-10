@@ -29,6 +29,14 @@ test('Windy is a model comparison channel and never poses as public official obs
   assert.equal(prepareOwnMapObservationLayer({observations:[model],now:NOW}).points.length,0);
   assert.equal(RJ_OWN_MAP_CHANNELS.filter(x=>x.type==='MODEL_COMPARISON').length,1);
 });
+test('five source categories include INPE official forecast only as comparison guidance, not measured points',()=>{
+  assert.equal(RJ_OWN_MAP_CHANNELS.length,5);
+  assert.equal(RJ_OWN_MAP_CHANNELS.some(s=>s.sourceId==='INPE_CPTEC_FORECAST'&&s.type==='OFFICIAL_FORECAST'),true);
+  const forecastAsStation={...sample,sourceId:'INPE_CPTEC_FORECAST'};
+  const layer=prepareOwnMapObservationLayer({observations:[forecastAsStation],now:NOW});
+  assert.equal(layer.points.length,0);
+  assert.equal(layer.status,'UNAVAILABLE');
+});
 test('public access alone does not self-authorize redistribution or commercial display',()=>{
   for(const usagePermissionStatus of [undefined,'PUBLICLY_ACCESSIBLE','UNKNOWN','NOT_VERIFIED','DENIED']) {
     assert.equal(prepareOwnMapObservationLayer({observations:[{...sample,usagePermissionStatus}],now:NOW}).points.length,0);
