@@ -947,7 +947,7 @@ private fun HomeScreen(
         Spacer(Modifier.height(10.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
-        MarineAndRiskRow(false)
+        MarineAndRiskRow(false, onNavigate)
         Spacer(Modifier.height(10.dp))
         CompactServicesRow(onNavigate)
         Spacer(Modifier.height(10.dp))
@@ -982,9 +982,19 @@ private fun TrafficSummaryPanel(modifier: Modifier = Modifier, onNavigate: (Stri
                 style = MaterialTheme.typography.labelSmall)
             Text("Interdições • acidentes • alagamentos", color = Color.White,
                 style = MaterialTheme.typography.labelSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Pistas: —", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text("Acidentes: —", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Alagamentos: —", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text("Obras: —", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
             Text("Ocorrências: dados oficiais indisponíveis", color = WarningAmber,
                 style = MaterialTheme.typography.labelSmall)
-            Text("Ver trânsito e rotas →", color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Ver trânsito e rotas →", color = Gold, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -1846,15 +1856,15 @@ private fun MetricTile(title: String, value: String, detail: String, modifier: M
 }
 
 @Composable
-private fun MarineAndRiskRow(wide: Boolean) {
+private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = null) {
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            MarinePanel(Modifier.weight(1f))
+            MarinePanel(Modifier.weight(1f), onNavigate)
             RiskPanel(Modifier.weight(1f))
         }
     } else {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            MarinePanel(Modifier.fillMaxWidth())
+            MarinePanel(Modifier.fillMaxWidth(), onNavigate)
             RiskPanel(Modifier.fillMaxWidth())
         }
     }
