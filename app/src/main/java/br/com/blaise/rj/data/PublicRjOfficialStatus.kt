@@ -138,7 +138,7 @@ class PublicRjStatusHttpsClient private constructor(private val endpoint: URI) {
                     out.write(buffer,0,n)
                 }
             }
-            PublicRjStatusResult.Available(
+            return PublicRjStatusResult.Available(
                 PublicRjStatusParser.parse(JSONObject(out.toString(Charsets.UTF_8.name()))))
         }finally {connection.disconnect()}
     }
