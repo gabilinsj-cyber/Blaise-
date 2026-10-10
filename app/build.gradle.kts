@@ -30,6 +30,13 @@ val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().tr
 val firebaseSenderId = System.getenv("BLAISE_FIREBASE_SENDER_ID").orEmpty().trim()
 val subscriberAuthFlag = System.getenv("BLAISE_SUBSCRIBER_AUTH_ENABLED").orEmpty().trim().ifEmpty { "false" }
 require(subscriberAuthFlag in setOf("true", "false")) { "invalid_subscriber_auth_enabled" }
+// Only the dedicated internal CI preview uses a separate Android package.
+// This avoids replacing a previously installed debug APK signed by another runner.
+val isolatedLoginPreview = System.getenv("BLAISE_RJ_ISOLATED_LOGIN_PREVIEW").orEmpty().trim().ifEmpty { "false" }
+require(isolatedLoginPreview in setOf("true", "false")) { "invalid_isolated_login_preview" }
+if (isolatedLoginPreview == "true") {
+    require(subscriberAuthFlag == "true") { "isolated_preview_requires_firebase_auth" }
+}
 if (subscriberAuthFlag == "true") {
     require(listOf(firebaseApplicationId, firebaseApiKey, firebaseProjectId, firebaseSenderId).all { it.isNotBlank() }) {
         "subscriber_firebase_config_missing"
@@ -46,6 +53,7 @@ android {
     buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId = "br.com.blaise.rj"
+        manifestPlaceholders["blaiseAppLabel"] = "Blaise V6 RJ"
         minSdk = 26
         targetSdk = 35
         versionCode = 6000001
@@ -72,7 +80,13 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
+        debug {
+            applicationIdSuffix = if (isolatedLoginPreview == "true") ".loginpreview" else ".debug"
+            versionNameSuffix = if (isolatedLoginPreview == "true") "-login-preview" else "-debug"
+            if (isolatedLoginPreview == "true") {
+                manifestPlaceholders["blaiseAppLabel"] = "Blaise RJ Login (Teste)"
+            }
+        }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
