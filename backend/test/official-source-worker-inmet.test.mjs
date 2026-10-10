@@ -92,12 +92,10 @@ test('INMET runtime polling is explicit and disabled by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
   });
   assert.deepEqual(loadOfficialSourceWorkerConfig({ BLAISE_INMET_WARNINGS_ENABLED: 'true' }), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     inmetWarningsEnabled: true,
   });
   assert.throws(
