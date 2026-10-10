@@ -96,6 +96,10 @@ export async function reconcileRjWeatherCase({
       (determination.officialMeasurement ? 1 : 0),
     officialReadingsForDisplay:determination.officialReadings ?? null,
     modelTieBreakEvidence:determination.modelTieBreak ?? null,
+    inpeConsultationEvidence:determination.inpeConsultation ?? null,
+    twoSourceDisplay:determination.sourcePairForDisplay ?? null,
+    sourcePairContainsForecast:determination.sourcePairForDisplay?.some(
+      x=>x.dataType==='MODEL_FORECAST_NOT_A_MEASURED_STATION') ?? false,
     showBothDiscrepantSources:determination.showBothSourceMeasurements === true,
     observedOrEstimatedValue:determination.value,
     calculatedValues:determination.resultKind==='CALCULO_BLAISE_SOBRE_DUAS_MEDICOES_OFICIAIS'
