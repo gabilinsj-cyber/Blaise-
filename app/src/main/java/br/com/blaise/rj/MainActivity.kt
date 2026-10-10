@@ -22,6 +22,8 @@ import br.com.blaise.rj.assistant.WeatherConversation
 import br.com.blaise.rj.assistant.ConversationAction
 import br.com.blaise.rj.data.OfficialWeatherClient
 import br.com.blaise.rj.data.CityWeatherResult
+import br.com.blaise.rj.data.InmetHourlySeries
+import br.com.blaise.rj.data.InmetMetric
 import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
@@ -184,6 +186,7 @@ private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
+private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
@@ -221,6 +224,7 @@ fun BlaiseApp(
     val weatherClient = remember { OfficialWeatherClient() }
     var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
+    var inmetHourlySeries by remember { mutableStateOf<InmetHourlySeries?>(null) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
@@ -265,6 +269,18 @@ fun BlaiseApp(
             }
         }
     }
+    // Public INMET station data is free for every user, independent of store billing.
+    // Rate-limit polling; no fake cache extension when a source becomes stale.
+    LaunchedEffect(powerOn, lifecycle) {
+        inmetHourlySeries = null
+        if (!powerOn) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                inmetHourlySeries = weatherClient.recentRioHourlySeries()
+                delay(300_000)
+            }
+        }
+    }
     LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
         backendDashboard = DashboardDataNetworkResult.Unavailable
         val candidate = verifiedPurchase
@@ -297,7 +313,7 @@ fun BlaiseApp(
         OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
 
-    CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
+    CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalInmetHourlySeries provides if (powerOn) inmetHourlySeries else null, LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -856,6 +872,15 @@ private fun CompactServicesRow(onNavigate: (String) -> Unit) {
 private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
     val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
     var selectedLayer by remember { mutableStateOf("Radar") }
+    val stationSeries = LocalInmetHourlySeries.current
+    val snapshotTime = LocalObservationClock.current
+    val stationMetric = when (selectedLayer) {
+        "Temperatura" -> InmetMetric.TEMPERATURE
+        "Chuva" -> InmetMetric.HOURLY_RAINFALL
+        "Vento" -> InmetMetric.WIND
+        else -> null
+    }
+    val stationSample = stationMetric?.let { stationSeries?.currentPoint(it, snapshotTime) }
     var enlarged by remember { mutableStateOf(false) }
     var showStations by remember { mutableStateOf(false) }
     var mapZoom by remember { mutableStateOf(1f) }
@@ -891,6 +916,9 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         ) {
             Box {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
+                if (stationMetric != null) {
+                    InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
+                }
                 Surface(
                     modifier = Modifier.align(Alignment.TopStart).padding(9.dp),
                     color = Color(0xEB06182C), shape = RoundedCornerShape(8.dp),
@@ -922,15 +950,19 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     border = BorderStroke(1.dp, WarningAmber),
                 ) {
                     Text(
-                        "$selectedLayer: sem camada meteorológica oficial validada",
+                        if (stationSample != null && stationSeries != null)
+                            "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
+                        else "$selectedLayer: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        color = WarningAmber, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
+                        color = if (stationSample != null) Color.White else WarningAmber,
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("● Contornos geográficos • não indicam chuva ou risco", modifier = Modifier.weight(1f),
+            Text("● Contornos geográficos • ponto INMET só onde existe medição válida", modifier = Modifier.weight(1f),
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { enlarged = !enlarged }) {
                 Text(if (enlarged) "Reduzir" else "Ampliar")
@@ -1022,17 +1054,37 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
     val choices = listOf("Temperatura", "Chuva", "Vento")
     var variable by remember { mutableStateOf("Temperatura") }
     var showRainfall by remember { mutableStateOf(false) }
+    val stationSeries = LocalInmetHourlySeries.current
+    val now = LocalObservationClock.current
+    val metric = when (variable) {
+        "Temperatura" -> InmetMetric.TEMPERATURE
+        "Chuva" -> InmetMetric.HOURLY_RAINFALL
+        else -> InmetMetric.WIND
+    }
+    val readings = stationSeries?.recentPoints(metric, now).orEmpty()
+    val last = readings.lastOrNull()?.first?.observedAt
+    val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    val metricColor = when (metric) {
+        InmetMetric.TEMPERATURE -> WarningAmber
+        InmetMetric.HOURLY_RAINFALL -> Color(0xFF58B9FF)
+        InmetMetric.WIND -> StableGreen
+    }
+    val unit = when (metric) {
+        InmetMetric.TEMPERATURE -> "°C"
+        InmetMetric.HOURLY_RAINFALL -> "mm na hora"
+        InmetMetric.WIND -> "km/h"
+    }
     DashboardSection(
         title = "GRÁFICOS DO DIA • RIO DE JANEIRO",
-        subtitle = "Séries verificadas • 00h a 24h",
+        subtitle = "INMET • estação identificada • últimas 24 horas",
         modifier = modifier,
     ) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             choices.forEach { option ->
                 if (variable == option) {
-                    Button(onClick = { variable = option },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+                    Button(onClick = { variable = option }, colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
                         Text(option, style = MaterialTheme.typography.labelSmall)
                     }
                 } else {
@@ -1050,29 +1102,66 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
                     for (i in 0..5) {
                         val x = size.width * i / 5f
                         drawLine(Color(0xFF27608B).copy(alpha = 0.6f),
-                            androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height),
+                            androidx.compose.ui.geometry.Offset(x, 0f),
+                            androidx.compose.ui.geometry.Offset(x, size.height),
                             strokeWidth = 1.dp.toPx())
                     }
                     for (i in 0..4) {
                         val y = size.height * i / 4f
                         drawLine(Color(0xFF27608B).copy(alpha = 0.6f),
-                            androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y),
+                            androidx.compose.ui.geometry.Offset(0f, y),
+                            androidx.compose.ui.geometry.Offset(size.width, y),
                             strokeWidth = 1.dp.toPx())
                     }
+                    if (readings.size >= 2) {
+                        val minValue = if (metric == InmetMetric.TEMPERATURE) readings.minOf { it.second } - 1.0 else 0.0
+                        val maxValue = maxOf(minValue + 1.0, readings.maxOf { it.second } + 1.0)
+                        fun place(point: Pair<br.com.blaise.rj.data.InmetHourlyPoint, Double>): androidx.compose.ui.geometry.Offset {
+                            val age = java.time.Duration.between(point.first.observedAt, now).seconds
+                            val x = size.width * (1f - age.toFloat() / 86_400f).coerceIn(0f, 1f)
+                            val y = size.height * (1f - ((point.second - minValue) / (maxValue - minValue)).toFloat()).coerceIn(0f, 1f)
+                            return androidx.compose.ui.geometry.Offset(x, y)
+                        }
+                        readings.forEachIndexed { index, point ->
+                            val p = place(point)
+                            if (metric == InmetMetric.HOURLY_RAINFALL) {
+                                // Hourly accumulation: measured bars, with missing hours LEFT blank.
+                                drawLine(metricColor, androidx.compose.ui.geometry.Offset(p.x, size.height),
+                                    p, strokeWidth = 4.dp.toPx())
+                            } else if (index > 0) {
+                                val before = readings[index - 1]
+                                val gapSeconds = java.time.Duration.between(before.first.observedAt, point.first.observedAt).seconds
+                                // A gap > 90 minutes must not become a fabricated continuous trend.
+                                if (gapSeconds in 1..5400) drawLine(metricColor, place(before), p, strokeWidth = 2.dp.toPx())
+                            }
+                            drawCircle(metricColor, radius = 2.5.dp.toPx(), center = p)
+                        }
+                    }
                 }
-                Surface(color = Color(0xEF07192F), shape = RoundedCornerShape(9.dp),
-                    border = BorderStroke(1.dp, WarningAmber)) {
-                    Text("$variable: série oficial indisponível",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                        color = WarningAmber, style = MaterialTheme.typography.labelSmall,
-                        textAlign = TextAlign.Center)
+                if (readings.size < 2) {
+                    Surface(color = Color(0xEF07192F), shape = RoundedCornerShape(9.dp),
+                        border = BorderStroke(1.dp, WarningAmber)) {
+                        Text("$variable: série oficial recente indisponível",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center)
+                    }
                 }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("00h", "06h", "12h", "18h", "24h").forEach { tick ->
+            listOf("−24h", "−18h", "−12h", "−6h", "Agora").forEach { tick ->
                 Text(tick, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
+        }
+        if (readings.size >= 2 && stationSeries != null && last != null) {
+            Text("Fonte: INMET • ${stationSeries.stationName} • $unit • última medição: ${last.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Dado bruto de estação, não média municipal. Lacunas não são preenchidas; série some se a última leitura vencer.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        } else {
+            Text("Não há medições INMET recentes suficientes para este gráfico; nenhum valor foi estimado.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         TextButton(onClick = { showRainfall = !showRainfall }) {
             Text(if (showRainfall) "Ocultar chuva de estações" else "Ver chuva oficial das estações")
@@ -1080,7 +1169,6 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
         if (showRainfall) BackendRainfallPanel()
     }
 }
-
 @Composable
 private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
     var seismicDetails by remember { mutableStateOf(false) }
