@@ -1109,15 +1109,20 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             availableLayers.forEach { layer ->
-                if (layer == selectedLayer) {
-                    Button(
-                        onClick = { selectedLayer = layer },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White),
-                    ) { Text(layer, style = MaterialTheme.typography.labelSmall) }
-                } else {
-                    OutlinedButton(onClick = { selectedLayer = layer }) {
-                        Text(layer, style = MaterialTheme.typography.labelSmall)
-                    }
+                val active = layer == selectedLayer
+                Surface(
+                    modifier = Modifier.testTag("map-layer-${layer}")
+                        .clickable { selectedLayer = layer },
+                    color = if (active) Color(0xFF1265CB) else Color(0xFF092747),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp,
+                        if (active) Color(0xFF51AAFF) else Divider),
+                ) {
+                    Text(layer,
+                        color = if (active) Color.White else Muted,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                 }
             }
         }
