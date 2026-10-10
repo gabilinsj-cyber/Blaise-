@@ -19,7 +19,12 @@ test('all 92 RJ municipalities route rainstorm and gust sources without creating
       assert.equal(route.sources.every(source => source.automaticAlertAuthority === false), true);
       assert.equal(route.sources.some(s => /INEA/i.test(s.id)), false);
       assert.equal(route.sources.some(s => s.id === 'WINDY_MODELO'), true);
-      assert.equal(route.sources.at(-1).role, RJ_SOURCE_CLASS.COMPARISON);
+      // Specialized CEMADEN hydro/rain feed may follow the five
+      // situational sources; Windy must follow INPE, not be "last".
+      const ids=route.sources.map(source=>source.id);
+      assert.ok(ids.indexOf('INPE_CPTEC_FORECAST')<ids.indexOf('WINDY_MODELO'));
+      assert.equal(route.sources.find(source=>source.id==='WINDY_MODELO').role,
+        RJ_SOURCE_CLASS.COMPARISON);
       assert.equal(route.sources.some(s => s.id === 'ALERTA_RIO'), ibge === '3304557');
     }
   }
