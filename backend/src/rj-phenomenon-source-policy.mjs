@@ -9,7 +9,9 @@ export const RJ_PHENOMENA = Object.freeze([
   'TEMPERATURA', 'SENSACAO_TERMICA', 'UMIDADE', 'VENTO', 'RAJADA',
   'CHUVA_ACUMULADA', 'TEMPORAL', 'TEMPESTADE', 'RISCO_HIDROLOGICO',
   'VAZAO_RIO', 'RESSACA', 'ONDAS', 'CICLONE_EXTRATROPICAL',
-  'CHUVA_ATLANTICO', 'MASSA_AR', 'RADAR',
+  'CHUVA_ATLANTICO', 'MASSA_AR', 'RADAR', 'GRANIZO',
+  'DESLIZAMENTO', 'ALAGAMENTO', 'FRENTE_FRIA', 'EL_NINO_LA_NINA',
+  'SISMO', 'TSUNAMI',
 ]);
 export const RJ_SOURCE_CLASS = Object.freeze({
   AUTHORITATIVE: 'AVISO_OU_MEDICAO_OFICIAL',
@@ -37,6 +39,7 @@ const sources = Object.freeze({
   SGB: definition('SGB_SACE', OFFICIAL, 'AREA_HIDROLOGICA'),
   MARINHA: definition('MARINHA_CHM', OFFICIAL, 'LITORAL_E_ATLANTICO_CONFORME_AVISO'),
   NOAA: definition('NOAA', MODEL, 'ATLANTICO_PRODUTOS_PERTINENTES'),
+  USGS: definition('USGS_EARTHQUAKE', OFFICIAL, 'CATALOGO_SISMICO_ATLANTICO_RJ_CONFORME_EVENTO'),
   WINDY: definition('WINDY_MODELO', COMPARE, 'CONFERENCIA_DE_MODELO_NAO_MEDICAO'),
 });
 
@@ -58,6 +61,13 @@ const ROUTES = Object.freeze({
   CHUVA_ATLANTICO: series(['MARINHA','NOAA','WINDY']),
   MASSA_AR: series(['INMET','MARINHA','NOAA','WINDY']),
   RADAR: series(['CEMADEN','DEFESA_CIVIL']),
+  GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','WINDY']),
+  DESLIZAMENTO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
+  ALAGAMENTO: series(['DEFESA_CIVIL','CEMADEN','ANA','SGB']),
+  FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','MARINHA','NOAA','WINDY']),
+  EL_NINO_LA_NINA: series(['INMET','NOAA','WINDY']),
+  SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
+  TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
 });
 
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
@@ -73,7 +83,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
-    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION'].includes(s.id);
+    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
