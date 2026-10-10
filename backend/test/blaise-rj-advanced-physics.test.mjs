@@ -24,7 +24,7 @@ test('Magnus humidity and mixing-ratio chain checks units',()=>{
   assert.throws(()=>science.mixingRatio({vaporPressurePa:101000,ambientPressurePa:100000}));
 });
 test('environmental lapse, sea-level pressure and bounded empirical wetbulb',()=>{
-  const lapse=science.dryAdiabaticLapseRate({
+  const lapse=science.observedEnvironmentalLapseRate({
     temperatureAtBottomC:30,temperatureAtTopC:24,bottomHeightM:0,topHeightM:1000});
   close(lapse.value,6);neverAlert(lapse);
   const p=science.meanVirtualTemperatureSeaLevelPressure({stationPressurePa:95000,stationHeightM:500,meanVirtualTemperatureK:290});
