@@ -17,7 +17,10 @@
  */
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { weightedOfficialMean } from './rj-scientific-calculator.mjs';
-import { weightedComparableForecastMean } from './rj-weather-source-reconciliation.mjs';
+import {
+  weightedComparableForecastMean,
+  compareInpeWindyToDiscrepantObservations,
+} from './rj-weather-source-reconciliation.mjs';
 
 export const RJ_PRIORITY_RESOLUTION_VERSION = 'rj-two-compatible-2026-10-10-v1';
 const OFFICIAL_SOURCE_MAP = Object.freeze({
@@ -165,6 +168,44 @@ export function resolveRjCompatibleSources({
         seenProduct.add(id);
         predictions.push(candidate);
       }
+    }
+  }
+  // No compatible official pair was found. When two measured values
+  // conflict, INPE and Windy can only provide a documented model-proximity
+  // preference. BOTH station readings must remain visible to the client.
+  if(confirmed.length>=2 && conflicts.length>0) {
+    const candidates=[confirmed[0],
+      confirmed.find(row=>row.canonicalSourceId!==confirmed[0].canonicalSourceId)]
+      .filter(Boolean);
+    if(candidates.length===2) {
+      const original=candidates.map(({canonicalSourceId,...row})=>({
+        ...row,sourceId:canonicalSourceId,
+      }));
+      const tieBreak=compareInpeWindyToDiscrepantObservations({
+        observations:original,forecasts:predictions,ibge,variable,now,
+      });
+      const modelPreferred=tieBreak.state==='BOTH_OFFICIAL_VALUES_WITH_MODEL_FAVORED_REFERENCE';
+      const preferredStation=modelPreferred
+        ?original.find(row=>row.stationId===tieBreak.favoredStationId):null;
+      return safe(modelPreferred
+          ?'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
+          :'OFFICIAL_DISAGREEMENT_DISPLAY_BOTH_READINGS',{
+        value:preferredStation?.value??null,
+        unit:entry.unit,
+        resultKind:modelPreferred
+          ?'FAVORED_INDIVIDUAL_OFFICIAL_STATION_READING_NOT_CONSENSUS'
+          :'TWO_DISTINCT_OFFICIAL_READINGS_NO_WEIGHTED_MEAN',
+        officialMeasurement:Boolean(preferredStation),
+        selectedSourceIds:Object.freeze(modelPreferred?[tieBreak.favoredSourceId]:[]),
+        officialReadings:Object.freeze(tieBreak.officialMeasurements),
+        modelTieBreak:tieBreak,
+        showBothSourceMeasurements:true,
+        consensusConfirmed:false,
+        weightedMeanApplied:false,
+        examinedSourceIds:Object.freeze(examined),
+        conflictsEncountered:Object.freeze(conflicts),
+        note:'The model comparison cannot establish which station is correct or authorize a warning.',
+      });
     }
   }
   // If official stations fail to form a pair, retain one *measured* value,
