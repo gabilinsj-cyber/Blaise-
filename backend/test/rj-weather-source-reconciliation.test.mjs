@@ -48,6 +48,8 @@ test('INPE and Windy independently favor closer official measurement, without hi
   assert.equal(tie.officialMeasurements.length,2);
   assert.deepEqual(tie.officialMeasurements.map(o=>o.value),[25,33]);
   assert.equal(tie.weightedOfficialValue,null);
+  assert.equal(tie.weightedModelForecastValue,26.5);
+  assert.equal(tie.weightedModelForecastNature,'FORECAST_ONLY_NOT_A_MEASURED_VALUE');
   assert.equal(tie.automaticAlertAuthorized,false);
   const integrated=assessRjMeteorologicalDisagreement({
     observations:readings,
@@ -72,6 +74,19 @@ test('split model votes present BOTH discrepant official readings with source an
   assert.equal(tie.officialMeasurements[0].sourceId,'INMET');
   assert.equal(tie.officialMeasurements[1].stationId,'DEF-1');
   assert.equal(tie.automaticAlertAuthorized,false);
+});
+test('two models favor the same sensor but disagree significantly: show both rather than claim a decisive tie break',()=>{
+  const tie=compareInpeWindyToDiscrepantObservations({
+    observations:[obs('A652',25),obs('DEF-1',40)],
+    forecasts:[triangulation('INPE_CPTEC_FORECAST',26),
+      triangulation('WINDY_MODELO',32,{sourceUrl:'https://www.windy.com/'})],
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+  });
+  assert.equal(tie.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
+  assert.equal(tie.reason,'INPE_WINDY_FORECAST_VALUES_TOO_DIFFERENT');
+  assert.equal(tie.favoredOfficialValue,null);
+  assert.equal(tie.weightedModelForecastValue,null);
+  assert.equal(tie.officialMeasurements.length,2);
 });
 test('one model or duplicate underlying models never creates a false independent tie breaker',()=>{
   const records=[obs('A652',25),obs('DEF-1',33)];
