@@ -121,7 +121,7 @@ test('INPE and Windy favor the closer INMET reading while preserving disputed De
   assert.equal(r.value,29);
   assert.equal(r.officialMeasurement,true);
   assert.equal(r.resultKind,'FAVORED_INDIVIDUAL_OFFICIAL_STATION_READING_NOT_CONSENSUS');
-  assert.equal(r.modelTieBreak.favoredSourceId,'INMET');
+  assert.equal(r.modelTieBreak.favoredSourceId,'INMET_STATION');
   assert.equal(r.modelTieBreak.weightedOfficialValue,null);
   assert.deepEqual(r.officialReadings.map(x=>x.value),[36,29]);
   assert.equal(r.weightedMeanApplied,false);
