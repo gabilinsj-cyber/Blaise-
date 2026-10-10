@@ -1559,9 +1559,9 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         warnings.take(3).forEach { warning ->
-            Text("INMET: ${warning.event} • ${warning.severity} • " +
-                "até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))" +
-                ".format(java.time.format.DateTimeFormatter.ofPattern(\"dd/MM HH:mm\"))}",
+            val expiry = warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+            Text("INMET: ${warning.event} • ${warning.severity} • até ${expiry}",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         }
         if (warnings.isEmpty()) {
