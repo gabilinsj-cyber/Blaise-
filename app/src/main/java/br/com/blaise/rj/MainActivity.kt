@@ -540,10 +540,6 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     var queryVersion by remember { mutableStateOf(0) }
     var listening by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
-    val inputFocus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    var expandedInput by remember { mutableStateOf(false) }
-    LaunchedEffect(expandedInput) { if (expandedInput) { inputFocus.requestFocus(); keyboard?.show() } }
     var showBulletin by remember { mutableStateOf(false) }
     val statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
     val reports = LocalCityWeather.current
@@ -686,15 +682,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 2)
             if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
                 Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) }, enabled = voiceEnabled,
-                        modifier = Modifier.testTag("assistant-read-answer")) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
-                }
             }
-            TextButton(
-                onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
-                enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
-            ) { Text("Testar voz feminina") }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) },
+                    enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) {
+                    Text(if (speaking) "Parar voz" else "Ouvir resposta")
+                }
+                TextButton(
+                    onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
+                    enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
+                ) { Text("Testar voz feminina") }
+            }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
             Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
