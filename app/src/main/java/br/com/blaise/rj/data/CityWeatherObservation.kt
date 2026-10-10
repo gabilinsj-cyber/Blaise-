@@ -17,14 +17,18 @@ data class CityWeatherObservation(
     val humidityPercent: Double?,
     val windKmh: Double?,
     val maxAgeSeconds: Long,
+    val windGustKmh: Double? = null,
+    val hourlyRainMm: Double? = null,
 ) {
     fun current(now: Instant): Boolean = maxAgeSeconds in 1..7200 &&
         !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= maxAgeSeconds &&
         sourceUrl.startsWith("https://") &&
-        listOfNotNull(temperatureC, humidityPercent, windKmh).isNotEmpty() &&
+        listOfNotNull(temperatureC, humidityPercent, windKmh, windGustKmh, hourlyRainMm).isNotEmpty() &&
         (temperatureC == null || temperatureC.isFinite() && temperatureC in -30.0..60.0) &&
         (humidityPercent == null || humidityPercent.isFinite() && humidityPercent in 0.0..100.0) &&
-        (windKmh == null || windKmh.isFinite() && windKmh in 0.0..400.0)
+        (windKmh == null || windKmh.isFinite() && windKmh in 0.0..400.0) &&
+        (windGustKmh == null || windGustKmh.isFinite() && windGustKmh in 0.0..400.0) &&
+        (hourlyRainMm == null || hourlyRainMm.isFinite() && hourlyRainMm in 0.0..400.0)
 
     fun summary(now: Instant): String {
         if (!current(now)) return "Medição indisponível ou desatualizada."
@@ -32,6 +36,8 @@ data class CityWeatherObservation(
             temperatureC?.let { "Temperatura ${number(it)} °C" },
             humidityPercent?.let { "umidade ${number(it)}%" },
             windKmh?.let { "vento médio ${number(it)} km/h" },
+            windGustKmh?.let { "rajada medida ${number(it)} km/h" },
+            hourlyRainMm?.let { "chuva na última hora ${number(it)} mm" },
         ).joinToString(", ")
         return "$values. Fonte: $source, estação $station, ${observedAt.atZone(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília)."
     }
