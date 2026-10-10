@@ -378,7 +378,7 @@ private fun BlaiseDashboard(
     onChooseCity2: () -> Unit,
 ) {
     MaterialTheme(colorScheme = BlaiseScheme) {
-        Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding(), color = Navy) {
+        Surface(modifier = Modifier.fillMaxSize().background(Navy).safeDrawingPadding(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val wide = maxWidth >= 760.dp
                 Column(Modifier.fillMaxSize()) {
