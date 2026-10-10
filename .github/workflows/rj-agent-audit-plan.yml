@@ -1,0 +1,52 @@
+name: Blaise RJ Agent 9 and 10 Audit Plans
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Generate one read-only audit plan (not a production security scan)'
+        type: choice
+        options:
+          - HOURLY_AGENT9
+          - DEEP_AGENT10
+        required: true
+        default: HOURLY_AGENT9
+  # Schedules start only after workflow has been approved and merged into
+  # the default branch. 04:00 UTC = 01:00 America/Sao_Paulo (no DST).
+  # GitHub cron timing is approximate, never an exact 01:00 SLA.
+  schedule:
+    - cron: '12 * * * *'
+    - cron: '0 4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blaise-rj-agent-audit-plan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  read-only-audit-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BLAISE_AGENT_AUDIT_MODE: ${{ github.event.schedule == '0 4 * * *' && 'DEEP_AGENT10' || inputs.mode || 'HOURLY_AGENT9' }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v5
+        with:
+          node-version: '24.20.0'
+      - name: Generate offline, read-only RJ audit plan
+        run: |
+          set -euo pipefail
+          node --check backend/src/rj-agent-registry.mjs
+          node --check backend/src/rj-agent-audit.mjs
+          node --check backend/scripts/rj-agent-audit-report.mjs
+          node backend/scripts/rj-agent-audit-report.mjs
+      - name: Store small audit evidence only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-agent9-10-readonly-audit
+          path: backend/evidence/rj-agent-audit/*.json
+          retention-days: 7
+          if-no-files-found: warn

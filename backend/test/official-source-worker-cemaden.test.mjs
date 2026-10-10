@@ -67,14 +67,12 @@ test('CEMADEN runtime polling is opt-in and invalid flags fail closed', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
   });
   assert.deepEqual(
     loadOfficialSourceWorkerConfig({ BLAISE_CEMADEN_RJ_ENABLED: 'true' }),
     {
       enabled: false,
       initialMode: 'normal',
-      ineaStationUrl: null,
       cemadenRjEnabled: true,
     },
   );

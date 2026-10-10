@@ -36,6 +36,12 @@ object FinalDashboardSpec {
         "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
     )
 
+    // Five situational weather channels; Windy and INPE/CPTEC provide
+    // forecast context, not interchangeable measured station reports.
+    val fiveSituationalWeatherSources = listOf(
+        "Alerta Rio", "Defesa Civil", "INMET", "Windy (modelos)", "INPE/CPTEC (previsões)"
+    )
+
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
     fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =

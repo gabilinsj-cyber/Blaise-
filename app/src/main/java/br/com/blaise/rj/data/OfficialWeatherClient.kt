@@ -38,6 +38,68 @@ class OfficialWeatherClient {
         }
     }
 
+    /**
+     * Hourly chart feed from an officially listed INMET station IN Rio city.
+     * Never substitute a nearby municipality or invent/interpolate missing hours.
+     * A station named RIO DE JANEIRO is attempted before other expressly
+     * Rio de Janeiro-labelled stations, and its real name remains visible.
+     */
+    suspend fun recentRioHourlySeries(): InmetHourlySeries? = withContext(Dispatchers.IO) {
+        try {
+            recentRioHourlySeriesBlocking()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun recentRioHourlySeriesBlocking(): InmetHourlySeries? {
+        val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
+        val stations = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+            .filter { station ->
+                station.optString("SG_ESTADO") == "RJ" &&
+                    station.optString("CD_SITUACAO") == "Operante" &&
+                    normalizedSpeech(station.optString("DC_NOME")).startsWith("rio de janeiro") &&
+                    Regex("[A-Z][0-9]{3}").matches(station.optString("CD_ESTACAO"))
+            }
+            .sortedWith(compareBy<JSONObject> {
+                it.optString("CD_ESTACAO") != "A652"
+            }.thenBy { it.optString("CD_ESTACAO") })
+            .take(4)
+        val utcToday = LocalDate.now(ZoneOffset.UTC)
+        for (station in stations) {
+            val code = station.optString("CD_ESTACAO")
+            val name = station.optString("DC_NOME")
+            val latitude = station.optString("VL_LATITUDE").replace(',', '.').toDoubleOrNull()
+            val longitude = station.optString("VL_LONGITUDE").replace(',', '.').toDoubleOrNull()
+            if (latitude == null || longitude == null) continue
+            val url = "https://apitempo.inmet.gov.br/estacao/${utcToday.minusDays(1)}/$utcToday/$code"
+            val readings = try {
+                val response = JSONArray(get(url))
+                if (response.length() !in 1..500) continue
+                (0 until response.length()).mapNotNull { index ->
+                    val item = response.getJSONObject(index)
+                    val observedAt = OfficialWeatherParser.observedAt(item) ?: return@mapNotNull null
+                    InmetHourlyPoint(
+                        observedAt = observedAt,
+                        temperatureC = OfficialWeatherParser.number(item, "TEM_INS", -30.0, 60.0),
+                        rainfallMm = OfficialWeatherParser.number(item, "CHUVA", 0.0, 400.0),
+                        windKmh = OfficialWeatherParser.number(item, "VEN_VEL", 0.0, 100.0)?.times(3.6),
+                    )
+                }.sortedByDescending { it.observedAt }.take(48)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                continue
+            }
+            val series = InmetHourlySeries(code, "$name ($code)", url, latitude, longitude, readings)
+            val now = Instant.now()
+            if (InmetMetric.entries.any { series.recentPoints(it, now).isNotEmpty() }) return series
+        }
+        return null
+    }
+
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
         val scope = request.localScope
         if (request.city.ibgeCode == 3304557 && scope != null) {
@@ -76,6 +138,8 @@ class OfficialWeatherClient {
             OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
             OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
             OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
+            windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
+            hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
         ))
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {

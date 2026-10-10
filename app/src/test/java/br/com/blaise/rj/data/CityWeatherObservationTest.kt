@@ -25,6 +25,19 @@ class CityWeatherObservationTest {
         assertFalse(measurement().copy(temperatureC = null, humidityPercent = null, windKmh = null).current(now))
     }
 
+    @Test fun `gust and one hour rainfall are actual optional station measurements`() {
+        val station = measurement().copy(
+            windGustKmh = 43.2, hourlyRainMm = 0.0,
+        )
+        assertTrue(station.current(now))
+        assertTrue(station.summary(now).contains("rajada medida 43,2 km/h"))
+        assertTrue(station.summary(now).contains("chuva na última hora 0,0 mm"))
+        assertFalse(station.copy(windGustKmh = Double.NaN).current(now))
+        assertFalse(station.copy(hourlyRainMm = -1.0).current(now))
+        assertFalse(station.copy(hourlyRainMm = 9999.0).current(now))
+        assertTrue(station.copy(hourlyRainMm = null, windGustKmh = null).current(now))
+    }
+
     @Test fun `local clock expires a previously valid display without refreshing source timestamp`() {
         val sample = measurement()
         val report = CityWeatherResult(3303302, null, sample)
