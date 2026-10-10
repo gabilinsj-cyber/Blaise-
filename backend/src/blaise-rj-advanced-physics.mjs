@@ -146,8 +146,8 @@ export function calibratedZrRainRate({reflectivityDbz,calibration,scopeId}) {
  */
 export function parcelBuoyancyEnergy({levels,minimumTopHeightM=6000}) {
   finite(minimumTopHeightM,'minimum_top_height',1000,18000);
-  if(!Array.isArray(levels)||levels.length<3||levels.length>500)throw TypeError('virtual_temperature_profiles_required');
-  let cape=0,cin=0;
+  if(!Array.isArray(levels)||levels.length<3||levels.length>500)
+    throw TypeError('virtual_temperature_profiles_required');
   for(let i=0;i<levels.length;i++){
     const l=levels[i];
     finite(l.heightM,'height',0,30000);
@@ -158,27 +158,47 @@ export function parcelBuoyancyEnergy({levels,minimumTopHeightM=6000}) {
   }
   if(levels[0].heightM>250 || levels.at(-1).heightM<minimumTopHeightM)
     throw RangeError('insufficient_profile_extent');
-  for(let i=1;i<levels.length;i++) {
-    const a=levels[i-1],b=levels[i],dz=b.heightM-a.heightM;
-    const buoy=l=>9.80665*(l.parcelVirtualTemperatureK-l.environmentVirtualTemperatureK)/l.environmentVirtualTemperatureK;
-    let y0=buoy(a),y1=buoy(b);
-    // Crossings are split to integrate positive and negative areas.
-    if(y0*y1<0) {
-      const fraction=Math.abs(y0)/(Math.abs(y0)+Math.abs(y1));
-      const left=0.5*y0*dz*fraction, right=0.5*y1*dz*(1-fraction);
-      cape+=Math.max(0,left)+Math.max(0,right);
-      cin+=Math.min(0,left)+Math.min(0,right);
-    } else {
-      const energy=0.5*(y0+y1)*dz;
-      cape+=Math.max(0,energy);cin+=Math.min(0,energy);
+
+  const buoy=l=>9.80665*(l.parcelVirtualTemperatureK-l.environmentVirtualTemperatureK)/l.environmentVirtualTemperatureK;
+  // Split segments at zero crossings and integrate only between the
+  // FIRST LFC (buoyancy becomes positive) and first EL (returns negative).
+  // Negative area before LFC is CIN; beyond EL is neither CAPE nor CIN.
+  const samples=[{z:levels[0].heightM,b:buoy(levels[0])}];
+  for(let i=1;i<levels.length;i++){
+    const a=levels[i-1],b=levels[i];
+    const u=buoy(a),v=buoy(b);
+    if(u*v<0) {
+      const fraction=Math.abs(u)/(Math.abs(u)+Math.abs(v));
+      samples.push({z:a.heightM+(b.heightM-a.heightM)*fraction,b:0});
+    }
+    samples.push({z:b.heightM,b:v});
+  }
+  let cape=0,cin=0,lfcHeightM=null,elHeightM=null;
+  let phase='CIN';
+  for(let i=1;i<samples.length;i++){
+    const a=samples[i-1],b=samples[i];
+    const energy=0.5*(a.b+b.b)*(b.z-a.z);
+    if(phase==='CIN') {
+      if(energy>0) {
+        lfcHeightM=a.z;
+        phase='CAPE';
+      } else cin+=Math.min(0,energy);
+    }
+    if(phase==='CAPE') {
+      if(energy<0) {
+        elHeightM=a.z;
+        phase='DONE';
+      } else cape+=Math.max(0,energy);
     }
   }
+  if(lfcHeightM===null || elHeightM===null)
+    throw RangeError('lfc_and_equilibrium_level_must_be_bracketed');
   return Object.freeze({
-    capeJkg:cape, cinJkg:cin,
+    capeJkg:cape, cinJkg:cin,lfcHeightM,elHeightM,
     nature:'CALCULO_EXPERIMENTAL_BLAISE',officialAlert:false,
-    mayTriggerAlert:false, method:'vertical_virtual_temperature_buoyancy_trapezoid',
+    mayTriggerAlert:false, method:'bracketed_parcel_virtual_temperature_buoyancy',
     methodVersion:RJ_ADVANCED_PHYSICS_VERSION,
-    limitation:'Only for measured/modelled, co-located validated parcel and environmental profiles. No EL, LFC, tornado probability or thunderstorm declaration inferred.',
+    limitation:'LFC and EL are numerical crossings of supplied validated lifted-parcel profile; no parcel lifting, LCL or thunderstorm diagnosis is invented.',
   });
 }
 
