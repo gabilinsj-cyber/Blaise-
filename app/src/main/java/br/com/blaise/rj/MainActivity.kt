@@ -441,6 +441,7 @@ private fun BlaiseDashboard(
                             AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
+                        PublicOfficialWarningRibbon(city1, city2, onSelectSection)
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -1534,6 +1535,46 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
  * Official municipal data shown only with the municipality IBGE, source,
  * issuance time and a fresh snapshot. Risk level is never itself a P0 alert.
  */
+/** Visible only for exact-IBGE, still-valid INMET warnings. Never a synthetic P0. */
+@Composable
+private fun PublicOfficialWarningRibbon(
+    first: City, second: City, onNavigate: (String) -> Unit,
+) {
+    val now = LocalObservationClock.current
+    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) } ?: return
+    val cities = listOf(first, second).distinctBy { it.ibgeCode }
+    val valid = cities.flatMap { city ->
+        snapshot.warningsFor(city.ibgeCode, now).map { city.name to it }
+    }.distinctBy { it.second.id }
+    if (valid.isEmpty()) return
+    val warning = valid.first()
+    val issued = warning.second.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("public-official-warning-ribbon"),
+        color = Color(0xFF50202B),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, WarningAmber),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("⚠ INMET", color = WarningAmber, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall)
+            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}",
+                color = Color.White, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f), maxLines = 2)
+            TextButton(onClick = { onNavigate("Alertas") },
+                modifier = Modifier.testTag("public-warning-view-all")) {
+                Text("Ver avisos", color = Gold, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
 @Composable
 private fun PublicMunicipalStatusLine(ibge: Int) {
     val now = LocalObservationClock.current
