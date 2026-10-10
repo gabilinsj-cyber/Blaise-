@@ -97,6 +97,130 @@ function modelDisagreementContext(model, observed, variable) {
 }
 
 /**
+ * Model-guided scientific triage between two DISAGREEING real observations.
+ * An INPE/CPTEC forecast and a Windy model can indicate which observation
+ * agrees more closely with independent forecasts, but neither is a sensor.
+ *
+ * Explicit model identity / grid coordinates prevent double counting one
+ * weather model shown by two services and comparing distant gridpoints.
+ * Two independent, backtested model families must agree to highlight one
+ * observation as favored; any split or weak evidence shows both values.
+ */
+const kmBetween=(a,b)=>{
+  const rad=Math.PI/180;
+  const dLat=(b.latitude-a.latitude)*rad;
+  const dLon=(b.longitude-a.longitude)*rad;
+  const h=Math.sin(dLat/2)**2
+    +Math.cos(a.latitude*rad)*Math.cos(b.latitude*rad)*Math.sin(dLon/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+};
+const officialSnapshot=o=>Object.freeze({
+  sourceId:o.sourceId,stationId:o.stationId,observedAt:o.observedAt,
+  latitude:o.latitude,longitude:o.longitude,sourceUrl:o.sourceUrl,
+  value:o.value,unit:o.unit,
+});
+const tieBreakUnavailable=(measurements,reason,evidence=[])=>Object.freeze({
+  state:'SHOW_BOTH_OFFICIAL_MEASUREMENTS',
+  reason,
+  officialMeasurements:Object.freeze(measurements.map(officialSnapshot)),
+  favoredStationId:null,
+  favoredSourceId:null,
+  favoredOfficialValue:null,
+  weightedOfficialValue:null,
+  comparisonEvidence:Object.freeze(evidence),
+  conclusionIsOnlyModelGuidance:true,
+  officialMeasurement:false,
+  automaticAlertAuthorized:false,
+});
+
+export function compareInpeWindyToDiscrepantObservations({
+  observations=[],forecasts=[],ibge,variable,now=Date.now(),
+}={}) {
+  if(!CODES.has(String(ibge)))throw TypeError('rj_invalid_municipality');
+  if(!Object.hasOwn(THRESHOLDS,variable))throw TypeError('rj_unsupported_weather_variable');
+  if(!Array.isArray(observations)||observations.length>20
+    ||!Array.isArray(forecasts)||forecasts.length>20||!Number.isFinite(now))
+    throw TypeError('invalid_sources_or_clock');
+  const official=validatedObserved(observations,{ibge,variable,now});
+  // Prefer the earliest available, distinct official providers. This helper
+  // requires EXACTLY two distinct station observations for a fair comparison:
+  // if more arrive, upstream hierarchy should form a compatible official
+  // pair first or provide its two original disputed records.
+  if(official.length!==2
+     ||official[0].sourceId===official[1].sourceId
+     ||official[0].stationId===official[1].stationId)
+    return tieBreakUnavailable(official.slice(0,2),'TWO_DISTINCT_OFFICIAL_PROVIDER_RECORDS_REQUIRED');
+  const [a,b]=official;
+  const spec=THRESHOLDS[variable];
+  if(Math.abs(a.value-b.value)<=spec.maxDifference)
+    return tieBreakUnavailable(official,'OFFICIAL_MEASUREMENTS_WITHIN_COMPATIBILITY_THRESHOLD');
+  const ta=Date.parse(a.observedAt),tb=Date.parse(b.observedAt);
+  if(Math.abs(ta-tb)>900_000 || kmBetween(a,b)>25)
+    return tieBreakUnavailable(official,'STATIONS_TOO_FAR_APART_OR_DIFFERENT_OBSERVATION_TIMES');
+  if(variable==='CHUVA_MM_1H'
+      && (a.measurementWindowMinutes!==60||b.measurementWindowMinutes!==60))
+    return tieBreakUnavailable(official,'RAIN_ACCUMULATION_INTERVAL_NOT_VERIFIED');
+  const modelSet=validatedForecast(forecasts,{ibge,variable,now})
+    .filter(f=>['INPE_CPTEC_FORECAST','WINDY_MODELO'].includes(f.sourceId));
+  const votes=[],modelIdentity=new Set(),providers=new Set();
+  const matched=Object.freeze([a,b].map(officialSnapshot));
+  for(const f of modelSet) {
+    if(providers.has(f.sourceId))continue;
+    if(typeof f.modelFamilyId!=='string'||f.modelFamilyId.length<3
+       ||modelIdentity.has(f.modelFamilyId))continue;
+    if(f.weightBasis!=='VERIFIED_HISTORICAL_SKILL_FOR_VARIABLE_LOCATION_AND_LEAD'
+       ||typeof f.skillEvidenceId!=='string'||f.skillEvidenceId.length<4
+       ||!numeric(f.weight,0.01,1)
+       ||!numeric(f.latitude,-23.7,-20.4)
+       ||!numeric(f.longitude,-45.5,-40.4)
+       ||!numeric(f.gridResolutionKm,0.1,25)
+       ||kmBetween(f,a)>25||kmBetween(f,b)>25
+       ||Math.abs(Date.parse(f.validAt)-ta)>3_600_000
+       ||Math.abs(Date.parse(f.validAt)-tb)>3_600_000
+       ||(variable==='CHUVA_MM_1H'&&f.forecastWindowMinutes!==60))continue;
+    const gapA=Math.abs(f.value-a.value),gapB=Math.abs(f.value-b.value);
+    // A model must differ meaningfully in its support for the two
+    // observations; a near-tie is not a useful deciding signal.
+    const meaningfulMargin=Math.max(spec.maxDifference*0.25,0.05);
+    const preferred=Math.abs(gapA-gapB)>meaningfulMargin
+      ? (gapA<gapB?a:b):null;
+    votes.push(Object.freeze({
+      sourceId:f.sourceId,modelFamilyId:f.modelFamilyId,
+      productId:f.productId,validAt:f.validAt,
+      forecastValue:f.value,
+      differenceFromA:Math.round(gapA*100)/100,
+      differenceFromB:Math.round(gapB*100)/100,
+      closestStationId:preferred?.stationId||null,
+      skillEvidenceId:f.skillEvidenceId,
+      isMeasuredObservation:false,
+    }));
+    providers.add(f.sourceId);
+    modelIdentity.add(f.modelFamilyId);
+  }
+  if(votes.length<2)
+    return tieBreakUnavailable(official,'NEED_TWO_INDEPENDENT_SKILL_VALIDATED_MODEL_FAMILIES',votes);
+  const choice=votes[0].closestStationId;
+  if(!choice || votes.some(v=>v.closestStationId!==choice))
+    return tieBreakUnavailable(official,'INPE_WINDY_DISAGREE_OR_NEARLY_TIED',votes);
+  const selected=official.find(o=>o.stationId===choice);
+  return Object.freeze({
+    state:'BOTH_OFFICIAL_VALUES_WITH_MODEL_FAVORED_REFERENCE',
+    reason:'TWO_DISTINCT_BACKTESTED_MODELS_CLOSER_TO_SAME_STATION',
+    officialMeasurements:matched,
+    favoredStationId:selected.stationId,
+    favoredSourceId:selected.sourceId,
+    favoredOfficialValue:selected.value,
+    weightedOfficialValue:null,
+    comparisonEvidence:Object.freeze(votes),
+    conclusionIsOnlyModelGuidance:true,
+    officialMeasurement:false,
+    automaticAlertAuthorized:false,
+    displayBothOfficialReadings:true,
+    note:'Highlight is based on forecast proximity, not proof the other sensor is wrong.',
+  });
+}
+
+/**
  * An explicit policy threshold detects disagreements; it is a screening
  * threshold, NOT the physical uncertainty of a particular sensor or model.
  * When a significant conflict exists, do NOT average away the uncertainty.
@@ -135,8 +259,12 @@ export function assessRjMeteorologicalDisagreement({
   if(spread>threshold.maxDifference) {
     const windyEvidence=modelDisagreementContext(windy[0],obs,variable);
     const inpeEvidence=modelDisagreementContext(inpe[0],obs,variable);
+    const modelTieBreak=compareInpeWindyToDiscrepantObservations({
+      observations:obs,forecasts:fc,ibge,variable,now,
+    });
     return result('SIGNIFICANT_OFFICIAL_DATA_DISAGREEMENT',{
       ...common,spread,screeningThreshold:threshold.maxDifference,
+      modelTieBreak,
       observedRange:Object.freeze({
         minimum:Math.min(...obs.map(o=>o.value)),
         maximum:Math.max(...obs.map(o=>o.value)),
