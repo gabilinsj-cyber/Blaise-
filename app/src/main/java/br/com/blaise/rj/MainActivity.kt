@@ -47,6 +47,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -93,6 +94,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -395,7 +398,7 @@ private fun BlaiseDashboard(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.Top,
                             ) {
-                                AppHeader(powerOn, onPowerChange, onSelectSection, Modifier.weight(0.42f))
+                                AppHeader(powerOn, onPowerChange, onSelectSection, Modifier.weight(0.42f), compact = true)
                                 AssistantPanel(
                                     selectedCity = city1,
                                     onNavigate = onSelectSection,
@@ -468,7 +471,7 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
@@ -511,6 +514,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                     )
                 }
             }
+            if (!compact) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     latest?.let { "Medição oficial: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}" }
@@ -521,6 +525,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                 )
                 TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("top-notifications")) { Text("Alertas") }
                 TextButton(onClick = { onNavigate("Mais") }, modifier = Modifier.testTag("top-settings")) { Text("⚙") }
+            }
             }
         }
     }
@@ -685,6 +690,80 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             Modifier.fillMaxWidth().padding(if (compact) 6.dp else 8.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 5.dp),
         ) {
+            if (compact) {
+                // Reference-style horizontal command strip: one short row,
+                // not three vertically stacked cards obscuring the weather map.
+                Row(
+                    Modifier.fillMaxWidth().testTag("assistant-compact-strip"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            voiceError = null
+                            stopSpeaking()
+                            if (listening) recognizer.cancel()
+                            else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) recognizer.start()
+                            else permission.launch(Manifest.permission.RECORD_AUDIO)
+                        },
+                        modifier = Modifier.testTag("assistant-microphone"),
+                        enabled = appEnabled,
+                    ) { Text(if (listening) "■" else "🎙") }
+                    Surface(
+                        modifier = Modifier.weight(1f).height(45.dp),
+                        color = Navy, shape = RoundedCornerShape(9.dp),
+                        border = BorderStroke(1.dp, Divider),
+                    ) {
+                        Box(
+                            Modifier.fillMaxSize().padding(horizontal = 9.dp),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            BasicTextField(
+                                value = typedQuestion,
+                                onValueChange = { typedQuestion = it },
+                                modifier = Modifier.fillMaxWidth().testTag("assistant-input"),
+                                singleLine = true,
+                                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                                decorationBox = { innerTextField ->
+                                    Box {
+                                        if (typedQuestion.isEmpty()) {
+                                            Text("Como posso ajudar? Digite aqui…", color = Muted,
+                                                style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        innerTextField()
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    Button(onClick = ::submit,
+                        enabled = appEnabled && typedQuestion.isNotBlank(),
+                        modifier = Modifier.testTag("assistant-send"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy)) {
+                        Text("Enviar", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Blaise • Boletim 06h / 12h / 16h", color = Gold,
+                        style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                    Text(
+                        "Leia mais ›", color = Gold, style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.clickable { showBulletin = true }
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                    )
+                }
+                if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
+                    Text(answer, color = Color.White,
+                        style = MaterialTheme.typography.labelSmall, maxLines = 2,
+                        modifier = Modifier.testTag("assistant-answer"))
+                    TextButton(
+                        onClick = { if (speaking) stopSpeaking() else readAloud(answer) },
+                        enabled = voiceEnabled,
+                        modifier = Modifier.testTag("assistant-read-answer"),
+                    ) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
+                }
+                voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
+            } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("Blaise • ${FinalDashboardSpec.ASSISTANT_PROMPT}", color = Gold, fontWeight = FontWeight.Bold)
@@ -744,6 +823,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
+            } // Expanded portrait assistant
         }
     }
 }
