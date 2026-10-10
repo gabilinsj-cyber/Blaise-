@@ -35,9 +35,10 @@ class InmetHourlySeriesTest {
 
     @Test fun `null sentinel and physically impossible readings fail closed for each variable`() {
         val s = series(row(3600, temp = null, rain = 9999.0, wind = Double.NaN), row(7100))
-        assertNull(s.currentPoint(InmetMetric.HOURLY_RAINFALL, now)?.takeIf { it.first.observedAt == now.minusSeconds(3600) })
-        assertEquals(1, s.recentPoints(InmetMetric.HOURLY_RAINFALL, now).size.coerceAtMost(1))
-        assertEquals(1, s.recentPoints(InmetMetric.WIND, now).size.coerceAtMost(1))
+        assertTrue(s.recentPoints(InmetMetric.HOURLY_RAINFALL, now).isEmpty())
+        assertTrue(s.recentPoints(InmetMetric.WIND, now).isEmpty())
+        assertEquals(0.0, s.currentPoint(InmetMetric.HOURLY_RAINFALL, now)!!.second, 0.0)
+        assertEquals(12.6, s.currentPoint(InmetMetric.WIND, now)!!.second, 0.0)
     }
 
     @Test fun `source not official coordinates outside RJ and duplicate timestamps block all`() {
