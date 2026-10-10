@@ -6,6 +6,7 @@ import { createFcmGateway } from './fcm.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
+import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -203,7 +204,15 @@ async function main() {
     sourceWorker,
     metrics,
   });
-  const server = http.createServer(createDrainingHandler(dashboardDataHandler, readiness));
+  // Public official alerts/risk status does not require a Google Play purchase,
+  // but data republication is blocked until the operator approves applicable
+  // source-product terms and explicitly enables this service.
+  const publicStatusHandler = createRjPublicStatusHandler(dashboardDataHandler, {
+    sourceWorker,
+    enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
+    licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
+  });
+  const server = http.createServer(createDrainingHandler(publicStatusHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
