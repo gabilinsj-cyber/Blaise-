@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 import {
@@ -344,22 +344,8 @@ test('maps viewer transport rejection to a stable INEA radar error code', async 
   );
 });
 
-test('manual radar workflow stays fail-closed and credential-free', () => {
-  const workflow = readFileSync('../.github/workflows/inea-radar-probe.yml', 'utf8');
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /execute_live_probe:/);
-  assert.match(workflow, /default:\s*false/);
-  assert.doesNotMatch(workflow, /^\s{2}(?:push|pull_request|schedule):/m);
-  assert.doesNotMatch(workflow, /id-token:\s*write|service_account|workload_identity_provider/);
-  assert.match(workflow, /NOT_RUN_EXPLICIT_APPROVAL_REQUIRED/);
-  assert.match(workflow, /embeddedViewerResolution/);
-  assert.match(workflow, /mediaCandidateDiscovery/);
-  assert.match(workflow, /frameBinaryValidation/);
-  assert.match(workflow, /radarIdentityValidation/);
-  assert.match(workflow, /frameTimestampValidation/);
-  assert.match(workflow, /frameFreshnessValidation/);
-  assert.match(workflow, /liveRadarFrameIngestion/);
-  assert.match(workflow, /NOT_IMPLEMENTED/);
+test('retired radar workflow cannot be manually or automatically executed', () => {
+  assert.equal(existsSync('../.github/workflows/inea-radar-probe.yml'), false);
 });
 
 test('radar source and probe script parse under the pinned Node runtime', () => {
