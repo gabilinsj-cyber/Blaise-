@@ -3,10 +3,10 @@
  *
  * This module prepares bounded POINT OBSERVATIONS for Blaise's own geographic
  * renderer; it never fetches radar screenshots or third-party map tiles.
- * Four referenced channels: Alerta Rio, regional Civil Defence, INMET and
- * Windy. The first three are candidate official observation/warning sources
- * when the product and coverage are verified. Windy is an independent MODEL
- * comparison channel, not a public official measurement.
+ * Five situational channels: Alerta Rio, regional Civil Defence, INMET,
+ * Windy and INPE/CPTEC. The first three are candidate official measurement
+ * channels. Windy is a model comparison channel, and INPE/CPTEC offers
+ * official forecast guidance. Neither is a measured station by default.
  * CEMADEN, ANA, SGB/SACE, Marinha and NOAA remain separate approved adapters.
  */
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
@@ -17,6 +17,7 @@ const BASE_CHANNELS = Object.freeze([
   {sourceId:'DEFESA_CIVIL_RJ_REGIONAL', type:'OFFICIAL_CANDIDATE', coverage:'LOCAL_AUTHORITY_ONLY'},
   {sourceId:'INMET_STATION', type:'OFFICIAL_CANDIDATE', coverage:'STATION_ONLY'},
   {sourceId:'WINDY_MODELO', type:'MODEL_COMPARISON', coverage:'FORECAST_MODEL_NOT_OBSERVATION'},
+  {sourceId:'INPE_CPTEC_FORECAST', type:'OFFICIAL_FORECAST', coverage:'FORECAST_BY_PRODUCT_AND_LOCATION_NOT_STATION_OBSERVATION'},
 ].map(Object.freeze));
 export const RJ_OWN_MAP_CHANNELS = BASE_CHANNELS;
 export const RJ_OWN_MAP_RENDERER = 'BLAISE_V6_RJ_NATIVE_GEOGRAPHIC_CANVAS';
