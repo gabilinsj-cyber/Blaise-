@@ -1,3 +1,17 @@
+export {
+  linearFeatureAdvection,
+  vaporPressureFromDewPoint,
+  relativeHumidityFromDewPoint,
+  mixingRatio,
+  specificHumidityFromMixingRatio,
+  dryAdiabaticLapseRate,
+  meanVirtualTemperatureSeaLevelPressure,
+  wetBulbStullApprox,
+  verifiedRainfallAccumulation,
+  calibratedZrRainRate,
+  parcelBuoyancyEnergy,
+  moistureFluxConvergence,
+} from './blaise-rj-advanced-physics.mjs';
 /** Numerical primitives, not hazard classifiers. SI unless the parameter names say otherwise. */
 export {significantWaveSpectrum,linearWaveDispersion,conditionalMarineTravelTime} from './blaise-marine-kernels.mjs';
 export const SCIENTIFIC_METHOD_VERSION = 'rj-kernels-20261006-v2';
