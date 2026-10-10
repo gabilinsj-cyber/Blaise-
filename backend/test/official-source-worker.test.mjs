@@ -6,7 +6,6 @@ import {
   ALERTA_RIO_RAINFALL_TASK_ID,
   CHM_WARNINGS_TASK_ID,
   createOfficialSourceWorker,
-  INEA_STATION_TASK_ID,
   loadOfficialSourceWorkerConfig,
   OfficialSourceWorkerError,
 } from '../src/official-source-worker.mjs';
@@ -22,11 +21,6 @@ import {
   CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_WARNINGS_URL,
 } from '../src/chm-source.mjs';
-import {
-  INEA_ALERT_HOST,
-  INEA_STATION_SOURCE_ID,
-  INEA_TELEMETRY_CADENCE_MINUTES,
-} from '../src/inea-source.mjs';
 
 const NOW = Date.parse('2026-09-10T15:00:00.000Z');
 
@@ -44,22 +38,6 @@ function alertaRioSnapshot() {
       code: index + 1,
       observedAt,
     }))),
-  });
-}
-
-function ineaSnapshot() {
-  return Object.freeze({
-    sourceId: INEA_STATION_SOURCE_ID,
-    sourceHost: INEA_ALERT_HOST,
-    stationId: '12345678',
-    stationName: 'Estação de teste',
-    observedDate: '10/09/2026',
-    observedTime: '12:00',
-    timezone: 'America/Sao_Paulo',
-    telemetryCadenceMinutes: INEA_TELEMETRY_CADENCE_MINUTES,
-    rainfall: Object.freeze({ last15mMm: 0 }),
-    missingValueCount: 0,
-    snapshotSha256: 'b'.repeat(64),
   });
 }
 
@@ -113,7 +91,6 @@ test('worker configuration is disabled fail-closed by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
   });
 
   assert.throws(
@@ -123,7 +100,7 @@ test('worker configuration is disabled fail-closed by default', () => {
   );
   assert.throws(
     () => loadOfficialSourceWorkerConfig({ BLAISE_INEA_STATION_URL: 'https://example.com/station' }),
-    (error) => error.code === 'official_source_worker_invalid_inea_station_url',
+    (error) => error.code === 'official_source_worker_retired_source_inea',
   );
   assert.throws(
     () => loadOfficialSourceWorkerConfig({ BLAISE_CHM_WARNINGS_ENABLED: 'yes' }),
@@ -197,29 +174,33 @@ test('source failures are contained and exposed only as bounded error codes', as
   assert.equal(JSON.stringify(status).includes('upstream body'), false);
 });
 
-test('optional INEA station task is explicit and honors severe cadence', async () => {
+test('retired INEA collector cannot be enabled even by directly constructed worker config', async () => {
   const stationUrl = 'https://alertadecheias.inea.rj.gov.br/alertadecheias/12345678.html';
-  let ineaCalls = 0;
+  assert.throws(
+    () => createOfficialSourceWorker({
+      config: { enabled: true, initialMode: 'severe', ineaStationUrl: stationUrl },
+      now: () => NOW,
+      autoSchedule: false,
+      probeAlertaRio: async () => alertaRioSnapshot(),
+    }),
+    (error) => error.code === 'official_source_worker_retired_source_inea',
+  );
+
+  let calls = 0;
   const worker = createOfficialSourceWorker({
-    config: { enabled: true, initialMode: 'severe', ineaStationUrl: stationUrl },
+    config: { enabled: true, initialMode: 'severe' },
     now: () => NOW,
     autoSchedule: false,
-    maxConcurrency: 2,
-    probeAlertaRio: async () => alertaRioSnapshot(),
-    probeIneaStation: async ({ stationUrl: received }) => {
-      assert.equal(received, stationUrl);
-      ineaCalls += 1;
-      return ineaSnapshot();
+    probeAlertaRio: async () => {
+      calls += 1;
+      return alertaRioSnapshot();
     },
   });
-
   worker.start();
-  const launched = await worker.tick();
-  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, INEA_STATION_TASK_ID].sort());
-  assert.equal(ineaCalls, 1);
-  assert.equal(worker.status().mode, 'severe');
-  assert.equal(worker.status().scheduler.refreshIntervalMs, 60_000);
-  assert.equal(worker.readSource(INEA_STATION_TASK_ID).state, 'CURRENT');
+  assert.deepEqual(await worker.tick(), [ALERTA_RIO_RAINFALL_TASK_ID]);
+  assert.equal(calls, 1);
+  assert.equal(worker.status().retiredIneaSource, 'DISABLED_BY_POLICY');
+  assert.equal(worker.status().sources.some(s => /inea/i.test(s.sourceId)), false);
 });
 
 test('optional CHM warnings task exposes only validated RJ regional routing and never municipality P0', async () => {
