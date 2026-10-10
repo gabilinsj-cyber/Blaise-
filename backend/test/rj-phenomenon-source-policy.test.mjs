@@ -14,6 +14,7 @@ test('all 92 RJ municipalities route rainstorm and gust sources without creating
       assert.equal(route.liveData, 'NOT_CONFIRMED');
       assert.equal(route.municipalitySelectionCoverage, 92);
       assert.equal(route.ineaPolicy, 'EXCLUDED');
+      assert.equal(route.sources.every(source => source.automaticAlertAuthority === false), true);
       assert.equal(route.sources.some(s => /INEA/i.test(s.id)), false);
       assert.equal(route.sources.some(s => s.id === 'WINDY_MODELO'), true);
       assert.equal(route.sources.at(-1).role, RJ_SOURCE_CLASS.COMPARISON);
