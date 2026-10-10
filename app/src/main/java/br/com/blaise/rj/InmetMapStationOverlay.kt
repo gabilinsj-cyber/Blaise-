@@ -54,7 +54,7 @@ internal fun InmetMapStationOverlay(
 
         val suffix = when (metric) {
             InmetMetric.TEMPERATURE -> "°C"
-            InmetMetric.HOURLY_RAINFALL -> "mm/h"
+            InmetMetric.HOURLY_RAINFALL -> "mm (1h)"
             InmetMetric.WIND -> "km/h"
         }
         val value = String.format(java.util.Locale("pt", "BR"), "%.1f %s", current.second, suffix)
