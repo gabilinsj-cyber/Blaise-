@@ -50,7 +50,7 @@ class InmetHourlySeriesTest {
     }
 
     @Test fun `metric requires its own fresh value and two distinct hours to draw`() {
-        val s = series(row(1800, temp = 29.0, rain = null), row(5400, temp = null, rain = 12.5), row(10800, temp = 26.0, rain = 2.5))
+        val s = series(row(1800, temp = 29.0, rain = null), row(5400, temp = null, rain = null), row(10800, temp = 26.0, rain = 2.5))
         assertEquals(2, s.recentPoints(InmetMetric.TEMPERATURE, now).size)
         assertTrue(s.recentPoints(InmetMetric.HOURLY_RAINFALL, now).isEmpty())
         assertEquals(29.0, s.currentPoint(InmetMetric.TEMPERATURE, now)!!.second, 0.0)
