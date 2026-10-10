@@ -34,6 +34,7 @@ data class InmetHourlySeries(
         Regex("[A-Z][0-9]{3}").matches(stationCode) &&
             stationName.isNotBlank() && stationName.length <= 100 &&
             sourceUrl.startsWith("https://apitempo.inmet.gov.br/estacao/") &&
+            sourceUrl.endsWith("/$stationCode") &&
             latitude.isFinite() && latitude in -23.6..-20.4 &&
             longitude.isFinite() && longitude in -45.3..-40.6 &&
             points.size in 1..48 &&
