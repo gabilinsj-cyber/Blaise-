@@ -38,6 +38,25 @@ test('Atlantic extratropical cyclone, sea, rainfall and fronts have official and
     assert.equal(route.windyPolicy, 'MODEL_COMPARISON_NO_OFFICIAL_TIE_BREAK');
   }
 });
+test('five situational main channels include separate INMET/INPE identities and no fictitious live data', () => {
+  for (const phenomenon of ['TEMPERATURA','CHUVA_ACUMULADA','TEMPORAL','RAJADA']) {
+    const rio=rjSourceRouting({ibge:'3304557',phenomenon});
+    assert.equal(rio.sources.some(s=>s.id==='ALERTA_RIO'),true);
+    assert.equal(rio.sources.some(s=>s.id==='DEFESA_CIVIL_RJ_REGIONAL'),true);
+    assert.equal(rio.sources.some(s=>s.id==='INMET_STATION'),true);
+    assert.equal(rio.sources.some(s=>s.id==='INPE_CPTEC_FORECAST'),true);
+    assert.equal(rio.sources.some(s=>s.id==='WINDY_MODELO'),true);
+    assert.equal(rio.liveData,'NOT_CONFIRMED');
+    assert.equal(rio.sources.find(s=>s.id==='INPE_CPTEC_FORECAST').role,RJ_SOURCE_CLASS.OFFICIAL_MODEL);
+    assert.equal(rio.sources.find(s=>s.id==='INMET_STATION').role,RJ_SOURCE_CLASS.AUTHORITATIVE);
+    assert.equal(rio.sources.every(s=>s.automaticAlertAuthority===false),true);
+  }
+  const niteroi=rjSourceRouting({ibge:'3303302',phenomenon:'TEMPERATURA'});
+  assert.equal(niteroi.sources.some(s=>s.id==='ALERTA_RIO'),false);
+  assert.equal(niteroi.sources.some(s=>s.id==='INPE_CPTEC_FORECAST'),true);
+  assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'VAZAO_RIO'}).sources.some(s=>s.id==='INPE_CPTEC_FORECAST'),false);
+});
+
 test('river streamflow, flood and alert authorities never gain fake Windy flow measurements', () => {
   const vazao = rjSourceRouting({ ibge: '3303302', phenomenon: 'VAZAO_RIO' });
   assert.equal(vazao.sources[0].id, 'ANA_HIDROWEB');
