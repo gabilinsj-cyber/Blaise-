@@ -174,6 +174,21 @@ test('sequential adapters continue after first incompatible source and retry rem
   assert.equal(r.value,20.5);
   assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION']);
 });
+test('one adapter cannot spoof two independent source providers',async()=>{
+  const r=await consultRjSourcesUntilTwo({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>({observations:[
+        measurement('ALERTA_RIO','AR-RJ',28),
+        measurement('DEFESA_CIVIL','FAKE-DC',29),
+      ]}),
+    },
+  });
+  assert.equal(r.state,'ONE_VERIFIED_OFFICIAL_SOURCE');
+  assert.deepEqual(r.selectedSourceIds,['ALERTA_RIO']);
+  assert.deepEqual(r.consultedSourceIds,['ALERTA_RIO']);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
 test('missing/failing adapters cannot be misrepresented as real-time measurements',async()=>{
   const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     adapters:{INMET_STATION:async()=>{throw Error('network failed');}}});
