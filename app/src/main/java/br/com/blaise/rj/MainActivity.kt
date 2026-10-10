@@ -624,9 +624,30 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
     val centre = reports[3304557]?.summary(clock) ?: "Consultando medição oficial do Centro do Rio."
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
-    val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen\n\nSensação térmica, UV, previsão e alertas: integração ainda indisponível. Fonte e horário referem-se à medição de cada estação."
+    val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }
+    val currentWarnings = publicOfficial?.warningsFor(selectedCity.ibgeCode, clock).orEmpty()
+    val municipalRisk = publicOfficial?.municipality(selectedCity.ibgeCode, clock)
+        ?.risk?.takeIf { it.current(clock) }
+    val officialRiskText = municipalRisk?.let { risk ->
+        "CEMADEN-RJ / Defesa Civil: risco hidrológico ${risk.label}, nível ${risk.level}; " +
+            "emissão ${risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))" +
+            ".format(java.time.format.DateTimeFormatter.ofPattern(\"dd/MM HH:mm\"))}."
+    } ?: "Risco hidrológico municipal: sem boletim validado nesta consulta."
+    val officialWarningText = if (currentWarnings.isEmpty())
+        "Avisos INMET municipais: cobertura não comprovada; não indica ausência de risco."
+    else currentWarnings.joinToString("\n") { warning ->
+        "INMET: ${warning.event} (${warning.severity}), válido até " +
+            warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+            " (Brasília)."
+    }
+    val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen" +
+        "\n\n${officialRiskText}\n${officialWarningText}" +
+        "\n\nOutras variáveis sem leitura atual permanecem não confirmadas. Fonte e horário pertencem a cada produto."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
-    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Sensação térmica, UV e previsão ainda indisponíveis" else chosen)}."
+    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
+        if (currentWarnings.isNotEmpty()) " INMET: ${currentWarnings.size} aviso(s) vigente(s) com atribuição municipal confirmada." else ""
     if (showQuickHelp) {
         AlertDialog(
             onDismissRequest = { showQuickHelp = false },
