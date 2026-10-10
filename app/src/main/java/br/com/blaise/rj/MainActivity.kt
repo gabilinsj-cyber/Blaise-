@@ -703,15 +703,34 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
 
 @Composable
 private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
+    // One horizontally scrollable bottom ribbon for phones; full row on large screens.
+    val labels = mapOf(
+        "Início" to "⌂", "Cidades" to "⌖", "Mapa" to "▣",
+        "Alertas" to "⚠", "Trânsito" to "≋", "Mar e Ondas" to "≈",
+        "Qualidade do Ar" to "◉", "Notícias" to "▤", "Histórico" to "◷", "Mais" to "⋯",
+    )
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("primary-navigation"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         FinalDashboardSpec.primaryNavigation.forEach { item ->
-            if (item == selected) {
-                Button(onClick = { onSelect(item) }, modifier = Modifier.testTag("nav-$item")) { Text(item) }
-            } else {
-                OutlinedButton(onClick = { onSelect(item) }, modifier = Modifier.testTag("nav-$item")) { Text(item) }
+            val active = item == selected
+            Surface(
+                modifier = Modifier.testTag("nav-$item").clickable { onSelect(item) },
+                color = if (active) Gold else Color(0xFF092648),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, if (active) Gold else Divider),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(labels[item] ?: "•", color = if (active) Navy else Gold, fontWeight = FontWeight.Bold)
+                    Text(item, color = if (active) Navy else Color.White, style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                }
             }
         }
     }
