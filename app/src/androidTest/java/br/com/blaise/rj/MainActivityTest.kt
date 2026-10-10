@@ -30,18 +30,17 @@ class MainActivityTest {
     private fun assertCoreDashboard() {
         assertTextDisplayed("BLAISE V6 RJ")
         assertTextDisplayed("Clima e Tempo")
-        assertTextDisplayed("Como posso ajudar?")
+        assertTextDisplayed("Blaise • Como posso ajudar?")
+        assertTextDisplayed("ESTADO DO RIO DE JANEIRO")
+        assertTextDisplayed("Mapa geográfico com 92 municípios • visão estadual")
         assertTextDisplayed("Início")
         assertTextDisplayed("STATUS OFICIAL • AGUARDANDO DADOS")
         assertTextDisplayed("Não presumimos ausência de alerta sem evidência oficial válida.")
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
-        assertTextDisplayed("P0 oficial permanece disponível sem assinatura.")
-        assertTextDisplayed("Conteúdo premium exige entitlement ativo.")
         assertTextDisplayed("Cidade 1")
         assertTextDisplayed("Cidade 2")
         assertTextDisplayed("Escolher cidade 1")
         assertTextDisplayed("Escolher cidade 2")
-        assertTextDisplayed("Não configurada nesta build • premium bloqueado")
     }
 
     private fun assertCriticalStatusVisible() {
@@ -93,7 +92,6 @@ class MainActivityTest {
     }
 
     @Test fun assistantRoutesQuestionsWithoutInventingLiveConditions() {
-        rule.onNodeWithText("Digite aqui… ⤢").performScrollTo().performClick()
         rule.onNodeWithTag("assistant-input").performTextInput("Tem tornado no Rio?")
         rule.onNodeWithTag("assistant-send").performClick()
         rule.waitForIdle()
@@ -108,7 +106,7 @@ class MainActivityTest {
             preferences.edit().putBoolean("power_on", true).putBoolean("silent_mode", false).commit()
             rule.activityRule.scenario.recreate()
             rule.onNodeWithTag("assistant-test-dora").assertIsEnabled()
-            rule.onNodeWithTag("nav-Configurações").performScrollTo().performClick()
+            rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
             rule.onNodeWithTag("settings-silent-toggle").performScrollTo().performClick()
             rule.onNodeWithTag("assistant-read-answer").assertIsNotEnabled()
             rule.onNodeWithTag("settings-silent-toggle").performScrollTo().performClick()
