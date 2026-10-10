@@ -55,6 +55,14 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 
 **Classificação obrigatória das saídas:** `MEDICAO_OFICIAL`, `CALCULO_EXPERIMENTAL_BLAISE` ou `INFORMACAO_INDISPONIVEL`. Cálculo jamais substitui fonte oficial e **não aciona alerta P0** por si só.
 
+## Cinco fontes meteorológicas situacionais e conferência por INPE/CPTEC
+
+**Cinco fontes principais por situação:** **Alerta Rio** (exclusivamente município do Rio), **Defesa Civil regional**, **INMET** (avisos e medições de estações), **Windy** (visualização/comparação de modelos) e **INPE/CPTEC** (produtos meteorológicos oficiais de previsão e satélite). As demais fontes especializadas ANA, CEMADEN, SGB/SACE, Marinha, NOAA e USGS permanecem conforme fenômeno e competência. INEA continua excluído.
+
+O **Agente 3 — Blaise Fusion RJ** identifica divergências entre observações oficiais atuais, no mesmo local/período/unidade. Pode **consultar INPE/CPTEC como terceira referência de previsão**, sem substituir medição por modelo e sem pretender que o INPE seja uma estação INMET. **Média ponderada observada** é permitida apenas entre medições com pesos auditáveis e concordância razoável; divergência relevante mostra aviso de inconsistência, sem média ocultadora. **Média ponderada de previsões** é um produto separado e experimental, exigindo mesma validade/variável/local e pesos de habilidade histórica demonstrados; não autoriza alertas automáticos.
+
+O CPTEC/INPE documenta consultas por localidade em [serviço XML](https://servicos.cptec.inpe.br/XML/), mas sua [página oficial](https://www.cptec.inpe.br/) estabelece restrições de uso comercial de determinados produtos sem autorização expressa. A integração ao app com assinaturas exige verificar licença por produto antes de operar. Código: `backend/src/rj-weather-source-reconciliation.mjs`; testes: `backend/test/rj-weather-source-reconciliation.test.mjs`. **O serviço de ingestão CPTEC em produção ainda não está ativo.**
+
 ## Seleção de fontes e cobertura
 
 Referência normativa: `docs/rj-fontes-por-fenomeno-localidade.md`, `backend/src/rj-phenomenon-source-policy.mjs`.
