@@ -1576,33 +1576,54 @@ private fun StatewideMunicipalitiesPanel() {
     val clock = LocalObservationClock.current
     val response = LocalStatewideDashboard.current
     val snapshot = (response as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
+    val publicSnapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }
     var query by remember { mutableStateOf("") }
     DashboardSection("ESTADO DO RJ • 92 MUNICÍPIOS", "Riscos e avisos por município, fonte e horário") {
         OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("Buscar município do RJ") },
             singleLine = true, modifier = Modifier.fillMaxWidth())
-        if (snapshot == null) {
-            Text(if (response is StatewideDataResult.Denied) "Acesso aos dados estaduais não confirmado." else "Dados estaduais indisponíveis no momento.", color = Muted)
-        } else if (!snapshot.workerActive) {
+        if (snapshot == null && publicSnapshot == null) {
+            Text("Sem atualização oficial estadual validada nesta consulta. " +
+                "O canal público não depende de assinatura, mas precisa ser habilitado com fontes autorizadas.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        } else if (snapshot == null && publicSnapshot != null) {
+            Text("Dados públicos • INMET e CEMADEN/Defesa Civil • origem, horário e cobertura por município.",
+                color = Gold, style = MaterialTheme.typography.labelSmall)
+        } else if (!snapshot!!.workerActive) {
             Text("Coleta estadual indisponível. O cadastro de municípios não confirma monitoramento ativo.", color = WarningAmber)
         }
         val cities = RioMunicipalities.search(query)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
             items(cities, key = { it.ibgeCode }) { city ->
                 val row = snapshot?.municipalities?.firstOrNull { it.ibge == city.ibgeCode }
+                val publicRow = publicSnapshot?.municipality(city.ibgeCode, clock)
                 Column(Modifier.padding(vertical = 8.dp)) {
                     Text(city.name, color = Color.White, fontWeight = FontWeight.Bold)
-                    val risk = row?.risk?.takeIf { it.current(clock) }
-                    Text(if (risk == null) "Risco hidrológico: indisponível ou desatualizado." else
-                        "Risco hidrológico: ${risk.label} • CEMADEN-RJ • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
-                    val warnings = snapshot?.warnings?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
-                    warnings.forEach { warning ->
-                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (warnings.isEmpty()) Text(if (row?.warningCoverage == "EXACT_IBGE_ONLY")
-                        "Nenhum aviso municipal atribuído nesta consulta; não confirma ausência de risco."
-                        else "Consulta de avisos municipais indisponível ou com cobertura parcial.",
+                    val paidRisk = row?.risk?.takeIf { it.current(clock) }
+                    val publicRisk = publicRow?.risk?.takeIf { it.current(clock) }
+                    val riskLabel = paidRisk?.label ?: publicRisk?.label
+                    val riskTime = paidRisk?.observedAt ?: publicRisk?.observedAt
+                    Text(if (riskLabel == null) "Risco hidrológico: indisponível ou desatualizado." else
+                        "Risco hidrológico: ${riskLabel} • CEMADEN-RJ • ${riskTime?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
                         color = Muted, style = MaterialTheme.typography.labelSmall)
-                    if (row?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS") Text("Há avisos estaduais cuja área municipal ainda não foi confirmada.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    val paidWarnings = snapshot?.warnings
+                        ?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
+                    val publicWarnings = publicSnapshot?.warningsFor(city.ibgeCode, clock).orEmpty()
+                    paidWarnings.forEach { warning ->
+                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.",
+                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (paidWarnings.isEmpty()) publicWarnings.forEach { warning ->
+                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.",
+                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (paidWarnings.isEmpty() && publicWarnings.isEmpty())
+                        Text("Nenhum aviso municipal confirmado nesta consulta; não comprova ausência de risco.",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
+                    if (row?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS" ||
+                        publicRow?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS")
+                        Text("Há avisos estaduais cuja área municipal ainda não foi confirmada.",
+                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
