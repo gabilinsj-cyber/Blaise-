@@ -97,13 +97,17 @@ test('discrepant official sources retain both station readings when model identi
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     observations:[measurement('INMET','A652',29),measurement('DEFESA_CIVIL','DC-1',36)],
     forecasts:[forecast('INPE_CPTEC_FORECAST',30),forecast('WINDY_MODELO',30)]});
-  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_DISPLAY_BOTH_READINGS');
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_TWO_SOURCE_CONTEXT');
   assert.equal(r.value,null);
   assert.equal(r.officialReadings.length,2);
   assert.deepEqual(r.officialReadings.map(x=>x.value),[36,29]);
+  assert.deepEqual(r.sourcePairForDisplay.map(x=>x.sourceId),
+    ['DEFESA_CIVIL_RJ_REGIONAL','WINDY_MODELO']);
+  assert.equal(r.sourcePairForDisplay[0].dataType,'OFFICIAL_STATION_OBSERVATION');
+  assert.equal(r.sourcePairForDisplay[1].dataType,'MODEL_FORECAST_NOT_A_MEASURED_STATION');
   assert.equal(r.showBothSourceMeasurements,true);
   assert.equal(r.weightedMeanApplied,false);
-  assert.equal(r.modelTieBreak.favoredOfficialValue,null);
+  assert.equal(r.modelTieBreak.favoredStationId,null);
   assert.equal(r.automaticAlertAuthorized,false);
   assert.ok(r.conflictsEncountered.length>0);
 });
@@ -113,7 +117,7 @@ const tieModel=(sourceId,value,change={})=>forecast(sourceId,value,{
   latitude:-22.9,longitude:-43.2,gridResolutionKm:10,
   ...change,
 });
-test('INPE and Windy favor the closer INMET reading while preserving disputed Defesa Civil reading',()=>{
+test('INPE alone highlights closer INMET while preserving both official readings',()=>{
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     observations:[measurement('INMET','A652',29),measurement('DEFESA_CIVIL','DC-1',36)],
     forecasts:[tieModel('INPE_CPTEC_FORECAST',30),tieModel('WINDY_MODELO',30)]});
@@ -121,23 +125,28 @@ test('INPE and Windy favor the closer INMET reading while preserving disputed De
   assert.equal(r.value,29);
   assert.equal(r.officialMeasurement,true);
   assert.equal(r.resultKind,'FAVORED_INDIVIDUAL_OFFICIAL_STATION_READING_NOT_CONSENSUS');
-  assert.equal(r.modelTieBreak.favoredSourceId,'INMET_STATION');
-  assert.equal(r.modelTieBreak.weightedOfficialValue,null);
+  assert.equal(r.modelTieBreak.favoredStationId,'A652');
+  assert.equal(r.modelTieBreak.sourceId,'INPE_CPTEC_FORECAST');
+  assert.deepEqual(r.sourcePairForDisplay.map(x=>x.sourceId),
+    ['INMET_STATION','INPE_CPTEC_FORECAST']);
   assert.deepEqual(r.officialReadings.map(x=>x.value),[36,29]);
   assert.equal(r.weightedMeanApplied,false);
   assert.equal(r.consensusConfirmed,false);
   assert.equal(r.automaticAlertAuthorized,false);
 });
-test('INPE favors one station and Windy the other: both shown without a fabricated weighted value',()=>{
+test('if INPE is inconclusive Windy becomes second-stage tiebreak and both official sources remain visible',()=>{
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     observations:[measurement('INMET','A652',29),measurement('DEFESA_CIVIL','DC-1',36)],
-    forecasts:[tieModel('INPE_CPTEC_FORECAST',30),tieModel('WINDY_MODELO',35)]});
-  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_DISPLAY_BOTH_READINGS');
-  assert.equal(r.value,null);
-  assert.equal(r.modelTieBreak.reason,'INPE_WINDY_DISAGREE_OR_NEARLY_TIED');
-  assert.equal(r.officialReadings.length,2);
+    forecasts:[tieModel('INPE_CPTEC_FORECAST',32.5),tieModel('WINDY_MODELO',35)]});
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
+  assert.equal(r.value,36);
+  assert.equal(r.modelTieBreak.sourceId,'WINDY_MODELO');
+  assert.equal(r.inpeConsultation.decision,'FORECAST_COMPARISON_INCONCLUSIVE');
+  assert.deepEqual(r.sourcePairForDisplay.map(x=>x.sourceId),
+    ['DEFESA_CIVIL_RJ_REGIONAL','WINDY_MODELO']);
+  assert.deepEqual(r.officialReadings.map(x=>x.value),[36,29]);
 });
-test('hierarchical adapter consultation reaches INPE and Windy after incompatible measurements',async()=>{
+test('hierarchical adapter consultation STOPS at INPE if it resolves model proximity without Windy',async()=>{
   const called=[];
   const r=await consultRjSourcesUntilTwo({
     ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
@@ -152,13 +161,50 @@ test('hierarchical adapter consultation reaches INPE and Windy after incompatibl
         forecasts:[tieModel('WINDY_MODELO',30)]};},
     },
   });
-  assert.deepEqual(called,['DEFESA_CIVIL','INMET','INPE','WINDY']);
+  assert.deepEqual(called,['DEFESA_CIVIL','INMET','INPE']);
   assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
   assert.equal(r.value,29);
   assert.equal(r.showBothSourceMeasurements,true);
   assert.equal(r.automaticAlertAuthorized,false);
 });
 
+test('when INPE cannot distinguish three primary readings, Windy is consulted and the pair keeps source-type labels',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {
+        observations:[measurement('ALERTA_RIO','AR',25)]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {
+        observations:[measurement('DEFESA_CIVIL','DC',34)]};},
+      INMET_STATION:async()=>{called.push('INMET');return {
+        observations:[measurement('INMET','A652',30)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {
+        forecasts:[tieModel('INPE_CPTEC_FORECAST',29,{weightBasis:'SKILL_UNKNOWN'})]};},
+      WINDY_MODELO:async()=>{called.push('WINDY');return {
+        forecasts:[tieModel('WINDY_MODELO',33.5)]};},
+    },
+  });
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INMET','INPE','WINDY']);
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
+  assert.deepEqual(r.selectedSourceIds,['DEFESA_CIVIL_RJ_REGIONAL','WINDY_MODELO']);
+  assert.equal(r.value,34);
+  assert.equal(r.officialReadings.length,3);
+  assert.equal(r.consensusConfirmed,false);
+});
+test('if INPE and Windy are both unusable, keep two source types visible without claiming a true tie break',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[measurement('DEFESA_CIVIL','DC',24),measurement('INMET','A652',32)],
+    forecasts:[tieModel('INPE_CPTEC_FORECAST',28,{skillEvidenceId:'X'})],
+  });
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_TWO_SOURCE_CONTEXT');
+  assert.equal(r.value,null);
+  assert.deepEqual(r.sourcePairForDisplay.map(x=>x.sourceId),
+    ['DEFESA_CIVIL_RJ_REGIONAL','INPE_CPTEC_FORECAST']);
+  assert.equal(r.sourcePairForDisplay[1].dataType,'MODEL_FORECAST_NOT_A_MEASURED_STATION');
+  assert.equal(r.officialReadings.length,2);
+});
 test('if no station exists, INPE and Windy independent models can provide separate calibrated forecast estimate',()=>{
   const r=resolveRjCompatibleSources({
     ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
