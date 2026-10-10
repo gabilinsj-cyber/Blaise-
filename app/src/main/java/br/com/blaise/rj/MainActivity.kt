@@ -24,6 +24,9 @@ import br.com.blaise.rj.data.OfficialWeatherClient
 import br.com.blaise.rj.data.CityWeatherResult
 import br.com.blaise.rj.data.InmetHourlySeries
 import br.com.blaise.rj.data.InmetMetric
+import br.com.blaise.rj.data.PublicRjStatus
+import br.com.blaise.rj.data.PublicRjStatusResult
+import br.com.blaise.rj.data.PublicRjStatusHttpsClient
 import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
@@ -193,6 +196,7 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
+private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 
 private val BlaiseScheme = darkColorScheme(
@@ -232,6 +236,10 @@ fun BlaiseApp(
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
+    var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
+    val publicRjClient = remember {
+        PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
+    }
     val statewideClient = remember(context) {
         StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
     }
@@ -285,6 +293,19 @@ fun BlaiseApp(
             }
         }
     }
+    // Public official RJ risk and accurately attributed INMET warnings.
+    // This data path is independent of Play Billing and remains fail-closed
+    // unless the deployment and source-product licenses explicitly allow it.
+    LaunchedEffect(powerOn, lifecycle, publicRjClient) {
+        publicRjStatus = PublicRjStatusResult.Unavailable
+        if (!powerOn || publicRjClient == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                publicRjStatus = publicRjClient.fetch()
+                delay(60_000)
+            }
+        }
+    }
     LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
         backendDashboard = DashboardDataNetworkResult.Unavailable
         val candidate = verifiedPurchase
@@ -317,7 +338,13 @@ fun BlaiseApp(
         OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
 
-    CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalInmetHourlySeries provides if (powerOn) inmetHourlySeries else null, LocalObservationClock provides observationClock,
+    CompositionLocalProvider(
+        LocalPublicRjStatus provides if (powerOn) publicRjStatus else PublicRjStatusResult.Unavailable,
+        LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
+        LocalRioStations provides if (powerOn) rioStations else emptyList(),
+        LocalCityWeather provides if (powerOn) cityWeather else emptyMap(),
+        LocalInmetHourlySeries provides if (powerOn) inmetHourlySeries else null,
+        LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -1503,6 +1530,47 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
     }
 }
 
+/**
+ * Official municipal data shown only with the municipality IBGE, source,
+ * issuance time and a fresh snapshot. Risk level is never itself a P0 alert.
+ */
+@Composable
+private fun PublicMunicipalStatusLine(ibge: Int) {
+    val now = LocalObservationClock.current
+    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val city = snapshot?.municipality(ibge, now)
+    val risk = city?.risk?.takeIf { it.current(now) }
+    val warnings = snapshot?.warningsFor(ibge, now).orEmpty()
+    Column(
+        Modifier.fillMaxWidth().testTag("official-municipality-status-${ibge}"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        if (risk != null) {
+            Text("Risco hidrológico: ${risk.label} (nível ${risk.level})",
+                color = if (risk.level >= 4) WarningAmber else Gold,
+                style = MaterialTheme.typography.labelSmall)
+            Text("CEMADEN-RJ / Defesa Civil • " +
+                risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        } else {
+            Text("Risco municipal: sem boletim oficial recente validado",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        warnings.take(3).forEach { warning ->
+            Text("INMET: ${warning.event} • ${warning.severity} • " +
+                "até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))" +
+                ".format(java.time.format.DateTimeFormatter.ofPattern(\"dd/MM HH:mm\"))}",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        }
+        if (warnings.isEmpty()) {
+            Text("Avisos oficiais: sem confirmação de cobertura completa; não indica ausência de risco.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @Composable
 private fun StatewideMunicipalitiesPanel() {
     val clock = LocalObservationClock.current
@@ -2243,6 +2311,7 @@ private fun CityPanel(
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            PublicMunicipalStatusLine(city.ibgeCode)
             if (onNavigate != null) {
                 TextButton(
                     onClick = { onNavigate("Alertas") },
