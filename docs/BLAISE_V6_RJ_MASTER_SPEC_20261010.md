@@ -74,6 +74,16 @@ Referência normativa: `docs/rj-fontes-por-fenomeno-localidade.md`, `backend/src
 - Segundo requisitos da fonte, validar domínio, política de acesso, horário, georreferenciamento, autoria, espécie de produto e segunda fonte independente para ocorrência crítica. Não utilizar raspagem sem autorização; eventos sem evidência ficam indisponíveis.
 - O monitoramento de mudança de domínio/URL deve produzir alerta de manutenção; mudança de origem nunca autorizada automaticamente sem validação humana e técnica.
 
+## Ordem de consulta das cinco fontes meteorológicas para os 92 municípios
+
+**Especificação aprovada:** (1) Alerta Rio **somente no município do Rio**; (2) Defesa Civil por localidade; (3) INMET conforme estação/variável; (4) INPE/CPTEC como primeira consulta de desempate; (5) Windy **somente se o INPE não permitir decidir qual valor oficial está mais próximo da previsão**. Nos demais municípios fluminenses, os canais sem cobertura não são usados e não se atribuem medições da cidade do Rio a outras cidades.
+
+Para temperatura, vento e chuva, duas medições oficiais independentes, atuais, compatíveis e comparáveis bastam para uma **estimativa ponderada da Blaise**. Se as primeiras discordarem, procurar a terceira antes de usar previsão. Sem dupla concordante, INPE e, em seguida e somente quando necessário, Windy servem de referência para **destacar a medição oficial mais próxima do modelo**. O painel apresenta **duas entradas de tipos diferentes — uma leitura oficial pontual + uma previsão do INPE ou Windy — com fonte e horário**, mantendo acessíveis as demais leituras oficiais que divergiram. Não fazer média de medição com previsão.
+
+Se o modelo não permitir discriminação confiável, apresentar as duas entradas identificadas como **divergência não solucionada** (ou, na ausência de modelo válido, as medições reais que houver), sem inventar valor. Se uma fonte oficial não possuir leitura em determinado município, não fabricar cobertura. **Sensação térmica é cálculo físico a partir de dados de entrada válidos**; tempestade e risco são avisos/eventos, cujas categorias não podem ser ponderadas numericamente para emitir sirene.
+
+Módulos: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/src/rj-weather-source-reconciliation.mjs`, `backend/src/rj-agent-orchestration.mjs`. Código em PR Draft, sem conexão de rede independente automaticamente implantada nem alteração do APK instalado.
+
 ## Alertas, tempos e regras de segurança
 
 - Severidade **1 verde, 2 amarelo, 3 amarelo de atenção/piscando com ETA justificado, 4 laranja/vermelho moderado, 5 vermelho/roxo extremo**; apenas nível 5 pode ter voz/sirene/vibração.
