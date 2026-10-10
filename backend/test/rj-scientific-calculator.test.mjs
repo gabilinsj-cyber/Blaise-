@@ -35,6 +35,20 @@ test('do not average unofficial model Windy with official measurement even as ti
   assert.equal(result.state, 'DADOS_INSUFICIENTES');
   assert.equal(result.mayTriggerAlert, false);
 });
+test('INPE CPTEC model values never enter official measured mean, even if mislabeled observation', () => {
+  for (const sourceId of ['INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']) {
+    const misleading = {
+      ...observation('MODEL', 29), sourceId, origin: 'OFFICIAL_OBSERVATION',
+      kind: 'MODEL_FORECAST',
+    };
+    const r = weightedOfficialMean({observations:[
+      observation('INMET-1', 30), misleading,
+    ],now:NOW});
+    assert.equal(r.state,'DADOS_INSUFICIENTES');
+    assert.equal(r.officialMeasurement,false);
+  }
+});
+
 test('different municipalities cannot be averaged into a fictional statewide temperature', () => {
   const result = weightedOfficialMean({ observations: [
     observation('INMET-1', 30),
