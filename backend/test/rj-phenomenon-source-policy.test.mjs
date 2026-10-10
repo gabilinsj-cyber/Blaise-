@@ -13,6 +13,8 @@ test('all 92 RJ municipalities route rainstorm and gust sources without creating
       const route = rjSourceRouting({ ibge, phenomenon });
       assert.equal(route.liveData, 'NOT_CONFIRMED');
       assert.equal(route.municipalitySelectionCoverage, 92);
+      assert.equal(route.geographicScope, 'RJ_INCLUI_MUNICIPIOS_DE_DIVISA_SEM_CONFUNDIR_DADOS_DE_ESTADOS_VIZINHOS');
+      assert.equal(route.crossBorderDataPolicy, 'OUTSIDE_RJ_ONLY_AS_EXPLICITLY_LABELED_REGIONAL_CONTEXT_NOT_RJ_OBSERVATION');
       assert.equal(route.ineaPolicy, 'EXCLUDED');
       assert.equal(route.sources.every(source => source.automaticAlertAuthority === false), true);
       assert.equal(route.sources.some(s => /INEA/i.test(s.id)), false);
