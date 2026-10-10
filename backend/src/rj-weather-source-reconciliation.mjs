@@ -69,6 +69,34 @@ function validatedForecast(forecasts,{ibge,variable,now}) {
 }
 
 /**
+ * Windy is a forecast/model viewer, not a station. A model at the same
+ * locality and valid time may be compared against conflicting observations
+ * to PRIORITIZE MANUAL REVIEW, never to certify which reading is true.
+ */
+function modelDisagreementContext(model, observed, variable) {
+  if (!model || !observed.length) return null;
+  const modelAt=Date.parse(model.validAt);
+  const comparable=observed.filter(o => Math.abs(modelAt-Date.parse(o.observedAt)) <= 3_600_000);
+  if (!comparable.length) return null;
+  return Object.freeze({
+    status:'MODEL_COMPARISON_ONLY_NOT_AUTHORITATIVE_TIE_BREAK',
+    sourceId:model.sourceId,
+    productId:model.productId,
+    modelRunId:model.modelRunId,
+    validAt:model.validAt,
+    forecastValue:model.value,
+    comparedReadings:Object.freeze(comparable.map(o => Object.freeze({
+      stationId:o.stationId,sourceId:o.sourceId,
+      measuredValue:o.value,absoluteDifference:Math.round(Math.abs(o.value-model.value)*100)/100,
+    }))),
+    preferredOfficialMeasurement:null,
+    permissibleAsOfficialObservation:false,
+    automaticallyIssueAlert:false,
+    note:'Difference against a forecast does not establish which station is correct.',
+  });
+}
+
+/**
  * An explicit policy threshold detects disagreements; it is a screening
  * threshold, NOT the physical uncertainty of a particular sensor or model.
  * When a significant conflict exists, do NOT average away the uncertainty.
@@ -84,10 +112,13 @@ export function assessRjMeteorologicalDisagreement({
   const obs=validatedObserved(observations,{ibge,variable,now});
   const fc=validatedForecast(forecasts,{ibge,variable,now});
   const inpe=fc.filter(f=>f.sourceId==='INPE_CPTEC_FORECAST');
+  const windy=fc.filter(f=>f.sourceId==='WINDY_MODELO');
   const threshold=THRESHOLDS[variable];
   const forecastAdvice=Object.freeze({
     inpeAvailable:inpe.length>0,
     inpeConsultation:'INDEPENDENT_FORECAST_CONTEXT_NOT_AN_OBSERVATION',
+    windyAvailable:windy.length>0,
+    windyConsultation:'SUPPLEMENTARY_MODEL_DISPUTE_REVIEW_NOT_AN_OFFICIAL_TIE_BREAK',
     availableForecastSourceIds:Object.freeze([...new Set(fc.map(f=>f.sourceId))]),
   });
   const common={variable,ibge:String(ibge),unit:threshold.unit,
@@ -101,11 +132,24 @@ export function assessRjMeteorologicalDisagreement({
     ...common,action:'REVIEW_STATION_IDENTITY',
   });
   const spread=Math.max(...obs.map(o=>o.value))-Math.min(...obs.map(o=>o.value));
-  if(spread>threshold.maxDifference) return result('SIGNIFICANT_OFFICIAL_DATA_DISAGREEMENT',{
-    ...common,spread,screeningThreshold:threshold.maxDifference,
-    action:inpe.length?'REVIEW_DIVERGENCE_WITH_INPE_AS_FORECAST_CONTEXT':
-      'CONSULT_INPE_CPTEC_IF_APPROVED_AND_AVAILABLE',
-  });
+  if(spread>threshold.maxDifference) {
+    const windyEvidence=modelDisagreementContext(windy[0],obs,variable);
+    const inpeEvidence=modelDisagreementContext(inpe[0],obs,variable);
+    return result('SIGNIFICANT_OFFICIAL_DATA_DISAGREEMENT',{
+      ...common,spread,screeningThreshold:threshold.maxDifference,
+      observedRange:Object.freeze({
+        minimum:Math.min(...obs.map(o=>o.value)),
+        maximum:Math.max(...obs.map(o=>o.value)),
+        unit:threshold.unit,
+        label:'INCONSISTENT_STATION_READINGS_NOT_A_SINGLE_MUNICIPAL_VALUE',
+      }),
+      windyComparison:windyEvidence,
+      inpeComparison:inpeEvidence,
+      action:windyEvidence?'REVIEW_OFFICIAL_DIVERGENCE_WITH_WINDY_AS_NONAUTHORITATIVE_COMPARISON':
+        inpeEvidence?'REVIEW_DIVERGENCE_WITH_INPE_AS_FORECAST_CONTEXT':
+        'CONSULT_INPE_CPTEC_AND_WINDY_IF_AUTHORIZED_AND_AVAILABLE',
+    });
+  }
   // Validate station separation, time matching, weights etc. in the existing
   // provenanced calculator; no model forecast is sent to this function.
   const mean=weightedOfficialMean({
