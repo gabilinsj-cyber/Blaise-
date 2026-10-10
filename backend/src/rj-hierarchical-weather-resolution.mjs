@@ -238,28 +238,39 @@ export async function consultRjSourcesUntilTwo({
   const route=rjSourceRouting({ibge,phenomenon:entry.phenomenon});
   if(adapters===null||typeof adapters!=='object'||Array.isArray(adapters))
     throw new TypeError('rj_source_adapters_required');
-  const observations=[],forecasts=[],failures=[];
+  const observations=[],forecasts=[],failures=[],consulted=[];
   for(const source of route.sources) {
     const cb=adapters[source.id];
     if(typeof cb!=='function')continue;
+    consulted.push(source.id);
     try {
       const batch=await cb(Object.freeze({ibge:String(ibge),variable,
         sourceId:source.id,now}));
-      if(!batch || typeof batch!=='object')continue;
-      if(Array.isArray(batch.observations))observations.push(...batch.observations.slice(0,20));
-      if(Array.isArray(batch.forecasts))forecasts.push(...batch.forecasts.slice(0,20));
+      if(batch && typeof batch==='object') {
+        // Connector A must never inject a record attributed to connector B.
+        // This prevents a single feed from manufacturing "two sources".
+        if(Array.isArray(batch.observations)) {
+          observations.push(...batch.observations.slice(0,20)
+            .filter(row=>OFFICIAL_SOURCE_MAP[row?.sourceId]===source.id));
+        }
+        if(Array.isArray(batch.forecasts)) {
+          forecasts.push(...batch.forecasts.slice(0,20)
+            .filter(row=>row?.sourceId===source.id));
+        }
+      }
     } catch(_) {
       failures.push(source.id); // no raw tokens, URLs or personal data in logs
     }
     if(observations.length>100||forecasts.length>100)break;
     const provisional=resolveRjCompatibleSources({ibge,variable,observations,forecasts,now});
     if(provisional.state==='TWO_COMPATIBLE_OFFICIAL_SOURCES') {
-      return Object.freeze({...provisional,consultedSourceIds:Object.freeze(
-        route.sources.filter(s=>typeof adapters[s.id]==='function')
-          .slice(0,route.sources.findIndex(s=>s.id===source.id)+1).map(s=>s.id)),
+      return Object.freeze({...provisional,
+        consultedSourceIds:Object.freeze([...consulted]),
         connectorFailures:Object.freeze(failures)});
     }
   }
   return Object.freeze({...resolveRjCompatibleSources({ibge,variable,
-    observations,forecasts,now}),connectorFailures:Object.freeze(failures)});
+    observations,forecasts,now}),
+    consultedSourceIds:Object.freeze([...consulted]),
+    connectorFailures:Object.freeze(failures)});
 }
