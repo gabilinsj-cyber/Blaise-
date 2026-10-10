@@ -363,7 +363,7 @@ private fun BlaiseDashboard(
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 760.dp
+                val wide = maxWidth >= 1100.dp
                 Column(Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -886,40 +886,115 @@ private fun RioStationMeasurementsPanel() {
 
 @Composable
 private fun ForecastPanel(modifier: Modifier = Modifier) {
+    val periods = listOf("Hoje", "3 dias", "Fim de semana")
+    var period by remember { mutableStateOf("Hoje") }
+    val labels = when (period) {
+        "3 dias" -> listOf("Hoje", "Amanhã", "3º dia")
+        "Fim de semana" -> listOf("Sábado", "Domingo")
+        else -> listOf("Manhã", "Tarde", "Noite")
+    }
     DashboardSection(
         title = "PREVISÃO DO TEMPO",
-        subtitle = "Hoje • 3 dias • fim de semana",
+        subtitle = "Rio de Janeiro • boletins oficiais com horário",
         modifier = modifier,
     ) {
-        StatusLine("Manhã", "Aguardando previsão oficial")
-        StatusLine("Tarde", "Aguardando previsão oficial")
-        StatusLine("Noite", "Aguardando previsão oficial")
-        Text("Fonte e horário acompanham cada atualização.", color = Muted, style = MaterialTheme.typography.labelSmall)
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            periods.forEach { tab ->
+                if (period == tab) {
+                    Button(onClick = { period = tab }, colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+                        Text(tab, style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    OutlinedButton(onClick = { period = tab }) { Text(tab, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            labels.forEach { label ->
+                Surface(
+                    modifier = Modifier.weight(1f), color = Color(0xFF0B2340),
+                    shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(label, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        Text("— °C", color = Color.White, fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("Aguardando", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        Text("Previsão ainda não validada • sem valores demonstrativos ou probabilidades inventadas.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
 @Composable
 private fun DailyChartPanel(modifier: Modifier = Modifier) {
+    val choices = listOf("Temperatura", "Chuva", "Vento")
+    var variable by remember { mutableStateOf("Temperatura") }
+    var showRainfall by remember { mutableStateOf(false) }
     DashboardSection(
         title = "GRÁFICOS DO DIA • RIO DE JANEIRO",
-        subtitle = "Temperatura • chuva • vento",
+        subtitle = "Séries verificadas • 00h a 24h",
         modifier = modifier,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(220.dp).testTag("expanded-daily-chart"),
-            color = Color(0xFF071421),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Divider),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("EVOLUÇÃO METEOROLÓGICA", color = Gold, fontWeight = FontWeight.Bold)
-                    Text("00h     06h     12h     18h     24h", color = Muted)
-                    Text("O gráfico será preenchido somente por séries oficiais válidas.", color = Muted, textAlign = TextAlign.Center)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            choices.forEach { option ->
+                if (variable == option) {
+                    Button(onClick = { variable = option },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+                        Text(option, style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    OutlinedButton(onClick = { variable = option }) { Text(option, style = MaterialTheme.typography.labelSmall) }
                 }
             }
         }
-        BackendRainfallPanel()
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(158.dp).testTag("expanded-daily-chart"),
+            color = Color(0xFF06182C), shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Divider),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(12.dp)) {
+                    for (i in 0..5) {
+                        val x = size.width * i / 5f
+                        drawLine(Color(0xFF27608B).copy(alpha = 0.6f),
+                            androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height),
+                            strokeWidth = 1.dp.toPx())
+                    }
+                    for (i in 0..4) {
+                        val y = size.height * i / 4f
+                        drawLine(Color(0xFF27608B).copy(alpha = 0.6f),
+                            androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y),
+                            strokeWidth = 1.dp.toPx())
+                    }
+                }
+                Surface(color = Color(0xEF07192F), shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp, WarningAmber)) {
+                    Text("$variable: série oficial indisponível",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("00h", "06h", "12h", "18h", "24h").forEach { tick ->
+                Text(tick, color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        TextButton(onClick = { showRainfall = !showRainfall }) {
+            Text(if (showRainfall) "Ocultar chuva de estações" else "Ver chuva oficial das estações")
+        }
+        if (showRainfall) BackendRainfallPanel()
     }
 }
 
