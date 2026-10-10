@@ -63,9 +63,14 @@ test('CAPE/CIN explicitly require two valid virtual-temperature vertical profile
   assert.throws(()=>science.parcelBuoyancyEnergy({levels:layer,minimumTopHeightM:5000}),RangeError);
 });
 test('buoyancy profile integrates positive and negative energies when full profile provided',()=>{
-  const levels=Array.from({length:15},(_,i)=>make(i*500,300+(i%3===0?-1:1),300));
+  const levels=Array.from({length:15},(_,i)=>make(i*500,300+((i<=1||i>=6)?-1:1),300));
   const result=science.parcelBuoyancyEnergy({levels,minimumTopHeightM:6000});
   assert.ok(result.capeJkg>0);assert.ok(result.cinJkg<0);neverAlert(result);
+  assert.ok(result.lfcHeightM>=500&&result.lfcHeightM<1000);
+  assert.ok(result.elHeightM>=2500&&result.elHeightM<3000);
+  assert.throws(()=>science.parcelBuoyancyEnergy({levels:levels.map(l=>({
+    ...l,parcelVirtualTemperatureK:301,
+  }))}),/lfc_and_equilibrium_level/);
   assert.throws(()=>science.parcelBuoyancyEnergy({levels:levels.slice(0,3)}),RangeError);
   assert.throws(()=>science.parcelBuoyancyEnergy({levels:[levels[0],levels[2],...levels.slice(3)]}),RangeError);
 });
