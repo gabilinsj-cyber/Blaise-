@@ -64,9 +64,9 @@ class OfficialWeatherClient {
                     Regex("[A-Z][0-9]{3}").matches(station.optString("CD_ESTACAO"))
             }
             .sortedWith(compareBy<JSONObject> {
-                normalizedSpeech(it.optString("DC_NOME")) != "rio de janeiro"
+                it.optString("CD_ESTACAO") != "A652"
             }.thenBy { it.optString("CD_ESTACAO") })
-            .take(3)
+            .take(4)
         val utcToday = LocalDate.now(ZoneOffset.UTC)
         for (station in stations) {
             val code = station.optString("CD_ESTACAO")
