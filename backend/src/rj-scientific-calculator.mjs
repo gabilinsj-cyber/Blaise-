@@ -46,7 +46,8 @@ export function weightedOfficialMean({
     return insufficient('INVALID_VARIABLE_OR_NON_NUMERIC_WARNING_LEVEL');
   }
   const acceptable = observations.every(o => o && o.origin === 'OFFICIAL_OBSERVATION'
-    && o.sourceId !== 'WINDY' && o.sourceId !== 'WINDY_MODELO'
+    && !['WINDY','WINDY_MODELO','INPE_CPTEC_FORECAST','NOAA'].includes(o.sourceId)
+    && o.kind !== 'MODEL_FORECAST' && o.productKind !== 'FORECAST_MODEL'
     && typeof o.sourceId === 'string' && o.sourceId.length > 0
     && typeof o.stationId === 'string' && o.stationId.length > 0
     && o.ibge === first.ibge && o.variable === first.variable && o.unit === first.unit
