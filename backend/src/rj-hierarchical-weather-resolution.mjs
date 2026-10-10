@@ -88,6 +88,101 @@ function forecastAllowed(f, sourceId, spec, ibge, now) {
     && f.usagePermissionStatus === 'VERIFIED_FOR_APP_DATA_DISPLAY';
 }
 
+/**
+ * The user-directed RJ dispute cascade: 3 authoritative observation sources,
+ * then INPE/CPTEC forecast first, Windy only if INPE is inconclusive.
+ *
+ * This compares one *forecast* with official station readings and returns two
+ * DIFFERENT data types for display. Never average a model and an observation,
+ * never declare a forecast proximity proof of a malfunctioning sensor.
+ */
+function stagedForecastDispute(official, forecasts, spec, ibge, now) {
+  const readings=official.map(o=>Object.freeze({
+    sourceId:o.canonicalSourceId,stationId:o.stationId,
+    value:o.value,unit:o.unit,observedAt:o.observedAt,
+    sourceUrl:o.sourceUrl,latitude:o.latitude,longitude:o.longitude,
+    readingType:'OFFICIAL_STATION_OBSERVATION',
+  }));
+  const rad=Math.PI/180;
+  const distanceKm=(a,b)=>{
+    const p=(b.latitude-a.latitude)*rad;
+    const l=(b.longitude-a.longitude)*rad;
+    const h=Math.sin(p/2)**2+Math.cos(a.latitude*rad)*
+      Math.cos(b.latitude*rad)*Math.sin(l/2)**2;
+    return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
+  };
+  const modelOutput=(f,comparisons,favored,decision)=>Object.freeze({
+    sourceId:f.sourceId,value:f.value,unit:f.unit,
+    validAt:f.validAt,issuedAt:f.issuedAt,
+    productId:f.productId,modelRunId:f.modelRunId,
+    sourceUrl:f.sourceUrl,modelFamilyId:f.modelFamilyId||null,
+    dataType:'MODEL_FORECAST_NOT_A_MEASURED_STATION',
+    differenceFromStations:Object.freeze(comparisons),
+    decision,
+    favoredStationId:favored?.stationId||null,
+    method:'FORECAST_PROXIMITY_ONLY_NO_SENSOR_CERTIFICATION',
+    isOfficialObservation:false,
+  });
+  let inpeReference=null;
+  for(const id of ['INPE_CPTEC_FORECAST','WINDY_MODELO']) {
+    const f=forecasts.find(row=>row.sourceId===id);
+    if(!f)continue;
+    const eligible=official.filter(o=>
+      within(f.latitude,-23.7,-20.4)&&within(f.longitude,-45.5,-40.4)
+      &&within(f.gridResolutionKm,0.1,25)
+      &&distanceKm(f,o)<=25
+      &&Math.abs(Date.parse(f.validAt)-Date.parse(o.observedAt))<=3_600_000
+      &&(spec.variable!=='CHUVA_MM_1H' ||
+        (f.forecastWindowMinutes===60&&o.measurementWindowMinutes===60)));
+    const differences=official.map(o=>Object.freeze({
+      sourceId:o.canonicalSourceId,stationId:o.stationId,
+      difference:Math.round(Math.abs(f.value-o.value)*100)/100,
+      temporallyAndSpatiallyComparable:eligible.includes(o),
+    }));
+    const hasVerifiedSkill=f.weightBasis==='VERIFIED_HISTORICAL_SKILL_FOR_VARIABLE_LOCATION_AND_LEAD'
+      &&typeof f.skillEvidenceId==='string'&&f.skillEvidenceId.length>=4
+      &&typeof f.modelFamilyId==='string'&&f.modelFamilyId.length>=3;
+    let favored=null;
+    if(hasVerifiedSkill&&eligible.length>=2) {
+      const ordered=[...eligible].sort((a,b)=>Math.abs(a.value-f.value)-Math.abs(b.value-f.value));
+      const nearest=Math.abs(ordered[0].value-f.value);
+      const runnerUp=Math.abs(ordered[1].value-f.value);
+      if(runnerUp-nearest>Math.max(spec.tolerance*0.25,0.05))favored=ordered[0];
+    }
+    const evidence=modelOutput(f,differences,favored,
+      favored?'CLOSER_TO_ONE_OFFICIAL_STATION_NOT_PROOF':'FORECAST_COMPARISON_INCONCLUSIVE');
+    if(id==='INPE_CPTEC_FORECAST')inpeReference=evidence;
+    if(favored) {
+      return Object.freeze({
+        state:id==='INPE_CPTEC_FORECAST'?'INPE_MODEL_GUIDED_REFERENCE':'WINDY_MODEL_GUIDED_REFERENCE',
+        reference:favored,model:evidence,
+        officialReadings:Object.freeze(readings),
+        attemptedInpe:inpeReference,
+        modelConfidence:'QUALITATIVE_PROXIMITY_NOT_CALIBRATED_SENSOR_CONSENSUS',
+      });
+    }
+    if(id==='WINDY_MODELO') {
+      return Object.freeze({
+        state:'MODEL_TIEBREAK_INCONCLUSIVE',
+        reference:official[0],
+        model:evidence,
+        officialReadings:Object.freeze(readings),
+        attemptedInpe:inpeReference,
+      });
+    }
+  }
+  if(inpeReference) {
+    return Object.freeze({
+      state:'MODEL_TIEBREAK_INCONCLUSIVE',
+      reference:official[0],
+      model:inpeReference,
+      officialReadings:Object.freeze(readings),
+      attemptedInpe:inpeReference,
+    });
+  }
+  return null;
+}
+
 export function resolveRjCompatibleSources({
   ibge, variable, observations = [], forecasts = [], now = Date.now(),
 }={}) {
@@ -170,42 +265,60 @@ export function resolveRjCompatibleSources({
       }
     }
   }
-  // No compatible official pair was found. When two measured values
-  // conflict, INPE and Windy can only provide a documented model-proximity
-  // preference. BOTH station readings must remain visible to the client.
+  // All three primary source slots have been searched. If their observations
+  // disagree, INPE is consulted first; only an INPE inconclusive result
+  // advances to Windy. The output always preserves all original observations.
   if(confirmed.length>=2 && conflicts.some(c=>typeof c.difference==='number'
     &&c.difference>entry.tolerance)) {
-    const candidates=[confirmed[0],
-      confirmed.find(row=>row.canonicalSourceId!==confirmed[0].canonicalSourceId)]
-      .filter(Boolean);
-    if(candidates.length===2) {
-      const original=candidates.map(({canonicalSourceId,...row})=>({
-        ...row,sourceId:canonicalSourceId,
-      }));
-      const tieBreak=compareInpeWindyToDiscrepantObservations({
-        observations:original,forecasts:predictions,ibge,variable,now,
-      });
-      const modelPreferred=tieBreak.state==='BOTH_OFFICIAL_VALUES_WITH_MODEL_FAVORED_REFERENCE';
-      const preferredStation=modelPreferred
-        ?original.find(row=>row.stationId===tieBreak.favoredStationId):null;
-      return safe(modelPreferred
+    const independent=[...new Map(confirmed.map(o=>[o.canonicalSourceId,o])).values()]
+      .filter(o=>['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION'].includes(o.canonicalSourceId));
+    if(independent.length>=2) {
+      const disputed=stagedForecastDispute(independent,predictions,spec,ibge,now);
+      if(disputed) {
+        const highlighted=disputed.state!=='MODEL_TIEBREAK_INCONCLUSIVE';
+        const reading=disputed.reference;
+        return safe(highlighted
           ?'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
-          :'OFFICIAL_DISAGREEMENT_DISPLAY_BOTH_READINGS',{
-        value:preferredStation?.value??null,
+          :'OFFICIAL_DISAGREEMENT_WITH_TWO_SOURCE_CONTEXT',{
+          value:highlighted?reading.value:null,
+          unit:entry.unit,
+          resultKind:highlighted
+            ?'FAVORED_INDIVIDUAL_OFFICIAL_STATION_READING_NOT_CONSENSUS'
+            :'OFFICIAL_OBSERVATION_PLUS_UNDECIDED_MODEL_FORECAST',
+          officialMeasurement:highlighted,
+          selectedSourceIds:Object.freeze([reading.canonicalSourceId,disputed.model.sourceId]),
+          sourcePairForDisplay:Object.freeze([
+            Object.freeze({
+              sourceId:reading.canonicalSourceId,stationId:reading.stationId,
+              value:reading.value,unit:reading.unit,observedAt:reading.observedAt,
+              sourceUrl:reading.sourceUrl,dataType:'OFFICIAL_STATION_OBSERVATION',
+            }),
+            disputed.model,
+          ]),
+          officialReadings:disputed.officialReadings,
+          modelTieBreak:disputed.model,
+          inpeConsultation:disputed.attemptedInpe,
+          showBothSourceMeasurements:true,
+          consensusConfirmed:false,
+          weightedMeanApplied:false,
+          selectedReadingIsNotMunicipalAverage:true,
+          examinedSourceIds:Object.freeze(examined),
+          conflictsEncountered:Object.freeze(conflicts),
+          note:'Displays an official station and a separate model forecast; other conflicting official readings remain visible.',
+        });
+      }
+      return safe('OFFICIAL_DISAGREEMENT_DISPLAY_BOTH_READINGS',{
         unit:entry.unit,
-        resultKind:modelPreferred
-          ?'FAVORED_INDIVIDUAL_OFFICIAL_STATION_READING_NOT_CONSENSUS'
-          :'TWO_DISTINCT_OFFICIAL_READINGS_NO_WEIGHTED_MEAN',
-        officialMeasurement:Boolean(preferredStation),
-        selectedSourceIds:Object.freeze(modelPreferred?[tieBreak.favoredSourceId]:[]),
-        officialReadings:Object.freeze(tieBreak.officialMeasurements),
-        modelTieBreak:tieBreak,
+        resultKind:'TWO_DISTINCT_OFFICIAL_READINGS_NO_WEIGHTED_MEAN',
+        officialReadings:Object.freeze(independent.map(o=>Object.freeze({
+          sourceId:o.canonicalSourceId,stationId:o.stationId,
+          value:o.value,unit:o.unit,observedAt:o.observedAt,
+          sourceUrl:o.sourceUrl,dataType:'OFFICIAL_STATION_OBSERVATION',
+        }))),
         showBothSourceMeasurements:true,
-        consensusConfirmed:false,
-        weightedMeanApplied:false,
         examinedSourceIds:Object.freeze(examined),
         conflictsEncountered:Object.freeze(conflicts),
-        note:'The model comparison cannot establish which station is correct or authorize a warning.',
+        note:'No verified forecast for tie-break; display original disputed official measurements only.',
       });
     }
   }
@@ -305,7 +418,10 @@ export async function consultRjSourcesUntilTwo({
     }
     if(observations.length>100||forecasts.length>100)break;
     const provisional=resolveRjCompatibleSources({ibge,variable,observations,forecasts,now});
-    if(provisional.state==='TWO_COMPATIBLE_OFFICIAL_SOURCES') {
+    if(provisional.state==='TWO_COMPATIBLE_OFFICIAL_SOURCES'
+      ||(source.id==='INPE_CPTEC_FORECAST'
+        &&provisional.state==='OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
+        &&provisional.modelTieBreak?.sourceId==='INPE_CPTEC_FORECAST')) {
       return Object.freeze({...provisional,
         consultedSourceIds:Object.freeze([...consulted]),
         connectorFailures:Object.freeze(failures)});
