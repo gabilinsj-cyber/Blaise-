@@ -372,8 +372,26 @@ private fun BlaiseDashboard(
                             .padding(horizontal = if (wide) 16.dp else 10.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(9.dp),
                     ) {
-                        AppHeader(powerOn, onPowerChange, onSelectSection)
-                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                        if (wide) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                AppHeader(powerOn, onPowerChange, onSelectSection, Modifier.weight(0.42f))
+                                AssistantPanel(
+                                    selectedCity = city1,
+                                    onNavigate = onSelectSection,
+                                    voiceEnabled = powerOn && !silentMode,
+                                    appEnabled = powerOn,
+                                    modifier = Modifier.weight(0.58f),
+                                    compact = true,
+                                )
+                            }
+                        } else {
+                            AppHeader(powerOn, onPowerChange, onSelectSection)
+                            AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                        }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
 
                         when (selectedSection) {
@@ -433,12 +451,13 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit) {
+private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM • HH:mm"))
     Card(
+        modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Color(0xFF1762A2)),
@@ -491,7 +510,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
 }
 
 @Composable
-private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean) {
+private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val voice = remember(context) { DoraVoiceService(context) }
@@ -640,11 +659,15 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     }
     fun submit() { ask(typedQuestion, false) }
     Card(
+        modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.50f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(if (compact) 6.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 5.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("Blaise • ${FinalDashboardSpec.ASSISTANT_PROMPT}", color = Gold, fontWeight = FontWeight.Bold)
@@ -684,22 +707,26 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 Text("Boletim • 06h / 12h / 16h", color = Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
             }
-            Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            if (!compact) {
+                Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
             if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
                 Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) },
-                    enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) {
-                    Text(if (speaking) "Parar voz" else "Ouvir resposta")
+            if (!compact) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) },
+                        enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) {
+                        Text(if (speaking) "Parar voz" else "Ouvir resposta")
+                    }
+                    TextButton(
+                        onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
+                        enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
+                    ) { Text("Testar voz feminina") }
                 }
-                TextButton(
-                    onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
-                    enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
-                ) { Text("Testar voz feminina") }
+                Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-            Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
