@@ -34,8 +34,8 @@ test('Rio city uses the first independent compatible official pair in hierarchy'
     ],
   });
   assert.equal(resolved.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
-  assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','INMET_STATION']);
-  assert.equal(resolved.value,28.5);
+  assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.equal(resolved.value,29);
   assert.equal(resolved.officialMeasurement,undefined); // output is a calculation, not an observation
   assert.equal(resolved.automaticAlertAuthorized,false);
   assert.equal(resolved.audibleAlertAuthorized,false);
@@ -45,14 +45,14 @@ test('first two sources disagree so continue to third and choose first compatibl
     ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     observations:[
       measurement('ALERTA_RIO','A-RJ',24),
-      measurement('INMET','A652',32),
-      measurement('DEFESA_CIVIL','DC-1',25),
+      measurement('INMET','A652',25),
+      measurement('DEFESA_CIVIL','DC-1',32),
     ],
   });
   assert.equal(resolved.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
-  assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.deepEqual(resolved.selectedSourceIds,['ALERTA_RIO','INMET_STATION']);
   assert.equal(resolved.value,24.5);
-  assert.ok(resolved.conflictsEncountered.some(x=>x.sourceB==='INMET_STATION'));
+  assert.ok(resolved.conflictsEncountered.some(x=>x.sourceB==='DEFESA_CIVIL_RJ_REGIONAL'));
 });
 test('a second station from the SAME provider is not a second independent source',()=>{
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
@@ -120,28 +120,28 @@ test('sequential adapters stop after first validated pair and never call lower-p
   const called=[];
   const adapters={
     ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[measurement('ALERTA_RIO','A-RJ',28)]};},
-    INMET_STATION:async()=>{called.push('INMET_STATION');return {observations:[measurement('INMET','A652',29)]};},
-    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL_RJ_REGIONAL');throw Error('should not be contacted');},
+    INMET_STATION:async()=>{called.push('INMET_STATION');throw Error('should not be contacted');},
+    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL_RJ_REGIONAL');return {observations:[measurement('DEFESA_CIVIL','DC-1',29)]};},
     INPE_CPTEC_FORECAST:async()=>{called.push('INPE_CPTEC_FORECAST');throw Error('should not be contacted');},
     WINDY_MODELO:async()=>{called.push('WINDY_MODELO');throw Error('should not be contacted');},
   };
   const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,adapters});
   assert.equal(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
-  assert.deepEqual(called,['ALERTA_RIO','INMET_STATION']);
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
   assert.deepEqual(r.connectorFailures,[]);
 });
 test('sequential adapters continue after first incompatible source and retry remaining hierarchy',async()=>{
   const called=[];
   const adapters={
     ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[measurement('ALERTA_RIO','A-RJ',20)]};},
-    INMET_STATION:async()=>{called.push('INMET_STATION');return {observations:[measurement('INMET','A652',32)]};},
-    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL_RJ_REGIONAL');return {observations:[measurement('DEFESA_CIVIL','DC-1',21)]};},
+    INMET_STATION:async()=>{called.push('INMET_STATION');return {observations:[measurement('INMET','A652',21)]};},
+    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL_RJ_REGIONAL');return {observations:[measurement('DEFESA_CIVIL','DC-1',32)]};},
     INPE_CPTEC_FORECAST:async()=>{called.push('INPE_CPTEC_FORECAST');return {forecasts:[forecast('INPE_CPTEC_FORECAST',29)]};},
   };
   const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,adapters});
   assert.equal(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
   assert.equal(r.value,20.5);
-  assert.deepEqual(called,['ALERTA_RIO','INMET_STATION','DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION']);
 });
 test('missing/failing adapters cannot be misrepresented as real-time measurements',async()=>{
   const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
