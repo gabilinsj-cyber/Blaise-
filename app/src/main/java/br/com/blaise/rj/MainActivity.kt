@@ -1829,30 +1829,44 @@ private fun MarineAndRiskRow(wide: Boolean) {
 }
 
 @Composable
-private fun MarinePanel(modifier: Modifier) {
+private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
     DashboardSection(
-        title = "MARINHA • OCEANO ATLÂNTICO",
-        subtitle = "Maré, ondas, vento e ressaca",
-        modifier = modifier,
+        title = "MAR E ONDAS • MARINHA DO BRASIL",
+        subtitle = "Maré • ondas altas • vento • ressaca",
+        modifier = modifier.testTag("marine-conditions-card"),
     ) {
-        StatusLine("Ondas", "Aguardando dado oficial CHM")
-        StatusLine("Ressaca > 3,5 m", "Aguardando dado oficial CHM")
-        StatusLine("Maré", "Aguardando dado oficial CHM")
-        StatusLine("Direção do vento", "Aguardando consolidação")
+        Text("Maré observada • horários de alta e baixa",
+            color = Color.White, style = MaterialTheme.typography.labelSmall)
+        StatusLine("Alta", "— horário • — m")
+        StatusLine("Baixa", "— horário • — m")
+        StatusLine("Ondas", "— m • aguardando medição/boletim CHM")
+        StatusLine("Vento", "— direção e velocidade")
+        StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
+        StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text("Fonte marítima e horário devem acompanhar cada leitura. " +
+            "Dados indisponíveis não representam mar seguro.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        if (onNavigate != null) {
+            TextButton(
+                onClick = { onNavigate("Mar e Ondas") },
+                modifier = Modifier.fillMaxWidth().testTag("marine-more"),
+            ) { Text("Detalhes marítimos ›", color = Gold) }
+        }
     }
 }
 
 @Composable
 private fun RiskPanel(modifier: Modifier) {
     DashboardSection(
-        title = "RISCO • TRÂNSITO",
-        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Defesa Civil",
-        modifier = modifier,
+        title = "RISCO DE DESLIZAMENTO • RJ",
+        subtitle = "Geo-Rio • CEMADEN • Defesa Civil",
+        modifier = modifier.testTag("landslide-risk-card"),
     ) {
-        StatusLine("Alagamentos", "Sem conclusão até receber fonte válida")
-        StatusLine("Interdições", "Aguardando fonte oficial")
-        StatusLine("Deslizamento", "Aguardando Geo-Rio/Defesa Civil")
-        StatusLine("Rotas alternativas", "Indisponíveis sem evento confirmado")
+        StatusLine("Classificação", "— sem boletim georreferenciado vigente")
+        StatusLine("Chuva de risco", "— mm • medição local pendente")
+        StatusLine("Áreas", "Aguardando fonte e cobertura municipal")
+        Text("A falta de classificação não equivale a risco baixo.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
 
