@@ -743,11 +743,11 @@ private fun HomeScreen(
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             CityPanel("Cidade 1", city1, "Selecionar cidade", onChooseCity1, Modifier.weight(0.78f))
-            ExpandedRadarPanel(Modifier.weight(1.9f))
+            ExpandedRadarPanel(Modifier.weight(1.9f), onNavigate)
             CityPanel("Cidade 2", city2, "Selecionar cidade", onChooseCity2, Modifier.weight(0.78f))
         }
     } else {
-        ExpandedRadarPanel(Modifier.fillMaxWidth())
+        ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(14.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
     }
@@ -770,35 +770,96 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
+private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
+    val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
+    var selectedLayer by remember { mutableStateOf("Radar") }
+    var enlarged by remember { mutableStateOf(false) }
+    var showStations by remember { mutableStateOf(false) }
+    var mapZoom by remember { mutableStateOf(1f) }
     DashboardSection(
         title = "ESTADO DO RIO DE JANEIRO",
-        subtitle = "Radar • chuva • temperatura • vento • nuvens",
+        subtitle = "Mapa geográfico com 92 municípios • visão estadual",
         modifier = modifier,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(310.dp).testTag("expanded-radar-map"),
-            color = Color(0xFF071421),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Divider),
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(18.dp),
-                ) {
-                    Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Aguardando frames oficiais Alerta Rio/CEMADEN com municípios, fonte e horário.",
-                        color = Muted,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text("Janela operacional: últimos 30 minutos", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+            availableLayers.forEach { layer ->
+                if (layer == selectedLayer) {
+                    Button(
+                        onClick = { selectedLayer = layer },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White),
+                    ) { Text(layer, style = MaterialTheme.typography.labelSmall) }
+                } else {
+                    OutlinedButton(onClick = { selectedLayer = layer }) {
+                        Text(layer, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
-        RioStationMeasurementsPanel()
+        Surface(
+            modifier = Modifier.fillMaxWidth()
+                .height(if (enlarged) 440.dp else 300.dp)
+                .testTag("expanded-radar-map"),
+            color = Color(0xFF071421),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, Color(0xFF2777B0)),
+        ) {
+            Box {
+                RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
+                Surface(
+                    modifier = Modifier.align(Alignment.TopStart).padding(9.dp),
+                    color = Color(0xEB06182C), shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
+                        Text("RJ • BASE GEOGRÁFICA", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        Text("92 municípios • não é radar", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Column(
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(7.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.clickable { mapZoom = (mapZoom + 0.2f).coerceAtMost(1.8f) },
+                        color = Color(0xE80B2541), shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Gold),
+                    ) { Text("+", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
+                    Surface(
+                        modifier = Modifier.clickable { mapZoom = (mapZoom - 0.2f).coerceAtLeast(1f) },
+                        color = Color(0xE80B2541), shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Gold),
+                    ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
+                }
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 7.dp, end = 7.dp, bottom = 30.dp),
+                    color = Color(0xF005192F), shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, WarningAmber),
+                ) {
+                    Text(
+                        "$selectedLayer: sem camada meteorológica oficial validada",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        color = WarningAmber, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("● Contornos geográficos • não indicam chuva ou risco", modifier = Modifier.weight(1f),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { enlarged = !enlarged }) {
+                Text(if (enlarged) "Reduzir" else "Ampliar")
+            }
+        }
+        OutlinedButton(onClick = { onNavigate("Mapa") }, modifier = Modifier.fillMaxWidth()) {
+            Text("Mais camadas e mapa do RJ")
+        }
+        TextButton(onClick = { showStations = !showStations }) {
+            Text(if (showStations) "Ocultar estações oficiais" else "Ver medições oficiais disponíveis")
+        }
+        if (showStations) RioStationMeasurementsPanel()
     }
 }
 
@@ -964,7 +1025,9 @@ private fun MapScreen(city1: City, city2: City) {
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
     ) {
-        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
+        RioGeographicBase(Modifier.fillMaxWidth().height(290.dp))
+        Text("Limites geográficos reais; ainda não é uma camada meteorológica ou de risco.", color = WarningAmber)
+        Text("As camadas radar, sirenes e ocorrências só serão ativadas com dados oficiais georreferenciados e válidos.", color = Muted)
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
         StatusLine("Alerta Rio / CEMADEN", "Aguardando radar e chuva com horário por frame")
