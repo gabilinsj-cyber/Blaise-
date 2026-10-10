@@ -81,14 +81,25 @@ internal fun RioGeographicBase(modifier: Modifier = Modifier, zoom: Float = 1f) 
             Triple("Cabo Frio", -42.018f, -22.889f),
             Triple("Volta Redonda", -44.104f, -22.522f),
         )
+        val labelsDrawn = mutableListOf<android.graphics.RectF>()
         for ((label, lon, lat) in cities) {
             val position = locate(lon, lat)
             if (position.x in 15f..(size.width - 15f) && position.y in 12f..(size.height - 12f)) {
                 drawCircle(Color(0xFFFFD256), radius = 3.5.dp.toPx(), center = position)
                 val right = position.x + 7.dp.toPx()
                 val width = labelPaint.measureText(label)
+                val baseline = position.y - 5.dp.toPx()
                 val textX = if (right + width < size.width - 5.dp.toPx()) right else position.x - width - 6.dp.toPx()
-                drawContext.canvas.nativeCanvas.drawText(label, textX, position.y - 5.dp.toPx(), labelPaint)
+                val labelArea = android.graphics.RectF(
+                    textX - 3.dp.toPx(), baseline - labelPaint.textSize - 2.dp.toPx(),
+                    textX + width + 3.dp.toPx(), baseline + 3.dp.toPx(),
+                )
+                // Rio and Niteroi (among others) are too close to label
+                // simultaneously at small map scales. Prioritize first city.
+                if (labelsDrawn.none { android.graphics.RectF.intersects(it, labelArea) }) {
+                    drawContext.canvas.nativeCanvas.drawText(label, textX, baseline, labelPaint)
+                    labelsDrawn.add(labelArea)
+                }
             }
         }
         val copyrightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
