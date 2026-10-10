@@ -208,7 +208,7 @@ jobs:
 
       # Isolated internal-PR preview; no billing products or server entitlement URL.
       - name: Build RJ Firebase subscriber login preview (internal PR)
-        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'codex/rj-subscriber-android-login-20261009' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ github.event_name == 'pull_request' && (github.base_ref == 'codex/rj-subscriber-android-login-20261009' || github.base_ref == 'codex/rj-subscriber-auth-preview-20261009') && github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           BLAISE_SUBSCRIBER_AUTH_ENABLED: 'true'
           BLAISE_FIREBASE_APPLICATION_ID: ${{ vars.BLAISE_FIREBASE_APPLICATION_ID }}
@@ -231,7 +231,7 @@ jobs:
           grep -Fq 'BLAISE_SUBSCRIBER_AUTH_ENABLED = true' app/build/generated/source/buildConfig/debug/br/com/blaise/rj/BuildConfig.java
           printf '%s\n' 'RJ_FIREBASE_LOGIN_PREVIEW=PASS' 'BILLING_PURCHASE=DISABLED_IN_PREVIEW'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'codex/rj-subscriber-android-login-20261009' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ github.event_name == 'pull_request' && (github.base_ref == 'codex/rj-subscriber-android-login-20261009' || github.base_ref == 'codex/rj-subscriber-auth-preview-20261009') && github.event.pull_request.head.repo.full_name == github.repository }}
         with:
           name: blaise-rj-firebase-login-preview-debug
           path: app/build/outputs/apk/debug/app-debug.apk
