@@ -136,6 +136,13 @@ class MainActivityTest {
         assertTextDisplayed("10. Auditoria Profunda RJ")
     }
 
+    @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
+        rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()
+        assertTextDisplayed("Cidades: limites geográficos dos 92 municípios exibidos no mapa, sem dados meteorológicos simulados.")
+        rule.onNodeWithTag("map-extra-Satélite").performScrollTo().performClick()
+        assertTextDisplayed("Satélite: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.")
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
