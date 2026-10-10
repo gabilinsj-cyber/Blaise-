@@ -270,7 +270,10 @@ export function resolveRjCompatibleSources({
   // advances to Windy. The output always preserves all original observations.
   if(confirmed.length>=2 && conflicts.some(c=>typeof c.difference==='number'
     &&c.difference>entry.tolerance)) {
-    const independent=[...new Map(confirmed.map(o=>[o.canonicalSourceId,o])).values()]
+    const uniqueByProvider=new Map();
+    for(const record of confirmed)if(!uniqueByProvider.has(record.canonicalSourceId))
+      uniqueByProvider.set(record.canonicalSourceId,record);
+    const independent=[...uniqueByProvider.values()]
       .filter(o=>['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION'].includes(o.canonicalSourceId));
     if(independent.length>=2) {
       const disputed=stagedForecastDispute(independent,predictions,spec,ibge,now);
