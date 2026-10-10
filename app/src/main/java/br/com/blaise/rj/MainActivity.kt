@@ -374,7 +374,7 @@ private fun BlaiseDashboard(
                     ) {
                         AppHeader(powerOn, onPowerChange)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
-                        OfficialStatusBanner(officialFeedState)
+                        OfficialStatusBanner(officialFeedState, onSelectSection)
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -436,37 +436,51 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM • HH:mm"))
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, Divider),
+        border = BorderStroke(1.dp, Color(0xFF1762A2)),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            BlaiseAvatar(Modifier.size(48.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
-                Text("Clima e Tempo • Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
-            }
-            val statusColor = if (powerOn) StableGreen else AlertRed
-            val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
-            Surface(
-                modifier = Modifier.testTag("power-indicator").clickable { onPowerChange(!powerOn) },
-                color = statusBackground,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, statusColor),
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                Text(
-                    if (powerOn) "● LIGADO" else "● DESLIGADO",
-                    color = statusColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Panel,
+                    border = BorderStroke(1.dp, Gold),
+                ) {
+                    BlaiseAvatar(Modifier.fillMaxSize())
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+                    Text("Clima e Tempo", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                    Text("Rio de Janeiro • $time", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+                val powerColor = if (powerOn) StableGreen else AlertRed
+                Surface(
+                    modifier = Modifier.testTag("power-indicator").clickable { onPowerChange(!powerOn) },
+                    color = if (powerOn) Color(0xFF0D3B2B) else Color(0xFF4A1F25),
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.dp, powerColor),
+                ) {
+                    Text(
+                        if (powerOn) "⏻ LIGADO" else "⏻ DESLIGADO",
+                        color = powerColor, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
             }
+            Text(
+                latest?.let { "Medição oficial mais recente: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília)" }
+                    ?: "Medições oficiais: aguardando informações válidas",
+                color = Muted,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }
@@ -626,28 +640,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     fun submit() { ask(typedQuestion, false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Gold.copy(alpha = 0.48f)),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Gold.copy(alpha = 0.50f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(
-                    modifier = Modifier.size(54.dp),
-                    shape = CircleShape,
-                    color = Color(0xFF183F66),
-                    border = BorderStroke(1.dp, Gold),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        BlaiseAvatar(Modifier.fillMaxSize())
-                    }
-                }
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text("Boletim • 06:00 / 12:00 / 16:00", color = Gold, style = MaterialTheme.typography.labelSmall)
-                    Text(bulletinSummary, color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
-                    Text("Blaise", color = Color.White, fontWeight = FontWeight.ExtraBold)
-                    Text(FinalDashboardSpec.ASSISTANT_PROMPT, color = Gold, style = MaterialTheme.typography.bodyMedium)
-                    Text(if (listening) "Ouvindo… termine sua pergunta para receber a resposta." else if (loading) "Consultando dados…" else "Microfone: pergunta e resposta por voz, sem apertar Enviar. Digitação: resposta escrita.", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text("Blaise • ${FinalDashboardSpec.ASSISTANT_PROMPT}", color = Gold, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (listening) "Ouvindo sua pergunta…" else if (loading) "Consultando fontes oficiais…" else "Pergunte por voz ou digite abaixo.",
+                        color = Muted, style = MaterialTheme.typography.labelSmall,
+                    )
                 }
                 OutlinedButton(
                     onClick = {
@@ -659,28 +662,41 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     },
                     modifier = Modifier.testTag("assistant-microphone"),
                     enabled = appEnabled,
-                ) {
-                    Text(if (listening) "■ Parar" else "🎙 Voz")
-                }
+                ) { Text(if (listening) "■ Parar" else "🎙 Voz") }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (!expandedInput) TextButton(onClick = { expandedInput = true }) { Text("Digite aqui… ⤢") }
-                if (expandedInput)                 OutlinedTextField(
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
                     value = typedQuestion,
                     onValueChange = { typedQuestion = it },
-                    label = { Text("Pergunta escrita — enviar pelo botão") },
+                    placeholder = { Text("Digite aqui…") },
                     singleLine = true,
-                    modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("assistant-input"),
+                    modifier = Modifier.weight(1f).testTag("assistant-input"),
                 )
-                if (expandedInput) Button(onClick = ::submit, enabled = appEnabled && typedQuestion.isNotBlank(), modifier = Modifier.testTag("assistant-send")) { Text("Enviar texto") }
+                Button(
+                    onClick = ::submit,
+                    enabled = appEnabled && typedQuestion.isNotBlank(),
+                    modifier = Modifier.testTag("assistant-send"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy),
+                ) { Text("Enviar") }
             }
-            Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") }, enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora")) { Text("Testar voz") }
-                TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) }, enabled = voiceEnabled, modifier = Modifier.testTag("assistant-read-answer")) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Boletim • 06h / 12h / 16h", color = Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
             }
+            Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+            if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
+                Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { if (speaking) stopSpeaking() else readAloud(answer) }, enabled = voiceEnabled,
+                        modifier = Modifier.testTag("assistant-read-answer")) { Text(if (speaking) "Parar voz" else "Ouvir resposta") }
+                }
+            }
+            TextButton(
+                onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
+                enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
+            ) { Text("Testar voz feminina") }
             voiceError?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-            Text("Consulta oficial em validação. Dados ausentes não significam ausência de risco.", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -1440,21 +1456,21 @@ private fun BillingPanel(
 }
 
 @Composable
-private fun OfficialStatusBanner(state: OfficialFeedState) {
-    val (headline, detail, color) = when (state) {
+private fun OfficialStatusBanner(state: OfficialFeedState, onNavigate: (String) -> Unit) {
+    val (headline, detail, accent) = when (state) {
         OfficialFeedState.CURRENT_CLEAR -> Triple(
-            "SEM ALERTAS P0 OFICIAIS ATIVOS",
-            "Ausência de P0 confirmada por evidência oficial válida.",
+            "STATUS OFICIAL • SEM P0 CONFIRMADO",
+            "Somente para a cobertura e vigência da evidência oficial consultada.",
             StableGreen,
         )
         OfficialFeedState.CURRENT_P0 -> Triple(
-            "ALERTA P0 OFICIAL ATIVO",
-            "Prioridade máxima. Consulte a orientação da fonte oficial exibida.",
+            "ÚLTIMA HORA • ALERTA P0",
+            "Alerta oficial ativo. Consulte orientações, fonte e horário no painel de alertas.",
             AlertRed,
         )
         OfficialFeedState.STALE -> Triple(
-            "STATUS OFICIAL DESATUALIZADO",
-            "Não presumimos ausência de alerta com evidência vencida.",
+            "STATUS OFICIAL • DESATUALIZADO",
+            "Sem confirmação atual; consulte os canais da Defesa Civil.",
             WarningAmber,
         )
         OfficialFeedState.UNAVAILABLE -> Triple(
@@ -1463,21 +1479,21 @@ private fun OfficialStatusBanner(state: OfficialFeedState) {
             WarningAmber,
         )
     }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.85f)),
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("official-alert-ribbon"),
+        color = if (state == OfficialFeedState.CURRENT_P0) Color(0xFF4B101B) else Color(0xFF14283F),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, accent),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Surface(modifier = Modifier.size(14.dp), shape = CircleShape, color = color) {}
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(headline, color = color, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelMedium)
-                Text(detail, color = Color.White, style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("⚠", color = accent, fontWeight = FontWeight.Black)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(headline, color = accent, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelSmall)
+                Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("alerts-ribbon-open")) {
+                Text("Ver alertas", color = Gold, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
