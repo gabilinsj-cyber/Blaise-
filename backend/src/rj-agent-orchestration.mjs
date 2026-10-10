@@ -92,6 +92,11 @@ export async function reconcileRjWeatherCase({
     latestVerifiedResult:determination,
     resultKind:determination.resultKind,
     verifiedSourceCount:determination.selectedSourceIds.length,
+    observedOfficialReadingCount:determination.officialReadings?.length ??
+      (determination.officialMeasurement ? 1 : 0),
+    officialReadingsForDisplay:determination.officialReadings ?? null,
+    modelTieBreakEvidence:determination.modelTieBreak ?? null,
+    showBothDiscrepantSources:determination.showBothSourceMeasurements === true,
     observedOrEstimatedValue:determination.value,
     calculatedValues:determination.resultKind==='CALCULO_BLAISE_SOBRE_DUAS_MEDICOES_OFICIAIS'
       ||determination.resultKind==='PREVISAO_PONDERADA_BLAISE_NAO_OBSERVACAO'
