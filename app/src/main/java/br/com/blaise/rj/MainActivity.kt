@@ -1917,6 +1917,8 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    val scientificValues = ScientificDashboardPolicy.derive(observation, clock)
+    val feelsLike = scientificValues.firstOrNull { it.title == "Sensação térmica" }
     val context = LocalContext.current
     var details by remember(city.ibgeCode) { mutableStateOf(false) }
     // Scenic header cropped from the approved visual reference. Only use for
@@ -1975,6 +1977,19 @@ private fun CityPanel(
                 color = if (observation == null) WarningAmber else StableGreen,
                 style = MaterialTheme.typography.labelSmall,
             )
+            if (feelsLike != null) {
+                Text("Sensação térmica calculada: ${feelsLike.value}",
+                    color = Gold, style = MaterialTheme.typography.labelSmall)
+            }
+            if (observation != null) {
+                Text(
+                    "Fonte: ${observation.source} • estação ${observation.station} • " +
+                        observation.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                        " (Brasília)",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                )
+            }
             fun metric(value: Double?, unit: String) = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "—"
