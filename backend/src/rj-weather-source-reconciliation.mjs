@@ -127,6 +127,7 @@ const tieBreakUnavailable=(measurements,reason,evidence=[])=>Object.freeze({
   favoredSourceId:null,
   favoredOfficialValue:null,
   weightedOfficialValue:null,
+  weightedModelForecastValue:null,
   comparisonEvidence:Object.freeze(evidence),
   conclusionIsOnlyModelGuidance:true,
   officialMeasurement:false,
@@ -162,7 +163,7 @@ export function compareInpeWindyToDiscrepantObservations({
     return tieBreakUnavailable(official,'RAIN_ACCUMULATION_INTERVAL_NOT_VERIFIED');
   const modelSet=validatedForecast(forecasts,{ibge,variable,now})
     .filter(f=>['INPE_CPTEC_FORECAST','WINDY_MODELO'].includes(f.sourceId));
-  const votes=[],modelIdentity=new Set(),providers=new Set();
+  const votes=[],independentModels=[],modelIdentity=new Set(),providers=new Set();
   const matched=Object.freeze([a,b].map(officialSnapshot));
   for(const f of modelSet) {
     if(providers.has(f.sourceId))continue;
@@ -196,12 +197,22 @@ export function compareInpeWindyToDiscrepantObservations({
     }));
     providers.add(f.sourceId);
     modelIdentity.add(f.modelFamilyId);
+    independentModels.push(f);
   }
   if(votes.length<2)
     return tieBreakUnavailable(official,'NEED_TWO_INDEPENDENT_SKILL_VALIDATED_MODEL_FAMILIES',votes);
   const choice=votes[0].closestStationId;
   if(!choice || votes.some(v=>v.closestStationId!==choice))
     return tieBreakUnavailable(official,'INPE_WINDY_DISAGREE_OR_NEARLY_TIED',votes);
+  if(Math.abs(independentModels[0].value-independentModels[1].value)>spec.maxDifference)
+    return tieBreakUnavailable(official,'INPE_WINDY_FORECAST_VALUES_TOO_DIFFERENT',votes);
+  // A weighted estimate, if justified, is a SEPARATE forecast-only number.
+  // It never replaces either observed station reading.
+  const forecastMean=weightedComparableForecastMean({
+    forecasts:independentModels,ibge,variable,now,
+  });
+  const forecastOnlyValue=forecastMean.state==='COMPARABLE_FORECAST_MODELS'
+    ?forecastMean.calculatedValue:null;
   const selected=official.find(o=>o.stationId===choice);
   return Object.freeze({
     state:'BOTH_OFFICIAL_VALUES_WITH_MODEL_FAVORED_REFERENCE',
@@ -211,6 +222,8 @@ export function compareInpeWindyToDiscrepantObservations({
     favoredSourceId:selected.sourceId,
     favoredOfficialValue:selected.value,
     weightedOfficialValue:null,
+    weightedModelForecastValue:forecastOnlyValue,
+    weightedModelForecastNature:'FORECAST_ONLY_NOT_A_MEASURED_VALUE',
     comparisonEvidence:Object.freeze(votes),
     conclusionIsOnlyModelGuidance:true,
     officialMeasurement:false,
