@@ -806,66 +806,157 @@ private fun HomeScreen(
     onChooseCity2: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
+    // The approved reference is a three-column CONTROL CENTER on landscape,
+    // but remains a single vertically scrollable dashboard on phones.
     if (wide) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            CityPanel("Cidade 1", city1, "Selecionar cidade", onChooseCity1, Modifier.weight(0.78f))
-            ExpandedRadarPanel(Modifier.weight(1.9f), onNavigate)
-            CityPanel("Cidade 2", city2, "Selecionar cidade", onChooseCity2, Modifier.weight(0.78f))
+        Row(
+            Modifier.fillMaxWidth().testTag("reference-three-column-dashboard"),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(Modifier.weight(0.91f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.fillMaxWidth())
+                MarinePanel(Modifier.fillMaxWidth())
+                ForecastPanel(Modifier.fillMaxWidth())
+            }
+            Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
+                DailyChartPanel(Modifier.fillMaxWidth())
+                ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
+            }
+            Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.fillMaxWidth())
+                TrafficSummaryPanel(Modifier.fillMaxWidth(), onNavigate)
+                RiskPanel(Modifier.fillMaxWidth())
+                AirQualitySummaryPanel(Modifier.fillMaxWidth(), onNavigate)
+                CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
+            }
         }
     } else {
+        // Portrait: preserve the weather map as the first, largest panel.
         ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
-    }
-    Spacer(Modifier.height(14.dp))
-    MarineAndRiskRow(wide)
-    Spacer(Modifier.height(10.dp))
-    CompactServicesRow(onNavigate)
-    Spacer(Modifier.height(14.dp))
-    if (wide) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            ForecastPanel(Modifier.weight(0.85f))
-            DailyChartPanel(Modifier.weight(1.55f))
-            CompactNewsAndSeismicPanel(Modifier.weight(1.1f), onNavigate)
-        }
-    } else {
+        Spacer(Modifier.height(10.dp))
+        MarineAndRiskRow(false)
+        Spacer(Modifier.height(10.dp))
+        CompactServicesRow(onNavigate)
+        Spacer(Modifier.height(10.dp))
         ForecastPanel(Modifier.fillMaxWidth())
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         DailyChartPanel(Modifier.fillMaxWidth())
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
+        ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(10.dp))
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
+    }
+    Spacer(Modifier.height(10.dp))
+    AgentStatusPanel()
+}
+@Composable
+private fun CompactServicesRow(onNavigate: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TrafficSummaryPanel(Modifier.weight(1f), onNavigate)
+        AirQualitySummaryPanel(Modifier.weight(1f), onNavigate)
     }
 }
 
 @Composable
-private fun CompactServicesRow(onNavigate: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onNavigate("Trânsito") },
-            color = PanelSoft, shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, Divider),
-        ) {
-            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("TRÂNSITO • COR.Rio", color = Gold, fontWeight = FontWeight.Bold,
+private fun TrafficSummaryPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
+    Surface(
+        modifier = modifier.clickable { onNavigate("Trânsito") }.testTag("traffic-official-status"),
+        color = PanelSoft, shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Divider),
+    ) {
+        Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("TRÂNSITO • COR.Rio / CET-Rio", color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Interdições • acidentes • alagamentos", color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Ocorrências: dados oficiais indisponíveis", color = WarningAmber,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Ver trânsito e rotas →", color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun AirQualitySummaryPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
+    Surface(
+        modifier = modifier.clickable { onNavigate("Qualidade do Ar") }.testTag("air-quality-official-status"),
+        color = PanelSoft, shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Divider),
+    ) {
+        Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("QUALIDADE DO AR • RJ", color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall)
+            Text("IQAr —  •  PM2,5 —", color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Sem leitura oficial recente validada", color = WarningAmber,
+                style = MaterialTheme.typography.labelSmall)
+            Text("Ver qualidade do ar →", color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+private fun ScientificReadoutsPanel(city: City, modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(now)
+    val readings = ScientificDashboardPolicy.derive(observation, now)
+    DashboardSection(
+        title = "CALCULADORA CIENTÍFICA BLAISE",
+        subtitle = "Sensação térmica • ponto de orvalho • medições compatíveis",
+        modifier = modifier.testTag("scientific-calculator-panel"),
+    ) {
+        Text(ScientificDashboardPolicy.STATUS, color = Gold, style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold)
+        if (readings.isEmpty()) {
+            Text("Sem entradas oficiais recentes suficientes para cálculos em ${city.name}.",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        } else {
+            readings.forEach { reading ->
+                StatusLine(reading.title, "${reading.value} • ${reading.method}")
+            }
+            val first = readings.first()
+            Text(
+                "Fonte de entrada: ${first.source} • estação ${first.station} • " +
+                    first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                    " (Brasília). Resultado local derivado, não média municipal.",
+                color = Muted, style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        Text("Outros cálculos (advecção, cisalhamento, CAPE, CIN, chuva acumulada e radar) " +
+            "dependem de entradas, perfis e calibração oficiais. Nenhum cálculo isolado emite alerta.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun AgentStatusPanel(modifier: Modifier = Modifier) {
+    var details by remember { mutableStateOf(false) }
+    DashboardSection(
+        title = "BLAISE • 10 AGENTES CIENTÍFICOS E DE SEGURANÇA",
+        subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
+        modifier = modifier.testTag("ten-agents-panel"),
+    ) {
+        Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
+            Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
+        }
+        if (details) {
+            BlaiseAgentDashboard.tenAgents.forEach { agent ->
+                Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelSmall)
-                Text("Ocorrências: —", color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text("Aguardando ocorrências oficiais. Ver detalhes →", color = Muted,
-                    style = MaterialTheme.typography.labelSmall)
+                Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
-        Surface(
-            modifier = Modifier.weight(1f).clickable { onNavigate("Qualidade do Ar") },
-            color = PanelSoft, shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, Divider),
-        ) {
-            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("QUALIDADE DO AR", color = Gold, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelSmall)
-                Text("IQAr: —", color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text("Índice oficial indisponível. Ver detalhes →", color = Muted,
-                    style = MaterialTheme.typography.labelSmall)
-            }
-        }
+        Text("Dados e recálculos: somente se a origem e o horário forem válidos. " +
+            "Alertas sonoros apenas mediante autorização do nível 5.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1426,7 +1517,13 @@ private fun MoreScreen(
         subtitle = "Prioridade local e origem preservada",
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
+        Text("INEA excluído do Blaise V6 RJ. Alerta Rio atua apenas na cidade do Rio. " +
+            "ANA/CEMADEN/SGB/SACE e INMET conforme município e variável; " +
+            "Marinha/NOAA no litoral e Atlântico, Windy apenas como comparação.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
+    Spacer(Modifier.height(10.dp))
+    AgentStatusPanel()
 }
 
 @Composable
@@ -1673,9 +1770,9 @@ private fun DashboardSection(
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Divider),
     ) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, color = Gold, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = Muted, style = MaterialTheme.typography.bodySmall)
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text(title, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+            Text(subtitle, color = Muted, style = MaterialTheme.typography.labelSmall)
             content()
         }
     }
