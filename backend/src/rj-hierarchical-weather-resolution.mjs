@@ -173,7 +173,8 @@ export function resolveRjCompatibleSources({
   // No compatible official pair was found. When two measured values
   // conflict, INPE and Windy can only provide a documented model-proximity
   // preference. BOTH station readings must remain visible to the client.
-  if(confirmed.length>=2 && conflicts.length>0) {
+  if(confirmed.length>=2 && conflicts.some(c=>typeof c.difference==='number'
+    &&c.difference>entry.tolerance)) {
     const candidates=[confirmed[0],
       confirmed.find(row=>row.canonicalSourceId!==confirmed[0].canonicalSourceId)]
       .filter(Boolean);
