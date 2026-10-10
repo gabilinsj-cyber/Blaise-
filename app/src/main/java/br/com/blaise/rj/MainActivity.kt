@@ -1424,31 +1424,63 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
 @Composable
 private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
     var seismicDetails by remember { mutableStateOf(false) }
+    var newsScope by remember { mutableStateOf("RJ") }
     if (seismicDetails) {
         AlertDialog(onDismissRequest = { seismicDetails = false },
             title = { Text("Abalos sísmicos • fontes e confirmação") },
-            text = { Text("Eventos e avisos ainda não integrados nesta tela. Magnitude isolada não confirma tsunami ou impacto no RJ. Não há conclusão de ausência de risco.") },
+            text = { Text("Dois eventos recentes serão exibidos somente com magnitude, localização, " +
+                "horário e referência USGS validada. Magnitude isolada não confirma tsunami, " +
+                "maremoto ou impacto no RJ; sem dados não há conclusão de segurança.") },
             confirmButton = { TextButton(onClick = { seismicDetails = false }) { Text("Voltar") } })
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         DashboardSection(
             title = "ABALOS SÍSMICOS",
-            subtitle = "Dois maiores eventos recentes • USGS",
-            modifier = Modifier.fillMaxWidth(),
+            subtitle = "2 eventos recentes • USGS / autoridade competente",
+            modifier = Modifier.fillMaxWidth().testTag("seismic-two-events"),
         ) {
-            StatusLine("Evento 1", "Aguardando magnitude, local e horário")
-            StatusLine("Evento 2", "Aguardando magnitude, local e horário")
-            OutlinedButton(onClick = { seismicDetails = true }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            StatusLine("Evento 1", "— magnitude • — km • fonte e horário pendentes")
+            StatusLine("Evento 2", "— magnitude • — km • fonte e horário pendentes")
+            Text("Sem conclusão sobre tsunami ou impacto no RJ.",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { seismicDetails = true },
+                modifier = Modifier.fillMaxWidth().testTag("seismic-details-open")) {
+                Text("Mais sobre abalos ›", color = Gold)
+            }
         }
         DashboardSection(
-            title = "NOTÍCIAS",
-            subtitle = "Rio de Janeiro + internacional",
-            modifier = Modifier.fillMaxWidth(),
+            title = "NOTÍCIAS • RIO DE JANEIRO",
+            subtitle = "Locais, regionais e internacional • somente fatos com fonte",
+            modifier = Modifier.fillMaxWidth().testTag("news-scope-card"),
         ) {
-            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Internacional • aguardando notícia meteorológica traduzida", color = Gold, style = MaterialTheme.typography.labelSmall)
-            OutlinedButton(onClick = { onNavigate("Notícias") }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                FinalDashboardSpec.newsScopes.forEach { scope ->
+                    Surface(
+                        modifier = Modifier.testTag("news-scope-${scope}")
+                            .clickable { newsScope = scope },
+                        color = if (newsScope == scope) Gold else Color(0xFF082B50),
+                        shape = RoundedCornerShape(7.dp),
+                        border = BorderStroke(1.dp, if (newsScope == scope) Gold else Divider),
+                    ) {
+                        Text(scope, color = if (newsScope == scope) Navy else Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp))
+                    }
+                }
+            }
+            Text(
+                if (newsScope == "Internacional")
+                    "Internacional • aguardando notícia meteorológica recente com fonte e tradução."
+                else "${newsScope} • aguardando notícias verificadas, locais e horários das ocorrências.",
+                modifier = Modifier.testTag("news-scope-status"),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            TextButton(
+                onClick = { onNavigate("Notícias") },
+                modifier = Modifier.fillMaxWidth().testTag("news-more"),
+            ) { Text("Ver noticiário completo ›", color = Gold) }
         }
     }
 }
