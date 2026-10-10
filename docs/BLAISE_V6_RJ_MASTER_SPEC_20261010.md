@@ -37,7 +37,7 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 - Diagnóstico de vorticidade, divergência, convergência, deformação e convergência do fluxo horizontal de umidade, somente com gradientes métricos.
 - Água precipitável por pressão/perfil de umidade **somente para a camada medida**.
 - Cisalhamento 0–1/0–6 km e helicidade relativa da tempestade por perfis de vento interpoláveis e vetor da tempestade.
-- CAPE e CIN por integração numérica de **perfis de temperatura virtual ambiental e da parcela fornecidos, contínuos e validados**; **não** levantar parcela, deduzir LFC/EL ou prever tornado automaticamente.
+- CAPE e CIN por integração numérica de **perfis de temperatura virtual ambiental e da parcela fornecidos, contínuos e validados**, segmentados entre o primeiro cruzamento de LFC e EL. Estima numericamente esses cruzamentos somente quando ambos estão delimitados; **não** criar perfil de parcela, LCL ou prever tornado automaticamente.
 - Fórmulas de índice de calor/vento-frio apenas nos domínios adequados; fora deles, não forçar sensação térmica fictícia.
 - Chuva acumulada nas janelas 5, 10, 15, 30, 60 minutos e 24 h **somente** por segmentos reais contínuos, homogêneos, completos e da mesma estação.
 - Radar Z–R e KDP **somente quando houver política de calibração real por banda, local e período**. Não existe ingestão de radar licenciada concluída.
