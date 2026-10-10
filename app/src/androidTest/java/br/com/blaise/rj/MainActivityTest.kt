@@ -140,7 +140,7 @@ class MainActivityTest {
 
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
         rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()
-        assertTextDisplayed("Cidades: limites geográficos dos 92 municípios exibidos no mapa, sem dados meteorológicos simulados.")
+        assertTextDisplayed("Cidades: desenho próprio do Blaise, limites de base cartográfica aberta dos 92 municípios; sem chuva ou radar simulados.")
         rule.onNodeWithTag("map-extra-Satélite").performScrollTo().performClick()
         assertTextDisplayed("Satélite: camada geográfica/meteorológica adicional indisponível até fonte oficial autorizada, dados atuais e georreferenciamento validado.")
     }
