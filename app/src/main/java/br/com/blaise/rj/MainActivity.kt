@@ -363,14 +363,14 @@ private fun BlaiseDashboard(
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 1100.dp
+                val wide = maxWidth >= 760.dp
                 Column(Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = if (wide) 24.dp else 14.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .padding(horizontal = if (wide) 16.dp else 10.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(9.dp),
                     ) {
                         AppHeader(powerOn, onPowerChange, onSelectSection)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
@@ -449,7 +449,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 Surface(
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(46.dp),
                     shape = RoundedCornerShape(12.dp),
                     color = Panel,
                     border = BorderStroke(1.dp, Gold),
@@ -469,7 +469,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                     border = BorderStroke(1.dp, powerColor),
                 ) {
                     Text(
-                        if (powerOn) "⏻ LIGADO" else "⏻ DESLIGADO",
+                        if (powerOn) "● LIGADO" else "● DESLIGADO",
                         color = powerColor, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     )
@@ -483,7 +483,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("top-notifications")) { Text("♧ Alertas") }
+                TextButton(onClick = { onNavigate("Alertas") }, modifier = Modifier.testTag("top-notifications")) { Text("Alertas") }
                 TextButton(onClick = { onNavigate("Mais") }, modifier = Modifier.testTag("top-settings")) { Text("⚙") }
             }
         }
@@ -644,7 +644,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.50f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("Blaise • ${FinalDashboardSpec.ASSISTANT_PROMPT}", color = Gold, fontWeight = FontWeight.Bold)
@@ -684,7 +684,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 Text("Boletim • 06h / 12h / 16h", color = Gold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showBulletin = true }) { Text("Leia mais") }
             }
-            Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+            Text("Resumo: $bulletinSummary", color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             if (answer != "Pronto para orientar sem criar dados ou alertas." || loading) {
                 Text(answer, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("assistant-answer"))
             }
