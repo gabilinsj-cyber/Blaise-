@@ -228,6 +228,22 @@ test('unverified forecast weights or noncontemporary products return one clearly
   assert.equal(r.value,28);
   assert.equal(r.resultKind,'PREVISAO_ISOLADA_NAO_MEDICAO');
 });
+test('one official measurement plus one INPE forecast is shown as two distinct source types, never a weighted observation',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[measurement('INMET','A652',26)],
+    forecasts:[tieModel('INPE_CPTEC_FORECAST',27)],
+  });
+  assert.equal(r.state,'ONE_OFFICIAL_PLUS_FORECAST_CONTEXT');
+  assert.equal(r.value,26);
+  assert.deepEqual(r.selectedSourceIds,['INMET_STATION','INPE_CPTEC_FORECAST']);
+  assert.deepEqual(r.sourcePairForDisplay.map(x=>x.dataType),
+    ['OFFICIAL_STATION_OBSERVATION','MODEL_FORECAST_NOT_A_MEASURED_STATION']);
+  assert.equal(r.consensusConfirmed,false);
+  assert.equal(r.weightedMeanApplied,false);
+  assert.equal(r.missingSecondCompatibleSource,true);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
 test('a single station cannot be converted into a fake municipality-wide estimate',()=>{
   const r=resolveRjCompatibleSources({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     observations:[measurement('INMET','A652',26)]});
