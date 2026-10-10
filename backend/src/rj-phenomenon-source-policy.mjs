@@ -27,7 +27,7 @@ const MODEL = RJ_SOURCE_CLASS.OFFICIAL_MODEL;
 const COMPARE = RJ_SOURCE_CLASS.COMPARISON;
 
 const definition = (id, role, scope) => Object.freeze({ id, role, scope,
-  dataAvailability: 'REQUIRES_LIVE_VALIDATION', automaticAlertAuthority: role === OFFICIAL && id !== 'INMET_STATION' });
+  dataAvailability: 'REQUIRES_LIVE_VALIDATION', automaticAlertAuthority: false });
 const sources = Object.freeze({
   ALERTA_RIO: definition('ALERTA_RIO', OFFICIAL, 'MUNICIPIO_RIO_APENAS'),
   DEFESA_CIVIL: definition('DEFESA_CIVIL_RJ_REGIONAL', OFFICIAL, 'CONFORME_COMPETENCIA_MUNICIPIO'),
