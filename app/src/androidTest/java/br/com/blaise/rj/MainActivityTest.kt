@@ -71,6 +71,8 @@ class MainActivityTest {
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
         rule.waitForIdle()
         assertCriticalStatusVisible()
+        rule.onNodeWithTag("assistant-compact-strip").assertIsDisplayed()
+        rule.onNodeWithTag("assistant-microphone").assertIsEnabled()
 
         rule.activityRule.scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT }
