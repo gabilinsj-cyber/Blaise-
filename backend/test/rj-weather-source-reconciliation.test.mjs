@@ -43,9 +43,60 @@ test('conflict without usable INPE third source requests consultation without in
     observations:[obs('A652',22),obs('DEF-1',27)],
     forecasts:[],ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
   });
-  assert.equal(result.action,'CONSULT_INPE_CPTEC_IF_APPROVED_AND_AVAILABLE');
+  assert.equal(result.action,'CONSULT_INPE_CPTEC_AND_WINDY_IF_AUTHORIZED_AND_AVAILABLE');
   assert.equal(result.inpeAvailable,false);
   assert.equal(result.officialMeasurement,false);
+});
+test('Windy aids review of two divergent station readings but cannot decide which is true',()=>{
+  const result=assessRjMeteorologicalDisagreement({
+    observations:[obs('A652',23),obs('DEF-1',30)],
+    forecasts:[
+      forecast('INPE_CPTEC_FORECAST',29),
+      forecast('WINDY_MODELO',24,{sourceUrl:'https://www.windy.com/'}),
+    ],
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+  });
+  assert.equal(result.state,'SIGNIFICANT_OFFICIAL_DATA_DISAGREEMENT');
+  assert.equal(result.windyAvailable,true);
+  assert.equal(result.windyComparison.sourceId,'WINDY_MODELO');
+  assert.equal(result.windyComparison.preferredOfficialMeasurement,null);
+  assert.equal(result.windyComparison.permissibleAsOfficialObservation,false);
+  assert.equal(result.windyComparison.comparedReadings.length,2);
+  assert.equal(result.windyComparison.comparedReadings[0].absoluteDifference,1);
+  assert.equal(result.calculatedValue,null);
+  assert.equal(result.observedRange.minimum,23);
+  assert.equal(result.observedRange.maximum,30);
+  assert.equal(result.automaticAlertAuthorized,false);
+  assert.equal(result.action,'REVIEW_OFFICIAL_DIVERGENCE_WITH_WINDY_AS_NONAUTHORITATIVE_COMPARISON');
+});
+test('Windy forecast outside observed interval or lacking permission cannot act as a dispute tie break',()=>{
+  const incompatible=forecast('WINDY_MODELO',24,{
+    validAt:'2026-10-10T23:00:00Z',sourceUrl:'https://www.windy.com/',
+  });
+  const missingLicense=forecast('WINDY_MODELO',24,{
+    usagePermissionStatus:'PUBLICLY_ACCESSIBLE',sourceUrl:'https://www.windy.com/',
+  });
+  for (const w of [incompatible,missingLicense]) {
+    const r=assessRjMeteorologicalDisagreement({
+      observations:[obs('A652',23),obs('DEF-1',30)],
+      forecasts:[w],ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    });
+    assert.equal(r.windyComparison,null);
+    assert.equal(r.calculatedValue,null);
+    assert.equal(r.automaticAlertAuthorized,false);
+  }
+});
+test('RJ boundary municipality retains its own municipality record, never interpolates neighboring states',()=>{
+  for (const ibge of ['3300100','3306305']) {
+    const r=assessRjMeteorologicalDisagreement({
+      observations:[],forecasts:[],ibge,variable:'TEMPERATURA_C',now:NOW,
+    });
+    // Valid if this IBGE exists in canonical 92-municipality catalog.
+    assert.equal(r.ibge,ibge);
+    assert.equal(r.calculatedValue,null);
+    assert.equal(r.inpeAvailable,false);
+    assert.equal(r.windyAvailable,false);
+  }
 });
 test('weighted observational mean only when matching official stations with QC weights and no substantial discrepancy',()=>{
   const result=assessRjMeteorologicalDisagreement({
