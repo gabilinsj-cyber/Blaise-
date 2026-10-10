@@ -630,9 +630,10 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val municipalRisk = publicOfficial?.municipality(selectedCity.ibgeCode, clock)
         ?.risk?.takeIf { it.current(clock) }
     val officialRiskText = municipalRisk?.let { risk ->
+        val issued = risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
         "CEMADEN-RJ / Defesa Civil: risco hidrológico ${risk.label}, nível ${risk.level}; " +
-            "emissão ${risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))" +
-            ".format(java.time.format.DateTimeFormatter.ofPattern(\"dd/MM HH:mm\"))}."
+            "emissão ${issued} (Brasília)."
     } ?: "Risco hidrológico municipal: sem boletim validado nesta consulta."
     val officialWarningText = if (currentWarnings.isEmpty())
         "Avisos INMET municipais: cobertura não comprovada; não indica ausência de risco."
