@@ -72,7 +72,8 @@ function stationAllowed(v, sourceId, spec, ibge, now) {
     && within(v?.latitude, -23.7, -20.4) && within(v?.longitude, -45.5, -40.4)
     && typeof v?.sourceUrl === 'string' && v.sourceUrl.startsWith('https://')
     && finite(observed) && now-observed >= 0 && now-observed <= 7_200_000
-    && within(v?.weight, 0.01, 5);
+    && within(v?.weight, 0.01, 5)
+    && (spec.variable!=='CHUVA_MM_1H'||v.measurementWindowMinutes===60);
 }
 function forecastAllowed(f, sourceId, spec, ibge, now) {
   const issued=Date.parse(f?.issuedAt), valid=Date.parse(f?.validAt);
@@ -123,6 +124,9 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
     method:'FORECAST_PROXIMITY_ONLY_NO_SENSOR_CERTIFICATION',
     isOfficialObservation:false,
   });
+  const comparableOfficialPair=official.every(o=>official.every(other=>
+    Math.abs(Date.parse(o.observedAt)-Date.parse(other.observedAt))<=900_000
+    &&distanceKm(o,other)<=25));
   let inpeReference=null;
   for(const id of ['INPE_CPTEC_FORECAST','WINDY_MODELO']) {
     const f=forecasts.find(row=>row.sourceId===id);
@@ -143,14 +147,16 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
       &&typeof f.skillEvidenceId==='string'&&f.skillEvidenceId.length>=4
       &&typeof f.modelFamilyId==='string'&&f.modelFamilyId.length>=3;
     let favored=null;
-    if(hasVerifiedSkill&&eligible.length>=2) {
+    if(hasVerifiedSkill&&comparableOfficialPair&&eligible.length>=2) {
       const ordered=[...eligible].sort((a,b)=>Math.abs(a.value-f.value)-Math.abs(b.value-f.value));
       const nearest=Math.abs(ordered[0].value-f.value);
       const runnerUp=Math.abs(ordered[1].value-f.value);
       if(runnerUp-nearest>Math.max(spec.tolerance*0.25,0.05))favored=ordered[0];
     }
     const evidence=modelOutput(f,differences,favored,
-      favored?'CLOSER_TO_ONE_OFFICIAL_STATION_NOT_PROOF':'FORECAST_COMPARISON_INCONCLUSIVE');
+      favored?'CLOSER_TO_ONE_OFFICIAL_STATION_NOT_PROOF':
+        !comparableOfficialPair?'STATION_TIME_OR_DISTANCE_COMPARISON_INVALID':
+          'FORECAST_COMPARISON_INCONCLUSIVE');
     if(id==='INPE_CPTEC_FORECAST')inpeReference=evidence;
     if(favored) {
       return Object.freeze({
