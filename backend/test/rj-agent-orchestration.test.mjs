@@ -66,6 +66,47 @@ test('Sentinel-Fusion-Vector consultation uses first compatible hierarchy pair a
   assert.equal(r.purchasesTriggered,false);
   assert.deepEqual(r.dataHandlingAgents,[1,3,2,8]);
 });
+test('Blaise Fusion exposes both discrepant official readings and INPE/Windy model reference without false average',async()=>{
+  const now=Date.parse('2026-10-10T18:00:00Z');
+  const measurement=(sourceId,stationId,value)=>({
+    origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
+    variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
+    observedAt:'2026-10-10T17:45:00Z',latitude:-22.9,longitude:-43.2,
+    sourceUrl:'https://example.org/stations/test',
+  });
+  const forecast=(sourceId,modelFamilyId,value)=>({
+    kind:'MODEL_FORECAST',sourceId,modelFamilyId,
+    productId:sourceId+'-forecast',modelRunId:'2026-10-10T12Z',
+    ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',value,
+    issuedAt:'2026-10-10T12:00:00Z',validAt:'2026-10-10T18:00:00Z',
+    sourceUrl:'https://example.org/models/test',
+    usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+    weight:0.5,weightBasis:'VERIFIED_HISTORICAL_SKILL_FOR_VARIABLE_LOCATION_AND_LEAD',
+    skillEvidenceId:'backtest-fixture-id',latitude:-22.9,longitude:-43.2,
+    gridResolutionKm:10,
+  });
+  const plan=await reconcileRjWeatherCase({
+    ibge:'3304557',variable:'TEMPERATURA_C',now,adapters:{
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[
+        measurement('DEFESA_CIVIL','DC-1',36)]}),
+      INMET_STATION:async()=>({observations:[
+        measurement('INMET','A652',29)]}),
+      INPE_CPTEC_FORECAST:async()=>({forecasts:[
+        forecast('INPE_CPTEC_FORECAST','BRAMS',30)]}),
+      WINDY_MODELO:async()=>({forecasts:[
+        forecast('WINDY_MODELO','IFS',30)]}),
+    },
+  });
+  assert.equal(plan.sourceStatus,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
+  assert.equal(plan.showBothDiscrepantSources,true);
+  assert.equal(plan.observedOfficialReadingCount,2);
+  assert.deepEqual(plan.officialReadingsForDisplay.map(v=>v.value),[36,29]);
+  assert.equal(plan.modelTieBreakEvidence.favoredSourceId,'INMET');
+  assert.equal(plan.observedOrEstimatedValue,29);
+  assert.equal(plan.calculatedValues,null);
+  assert.equal(plan.publishersTriggered,false);
+  assert.equal(plan.audibleAlert,false);
+});
 test('no installed source adapter gives no weather value rather than an invented estimate',async()=>{
   const r=await reconcileRjWeatherCase({ibge:'3304557',
     variable:'TEMPERATURA_C',adapters:{}});
