@@ -85,7 +85,17 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   const keys = ROUTES[phenomenon];
   const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
-  const eligible = withRio.filter(s => {
+  // Alerta Rio is municipal-only. In the other 91 RJ municipalities, first
+  // compare Civil Defence with INMET, then use OpenWeather as third context.
+  const localizedOrder=!rioCity && withRio.some(s=>s.id==='OPENWEATHER_CURRENT')
+    ?[
+      ...withRio.filter(s=>s.id!=='OPENWEATHER_CURRENT')
+        .filter(s=>s.id==='DEFESA_CIVIL_RJ_REGIONAL'||s.id==='INMET_STATION'),
+      sources.OPENWEATHER,
+      ...withRio.filter(s=>!['DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','OPENWEATHER_CURRENT'].includes(s.id)),
+    ]
+    : withRio;
+  const eligible = localizedOrder.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
