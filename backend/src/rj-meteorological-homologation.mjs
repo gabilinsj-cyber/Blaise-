@@ -75,7 +75,7 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'Consultar Windy, sujeito a licença e validação; previsão pode apoiar destaque, jamais substituir medição ou aviso.',
     method:'CONSULTA_MODELO_SECUNDARIO_SEM_AUTORIDADE_DE_ALERTA'}),
   Object.freeze({step:6,code:'DUAS_FONTES_EXIBIDAS',condition:'Persistem valores discrepantes',
-    decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico. Não inventar empate ou concordância.',
+    decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico; nunca média mista de modelo e sensor. Não inventar empate ou concordância.',
     method:'EXIBICAO_COM_PROVENIENCIA_E_DIVERGENCIA_EXPLICITA'}),
   Object.freeze({step:7,code:'SEM_DADO_NOVO',condition:'Nenhum registro atual e verificável',
     decision:'Tentar próxima fonte autorizada e cache recente; se não há medição real, nenhuma fórmula a cria. Não declarar segurança nem emitir alerta.',
