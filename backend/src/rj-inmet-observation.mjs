@@ -127,6 +127,29 @@ export function createRjInmetStationAdapter({
     throw TypeError('inmet_invalid_adapter_config');
   let catalog=null,catalogFetchedAt=-Infinity,catalogPending=null;
   const entries=new Map();
+  const stationRowsCache=new Map();
+  async function rowsForStation(station) {
+    const time=now();
+    const prior=stationRowsCache.get(station.stationId);
+    if(prior && time-prior.fetchedAt<=stationRefreshMs)return prior.rows;
+    if(prior?.pending)return prior.pending;
+    const task=(async()=>{
+      const day=new Date(time).toISOString().slice(0,10);
+      const yesterday=new Date(time-24*60*60_000).toISOString().slice(0,10);
+      const url=`https://apitempo.inmet.gov.br/estacao/${yesterday}/${day}/${station.stationId}`;
+      const rows=await fetchOfficialJson(fetchImpl,url);
+      if(!Array.isArray(rows)||rows.length>500)
+        throw TypeError('inmet_invalid_station_rows');
+      stationRowsCache.set(station.stationId,{rows,fetchedAt:now()});
+      return rows;
+    })();
+    stationRowsCache.set(station.stationId,{pending:task});
+    try{return await task}
+    finally{
+      if(stationRowsCache.get(station.stationId)?.pending===task)
+        stationRowsCache.delete(station.stationId);
+    }
+  }
   async function stations() {
     const time=now();
     if(catalog && time-catalogFetchedAt<=catalogRefreshMs)return catalog;
@@ -155,10 +178,7 @@ export function createRjInmetStationAdapter({
         state:prior.observations.length?'CURRENT_STATION_OBSERVATION':'NO_RECENT_READING'});
     if(prior?.pending)return prior.pending;
     const pending=(async()=>{
-      const day=new Date(time).toISOString().slice(0,10);
-      const yesterday=new Date(time-24*60*60_000).toISOString().slice(0,10);
-      const url=`https://apitempo.inmet.gov.br/estacao/${yesterday}/${day}/${station.stationId}`;
-      const rows=await fetchOfficialJson(fetchImpl,url);
+      const rows=await rowsForStation(station);
       const observations=projectRjInmetStationRows(rows,station,{ibge,variable,now:now()});
       entries.set(cacheKey,{refreshedAt:now(),observations});
       return Object.freeze({observations,forecasts:[],state:observations.length?
