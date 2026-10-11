@@ -22,7 +22,7 @@ function allowedEndpoint(value) {
   if(typeof value!=='string')return false;
   try {const u=new URL(value);
     return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&
-      !/^(localhost|.*\\.localhost|127\\.|10\\.|192\\.168\\.|169\\.254\\.|172\\.(1[6-9]|2\\d|3[01])\\.|0\\.|::1)/i.test(u.hostname);
+      !/^(localhost|.*\.localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|::1)/i.test(u.hostname);
   }catch{return false;}
 }
 export function validateRjOfficialProduct(id,payload,{nowMillis=Date.now()}={}) {
@@ -33,13 +33,13 @@ export function validateRjOfficialProduct(id,payload,{nowMillis=Date.now()}={}) 
   const accepted=[];
   for(const item of payload.observations) {
     if(!isObject(item)||item.sourceId!==id||!allowedEndpoint(item.sourceUrl)||
-      typeof item.observedAt!=='string'||!/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)?(?:Z|[+-]\\d\\d:\\d\\d)$/.test(item.observedAt))
+      typeof item.observedAt!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(item.observedAt))
       continue;
     const timestamp=Date.parse(item.observedAt);
     if(!Number.isFinite(timestamp)||timestamp>nowMillis+5*60*1000||
       nowMillis-timestamp>source.maxAgeMillis)continue;
     if(id==='MONITORA_RJ_SES') {
-      if(!/^33\\d{5}$/.test(String(item.ibge))||typeof item.riskLabel!=='string'||
+      if(!/^33\d{5}$/.test(String(item.ibge))||typeof item.riskLabel!=='string'||
         item.riskLabel.length<1||item.riskLabel.length>80||
         item.productKind!=='HEAT_HEALTH_RISK')continue;
     }else{
