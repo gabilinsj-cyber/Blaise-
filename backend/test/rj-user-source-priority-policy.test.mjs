@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { RJ_EVENT_SOURCE_POLICY, sourcePolicyForRjEvent, canAverageRjEvent } from '../src/rj-user-source-priority-policy.mjs';
 import { rjSourceRouting } from '../src/rj-phenomenon-source-policy.mjs';
 
-test('all 25 approved RJ phenomena have independent policy rows',()=>{
-  assert.equal(Object.keys(RJ_EVENT_SOURCE_POLICY).length,25);
+test('all 27 approved RJ phenomena have independent policy rows',()=>{
+  assert.equal(Object.keys(RJ_EVENT_SOURCE_POLICY).length,27);
   assert.deepEqual(sourcePolicyForRjEvent('TSUNAMI').primary,
     ['NOAA_TSUNAMI','MARINHA_CHM','AUTORIDADE_BRASILEIRA_COMPETENTE']);
   assert.deepEqual(sourcePolicyForRjEvent('TEMPERATURA').primary,
