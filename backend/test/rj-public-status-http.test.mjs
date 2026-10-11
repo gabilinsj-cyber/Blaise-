@@ -38,6 +38,14 @@ function fakeResponse(){
 test('public endpoint projects exactly 92 RJ official risk entries without credentials or premium fields',()=>{
   const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
   assert.equal(result.contract,RJ_PUBLIC_STATUS_CONTRACT);
+  assert.equal(result.fiveSourceHealth.sources.length,5);
+  assert.deepEqual(result.fiveSourceHealth.sources.map(x=>x.id),
+    ['alerta-rio','defesa-civil','inmet','inpe-cptec','windy']);
+  assert.equal(result.fiveSourceHealth.sources[2].status,'CURRENT_PRODUCT_ONLY');
+  assert.equal(result.fiveSourceHealth.sources[2].product,'AVISOS_CAP');
+  assert.equal(result.fiveSourceHealth.sources[3].status,'NOT_CONNECTED');
+  assert.equal(result.fiveSourceHealth.sources[4].status,'NOT_CONNECTED');
+  assert.equal(result.fiveSourceHealth.weatherRadarSpatialFramesConfirmed,false);
   assert.equal(result.municipalities.length,92);
   assert.equal(result.municipalities.find(c=>c.ibge==='3304557').risk.level,4);
   assert.equal(result.municipalities.find(c=>c.ibge==='3303302').warningIds.length,0);

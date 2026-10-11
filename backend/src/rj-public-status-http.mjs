@@ -1,4 +1,5 @@
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
+import { buildRjFiveSourceHealth } from './rj-five-source-health.mjs';
 
 export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
@@ -54,6 +55,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     sources:Object.freeze(sourceSummaries),
+    fiveSourceHealth:buildRjFiveSourceHealth(worker,{nowMillis}),
     thirdPartyImagesIncluded:false,
     subscriberDataIncluded:false,
     coverageNote:'Only specifically attributed and recent official records; absence of warning never means safety.',

@@ -18,9 +18,10 @@ concurrency:
 
 jobs:
   emulator-review:
-    # Run only for the isolated RJ interface PR; do not spend emulator minutes
-    # on unrelated subscription, store-release, or backend pull requests.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010'
+    # The old reference-dashboard branch was merged and deleted. Run on ANY
+    # PR touching the RJ Android app (paths filter above), not a stale branch.
+    # No store release, hardware voice or Play purchase can be validated here.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
