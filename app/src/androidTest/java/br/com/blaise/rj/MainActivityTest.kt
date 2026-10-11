@@ -144,6 +144,8 @@ class MainActivityTest {
         assertTextDisplayed("BLAISE-RJ-METEO-HOMOLOG-01")
         rule.onNodeWithTag("rj-meteo-homologation-status").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-extra-MONITORAR_RIO_SMAC").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-extra-MONITORA_RJ_SES").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-source-TEMPERATURA").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-source-RAIOS").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
