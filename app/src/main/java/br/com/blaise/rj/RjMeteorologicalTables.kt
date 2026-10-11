@@ -18,12 +18,41 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+data class RjMeteoConsultationRow(
+    val number: Int,
+    val phenomenon: String,
+    val validation: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-11.v1"
+    const val VERSION = "2026-10-11.v2"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
+
+    const val OPENWEATHER_URL = "https://openweathermap.org/"
+    const val THIRD_CONSULTATION = "OpenWeatherMap (comparação complementar; API e autorização pendentes)"
+    const val PRIMARY_JOINT = "Alerta Rio (cidade Rio) + Defesa Civil RJ (conforme produto e município)"
+
+    // Os 10 itens abaixo formam a nova faixa de consulta meteorológica da Tabela 1;
+    // não alteram a classificação/ordem do catálogo técnico original de 25 fenômenos.
+    val topTen = listOf(
+        RjMeteoConsultationRow(1, "Temperatura", "Diferenciar estação medida de modelo/previsão"),
+        RjMeteoConsultationRow(2, "Sensação térmica", "Comparar índice e cálculo Blaise com entradas válidas"),
+        RjMeteoConsultationRow(3, "Chuva atual", "Somente produto de chuva e período disponíveis, sem inferir zero"),
+        RjMeteoConsultationRow(4, "Chuva acumulada", "Comparar apenas acumulados com janelas iguais"),
+        RjMeteoConsultationRow(5, "Chuva intensa e temporais", "Avisos oficiais prevalecem sobre estimativas"),
+        RjMeteoConsultationRow(6, "Vento sustentado", "Identificar unidade, altura e período médio"),
+        RjMeteoConsultationRow(7, "Rajadas fortes", "Não confundir rajada máxima com vento sustentado"),
+        RjMeteoConsultationRow(8, "Pressão atmosférica", "Mesma unidade e referência altimétrica"),
+        RjMeteoConsultationRow(9, "Umidade relativa", "Comparação no mesmo município e horário"),
+        RjMeteoConsultationRow(10, "Granizo", "A API não confirma sozinha ocorrência de granizo"),
+    )
+    private val openWeatherPhenomena = setOf(
+        "TEMPERATURA", "SENSACAO_TERMICA", "CHUVA_ACUMULADA", "TEMPORAL", "TEMPESTADE",
+        "VENTO", "RAJADA", "PRESSAO_ATMOSFERICA", "UMIDADE", "GRANIZO",
+    )
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
@@ -53,7 +82,11 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "Marinha/CHM + NOAA + autoridades brasileiras; USGS para origem sísmica"),
         RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "INMET → INPE → Windy; Alerta Rio apenas se produto compatível"),
         RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "NOAA/GOES GLM + rede terrestre autorizada → Defesa Civil"),
-    )
+    ).map { row ->
+        if (row.code in openWeatherPhenomena)
+            row.copy(priority = row.priority + "; 3ª consulta complementar: OpenWeatherMap (não é alerta oficial)")
+        else row
+    }
     val table2 = listOf(
         RjMeteoDisputeRow("01", "Primeiras fontes", "Alerta Rio somente na cidade do Rio, depois Defesa Civil regional e INMET; selecionar por fenômeno e local."),
         RjMeteoDisputeRow("02", "Duas medições compatíveis", "Usar duas estações oficiais independentes; ponderação apenas com pesos, janela e unidade comprovados."),
@@ -67,6 +100,7 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == 25 && table1.map { it.code }.distinct().size == 25)
         require(table2.size == 8)
+        require(topTen.map { it.number } == (1..10).toList())
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }
