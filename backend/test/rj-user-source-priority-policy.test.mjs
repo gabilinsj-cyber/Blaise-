@@ -25,3 +25,13 @@ test('routing exposes policy without claiming live integration',()=>{
   assert.ok(tsunami.sources.some(s=>s.id==='NOAA'));
   assert.ok(tsunami.sources.some(s=>s.id==='MARINHA_CHM'));
 });
+
+test('Monitora SES and municipal MonitorAr are distinct, not assumed live',()=>{
+  const rio=rjSourceRouting({ibge:'3304557',phenomenon:'EXCESSO_CALOR_SAUDE'});
+  assert.ok(rio.sources.some(s=>s.id==='MONITORA_RJ_SES'));
+  assert.ok(rio.sources.some(s=>s.id==='MONITORAR_RIO_SMAC'));
+  assert.equal(rio.liveData,'NOT_CONFIRMED');
+  const niteroi=rjSourceRouting({ibge:'3303302',phenomenon:'EXCESSO_CALOR_SAUDE'});
+  assert.ok(niteroi.sources.some(s=>s.id==='MONITORA_RJ_SES'));
+  assert.ok(!niteroi.sources.some(s=>s.id==='MONITORAR_RIO_SMAC'));
+});
