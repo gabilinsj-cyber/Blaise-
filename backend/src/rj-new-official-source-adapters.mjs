@@ -8,20 +8,23 @@ const CATALOG = Object.freeze({
     authority:'Secretaria de Estado de Saude do RJ',
     homepage:'https://monitorar.saude.rj.gov.br/',
     scope:'RJ_MUNICIPAL',kind:'HEAT_HEALTH_RISK',maxAgeMillis:6*60*60*1000,
+    approvedHosts:Object.freeze(['monitorar.saude.rj.gov.br']),
   }),
   MONITORAR_RIO_SMAC: Object.freeze({
     authority:'Secretaria Municipal do Ambiente e Clima do Rio',
     homepage:'https://ambienteclima.prefeitura.rio/monitorar-2026-dados/',
     scope:'RIO_CITY_STATIONS',kind:'AIR_QUALITY_OR_METEOROLOGY',maxAgeMillis:3*60*60*1000,
+    approvedHosts:Object.freeze(['ambienteclima.prefeitura.rio']),
   }),
 });
 export const RJ_NEW_OFFICIAL_SOURCES = CATALOG;
 const unavailable=(id,reason)=>Object.freeze({sourceId:id,state:'UNAVAILABLE',reason,observations:Object.freeze([])});
 const isObject=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
-function allowedEndpoint(value) {
+function allowedEndpoint(value,source) {
   if(typeof value!=='string')return false;
   try {const u=new URL(value);
     return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&
+      source.approvedHosts.includes(u.hostname.toLowerCase())&&
       !/^(localhost|.*\.localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.|::1)/i.test(u.hostname);
   }catch{return false;}
 }
@@ -32,12 +35,12 @@ export function validateRjOfficialProduct(id,payload,{nowMillis=Date.now()}={}) 
     return unavailable(id,'INVALID_CONTRACT');
   const accepted=[];
   for(const item of payload.observations) {
-    if(!isObject(item)||item.sourceId!==id||!allowedEndpoint(item.sourceUrl)||
+    if(!isObject(item)||item.sourceId!==id||!allowedEndpoint(item.sourceUrl,source)||
       typeof item.observedAt!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(item.observedAt))
       continue;
     const timestamp=Date.parse(item.observedAt);
     if(!Number.isFinite(timestamp)||timestamp>nowMillis+5*60*1000||
-      nowMillis-timestamp>source.maxAgeMillis)continue;
+      nowMillis-timestamp>source.maxAgeMillis||!/^33\\d{5}$/.test(String(item.ibge)))continue;
     if(id==='MONITORA_RJ_SES') {
       if(!/^33\d{5}$/.test(String(item.ibge))||typeof item.riskLabel!=='string'||
         item.riskLabel.length<1||item.riskLabel.length>80||
@@ -66,7 +69,7 @@ export async function collectRjOfficialProduct(id,{
 }={}) {
   if(!CATALOG[id])throw new TypeError('unknown_rj_official_source');
   if(!licensed)return unavailable(id,'LICENSE_NOT_APPROVED');
-  if(!allowedEndpoint(endpoint))return unavailable(id,'VERIFIED_HTTPS_ENDPOINT_REQUIRED');
+  if(!allowedEndpoint(endpoint,CATALOG[id]))return unavailable(id,'VERIFIED_HTTPS_ENDPOINT_REQUIRED');
   if(typeof fetcher!=='function')return unavailable(id,'FETCHER_NOT_CONFIGURED');
   try {
     const payload=await fetcher(endpoint,{sourceId:id,timeoutMillis:8000});
