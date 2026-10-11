@@ -63,6 +63,14 @@ O **Agente 3 — Blaise Fusion RJ** identifica divergências entre observações
 
 O CPTEC/INPE documenta consultas por localidade em [serviço XML](https://servicos.cptec.inpe.br/XML/), mas sua [página oficial](https://www.cptec.inpe.br/) estabelece restrições de uso comercial de determinados produtos sem autorização expressa. A integração ao app com assinaturas exige verificar licença por produto antes de operar. Código: `backend/src/rj-weather-source-reconciliation.mjs`; testes: `backend/test/rj-weather-source-reconciliation.test.mjs`. **O serviço de ingestão CPTEC em produção ainda não está ativo.**
 
+## Complementos homologados da interface — 11/10/2026
+
+**Consultar [Tabela 1, Tabela 2 e complemento marítimo](BLAISE_V6_RJ_TABELAS_1_2_COMPLEMENTOS_20261011.md).** Preservar a **Tabela 1 dos 25 fenômenos** e a **Tabela 2 dos oito critérios de desempate** já integradas à interface. **Itens 1–10 da Tabela 1:** Alerta Rio + Defesa Civil RJ (P1 conjunta **somente onde houver cobertura de ambos**) e OpenWeatherMap como **terceira fonte de consulta complementar**, inclusive temperatura, sensação, chuva atual/acumulada/temporal, vento, rajadas, pressão, umidade e granizo. OpenWeatherMap não pode emitir avisos oficiais nem substituir medições INMET, previsão INPE ou comparação Windy.
+
+**Quadro marítimo independente:** Marinha do Brasil, NOAA, Copernicus Marine, EUMETSAT e boias autorizadas por fenômeno (ciclones oceânicos, tempestades no Atlântico, ondas/swell, ressaca e tsunami). Tsunami depende de confirmação por autoridades marítimas e sismológicas competentes; não inferir a partir de imagens. Desenhar o mapa Blaise sem reproduzir imagens de terceiros sem licença.
+
+Essas adições são **especificação, UI e testes**, não integrações já ativas. APIs, termos comerciais, horário, georreferenciamento, proteção contra dados republicados e independência entre sensores devem ser validados antes de mostrar valores.
+
 ## Seleção de fontes e cobertura
 
 Referência normativa: `docs/rj-fontes-por-fenomeno-localidade.md`, `backend/src/rj-phenomenon-source-policy.mjs`.
