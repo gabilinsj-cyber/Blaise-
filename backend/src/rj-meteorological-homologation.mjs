@@ -52,7 +52,10 @@ const meta=Object.freeze({
 });
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
-  CHUVA_ATLANTICO:'ATLANTICO',SISMO:'ATLANTICO',TSUNAMI:'ATLANTICO',
+  CHUVA_ATLANTICO:'ATLANTICO',
+  // Keep SISMO and TSUNAMI in municipal routing when presenting the
+  // catalog so Defesa Civil is retained alongside Marinha/NOAA/USGS.
+  // The coverage text still includes the Atlantic risk perimeter.
 });
 
 export const RJ_METEO_TABLE2=Object.freeze([
@@ -130,7 +133,13 @@ export function checkRjSourceProductEvidence({
     state:RJ_METEO_SOURCE_STATUS.NOT_HOMOLOGATED,
     reason,verified:false,mayPublish:false,
   });
-  if(typeof sourceId!=='string'||!sourceId||sourceId.includes('INEA'))
+  const eligibleIds=new Set([
+    'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','CEMADEN_RJ',
+    'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
+    'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
+    'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
+  ]);
+  if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');
   if(typeof productId!=='string'||productId.length<3) return invalid('PRODUCT_NOT_IDENTIFIED');
   if(typeof sourceUrl!=='string'||!sourceUrl.startsWith('https://'))
