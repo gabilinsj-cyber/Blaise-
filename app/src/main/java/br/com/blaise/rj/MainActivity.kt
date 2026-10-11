@@ -2356,9 +2356,18 @@ private fun CityPanel(
     val observation = report?.currentObservation(clock)
     // Prefer the existing direct official station if current; the separate
     // backend feed can fill otherwise missing station METRICS only.
-    val backend = LocalOfficialMunicipalWeather.current[city.ibgeCode].orEmpty()
-    fun live(variable: RjObservedVariable): Double? =
-        backend[variable]?.takeIf { it.current(clock) }?.value
+    val backendRaw = LocalOfficialMunicipalWeather.current[city.ibgeCode].orEmpty()
+    // Do not combine Alerta Rio measurements with a different INMET station
+    // or with a different measurement hour. This is a fallback, not a
+    // scientifically weighted fusion of independent data.
+    val backend = backendRaw.filterValues { incoming ->
+        incoming.current(clock) && (observation == null ||
+            (observation.source == "INMET" &&
+                observation.station.contains(incoming.stationId) &&
+                kotlin.math.abs(java.time.Duration.between(
+                    observation.observedAt,incoming.observedAt).seconds) <= 900))
+    }
+    fun live(variable: RjObservedVariable): Double? = backend[variable]?.value
     val backendTemperature = live(RjObservedVariable.TEMPERATURE)
     val scientificValues = ScientificDashboardPolicy.derive(observation, clock)
     val feelsLike = scientificValues.firstOrNull { it.title == "Sensação térmica" }
