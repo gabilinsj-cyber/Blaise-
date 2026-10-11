@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare pinned offline assets; generated binaries never enter the source repository."""
 import hashlib
+import sys
 import shutil
 import subprocess
 import tarfile
@@ -26,10 +27,15 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def prepare():
+def prepare(*, lite_voice=False):
     CACHE.mkdir(parents=True, exist_ok=True)
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    # Lite DEBUG-only builds keep the pinned native AAR for compile/runtime,
+    # but deliberately do not ship the multi-hundred-MB Kokoro voice model.
+    # Android system TTS serves as an explicitly labeled test fallback.
     for name, (url, expected) in ARTIFACTS.items():
+        if lite_voice and name == "kokoro.tar.bz2":
+            continue
         file = CACHE / name
         if not file.is_file() or digest(file) != expected:
             temporary = file.with_suffix(".part")
@@ -39,6 +45,12 @@ def prepare():
                 raise RuntimeError(f"Hash mismatch: {name}")
             temporary.replace(file)
     destination = OUTPUT / "assets/dora"
+    if lite_voice:
+        # Never accidentally bundle full assets from an earlier full build.
+        shutil.rmtree(destination, ignore_errors=True)
+        shutil.copyfile(CACHE / "sherpa.aar", OUTPUT / "sherpa-onnx-1.13.8.aar")
+        print("LITE_DEBUG_TTS_ASSETS=SKIPPED; FULL_DORA_MODEL=NOT_INCLUDED")
+        return
     marker = destination / "prepared.sha256"
     expected = ARTIFACTS["kokoro.tar.bz2"][1]
     if not marker.is_file() or marker.read_text() != expected:
@@ -78,4 +90,6 @@ def prepare():
 
 
 if __name__ == "__main__":
-    prepare()
+    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] != "--lite"):
+        raise SystemExit("Usage: prepare-dora-voice.py [--lite]")
+    prepare(lite_voice=len(sys.argv)==2)
