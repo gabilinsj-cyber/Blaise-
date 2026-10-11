@@ -18,7 +18,7 @@ const OFFICIAL_OBSERVERS = new Set([
   'INMET','INMET_STATION','ALERTA_RIO','CEMADEN','CEMADEN_RJ',
   'DEFESA_CIVIL','DEFESA_CIVIL_RJ_REGIONAL','MARINHA_CHM',
 ]);
-const FORECAST_PROVIDERS = new Set(['INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']);
+const FORECAST_PROVIDERS = new Set(['OPENWEATHER_ESTIMATE','INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']);
 const THRESHOLDS = Object.freeze({
   TEMPERATURA_C: {unit:'°C',maxDifference:2.0,minimum:-30,maximum:60},
   VENTO_KMH: {unit:'km/h',maxDifference:12,minimum:0,maximum:400},
@@ -55,7 +55,8 @@ function validatedObserved(observations,{ibge,variable,now}) {
 function validatedForecast(forecasts,{ibge,variable,now}) {
   const spec=THRESHOLDS[variable];
   return forecasts.filter(f=>f&&FORECAST_PROVIDERS.has(f.sourceId)
-    &&f.kind==='MODEL_FORECAST'&&String(f.ibge)===String(ibge)
+    &&(f.kind==='MODEL_FORECAST' || (f.kind==='THIRD_PARTY_CURRENT_ESTIMATE'&&f.sourceId==='OPENWEATHER_ESTIMATE'))
+    &&String(f.ibge)===String(ibge)
     &&f.variable===variable&&f.unit===spec.unit
     &&numeric(f.value,spec.minimum,spec.maximum)
     &&fresh(f.issuedAt,now,24*3_600_000)
@@ -250,11 +251,14 @@ export function assessRjMeteorologicalDisagreement({
   const fc=validatedForecast(forecasts,{ibge,variable,now});
   const inpe=fc.filter(f=>f.sourceId==='INPE_CPTEC_FORECAST');
   const windy=fc.filter(f=>f.sourceId==='WINDY_MODELO');
+  const openweather=fc.filter(f=>f.sourceId==='OPENWEATHER_ESTIMATE');
   const threshold=THRESHOLDS[variable];
   const forecastAdvice=Object.freeze({
     inpeAvailable:inpe.length>0,
     inpeConsultation:'INDEPENDENT_FORECAST_CONTEXT_NOT_AN_OBSERVATION',
     windyAvailable:windy.length>0,
+    openWeatherAvailable:openweather.length>0,
+    openWeatherPolicy:'THIRD_PARTY_AGGREGATE_FOR_CONTEXT_ONLY_NOT_STATION_INDEPENDENCE',
     windyConsultation:'SUPPLEMENTARY_MODEL_DISPUTE_REVIEW_NOT_AN_OFFICIAL_TIE_BREAK',
     availableForecastSourceIds:Object.freeze([...new Set(fc.map(f=>f.sourceId))]),
   });
@@ -320,6 +324,8 @@ export function weightedComparableForecastMean({forecasts=[],ibge,variable,
   if(!CODES.has(String(ibge))||!Object.hasOwn(THRESHOLDS,variable))return result('INVALID_SCOPE');
   if(!Array.isArray(forecasts)||forecasts.length<2||forecasts.length>12
     ||!numeric(maxValidTimeSkewMs,0,3_600_000))return result('INSUFFICIENT_COMPARABLE_FORECASTS');
+  if(forecasts.some(f=>f?.sourceId==='OPENWEATHER_ESTIMATE'))
+    return result('AGGREGATED_THIRD_PARTY_DATA_NOT_INDEPENDENT_FORECAST_FOR_WEIGHTING');
   const group=validatedForecast(forecasts,{ibge,variable,now});
   if(group.length!==forecasts.length) return result('MODEL_INPUT_NOT_VALIDATED');
   if(new Set(group.map(f=>f.sourceId)).size!==group.length)return result('DUPLICATE_PROVIDER_OR_CORRELATED_PRODUCTS');

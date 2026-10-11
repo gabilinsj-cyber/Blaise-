@@ -1889,12 +1889,12 @@ private fun MoreScreen(
         subtitle = "Prioridade local e origem preservada",
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
-        Text("Cinco fontes meteorológicas por situação: " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" • ") +
-            ". Alerta Rio limitado ao município do Rio; INMET é medição por estação, " +
-            "CPTEC/INPE oferece previsões oficiais e Windy compara modelos.",
+        Text("Hierarquia meteorológica RJ por situação: " +
+            FinalDashboardSpec.meteorologicalSourcePriority.joinToString(" • ") +
+            ". Alerta Rio só cobre o município do Rio; OpenWeather é estimativa de terceiro " +
+            "e não conta como medição oficial independente. Modelos não confirmam alertas.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.testTag("five-weather-sources-status"))
+            modifier = Modifier.testTag("weather-source-priority-status"))
         Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
             "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
             "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",

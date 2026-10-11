@@ -36,6 +36,7 @@ const sources = Object.freeze({
   CEMADEN: definition('CEMADEN_RJ', OFFICIAL, 'CONFORME_COBERTURA_MUNICIPIO'),
   INMET: definition('INMET_STATION', OFFICIAL, 'ESTACOES_PRESENTES_NAO_92_GARANTIDOS'),
   INPE: definition('INPE_CPTEC_FORECAST', MODEL, 'FORECAST_MODELS_AND_SATELLITE_PRODUCTS_RJ_AS_APPLICABLE'),
+  OPENWEATHER: definition('OPENWEATHER_ESTIMATE', COMPARE, 'THIRD_PARTY_AGGREGATED_CURRENT_OR_FORECAST_NOT_OFFICIAL_STATION'),
   ANA: definition('ANA_HIDROWEB', OFFICIAL, 'ESTACAO_HIDROLOGICA'),
   SGB: definition('SGB_SACE', OFFICIAL, 'AREA_HIDROLOGICA'),
   MARINHA: definition('MARINHA_CHM', OFFICIAL, 'LITORAL_E_ATLANTICO_CONFORME_AVISO'),
@@ -46,14 +47,14 @@ const sources = Object.freeze({
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
 const ROUTES = Object.freeze({
-  TEMPERATURA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  SENSACAO_TERMICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  UMIDADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  VENTO: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  RAJADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
+  TEMPERATURA: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY']),
+  SENSACAO_TERMICA: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY']),
+  UMIDADE: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY']),
+  VENTO: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY']),
+  RAJADA: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY']),
+  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY','CEMADEN']),
+  TEMPORAL: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY','CEMADEN']),
+  TEMPESTADE: series(['DEFESA_CIVIL','OPENWEATHER','INMET','INPE','NOAA','WINDY','CEMADEN']),
   RISCO_HIDROLOGICO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   VAZAO_RIO: series(['ANA','SGB']),
   RESSACA: series(['MARINHA','INMET','NOAA','INPE','WINDY']),
@@ -80,7 +81,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   }
   const rioCity = String(ibge) === RJ_CITY_IBGE;
   const keys = ROUTES[phenomenon];
-  const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA'].includes(phenomenon)
+  const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','UMIDADE'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
@@ -98,7 +99,8 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     locationMatching: 'VALIDATE_IBGE_STATION_COORDINATES_AND_SOURCE_COVERAGE',
     crossBorderDataPolicy: 'OUTSIDE_RJ_ONLY_AS_EXPLICITLY_LABELED_REGIONAL_CONTEXT_NOT_RJ_OBSERVATION',
     liveData: 'NOT_CONFIRMED',
-    disputePolicy: 'OBSERVATIONS_ALERARIO_DEFESACIVIL_INMET_THEN_INPE_THEN_WINDY_MODEL_REVIEW',
+    disputePolicy: 'ALERTA_RIO_DEFESA_CIVIL_OPENWEATHER_THIRD_PARTY_INMET_INPE_NOAA_WINDY_NO_FALSE_OBSERVATIONS',
+    openWeatherPolicy: 'THIRD_SOURCE_CONTEXT_ONLY_NOT_OFFICIAL_STATION_OR_ALERT_AUTHORITY',
     minimumIndependentCompatibleSources: 2,
     fallthroughOnDisagreement: true,
     useWeightedMeanOnlyWhenComparable: true,

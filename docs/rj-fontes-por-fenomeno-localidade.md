@@ -1,6 +1,31 @@
 # Blaise V6 RJ — matriz de fontes por fenômeno e localidade
 
+> **Referência vigente em 11/10/2026:** [MATRIZ COMPLETA DE 25 FENÔMENOS + OPENWEATHER 3ª CONSULTA + DESEMPATE](RJ_MATRIZ_25_FENOMENOS_OPENWEATHER_20261011.md).
+> Qualquer sequência antiga de cinco fontes presente abaixo tem valor **histórico**, substituída pela regra atual: Alerta Rio (onde cobre) → Defesa Civil → **OpenWeatherMap** → INMET para novas medições oficiais → INPE/CPTEC, NOAA e Windy conforme o fenômeno.
+> OpenWeatherMap é estimativa agregada de terceiros e não é automaticamente a segunda estação independente.
+
+
 **Regra do projeto (10/10/2026).** Escopo exclusivo do estado do Rio de Janeiro, seus 92 municípios, litoral adjacente e fenômenos do Atlântico capazes de afetar o RJ. **INEA retirado**, inclusive de coletores opcionais e de sondagens operacionais. Esta matriz é uma especificação de roteamento; **não atesta que todas as integrações já estejam operantes**.
+
+## Atualização da hierarquia municipal — OpenWeatherMap (11/10/2026)
+
+Para temperatura, sensação térmica, umidade, vento, rajadas e chuva municipal, a **ordem de tentativa de consulta** passa a ser:
+
+| Ordem | Fonte | Natureza | Cobertura e regra |
+| --- | --- | --- | --- |
+| 1 | Alerta Rio | Medição/aviso oficial, por produto | **Só município do Rio**; não divulgar como rede dos 92 municípios |
+| 2 | Defesa Civil RJ municipal/regional | Informação/aviso oficial, conforme produto | Validar a competência, coordenadas, horário e originalidade do dado |
+| 3 | **OpenWeatherMap** | **Estimativa agregada de terceiros, NÃO observação oficial independente** | Consultar por coordenada validada, autorização contratual, limite de API e chave no backend; não usar para emitir alerta |
+| 4 | INMET | Estações/avisos oficiais | Verificar se há estação local e horário apropriado |
+| 5 | INPE/CPTEC | Previsões e produtos oficiais meteorológicos | Primeira comparação complementar com produtos INPE cuja licença seja válida |
+| 6 | NOAA | Modelos/análises regionais | Conforme fenômeno, produto, validade e cobertura geográfica |
+| 7 | Windy | Comparação de modelos de terceiros | Último recurso comparativo, com origem/licença do modelo explícitas |
+
+**Dois dados compatíveis são suficientes quando seu tipo e sua independência são verificáveis.** Uma estimativa agregada do OpenWeather pode ajudar a analisar a proximidade das leituras, mas **NÃO constitui uma segunda estação oficial** e pode reutilizar dados de estações já consultadas. Portanto, não soma independência observacional com Alerta Rio, Defesa Civil ou INMET sem prova específica de proveniência distinta. Em caso de conflito, procurar uma segunda observação válida; medição pontual oficial e estimativa de modelo são apresentadas **separadamente e rotuladas**. Preservar horário e fontes divergentes, nunca esconder conflito por média.
+
+Não misturar chuva prevista com acumulado de pluviômetro, nem sensação térmica derivada com temperatura do ar, nem aviso de temporal com números contínuos. Mar/Atlântico, rios, sismo, ressaca e tsunami mantêm suas fontes especializadas **Marinha, ANA, SGB, CEMADEN, USGS e NOAA** e não passam a depender do OpenWeather.
+
+**Segurança e ativação:** o adaptador `backend/src/openweather-rj-source.mjs` está **desligado por padrão**, requer permissões/termos confirmados, georreferenciamento RJ e `OPENWEATHER_API_KEY` em **Secret Manager ou segredo de runtime do backend**, nunca em código, APK, mensagem ou logs. A senha e a chave divulgadas na conversa devem ser **revogadas/substituídas** antes de ativar. Caching de 10–30 min para evitar uso excessivo, revisão de licença, atribuição obrigatória e limites por plano. **A existência de código de adaptador não prova conexão de rede, cobertura para 92 municípios, disponibilidade comercial nem dados ao vivo.** Consulta de assinatura e alertas P0 continuam separadas.
 
 ## Cartografia e imagens: mapa próprio Blaise
 
@@ -8,7 +33,7 @@ A interface **renderiza seu próprio mapa** com código Android/Canvas do Blaise
 
 **Dados de fonte ≠ imagem de fonte.** Dados observados (chuva por estação, temperatura, vento, rajada, avisos, etc.) podem ser representados graficamente de modo original pelo Blaise, respeitando origem, unidade, data, coordenadas, cobertura e condições de uso dos dados. Não precisamos copiar imagens ou o mapa dos provedores. A utilização comercial de *cada base de dados*, inclusive redistribuição por API/produto, continua sujeita a sua licença/termos específicos, diferentemente da geometria CC0 usada como fundo.
 
-A matriz meteorológica principal tem **cinco fontes**, selecionadas conforme a situação: **Alerta Rio** (somente município do Rio), **Defesa Civil regional**, **INMET** (estações de observação e avisos), **Windy** (comparação de modelos, não medição oficial) e **INPE/CPTEC** (previsões, monitoramento e produtos meteorológicos oficiais conforme cobertura, não estação INMET). CEMADEN, ANA, SGB/SACE, Marinha, NOAA e USGS seguem como fontes adicionais por categoria; o nome de uma fonte na lista não afirma que sua API, dados ou licença foram confirmados. O contrato `backend/src/rj-own-map-observations.mjs` somente prepara **pontos de estação oficiais recentes georreferenciados**, exigindo autorização de apresentação verificada. Não gera mapa de radar, chuva interpolada, imagens copiadas ou média municipal fictícia.
+A matriz meteorológica municipal foi atualizada para **sete prioridades de consulta** descritas acima. Na política anterior havia cinco fontes, selecionadas conforme a situação: **Alerta Rio** (somente município do Rio), **Defesa Civil regional**, **INMET** (estações de observação e avisos), **Windy** (comparação de modelos, não medição oficial) e **INPE/CPTEC** (previsões, monitoramento e produtos meteorológicos oficiais conforme cobertura, não estação INMET). CEMADEN, ANA, SGB/SACE, Marinha, NOAA e USGS seguem como fontes adicionais por categoria; o nome de uma fonte na lista não afirma que sua API, dados ou licença foram confirmados. O contrato `backend/src/rj-own-map-observations.mjs` somente prepara **pontos de estação oficiais recentes georreferenciados**, exigindo autorização de apresentação verificada. Não gera mapa de radar, chuva interpolada, imagens copiadas ou média municipal fictícia.
 
 Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializados reais* (por exemplo, células/grade de radar ou satélite com resolução, hora, refletividade/intensidade e georreferenciamento) devidamente autorizados; quatro leituras pontuais **não permitem deduzir esses pixels**. Até existir a entrada, a camada permanece indisponível.
 
