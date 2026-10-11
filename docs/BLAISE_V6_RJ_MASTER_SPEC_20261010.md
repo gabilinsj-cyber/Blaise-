@@ -55,6 +55,14 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 
 **Classificação obrigatória das saídas:** `MEDICAO_OFICIAL`, `CALCULO_EXPERIMENTAL_BLAISE` ou `INFORMACAO_INDISPONIVEL`. Cálculo jamais substitui fonte oficial e **não aciona alerta P0** por si só.
 
+## Nova prioridade municipal — OpenWeatherMap terceiro (11/10/2026)
+
+**Aplicável apenas a produtos municipais compatíveis de temperatura, sensação térmica, umidade, vento, rajada e chuva:** **1 Alerta Rio (apenas cidade do Rio) → 2 Defesa Civil competente → 3 OpenWeatherMap → 4 INMET → 5 INPE/CPTEC → 6 NOAA → 7 Windy**. Se uma fonte não possuir produto compatível ou cobertura do município, prosseguir para a próxima sem inventar dados.
+
+**Duas medições oficiais independentes e comparáveis** bastam para derivar uma média ponderada científica com pesos auditáveis. **OpenWeatherMap não é uma estação oficial**: trata-se de estimativa/agregação de terceiros, potencialmente derivada de fontes já consultadas. Seu dado pode constar em uma comparação visual, mas não confirmar automaticamente a autenticidade de um sensor nem ser misturado como segunda medição oficial. Se um dado oficial diverge de OpenWeather, consultar também **INMET** e outras medições autorizadas. Previsão INPE/NOAA/Windy continua separada de medição observada.
+
+O novo `backend/src/openweather-rj-source.mjs` é integração opt-in, com georreferenciamento e data/hora, limites de cache, chave **somente no backend via segredo de runtime**, sem segredo no Android ou repositório. **Não executar com a chave/senha publicadas na conversa: rotacionar primeiro, confirmar plano/termos e habilitar somente após validação técnica.** Não foi conectado ao ambiente Cloud Run de produção; não houve compra, publicação ou alteração de alertas.
+
 ## Cinco fontes meteorológicas situacionais e conferência por INPE/CPTEC
 
 **Cinco fontes principais por situação:** **Alerta Rio** (exclusivamente município do Rio), **Defesa Civil regional**, **INMET** (avisos e medições de estações), **Windy** (visualização/comparação de modelos) e **INPE/CPTEC** (produtos meteorológicos oficiais de previsão e satélite). As demais fontes especializadas ANA, CEMADEN, SGB/SACE, Marinha, NOAA e USGS permanecem conforme fenômeno e competência. INEA continua excluído.
