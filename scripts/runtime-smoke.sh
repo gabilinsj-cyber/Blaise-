@@ -58,11 +58,29 @@ cat "$OUT_DIR/p0-broadcast.txt"
 grep -q "Broadcast completed: result=-1" "$OUT_DIR/p0-broadcast.txt"
 sleep 1
 
-adb_capture_retry "$OUT_DIR/notifications.txt" \
-  adb shell dumpsys notification --noredact
-grep -q "$PKG" "$OUT_DIR/notifications.txt"
-grep -q "blaise_p0" "$OUT_DIR/notifications.txt"
-grep -q "$P0_TITLE" "$OUT_DIR/notifications.txt"
+# The debug receiver does NOT request automatic sound. AlertNotifier
+# deliberately selects the visible *silent* channel by default, even for a
+# P0 notification, until audio has been separately authorized by policy.
+# Checking for "blaise_p0" here was a false failure of the runtime gate.
+EXPECTED_P0_CHANNEL="blaise_official_visible_silent_v1"
+notification_verified=0
+for attempt in 1 2 3 4 5; do
+  adb_capture_retry "$OUT_DIR/notifications.txt" \
+    adb shell dumpsys notification --noredact
+  if grep -Fq "$PKG" "$OUT_DIR/notifications.txt" \
+    && grep -Fq "$EXPECTED_P0_CHANNEL" "$OUT_DIR/notifications.txt" \
+    && grep -Fq "$P0_TITLE" "$OUT_DIR/notifications.txt"; then
+    notification_verified=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$notification_verified" -ne 1 ]]; then
+  printf 'Runtime P0 notification verification failed after 5 attempts. Expected package=%s, channel=%s, title=%s.\\n' \
+    "$PKG" "$EXPECTED_P0_CHANNEL" "$P0_TITLE" >&2
+  exit 1
+fi
+printf 'p0_visible_silent_notification=PASS channel=%s\\n' "$EXPECTED_P0_CHANNEL" > "$OUT_DIR/p0-notification-gate.txt"
 
 adb_capture_retry "$OUT_DIR/activity-dumpsys.txt" \
   adb shell dumpsys activity activities
