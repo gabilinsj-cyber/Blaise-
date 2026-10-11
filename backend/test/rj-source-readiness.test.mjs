@@ -75,6 +75,35 @@ test('read-only internal endpoint refuses anonymous users, no OIDC verifier and 
   await disabled({method:'GET',url:RJ_SOURCE_READINESS_PATH,headers:{}},res);
   assert.equal(res.statusCode,503);
 });
+test('OIDC-gated evidence reports science job count and adaptive level without exposing source payloads',async()=>{
+  let runtimeReads=0;
+  const fn=createRjSourceReadinessHandler(()=>{},{
+    worker:{status:()=>status()},
+    verifyOperatorOidc:async token=>token==='Bearer trusted',
+    clock:()=>NOW,
+    readScienceRuntime:()=>{
+      runtimeReads++;
+      return {cadenceMode:'severe',sourceDrivenScale:5,
+        verifiedStationScientificJobCount:3,
+        lastSourceValidationAt:'2026-10-11T03:59:00.000Z'};
+    },
+  });
+  let res=response();
+  await fn({method:'GET',url:RJ_SOURCE_READINESS_PATH,headers:{}},res);
+  assert.equal(res.statusCode,403);
+  assert.equal(runtimeReads,0);
+  res=response();
+  await fn({method:'GET',url:RJ_SOURCE_READINESS_PATH,
+    headers:{authorization:'Bearer trusted'}},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.scientificRuntime.cadenceMode,'severe');
+  assert.equal(res.body.scientificRuntime.sourceDrivenScale,5);
+  assert.equal(res.body.scientificRuntime.verifiedStationScientificJobCount,3);
+  assert.equal(res.body.scientificRuntime.level5AudioAuthorized,false);
+  assert.equal(res.body.scientificRuntime.modelOnlyAlertsAuthorized,false);
+  assert.equal(runtimeReads,1);
+  assert.equal(JSON.stringify(res.body).includes('purchaseToken'),false);
+});
 test('authorized endpoint still reports unhealthy with 503 when disabled',async()=>{
   const fn=createRjSourceReadinessHandler(()=>{},{
     worker:{status:()=>status({enabled:false,started:false})},
