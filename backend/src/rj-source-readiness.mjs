@@ -5,6 +5,13 @@
  * Only the live worker's scheduler and redacted cache metadata count as
  * evidence; a configured flag or successful CI test never proves ingestion.
  */
+import {
+  RJ_METEO_HOMOLOGATION_ID,
+  RJ_METEO_HOMOLOGATION_VERSION,
+  RJ_METEO_TABLE2,
+  buildRjMeteorologicalHomologationTables,
+} from './rj-meteorological-homologation.mjs';
+
 export const RJ_SOURCE_READINESS_PATH = '/v1/internal/rj-sources/readiness';
 export const RJ_SOURCE_READINESS_CONTRACT = 'BLAISE_RJ_SOURCE_LIVE_READINESS_V1';
 const STATES = new Set(['CURRENT','CURRENT_DEGRADED']);
@@ -72,6 +79,16 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
     windyLicensedModelApiReady:false,
     continuousUptimeProven:false, // require external Cloud Run/Cloud Monitoring SLO
     sourceLicensingProven:false, // source-product authorization is separate
+    homologationRegister:Object.freeze({
+      id:RJ_METEO_HOMOLOGATION_ID,
+      version:RJ_METEO_HOMOLOGATION_VERSION,
+      registeredPhenomena:buildRjMeteorologicalHomologationTables().table1.length,
+      documentedDisputeStages:RJ_METEO_TABLE2.length,
+      sourceProductsVerifiedForCommercialUse:false,
+      allTwentyFivePhenomenaLive:false,
+      type:'CATALOG_PLUS_READ_ONLY_SOURCE_STATUS_NOT_PRODUCTION_LICENSE',
+      liveSourceTasksWithRecentData:sourceFresh.length,
+    }),
     thirdPartyDataIncluded:false,
     purchaseTokenIncluded:false,
   });
