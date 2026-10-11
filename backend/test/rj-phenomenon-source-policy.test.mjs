@@ -64,6 +64,38 @@ test('five situational main channels include separate INMET/INPE identities and 
   assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'VAZAO_RIO'}).sources.some(s=>s.id==='INPE_CPTEC_FORECAST'),false);
 });
 
+test('OpenWeather is third weather consultation after Alerta Rio and Defensa Civil, before INMET and models', () => {
+  for(const phenomenon of [
+    'TEMPERATURA','SENSACAO_TERMICA','UMIDADE','VENTO','RAJADA',
+    'CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE',
+  ]) {
+    const city=rjSourceRouting({ibge:'3304557',phenomenon});
+    const names=city.sources.map(x=>x.id);
+    assert.deepEqual(names.slice(0,4),[
+      'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHER_ESTIMATE','INMET_STATION',
+    ]);
+    assert.ok(names.indexOf('INMET_STATION')<names.indexOf('INPE_CPTEC_FORECAST'));
+    assert.ok(names.indexOf('INPE_CPTEC_FORECAST')<names.indexOf('NOAA'));
+    assert.ok(names.indexOf('NOAA')<names.indexOf('WINDY_MODELO'));
+    assert.equal(city.sources.find(x=>x.id==='OPENWEATHER_ESTIMATE').role,
+      RJ_SOURCE_CLASS.COMPARISON);
+    assert.equal(city.sources.find(x=>x.id==='OPENWEATHER_ESTIMATE').automaticAlertAuthority,false);
+    const other=rjSourceRouting({ibge:'3303302',phenomenon});
+    assert.deepEqual(other.sources.slice(0,3).map(x=>x.id),[
+      'DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHER_ESTIMATE','INMET_STATION',
+    ]);
+    assert.equal(other.sources.some(x=>x.id==='ALERTA_RIO'),false);
+  }
+});
+test('OpenWeather is excluded from authoritative hydro, tsunami, ocean and earthquake sources',()=>{
+  for(const phenomenon of ['VAZAO_RIO','RISCO_HIDROLOGICO','TSUNAMI','SISMO','RESSACA','ONDAS']){
+    const scope=phenomenon==='RESSACA'||phenomenon==='ONDAS'
+      ? {region:'ATLANTICO',phenomenon}
+      : {ibge:'3304557',phenomenon};
+    assert.equal(rjSourceRouting(scope).sources.some(x=>x.id==='OPENWEATHER_ESTIMATE'),false);
+  }
+});
+
 test('river streamflow, flood and alert authorities never gain fake Windy flow measurements', () => {
   const vazao = rjSourceRouting({ ibge: '3303302', phenomenon: 'VAZAO_RIO' });
   assert.equal(vazao.sources[0].id, 'ANA_HIDROWEB');
