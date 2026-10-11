@@ -397,19 +397,19 @@ private fun RjSourcePriorityNotice() {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(
-            "Fontes prioritárias RJ: Alerta Rio + Defesa Civil RJ",
+            "28 categorias RJ: fontes oficiais, riscos meteorológicos e saúde",
             color = Gold,
         )
         Text(
-            "Conferência: INMET → INPE/CPTEC → NOAA, conforme fenômeno e cobertura.",
+            "Monitora RJ/SES: excesso de calor e risco à saúde; INMET como referência relacionada.",
             color = Color.White,
         )
         Text(
-            "Tsunami: NOAA + Marinha + autoridades brasileiras. Raios: NOAA/GLM e redes autorizadas.",
+            "MonitorAr-Rio: qualidade do ar e estações municipais. Tsunami: NOAA + Marinha + autoridades brasileiras.",
             color = Color.White,
         )
         Text(
-            "Prioridades configuradas; disponibilidade de dados depende de coleta oficial validada.",
+            "Desempate por fenômeno, origem e horário; fontes cadastradas não significam dados ao vivo.",
             color = Gold,
         )
     }
