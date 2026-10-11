@@ -41,10 +41,40 @@ data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
     val warningIds: List<String>, val warningCoverage: String,
 )
+
+/** Provider-scoped runtime evidence, not a claim of 92 live thermometers. */
+data class PublicRjSourceReading(
+    val id: String, val label: String, val product: String?,
+    val kind: String, val coverage: String, val status: String,
+    val observedAt: Instant?,
+) {
+    init {
+        require(id in setOf("alerta-rio", "defesa-civil", "inmet", "inpe-cptec", "windy"))
+        require(label.length in 2..60 && kind.length in 4..80 && coverage.length in 4..90)
+        require(product == null || product.length in 3..80)
+        require(status in setOf("CURRENT_PRODUCT_ONLY", "STALE_OR_UNVERIFIED", "NOT_CONNECTED"))
+        if (id in setOf("inpe-cptec", "windy")) {
+            require(status == "NOT_CONNECTED" && product == null)
+        }
+    }
+}
+
+data class PublicRjFiveSourceHealth(
+    val generatedAt: Instant, val sources: List<PublicRjSourceReading>,
+    val workerRunning: Boolean,
+) {
+    init {
+        require(sources.map { it.id } ==
+            listOf("alerta-rio", "defesa-civil", "inmet", "inpe-cptec", "windy"))
+    }
+    fun current(now: Instant) = !generatedAt.isAfter(now) &&
+        Duration.between(generatedAt, now).seconds in 0..120
+}
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
     val warnings: List<PublicRjWarning>,
+    val fiveSourceHealth: PublicRjFiveSourceHealth? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -107,7 +137,33 @@ object PublicRjStatusParser {
                 (0 until codes.length()).map { codes.getString(it).toInt() },
                 item.getString("sourceUrl"))
         }
-        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings)
+        val health = root.optJSONObject("fiveSourceHealth")?.let { envelope ->
+            require(envelope.getString("contract") == "BLAISE_RJ_FIVE_SOURCE_HEALTH_V1")
+            require(envelope.getString("scope") == "RJ_92_MUNICIPALITIES_BY_VERIFIED_COVERAGE")
+            require(!envelope.getBoolean("fiveSimultaneousLiveFeedsConfirmed"))
+            require(!envelope.getBoolean("weatherRadarSpatialFramesConfirmed"))
+            require(envelope.getBoolean("noSubstitutedStateMeasurements"))
+            val rows = envelope.getJSONArray("sources")
+            require(rows.length() == 5)
+            val values = (0 until rows.length()).map { index ->
+                val item = rows.getJSONObject(index)
+                require(!item.getBoolean("provenRealTimeFor92Cities"))
+                require(!item.getBoolean("temperatureServiceConnected"))
+                require(!item.getBoolean("radarFramesConnected"))
+                PublicRjSourceReading(
+                    item.getString("id"), item.getString("label"),
+                    if (item.isNull("product")) null else item.getString("product"),
+                    item.getString("kind"), item.getString("coverage"),
+                    item.getString("status"),
+                    if (item.isNull("observedAt")) null
+                    else Instant.parse(item.getString("observedAt")),
+                )
+            }
+            PublicRjFiveSourceHealth(
+                Instant.parse(envelope.getString("generatedAt")),
+                values, envelope.getBoolean("workerRunning"))
+        }
+        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings,health)
     }
 }
 
