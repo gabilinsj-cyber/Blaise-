@@ -23,7 +23,8 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       (github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
-       github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011')
+       github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
+       github.event.pull_request.head.ref == 'codex/rj-fullscreen-own-map-20261011')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
