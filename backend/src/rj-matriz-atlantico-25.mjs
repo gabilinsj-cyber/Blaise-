@@ -163,6 +163,7 @@ export function rjAtlanticMatrixRow(number) {
   return RJ_ATLANTIC_MATRIX_25[number-1];
 }
 export function europeanProductUsableForPhenomenon(number, sourceId, evidence={}) {
+  if(!['COPERNICUS_MARINE','EUMETSAT'].includes(sourceId))return false;
   const row=rjAtlanticMatrixRow(number);
   const ref=row.newComplementarySources.find(x=>x.sourceId===sourceId);
   if(!ref||ref.role==='NON_APPLICABLE_DIRECT')return false;
