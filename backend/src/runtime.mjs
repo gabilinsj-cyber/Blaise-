@@ -7,6 +7,8 @@ import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
+import { createRjInmetStationAdapter } from './rj-inmet-observation.mjs';
+import { createRjMeteorologicalService, createRjMeteorologicalHandler } from './rj-meteorological-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -212,7 +214,22 @@ async function main() {
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
     licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
   });
-  const server = http.createServer(createDrainingHandler(publicStatusHandler, readiness));
+  // Live point weather observations do NOT use Play purchase credentials.
+  // Enabling source fetch AND public display requires explicit independent
+  // source-product approval. Never enable by mere billing activation.
+  const weatherTermsApproved = process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true'
+    && process.env.BLAISE_RJ_INMET_STATION_TERMS_APPROVED === 'true';
+  const weatherEnabled = process.env.BLAISE_RJ_METEOROLOGY_ENABLED === 'true';
+  const inmetAdapter = createRjInmetStationAdapter({
+    enabled:weatherEnabled,termsApproved:weatherTermsApproved,
+  });
+  const weatherService = createRjMeteorologicalService({
+    inmetAdapter,
+  });
+  const weatherHandler = createRjMeteorologicalHandler(publicStatusHandler, {
+    service:weatherService,enabled:weatherEnabled,termsApproved:weatherTermsApproved,
+  });
+  const server = http.createServer(createDrainingHandler(weatherHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;

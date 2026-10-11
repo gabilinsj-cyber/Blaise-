@@ -1,0 +1,12 @@
+# Blaise V6 RJ public-only meteorological Cloud Run service.
+# It intentionally contains no entitlement verifier and needs no Play keys.
+# Run from the backend/ build context, after licensing/configuration gates.
+FROM node:24-alpine
+WORKDIR /app/backend
+ENV NODE_ENV=production
+ENV PORT=8080
+COPY --chown=node:node package.json ./
+COPY --chown=node:node src/ ./src/
+USER node
+EXPOSE 8080
+CMD ["node", "src/public-rj-runtime.mjs"]
