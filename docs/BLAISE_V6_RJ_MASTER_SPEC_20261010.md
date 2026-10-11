@@ -57,6 +57,8 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 
 ## Nova prioridade municipal — OpenWeatherMap terceiro (11/10/2026)
 
+**Tabela normativa consolidada mais recente:** [25 fenômenos, prioridades e critério de desempate](RJ_MATRIZ_25_FENOMENOS_OPENWEATHER_20261011.md). Esta versão de 11/10/2026 **substitui** qualquer descrição histórica abaixo que ainda cite INMET como terceira fonte da consulta municipal ou só cinco fontes. **Ordem:** Alerta Rio (Rio) → Defesa Civil local → OpenWeatherMap (terceira consulta, estimativa agregada) → INMET, INPE/CPTEC, NOAA e Windy conforme tipo de produto e capacidade de resolver a divergência.
+
 **Aplicável apenas a produtos municipais compatíveis de temperatura, sensação térmica, umidade, vento, rajada e chuva:** **1 Alerta Rio (apenas cidade do Rio) → 2 Defesa Civil competente → 3 OpenWeatherMap → 4 INMET → 5 INPE/CPTEC → 6 NOAA → 7 Windy**. Se uma fonte não possuir produto compatível ou cobertura do município, prosseguir para a próxima sem inventar dados.
 
 **Duas medições oficiais independentes e comparáveis** bastam para derivar uma média ponderada científica com pesos auditáveis. **OpenWeatherMap não é uma estação oficial**: trata-se de estimativa/agregação de terceiros, potencialmente derivada de fontes já consultadas. Seu dado pode constar em uma comparação visual, mas não confirmar automaticamente a autenticidade de um sensor nem ser misturado como segunda medição oficial. Se um dado oficial diverge de OpenWeather, consultar também **INMET** e outras medições autorizadas. Previsão INPE/NOAA/Windy continua separada de medição observada.
