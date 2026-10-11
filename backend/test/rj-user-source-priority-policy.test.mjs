@@ -9,10 +9,26 @@ test('all 28 approved RJ phenomena have independent policy rows',()=>{
     ['NOAA_TSUNAMI','MARINHA_CHM','AUTORIDADE_BRASILEIRA_COMPETENTE']);
   assert.deepEqual(sourcePolicyForRjEvent('TEMPERATURA').primary,
     ['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET']);
-  assert.deepEqual(sourcePolicyForRjEvent('TEMPERATURA').tiebreak.slice(0,3),
-    ['MONITORAR_RIO_SMAC','INPE_CPTEC','NOAA']);
+  assert.deepEqual(sourcePolicyForRjEvent('TEMPERATURA').tiebreak.slice(0,2),
+    ['INPE_CPTEC','WINDY_MODELO']);
   assert.deepEqual(sourcePolicyForRjEvent('EXCESSO_CALOR_SAUDE').primary,['MONITORA_RJ_SES']);
 });
+test('five situational weather sources follow the latest approved municipal consultation hierarchy',()=>{
+  const primary=['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET'];
+  for(const event of ['TEMPERATURA','SENSACAO_TERMICA','CHUVA_ATUAL',
+    'CHUVA_ACUMULADA','TEMPORAL','VENTO','RAJADA','UMIDADE','GRANIZO']) {
+    const p=sourcePolicyForRjEvent(event);
+    assert.deepEqual(p.primary,primary,event);
+    assert.deepEqual(p.tiebreak.slice(0,2),['INPE_CPTEC','WINDY_MODELO'],event);
+  }
+  // Specialist hazards keep specialist leads, not artificial Alerta Rio coverage.
+  assert.deepEqual(sourcePolicyForRjEvent('SISMOS').primary.slice(0,1),['USGS']);
+  assert.deepEqual(sourcePolicyForRjEvent('TSUNAMI').primary,
+    ['NOAA_TSUNAMI','MARINHA_CHM','AUTORIDADE_BRASILEIRA_COMPETENTE']);
+  assert.deepEqual(sourcePolicyForRjEvent('QUALIDADE_AR').primary,['MONITORAR_RIO_SMAC']);
+  assert.deepEqual(sourcePolicyForRjEvent('EXCESSO_CALOR_SAUDE').primary,['MONITORA_RJ_SES']);
+});
+
 test('extreme hazards cannot be averaged',()=>{
   for(const event of ['RAIOS','TSUNAMI','SISMOS','RAJADA','DESLIZAMENTO'])
     assert.equal(canAverageRjEvent(event,[]),false);
