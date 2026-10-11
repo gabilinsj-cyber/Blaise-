@@ -68,12 +68,7 @@ export function createRjMeteorologicalService({
         ibge:String(ibge),variable,adapters,now:timestamp,
       });
       const sourceRows=sourceForDisplay(result);
-      if(result.state==='ONE_VERIFIED_OFFICIAL_SOURCE' && result.value!==null
-        && sourceRows.length===0) {
-        // The resolver's single-source response has no sourcePairForDisplay.
-        // Project its own provenanced single-station record, never a city mean.
-        sourceRows.push?.(); // no-op: preserve frozen projection below
-      }
+      // Direct single-station readings have provenance on the resolver itself.
       const observedSources=result.state==='ONE_VERIFIED_OFFICIAL_SOURCE'
         ? Object.freeze([Object.freeze({
           sourceId:result.selectedSourceIds[0],dataType:'OFFICIAL_STATION_OBSERVATION',
