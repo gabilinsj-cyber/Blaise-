@@ -138,6 +138,22 @@ class MainActivityTest {
         assertTextDisplayed("10. Auditoria Profunda RJ")
     }
 
+    @Test fun officialMeteorologicalTablesAreNamedAndAvailableInsideExistingMoreScreen() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("BLAISE-RJ-METEO-HOMOLOG-01")
+        rule.onNodeWithTag("rj-meteo-homologation-status").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-RAIOS").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-dispute-04").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-dispute-05").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-1-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
         rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()
         assertTextDisplayed("Cidades: desenho próprio do Blaise, limites de base cartográfica aberta dos 92 municípios; sem chuva ou radar simulados.")
