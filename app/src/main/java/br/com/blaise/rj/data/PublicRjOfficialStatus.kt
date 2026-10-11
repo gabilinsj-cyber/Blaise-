@@ -37,9 +37,35 @@ data class PublicRjWarning(
         !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
         sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss"
 }
+/**
+ * Read-only calculation/review metadata from the same signed/HTTPS server
+ * response. It NEVER represents an independently published warning.
+ */
+data class PublicRjScientificReview(
+    val officialDisplayScale: Int?,
+    val hydroScale: Int?,
+    val meteorologicalWarningScale: Int?,
+    val reviewState: String,
+    val highPriority: Boolean,
+    val diagnosticCount: Int,
+) {
+    init {
+        require(officialDisplayScale == null || officialDisplayScale in 1..5)
+        require(hydroScale == null || hydroScale in 1..5)
+        require(meteorologicalWarningScale == null || meteorologicalWarningScale in 2..5)
+        require(reviewState in setOf(
+            "NO_CURRENT_OFFICIAL_RISK_EVIDENCE",
+            "OFFICIAL_SOURCE_SPECIFIC_INFORMATION",
+            "HIGH_PRIORITY_OFFICIAL_SOURCE_RECHECK_REQUIRED",
+        ))
+        require(diagnosticCount in 0..64)
+        require(highPriority == (officialDisplayScale != null && officialDisplayScale >= 4))
+    }
+}
 data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
     val warningIds: List<String>, val warningCoverage: String,
+    val scientificReview: PublicRjScientificReview? = null,
 )
 data class PublicRjStatus(
     val generatedAt: Instant,
@@ -55,6 +81,24 @@ data class PublicRjStatus(
         require(municipalities.all { city -> city.warningIds.all { id ->
             warnings.any { warning -> warning.id == id && city.ibge in warning.municipalityIbges }
         } })
+        // The backend's "scientific" field cannot raise a source-specific
+        // level above those carried by actual CAP and hydrological notices.
+        require(municipalities.all { city ->
+            val review=city.scientificReview ?: return@all true
+            val capLevels=warnings.filter { it.id in city.warningIds }
+                .mapNotNull { when(it.severity) {
+                    "Extreme" -> 5
+                    "Severe" -> 4
+                    "Moderate" -> 3
+                    "Minor" -> 2
+                    else -> null
+                } }
+            val sourceLevels=listOfNotNull(city.risk?.level, *capLevels.toTypedArray())
+            val official=sourceLevels.maxOrNull()
+            review.officialDisplayScale == official &&
+                review.hydroScale == city.risk?.level &&
+                review.meteorologicalWarningScale == capLevels.maxOrNull()
+        })
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) &&
         Duration.between(generatedAt, now).seconds in 0..120
@@ -92,8 +136,24 @@ object PublicRjStatusParser {
             val warningIds=(0 until ids.length()).map(ids::getString)
             val coverage=row.getString("warningCoverage")
             require(coverage in setOf("UNAVAILABLE","INVENTORY_LIMIT","PARTIAL_UNRESOLVED_AREAS","EXACT_IBGE_ONLY"))
+            val review=if(row.isNull("scientificReview")) null
+                else row.getJSONObject("scientificReview").let { science ->
+                    require(!science.getBoolean("automaticAlertAuthorized"))
+                    require(!science.getBoolean("audibleAlertAuthorized"))
+                    PublicRjScientificReview(
+                        if(science.isNull("officialDisplayScale")) null
+                            else science.getInt("officialDisplayScale"),
+                        if(science.isNull("hydroScale")) null
+                            else science.getInt("hydroScale"),
+                        if(science.isNull("meteorologicalWarningScale")) null
+                            else science.getInt("meteorologicalWarningScale"),
+                        science.getString("reviewState"),
+                        science.getBoolean("highPriority"),
+                        science.getInt("diagnosticCount"),
+                    )
+                }
             PublicRjMunicipality(row.getString("ibge").toInt(),row.getString("name"),
-                risk,warningIds,coverage)
+                risk,warningIds,coverage,review)
         }
         val warningsJson=root.getJSONArray("warnings")
         require(warningsJson.length()<=64)
