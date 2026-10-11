@@ -1,8 +1,19 @@
 plugins { alias(libs.plugins.android.application); alias(libs.plugins.kotlin.android); alias(libs.plugins.kotlin.compose) }
 
+// Normal release and CI builds retain the complete offline female Dora voice.
+// A separate opt-in DEBUG-only artifact excludes the large ONNX voice assets,
+// allowing a small on-device visual/functional smoke build with system TTS.
+val liteVoice = providers.gradleProperty("blaiseLiteVoice")
+    .map { it.equals("true", ignoreCase = true) }.getOrElse(false)
+require(!liteVoice || gradle.startParameter.taskNames.none {
+    it.contains("release", ignoreCase = true) || it.contains("bundle", ignoreCase = true)
+}) { "Lite voice is only permitted for debug/test APK tasks" }
+
 val prepareDoraVoice by tasks.registering(Exec::class) {
     workingDir(rootProject.projectDir)
-    commandLine("python3", "scripts/prepare-dora-voice.py")
+    if (liteVoice) commandLine("python3", "scripts/prepare-dora-voice.py", "--lite")
+    else commandLine("python3", "scripts/prepare-dora-voice.py")
+    inputs.property("blaiseLiteVoice", liteVoice)
     inputs.file(rootProject.file("scripts/prepare-dora-voice.py"))
     outputs.dir(layout.buildDirectory.dir("generated/dora"))
 }
@@ -54,6 +65,7 @@ android {
         buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
         buildConfigField("String", "BLAISE_FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
         buildConfigField("String", "BLAISE_STORE_CHANNEL", buildConfigString(storeChannel))
+        buildConfigField("boolean", "BLAISE_LITE_VOICE", liteVoice.toString())
     }
     signingConfigs {
         if (releaseSigningReady) {
@@ -66,7 +78,10 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = if (liteVoice) "-lite-test-debug" else "-debug"
+        }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
