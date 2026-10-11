@@ -10,7 +10,7 @@ Para temperatura, sensação térmica, umidade, vento, rajadas e chuva municipal
 | --- | --- | --- | --- |
 | 1 | Alerta Rio | Medição/aviso oficial, por produto | **Só município do Rio**; não divulgar como rede dos 92 municípios |
 | 2 | Defesa Civil RJ municipal/regional | Informação/aviso oficial, conforme produto | Validar a competência, coordenadas, horário e originalidade do dado |
-| 3 | **OpenWeatherMap** | **Estimatíva agregada de terceiros, NÃO observação oficial independente** | Consultar por coordenada validada, autorização contratual, limite de API e chave no backend; não usar para emitir alerta |
+| 3 | **OpenWeatherMap** | **Estimativa agregada de terceiros, NÃO observação oficial independente** | Consultar por coordenada validada, autorização contratual, limite de API e chave no backend; não usar para emitir alerta |
 | 4 | INMET | Estações/avisos oficiais | Verificar se há estação local e horário apropriado |
 | 5 | INPE/CPTEC | Previsões e produtos oficiais meteorológicos | Primeira comparação complementar com produtos INPE cuja licença seja válida |
 | 6 | NOAA | Modelos/análises regionais | Conforme fenômeno, produto, validade e cobertura geográfica |
