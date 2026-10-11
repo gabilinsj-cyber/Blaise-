@@ -6,6 +6,7 @@ import {
   RJ_METEO_HOMOLOGATION_ID,
   RJ_METEO_HOMOLOGATION_VERSION,
   RJ_METEO_TABLE2,
+  RJ_METEO_ADDITIONAL_SOURCES,
   RJ_METEO_SOURCE_STATUS,
   buildRjMeteorologicalHomologationTables,
   checkRjSourceProductEvidence,
@@ -101,4 +102,22 @@ test('source routing and Table 1 cannot be treated as real-time measurements or 
   assert.equal(RJ_METEO_HOMOLOGATION_ID,'BLAISE-RJ-METEO-HOMOLOG-01');
   const live=rjSourceRouting({ibge:'3304557',phenomenon:'TEMPERATURA'});
   assert.equal(live.liveData,'NOT_CONFIRMED');
+});
+
+test('two additional public sources are preserved in Table 1, not counted as two new phenomena or independent INMET stations',()=>{
+  const city=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
+  const other=buildRjMeteorologicalHomologationTables({ibge:'3303302'});
+  assert.equal(city.table1.length,25);
+  assert.equal(other.table1.length,25);
+  assert.equal(RJ_METEO_ADDITIONAL_SOURCES.length,2);
+  assert.deepEqual(city.table1AdditionalSources.map(s=>s.sourceId),
+    ['MONITORAR_RIO_SMAC','MONITORA_RJ_SES']);
+  assert.ok(city.table1.find(x=>x.id==='TEMPERATURA').additionalSourceIds.includes('MONITORAR_RIO_SMAC'));
+  assert.ok(city.table1.find(x=>x.id==='CHUVA_ACUMULADA').additionalSourceIds.includes('MONITORA_RJ_SES'));
+  assert.equal(other.table1.some(x=>x.additionalSourceIds.includes('MONITORAR_RIO_SMAC')),false);
+  assert.ok(other.table1.find(x=>x.id==='TEMPORAL').additionalSourceIds.includes('MONITORA_RJ_SES'));
+  assert.equal(city.table1AdditionalSources[1].independentWeatherStation,false);
+  assert.equal(city.table1AdditionalSources[1].reusesInmetMeteorologicalInputs,true);
+  assert.equal(city.table1AdditionalSources.every(x=>x.automaticAlertAllowed===false&&x.observedLiveData===false),true);
+  for(const row of city.table1)assert.equal(row.sourceIds.some(x=>x==='MONITORA_RJ_SES'),false);
 });
