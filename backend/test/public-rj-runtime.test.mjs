@@ -62,7 +62,7 @@ test('licensed weather route never bypasses source failure into imaginary observ
   await runtime.handler({url:'/v1/public/rj-meteorology?ibge=3304557&variable=TEMPERATURA_C',
     method:'GET'},reply);
   assert.equal(reply.statusCode,503);
-  assert.equal(reply.body.error,'official_weather_integration_unavailable');
+  assert.equal(reply.body.error,'no_verified_current_weather_source');
 });
 test('public weather source term flag alone never turns on permission',async()=>{
   const runtime=createPublicRjRuntime({
