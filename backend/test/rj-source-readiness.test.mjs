@@ -33,7 +33,8 @@ test('configuration, running process and one successful fresh source task requir
   assert.equal(r.inpeApiReady,false);
   assert.equal(r.windyLicensedModelApiReady,false);
   assert.equal(r.homologationRegister.id,'BLAISE-RJ-METEO-HOMOLOG-01');
-  assert.equal(r.homologationRegister.registeredPhenomena,25);
+  assert.equal(r.homologationRegister.registeredPhenomena,28);
+  assert.equal(r.homologationRegister.allRegisteredCategoriesLive,false);
   assert.equal(r.homologationRegister.documentedDisputeStages,8);
   assert.equal(r.homologationRegister.sourceProductsVerifiedForCommercialUse,false);
   assert.equal(r.homologationRegister.allTwentyFivePhenomenaLive,false);
