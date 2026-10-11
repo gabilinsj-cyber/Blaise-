@@ -18,12 +18,13 @@ concurrency:
 
 jobs:
   emulator-review:
-    # Limited to the approved RJ interface and real-radar-readiness PRs.
+    # Limited to the approved RJ interface, radar-readiness and named-source matrix PRs.
     # No subscription or production store-release PR can consume emulator time.
     if: >-
       github.event_name == 'pull_request' &&
       (github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
-       github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011')
+       github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
+       github.event.pull_request.head.ref == 'codex/rj-meteo-homolog-20261011')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
