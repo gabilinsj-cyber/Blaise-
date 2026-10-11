@@ -121,6 +121,13 @@ class MainActivityTest {
         }
     }
 
+    @Test fun fiveWeatherSourcesShowRuntimeStatusWithoutFictitiousLiveSensors() {
+        rule.onNodeWithTag("five-source-operational-panel").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("five-source-not-verified").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("five-source-operational-panel").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun referenceHomeContainsScientificAgentsAndOfficialServicePanels() {
         rule.onNodeWithTag("scientific-calculator-panel").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("ten-agents-panel").performScrollTo().assertIsDisplayed()
