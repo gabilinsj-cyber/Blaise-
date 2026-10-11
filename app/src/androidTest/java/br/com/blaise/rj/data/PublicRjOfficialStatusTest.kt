@@ -52,6 +52,59 @@ class PublicRjOfficialStatusTest {
             .put("thirdPartyImagesIncluded",false).put("subscriberDataIncluded",false)
             .put("municipalities",rowList).put("warnings",JSONArray().put(warning))
     }
+    private fun healthFixture(): JSONObject {
+        val ids = listOf("alerta-rio", "defesa-civil", "inmet", "inpe-cptec", "windy")
+        val products = listOf("CHUVA_REDE_DE_ESTACOES",
+            "ATIVOS_GEOGRAFICOS_SIRENES_E_APOIO", "AVISOS_CAP", null, null)
+        val kinds = listOf("OFFICIAL_OBSERVATION", "OFFICIAL_GEOGRAPHIC_ASSETS",
+            "OFFICIAL_WARNINGS", "FORECAST_PRODUCTS_NOT_STATION_OBSERVATIONS",
+            "COMPARATIVE_FORECAST_MODELS_NOT_OBSERVATIONS")
+        val rows = JSONArray()
+        ids.forEachIndexed { index, id ->
+            rows.put(JSONObject()
+                .put("id", id)
+                .put("label", listOf("Alerta Rio", "Defesa Civil RJ", "INMET",
+                    "INPE/CPTEC", "Windy")[index])
+                .put("product", products[index] ?: JSONObject.NULL)
+                .put("kind", kinds[index])
+                .put("coverage", "RJ_BY_EXACT_VERIFIED_COVERAGE")
+                .put("status", if (index == 2) "CURRENT_PRODUCT_ONLY" else "NOT_CONNECTED")
+                .put("observedAt", if (index == 2) before else JSONObject.NULL)
+                .put("provenRealTimeFor92Cities", false)
+                .put("temperatureServiceConnected", false)
+                .put("radarFramesConnected", false))
+        }
+        return JSONObject()
+            .put("contract", "BLAISE_RJ_FIVE_SOURCE_HEALTH_V1")
+            .put("scope", "RJ_92_MUNICIPALITIES_BY_VERIFIED_COVERAGE")
+            .put("generatedAt", before)
+            .put("workerRunning", true)
+            .put("sources", rows)
+            .put("fiveSimultaneousLiveFeedsConfirmed", false)
+            .put("weatherRadarSpatialFramesConfirmed", false)
+            .put("noSubstitutedStateMeasurements", true)
+    }
+    @Test fun fiveSourceReadinessParsesOnlyProductEvidenceAndNeverClaimsFiveLiveFeeds() {
+        val root = fixture().put("fiveSourceHealth", healthFixture())
+        val status = PublicRjStatusParser.parse(root)
+        assertEquals(5, status.fiveSourceHealth?.sources?.size)
+        assertEquals("CURRENT_PRODUCT_ONLY", status.fiveSourceHealth?.sources?.get(2)?.status)
+        assertEquals("AVISOS_CAP", status.fiveSourceHealth?.sources?.get(2)?.product)
+        assertEquals("NOT_CONNECTED", status.fiveSourceHealth?.sources?.get(3)?.status)
+        assertTrue(status.fiveSourceHealth?.current(now) == true)
+        assertFalse(status.fiveSourceHealth?.current(now.plusSeconds(180)) == true)
+    }
+    @Test fun rejectsPhantomWindyFeedAndFalseRadarSuccess() {
+        val falseWindy = healthFixture()
+        falseWindy.getJSONArray("sources").getJSONObject(4)
+            .put("status", "CURRENT_PRODUCT_ONLY")
+        assertTrue(runCatching { PublicRjStatusParser.parse(
+            fixture().put("fiveSourceHealth", falseWindy)) }.isFailure)
+        val falseRadar = healthFixture().put("weatherRadarSpatialFramesConfirmed", true)
+        assertTrue(runCatching { PublicRjStatusParser.parse(
+            fixture().put("fiveSourceHealth", falseRadar)) }.isFailure)
+    }
+
     @Test fun parsesOnlyExactOfficialMunicipalityAndRecentWarnings() {
         val result=PublicRjStatusParser.parse(fixture())
         assertEquals(92,result.municipalities.size)
