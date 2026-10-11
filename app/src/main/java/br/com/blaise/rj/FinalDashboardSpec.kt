@@ -39,8 +39,26 @@ object FinalDashboardSpec {
     // Five situational weather channels; Windy and INPE/CPTEC provide
     // forecast context, not interchangeable measured station reports.
     val fiveSituationalWeatherSources = listOf(
-        "Alerta Rio", "Defesa Civil", "INMET", "Windy (modelos)", "INPE/CPTEC (previsões)"
+        "Alerta Rio", "Defesa Civil", "INMET", "INPE/CPTEC (previsões)", "Windy (modelos)"
     )
+
+    /** Exactly 25 approved phenomena; monitoring services are independent by phenomenon. */
+    val approvedMonitoringPhenomena25 = listOf(
+        "Temperatura", "Sensação térmica", "Chuva atual", "Chuva acumulada",
+        "Chuva intensa e temporal", "Vento sustentado", "Rajadas fortes",
+        "Pressão atmosférica", "Umidade relativa", "Granizo",
+        "Raios e descargas elétricas", "Ciclone extratropical", "Ressaca",
+        "Altura das ondas", "Marés", "Temperatura do mar", "Nível dos rios",
+        "Vazão dos rios", "Enchente e inundação", "Deslizamento",
+        "Sismos", "Tsunami e maremoto", "Seca e estiagem",
+        "El Niño / La Niña", "Previsão de 1 a 7 dias",
+    )
+
+    init {
+        require(approvedMonitoringPhenomena25.size == 25)
+        require(approvedMonitoringPhenomena25.distinct().size == 25)
+        require(fiveSituationalWeatherSources.size == 5)
+    }
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
