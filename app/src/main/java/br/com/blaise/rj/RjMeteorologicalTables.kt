@@ -18,24 +18,57 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+data class RjAdditionalMeteorologicalSource(
+    val code: String,
+    val name: String,
+    val scope: String,
+    val products: String,
+    val officialUrl: String,
+    val independenceRule: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-11.v1"
+    const val VERSION = "2026-10-11.v2"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
 
+    /**
+     * Two additional specialist PUBLIC sources requested for Table 1.
+     * These are ADDITIONAL SOURCES, not two new phenomena or two guaranteed
+     * independently measured weather observations.
+     */
+    val additionalSources = listOf(
+        RjAdditionalMeteorologicalSource(
+            "MONITORAR_RIO_SMAC",
+            "MonitorAr-Rio • SMAC / Prefeitura do Rio",
+            "Somente Município do Rio; apenas estação e variável comprovadas",
+            "Qualidade do ar (IQAr, poluentes), temperatura, umidade, vento, pressão, chuva e radiação solar, conforme estação de referência",
+            "https://ambienteclima.prefeitura.rio/monitorar-2026-dados/",
+            "Estação independente somente se sensor, medição, horário e origem próprios; relatório republicado não conta como segunda medição.",
+        ),
+        RjAdditionalMeteorologicalSource(
+            "MONITORA_RJ_SES",
+            "Monitora RJ • Secretaria de Estado de Saúde (SES-RJ)",
+            "92 municípios, segundo cobertura e validade do painel de saúde",
+            "Excesso de calor e chuva intensa: avaliação de risco à saúde e previsão com antecedência de até 5 dias",
+            "https://www.rj.gov.br/saude/node/4047",
+            "Indicadores derivados do INMET não são novo termômetro nem segunda medição independente; manter classificação e fonte de origem.",
+        ),
+    )
+
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
     val table1 = listOf(
-        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; demais: Defesa Civil → INMET → INPE → Windy"),
-        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "Alerta Rio (cidade Rio) → Defesa Civil → INMET; cálculo físico Blaise; INPE → Windy como contexto"),
-        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "Defesa Civil → INMET → INPE → Windy; Alerta Rio se produto aplicável à cidade Rio"),
-        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; demais: Defesa Civil → INMET → INPE → Windy"),
+        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; MonitorAr-Rio/SMAC adicional por estação; demais: Defesa Civil → INMET → INPE → Windy"),
+        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "Alerta Rio (cidade Rio) → Defesa Civil → INMET; cálculo físico Blaise; INPE → Windy como contexto; Monitora RJ/SES-RJ para risco de calor, não segundo sensor"),
+        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "Defesa Civil → INMET → INPE → Windy; Alerta Rio se produto aplicável à cidade Rio; MonitorAr-Rio por estação própria"),
+        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; MonitorAr-Rio por estação própria; demais: Defesa Civil → INMET → INPE → Windy"),
         RjMeteoSourceRow("RAJADA", "Rajadas de vento", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; demais: Defesa Civil → INMET → INPE → Windy"),
-        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN por cobertura"),
-        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN conforme aviso"),
-        RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN conforme produto"),
+        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN por cobertura; MonitorAr-Rio por pluviômetro; Monitora RJ como risco de chuva (não sensor)"),
+        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN conforme aviso; Monitora RJ/SES-RJ como boletim de risco à saúde"),
+        RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Rio: Alerta Rio → Defesa Civil → INMET → INPE → Windy; CEMADEN conforme produto; Monitora RJ como risco à saúde, não medição meteorológica"),
         RjMeteoSourceRow("RISCO_HIDROLOGICO", "Cheia e inundação", "Bacias e municípios com risco", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
         RjMeteoSourceRow("VAZAO_RIO", "Vazão dos rios", "Estações hidrológicas RJ", "ANA HidroWeb → SGB/SACE"),
         RjMeteoSourceRow("RESSACA", "Ressaca e ondas altas", "Litoral RJ", "Marinha/CHM → INMET → NOAA → INPE → Windy"),
@@ -51,7 +84,7 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("EL_NINO_LA_NINA", "El Niño / La Niña", "Escala climática e impactos no RJ", "INMET → NOAA → INPE → Windy"),
         RjMeteoSourceRow("SISMO", "Sismos e terremotos", "RJ/Atlântico e seção global", "USGS → Defesa Civil → Marinha/CHM → NOAA"),
         RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "Marinha/CHM + NOAA + autoridades brasileiras; USGS para origem sísmica"),
-        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "INMET → INPE → Windy; Alerta Rio apenas se produto compatível"),
+        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "INMET → INPE → Windy; Alerta Rio apenas se produto compatível; MonitorAr-Rio por estação de referência"),
         RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "NOAA/GOES GLM + rede terrestre autorizada → Defesa Civil"),
     )
     val table2 = listOf(
@@ -67,6 +100,8 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == 25 && table1.map { it.code }.distinct().size == 25)
         require(table2.size == 8)
+        require(additionalSources.size == 2 && additionalSources.map { it.code }.distinct().size == 2)
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
+        require(additionalSources.none { it.code.contains("INEA") })
     }
 }
