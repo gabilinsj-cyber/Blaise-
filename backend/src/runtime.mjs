@@ -205,6 +205,10 @@ async function main() {
     sourceWorker,
     metrics,
   });
+  // Connect real validated Alerta Rio station calculations (Vector 2) to
+  // the public evidence audit. This does not grant alerts or paid entitlements.
+  // No independent scientific jobs are fabricated when the source is down.
+  const vectorAgent = createBlaiseVectorRjAgent();
   // Public official alerts/risk status does not require a Google Play purchase,
   // but data republication is blocked until the operator approves applicable
   // source-product terms and explicitly enables this service.
@@ -212,6 +216,8 @@ async function main() {
     sourceWorker,
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
     licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
+    readScientificJobs: () => sourceWorkerConfig.enabled
+      ? (vectorAgent.snapshot().result?.scientificInputJobs ?? []) : [],
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
@@ -224,7 +230,6 @@ async function main() {
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const vectorAgent = createBlaiseVectorRjAgent();
   if (sourceWorkerConfig.enabled) {
     vectorAgent.setSeverity(sourceWorkerConfig.initialMode === 'severe' ? 5 : 1);
     vectorAgent.start();
