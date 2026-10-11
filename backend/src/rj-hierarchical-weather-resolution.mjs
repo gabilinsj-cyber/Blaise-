@@ -37,7 +37,7 @@ const OFFICIAL_SOURCE_MAP = Object.freeze({
   MARINHA_CHM: 'MARINHA_CHM',
 });
 const OBSERVED = new Set(Object.values(OFFICIAL_SOURCE_MAP));
-const FORECAST = new Set(['INPE_CPTEC_FORECAST', 'WINDY_MODELO', 'NOAA']);
+const FORECAST = new Set(['OPENWEATHER_ESTIMATE','INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']);
 const MEASURES = Object.freeze({
   TEMPERATURA_C: { phenomenon:'TEMPERATURA', unit:'°C', range:[-30,60], tolerance:2 },
   VENTO_KMH: { phenomenon:'VENTO', unit:'km/h', range:[0,400], tolerance:12 },
@@ -77,7 +77,8 @@ function stationAllowed(v, sourceId, spec, ibge, now) {
 }
 function forecastAllowed(f, sourceId, spec, ibge, now) {
   const issued=Date.parse(f?.issuedAt), valid=Date.parse(f?.validAt);
-  return f?.kind === 'MODEL_FORECAST'
+  return (f?.kind === 'MODEL_FORECAST' ||
+      (sourceId==='OPENWEATHER_ESTIMATE' && f?.kind==='THIRD_PARTY_CURRENT_ESTIMATE'))
     && f.sourceId === sourceId && String(f.ibge) === String(ibge)
     && f.variable === spec.variable && f.unit === spec.unit
     && within(f.value,...spec.range)
@@ -117,7 +118,9 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
     validAt:f.validAt,issuedAt:f.issuedAt,
     productId:f.productId,modelRunId:f.modelRunId,
     sourceUrl:f.sourceUrl,modelFamilyId:f.modelFamilyId||null,
-    dataType:'MODEL_FORECAST_NOT_A_MEASURED_STATION',
+    dataType:f.sourceId==='OPENWEATHER_ESTIMATE'
+      ?'THIRD_PARTY_CURRENT_ESTIMATE_NOT_A_MEASURED_STATION'
+      :'MODEL_FORECAST_NOT_A_MEASURED_STATION',
     differenceFromStations:Object.freeze(comparisons),
     decision,
     favoredStationId:favored?.stationId||null,
@@ -128,7 +131,9 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
     Math.abs(Date.parse(o.observedAt)-Date.parse(other.observedAt))<=900_000
     &&distanceKm(o,other)<=25));
   let inpeReference=null;
-  for(const id of ['INPE_CPTEC_FORECAST','WINDY_MODELO']) {
+  let openWeatherReference=null;
+  let lastReference=null;
+  for(const id of ['OPENWEATHER_ESTIMATE','INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']) {
     const f=forecasts.find(row=>row.sourceId===id);
     if(!f)continue;
     const eligible=official.filter(o=>
@@ -157,13 +162,18 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
       favored?'CLOSER_TO_ONE_OFFICIAL_STATION_NOT_PROOF':
         !comparableOfficialPair?'STATION_TIME_OR_DISTANCE_COMPARISON_INVALID':
           'FORECAST_COMPARISON_INCONCLUSIVE');
+    if(id==='OPENWEATHER_ESTIMATE')openWeatherReference=evidence;
     if(id==='INPE_CPTEC_FORECAST')inpeReference=evidence;
+    lastReference=evidence;
     if(favored) {
       return Object.freeze({
-        state:id==='INPE_CPTEC_FORECAST'?'INPE_MODEL_GUIDED_REFERENCE':'WINDY_MODEL_GUIDED_REFERENCE',
+        state:id==='OPENWEATHER_ESTIMATE'?'OPENWEATHER_THIRD_SOURCE_GUIDANCE':
+          id==='INPE_CPTEC_FORECAST'?'INPE_MODEL_GUIDED_REFERENCE':
+          id==='NOAA'?'NOAA_MODEL_GUIDED_REFERENCE':'WINDY_MODEL_GUIDED_REFERENCE',
         reference:favored,model:evidence,
         officialReadings:Object.freeze(readings),
         attemptedInpe:inpeReference,
+        attemptedOpenWeather:openWeatherReference,
         modelConfidence:'QUALITATIVE_PROXIMITY_NOT_CALIBRATED_SENSOR_CONSENSUS',
       });
     }
@@ -174,16 +184,18 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
         model:evidence,
         officialReadings:Object.freeze(readings),
         attemptedInpe:inpeReference,
+        attemptedOpenWeather:openWeatherReference,
       });
     }
   }
-  if(inpeReference) {
+  if(lastReference) {
     return Object.freeze({
       state:'MODEL_TIEBREAK_INCONCLUSIVE',
       reference:official[0],
-      model:inpeReference,
+      model:lastReference,
       officialReadings:Object.freeze(readings),
       attemptedInpe:inpeReference,
+      attemptedOpenWeather:openWeatherReference,
     });
   }
   return null;
@@ -307,6 +319,7 @@ export function resolveRjCompatibleSources({
           officialReadings:disputed.officialReadings,
           modelTieBreak:disputed.model,
           inpeConsultation:disputed.attemptedInpe,
+          openWeatherConsultation:disputed.attemptedOpenWeather,
           showBothSourceMeasurements:true,
           consensusConfirmed:false,
           weightedMeanApplied:false,
@@ -336,7 +349,9 @@ export function resolveRjCompatibleSources({
   // does not imply meteorological agreement.
   if(confirmed.length===1 && predictions.length>0) {
     const observed=confirmed[0];
-    const model=predictions.find(f=>f.sourceId==='INPE_CPTEC_FORECAST')
+    const model=predictions.find(f=>f.sourceId==='OPENWEATHER_ESTIMATE')
+      ||predictions.find(f=>f.sourceId==='INPE_CPTEC_FORECAST')
+      ||predictions.find(f=>f.sourceId==='NOAA')
       ||predictions.find(f=>f.sourceId==='WINDY_MODELO');
     if(model) return safe('ONE_OFFICIAL_PLUS_FORECAST_CONTEXT',{
       value:observed.value,unit:entry.unit,
@@ -350,7 +365,9 @@ export function resolveRjCompatibleSources({
         Object.freeze({sourceId:model.sourceId,value:model.value,
           unit:model.unit,validAt:model.validAt,
           sourceUrl:model.sourceUrl,productId:model.productId,
-          dataType:'MODEL_FORECAST_NOT_A_MEASURED_STATION'}),
+          dataType:model.sourceId==='OPENWEATHER_ESTIMATE'
+            ?'THIRD_PARTY_CURRENT_ESTIMATE_NOT_A_MEASURED_STATION'
+            :'MODEL_FORECAST_NOT_A_MEASURED_STATION'}),
       ]),
       officialReadings:Object.freeze([Object.freeze({
         sourceId:observed.canonicalSourceId,stationId:observed.stationId,
@@ -406,8 +423,11 @@ export function resolveRjCompatibleSources({
   }
   if(predictions.length>0) {
     const f=predictions[0];
-    return safe('ONE_VERIFIED_FORECAST_SOURCE',{
-      value:f.value,unit:entry.unit,resultKind:'PREVISAO_ISOLADA_NAO_MEDICAO',
+    return safe(f.sourceId==='OPENWEATHER_ESTIMATE'
+        ?'ONE_THIRD_PARTY_CURRENT_ESTIMATE':'ONE_VERIFIED_FORECAST_SOURCE',{
+      value:f.value,unit:entry.unit,resultKind:f.sourceId==='OPENWEATHER_ESTIMATE'
+        ?'ESTIMATIVA_AGREGADA_DE_TERCEIRO_NAO_OBSERVACAO_OFICIAL'
+        :'PREVISAO_ISOLADA_NAO_MEDICAO',
       selectedSourceIds:Object.freeze([f.sourceId]),
       forecastValidAt:f.validAt,
       examinedSourceIds:Object.freeze(examined),
@@ -462,9 +482,9 @@ export async function consultRjSourcesUntilTwo({
     if(observations.length>100||forecasts.length>100)break;
     const provisional=resolveRjCompatibleSources({ibge,variable,observations,forecasts,now});
     if(provisional.state==='TWO_COMPATIBLE_OFFICIAL_SOURCES'
-      ||(source.id==='INPE_CPTEC_FORECAST'
+      ||(['OPENWEATHER_ESTIMATE','INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO'].includes(source.id)
         &&provisional.state==='OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
-        &&provisional.modelTieBreak?.sourceId==='INPE_CPTEC_FORECAST')) {
+        &&provisional.modelTieBreak?.sourceId===source.id)) {
       return Object.freeze({...provisional,
         consultedSourceIds:Object.freeze([...consulted]),
         connectorFailures:Object.freeze(failures)});
