@@ -19,9 +19,10 @@ const hourly={DT_MEDICAO:'2026-10-10',HR_MEDICAO:'1700',
 function fakeFetch(history) {
   return async url=>{
     history.push(url);
+    // The test catalog deliberately contains no Niterói station.
+    // This does not assert that Niterói has no station in the real INMET API.
     const result=url===RJ_INMET_STATION_CATALOG_URL?[station,
-      {...station,SG_ESTADO:'PR',DC_NOME:'CURITIBA',CD_ESTACAO:'A999'},
-      {...station,DC_NOME:'NITERÓI',CD_ESTACAO:'A653',VL_LATITUDE:'-22,88'}]:
+      {...station,SG_ESTADO:'PR',DC_NOME:'CURITIBA',CD_ESTACAO:'A999'}]:
       [hourly,{...hourly,DT_MEDICAO:'2026-10-07'}];
     return {status:200,text:async()=>JSON.stringify(result)};
   };
