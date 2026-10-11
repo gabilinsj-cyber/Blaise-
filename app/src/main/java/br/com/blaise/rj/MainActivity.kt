@@ -596,7 +596,9 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         speechJob = scope.launch {
             try {
                 voice.speak(text).onFailure {
-                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz Dora. Tente novamente."
+                    if (request == speechRequest) voiceError = if (BuildConfig.BLAISE_LITE_VOICE)
+                        "Voz Android de teste indisponível. Verifique o idioma português no aparelho."
+                    else "Não foi possível reproduzir a voz Dora. Tente novamente."
                 }
             } finally {
                 if (request == speechRequest) speaking = false
@@ -904,7 +906,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     TextButton(
                         onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
                         enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
-                    ) { Text("Testar voz feminina") }
+                    ) { Text(if (BuildConfig.BLAISE_LITE_VOICE) "Testar voz Android (APK leve)" else "Testar voz feminina") }
                 }
                 Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
