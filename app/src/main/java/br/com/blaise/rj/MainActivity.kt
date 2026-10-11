@@ -409,7 +409,11 @@ private fun RjSourcePriorityNotice() {
             color = Color.White,
         )
         Text(
-            "Desempate por fenômeno, origem e horário; fontes cadastradas não significam dados ao vivo.",
+            "Somente dados oficiais atuais e verificáveis; sem inventar ocorrências ou medições.",
+            color = Gold,
+        )
+        Text(
+            "Fonte indisponível ou desatualizada: não apresentar como tempo real. Desempate por local, horário e origem.",
             color = Gold,
         )
     }
