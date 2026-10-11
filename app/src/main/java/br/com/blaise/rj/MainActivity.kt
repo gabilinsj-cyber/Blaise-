@@ -1901,7 +1901,101 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
+    RjMeteorologicalTablesPanel()
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+}
+
+/** Tables of registered source priorities; they make no live-data claims. */
+@Composable
+private fun RjMeteorologicalTablesPanel() {
+    var selected by remember { mutableStateOf(1) }
+    DashboardSection(
+        title = "MATRIZ METEOROLÓGICA • BLAISE V6 RJ",
+        subtitle = RjMeteorologicalTables.ID,
+        modifier = Modifier.fillMaxWidth().testTag("rj-meteo-homologation-panel"),
+    ) {
+        Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-meteo-homologation-status"))
+        Text("25 fenômenos • 92 municípios do RJ • v${RjMeteorologicalTables.VERSION}",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val tableButtons = listOf(
+                1 to "Tabela 1 • Fontes",
+                2 to "Tabela 2 • Desempate",
+            )
+            tableButtons.forEach { (number, caption) ->
+                Surface(
+                    modifier = Modifier.weight(1f)
+                        .testTag("rj-meteo-table-${number}-tab")
+                        .clickable { selected = number },
+                    shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp, if (selected == number) Gold else Divider),
+                    color = if (selected == number) Color(0xFF20527C) else Navy,
+                ) {
+                    Text(caption, color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp))
+                }
+            }
+        }
+        if (selected == 1) {
+            Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-meteo-table-1-content"))
+            Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
+                "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
+                "Windy somente se persistir a divergência. " +
+                "Fontes especializadas têm prioridades próprias.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.table1.forEachIndexed { index, item ->
+                Surface(
+                    color = if (index % 2 == 0) Panel else NavyRaised,
+                    shape = RoundedCornerShape(9.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}"),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${index + 1}. ${item.phenomenon}", color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(item.coverage, color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(item.priority, color = GoldSoft,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        } else {
+            Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            RjMeteorologicalTables.table2.forEach { item ->
+                Surface(
+                    color = Panel,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-meteo-dispute-${item.code}"),
+                    shape = RoundedCornerShape(9.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("${item.code} • ${item.title}",
+                            color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(item.decision,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        Text("INEA excluído. Este cadastro não comprova coleta ativa, autorização " +
+            "comercial, cobertura de estação em todos os municípios nem segurança meteorológica.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
