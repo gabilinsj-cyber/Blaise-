@@ -92,7 +92,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
-    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
+    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','NOAA_GLM','REDE_TERRESTRE_AUTORIZADA','AUTORIDADE_BRASILEIRA_COMPETENTE','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
