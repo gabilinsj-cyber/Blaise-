@@ -18,9 +18,26 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+/** Supplement to Table 1; P1 is joint ONLY where both authorities have coverage. */
+data class RjMeteoThirdSourceRow(
+    val code: String,
+    val phenomenon: String,
+    val primaryAuthorities: String = "Alerta Rio + Defesa Civil RJ (P1 conjunta)",
+    val thirdSource: String = "OpenWeatherMap",
+    val qualification: String = "Consulta complementar • verificar variável, hora, município e licença",
+)
+
+/** Specialized marine/Atlantic consultation matrix, not the arbitration Table 2. */
+data class RjMarineConsultationRow(
+    val code: String,
+    val phenomenon: String,
+    val providers: String,
+    val objective: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-11.v1"
+    const val VERSION = "2026-10-11.v2"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -54,6 +71,63 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "INMET → INPE → Windy; Alerta Rio apenas se produto compatível"),
         RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "NOAA/GOES GLM + rede terrestre autorizada → Defesa Civil"),
     )
+    /**
+     * Approved first TEN phenomena of Table 1 (separate third-source column).
+     * OWM cannot issue public safety alerts. It supplies an additional
+     * independently checked product, NOT a third official measurement.
+     * Alerta Rio covers Rio municipality, not all 92 RJ municipalities.
+     */
+    val table1ThirdSource = listOf(
+        RjMeteoThirdSourceRow("TEMPERATURA", "Temperatura"),
+        RjMeteoThirdSourceRow("SENSACAO_TERMICA", "Sensação térmica",
+            qualification = "Valor informado pelo serviço ou fórmula Blaise com entradas validadas"),
+        RjMeteoThirdSourceRow("CHUVA_ATUAL", "Chuva atual",
+            qualification = "Distinguir observação, estimativa e previsão; exigir local e hora"),
+        RjMeteoThirdSourceRow("CHUVA_ACUMULADA", "Chuva acumulada",
+            qualification = "Comparar apenas a mesma janela temporal e produto de precipitação"),
+        RjMeteoThirdSourceRow("TEMPORAL", "Chuva intensa e temporais",
+            qualification = "Consulta meteorológica, nunca substitui alerta Defesa Civil/Alerta Rio"),
+        RjMeteoThirdSourceRow("VENTO", "Vento sustentado"),
+        RjMeteoThirdSourceRow("RAJADA", "Rajadas fortes",
+            qualification = "Rajada medida, previsão ou estimativa sempre identificadas separadamente"),
+        RjMeteoThirdSourceRow("PRESSAO_ATMOSFERICA", "Pressão atmosférica"),
+        RjMeteoThirdSourceRow("UMIDADE", "Umidade relativa"),
+        RjMeteoThirdSourceRow("GRANIZO", "Granizo",
+            qualification = "Somente com produto que sustente o fenômeno; não inferir de chuva comum"),
+    )
+
+    /**
+     * Marine supplement displayed in Mar e Ondas, not Table 2 (arbitration).
+     * All entries describe eligible feeds/products, never active connections.
+     */
+    val marineComplement = listOf(
+        RjMarineConsultationRow(
+            "CICLONE_OCEANICO", "Ciclones oceânicos",
+            "Marinha + NOAA + EUMETSAT + Copernicus Marine",
+            "Evolução atmosférica, deslocamento e efeitos no mar",
+        ),
+        RjMarineConsultationRow(
+            "TEMPESTADE_ATLANTICO", "Tempestades no Atlântico",
+            "Marinha + NOAA + EUMETSAT",
+            "Nuvens, sistemas intensos e deslocamento",
+        ),
+        RjMarineConsultationRow(
+            "ONDAS_SWELL", "Ondas e swell",
+            "Marinha + NOAA + Copernicus Marine",
+            "Altura, período, direção e propagação das ondas",
+        ),
+        RjMarineConsultationRow(
+            "RESSACA_LITORAL_RJ", "Ressaca no litoral RJ",
+            "Marinha + boias autorizadas + Copernicus Marine + NOAA",
+            "Avisos marítimos oficiais e avaliação contextual do risco costeiro",
+        ),
+        RjMarineConsultationRow(
+            "TSUNAMI", "Tsunami / maremoto",
+            "NOAA + Marinha do Brasil + autoridades brasileiras",
+            "Somente avisos oficiais, nível do mar e confirmação da ameaça",
+        ),
+    )
+
     val table2 = listOf(
         RjMeteoDisputeRow("01", "Primeiras fontes", "Alerta Rio somente na cidade do Rio, depois Defesa Civil regional e INMET; selecionar por fenômeno e local."),
         RjMeteoDisputeRow("02", "Duas medições compatíveis", "Usar duas estações oficiais independentes; ponderação apenas com pesos, janela e unidade comprovados."),
@@ -67,6 +141,12 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == 25 && table1.map { it.code }.distinct().size == 25)
         require(table2.size == 8)
+        require(table1ThirdSource.size == 10)
+        require(table1ThirdSource.map { it.code }.distinct().size == 10)
+        require(marineComplement.size == 5)
+        require(marineComplement.map { it.code }.distinct().size == 5)
+        require(table1ThirdSource.none { "INEA" in it.primaryAuthorities || "INEA" in it.thirdSource })
+        require(marineComplement.none { "INEA" in it.providers })
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }
