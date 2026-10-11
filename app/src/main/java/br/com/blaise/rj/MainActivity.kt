@@ -1901,7 +1901,43 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
+    MonitoringPhenomena25Panel()
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+}
+
+@Composable
+private fun MonitoringPhenomena25Panel() {
+    var expanded by remember { mutableStateOf(false) }
+    DashboardSection(
+        title = "MATRIZ P1 • 25 FENÔMENOS RJ",
+        subtitle = "92 municípios • litoral • Atlântico adjacente",
+        modifier = Modifier.testTag("matrix-25-panel"),
+    ) {
+        Text("25 fenômenos cadastrados para monitoramento, sem supor que todos " +
+            "os coletores estejam funcionando em tempo real.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth().testTag("matrix-25-toggle"),
+        ) {
+            Text(if (expanded) "Recolher tabela completa" else "Ver tabela completa dos 25 fenômenos",
+                color = Gold)
+        }
+        if (expanded) {
+            FinalDashboardSpec.approvedMonitoringPhenomena25.forEachIndexed { index, phenomenon ->
+                Text("${index + 1}. ${phenomenon}", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Text("Alerta Rio (somente capital) → Defesa Civil → INMET → " +
+            "INPE/CPTEC (primeiro desempate) → Windy (segundo desempate). " +
+            "Marinha, ANA, SGB, NOAA, CEMADEN e USGS por fenômeno.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Medição, previsão e cálculo científico permanecem distintos. " +
+            "Fonte ausente não significa ausência de risco; INEA excluído.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
