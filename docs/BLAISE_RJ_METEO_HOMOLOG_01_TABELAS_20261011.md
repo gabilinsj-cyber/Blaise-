@@ -1,7 +1,7 @@
 # Blaise V6 RJ — Tabelas 1 e 2 vinculadas: homologação das fontes meteorológicas
 
 **Identificador permanente:** `BLAISE-RJ-METEO-HOMOLOG-01`  
-**Versão:** `2026-10-11.v1`  
+**Versão:** `2026-10-11.v2`  
 **Projeto exclusivo:** Blaise V6 RJ (92 municípios fluminenses, suas divisas e Atlântico pertinente).  
 **Status deste documento:** políticas e interface cadastradas; serviços *não* homologados por esta documentação.
 
@@ -99,3 +99,12 @@ Esta é a **situação demonstrável pelo repositório**, não uma afirmação d
 - [Marinha CHM — dúvidas frequentes sobre ressaca e dados](https://www.marinha.mil.br/chm/bndo/duvidas-frequentes).
 
 **Encerramento desta etapa:** catálogo persistido e mostrado no Android, código/testes submetidos à revisão. **A homologação operacional real permanece pendente até licenças, prova de ingestão, Cloud Run e 24h de observação.**
+
+
+## Atualização de 11/10/2026 — fonte complementar e interface
+
+Complemento normativo: [Terceira consulta meteorológica e Atlântico](RJ_COMPLEMENTARY_SOURCES_20261011.md).
+
+**OpenWeatherMap** foi cadastrado como **terceira consulta complementar** na faixa de 10 fenômenos da Tabela 1 apresentada na interface (temperatura, sensação térmica, chuva atual, chuva acumulada, chuva intensa/temporais, vento, rajadas, pressão, umidade e granizo). O cadastro **não altera** a prioridade da medição oficial do INMET, a competência de Alerta Rio somente para o município do Rio, a cobertura por produto da Defesa Civil ou a ordem de desempate INPE/CPTEC e Windy; não implica duas medições independentes. Os 25 fenômenos e os 8 critérios da Tabela 2 estão preservados.
+
+Para **mar, ondas, swell, ressaca e ciclones no Atlântico**, a Marinha e a NOAA continuam prioritárias por competência; Copernicus Marine (MyOcean e Pro Viewer) e EUMETSAT são visualizadores/fontes especializadas complementares. Alarme de tsunami somente com confirmação/aviso de autoridade competente. Nenhum dos três novos provedores está marcado como API homologada ou coleta ativa; não registrar senha/chave em APK, repositório ou interface.

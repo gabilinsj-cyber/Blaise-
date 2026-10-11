@@ -13,7 +13,7 @@
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v1';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v2';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -114,6 +114,8 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
     table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
     operatorVerified:false,automaticPublication:false,
+    complementarySourceStatement:'OpenWeatherMap: terceira consulta meteorologica na interface; nao substitui observacoes e alertas oficiais',
+    marineSatelliteStatement:'Copernicus Marine e EUMETSAT: produtos autorizados de mar e satelite; tsunami somente por aviso competente',
     excludedSource:'INEA',
   });
 }
@@ -138,6 +140,7 @@ export function checkRjSourceProductEvidence({
     'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
     'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
     'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
+    'OPENWEATHERMAP_API','COPERNICUS_MARINE','EUMETSAT_SATELLITE',
   ]);
   if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');
