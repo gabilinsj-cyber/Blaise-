@@ -93,7 +93,7 @@ data class PublicRjStatus(
                     "Minor" -> 2
                     else -> null
                 } }
-            val sourceLevels=listOfNotNull(city.risk?.level, *capLevels.toTypedArray())
+            val sourceLevels=listOfNotNull(city.risk?.level) + capLevels
             val official=sourceLevels.maxOrNull()
             review.officialDisplayScale == official &&
                 review.hydroScale == city.risk?.level &&
