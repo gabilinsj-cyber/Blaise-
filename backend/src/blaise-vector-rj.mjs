@@ -3,6 +3,7 @@ import {createOfficialSourceScheduler} from './official-source-scheduler.mjs';
 import {validateAlertaRioMeteorologyHtml,ALERTA_RIO_LIVE_URL,ALERTA_RIO_LIVE_HOST} from './alerta-rio-source.mjs';
 import {fetchTextContract} from './source-contract.mjs';
 import {evaluateScientificJobs,SCIENTIFIC_METHODS} from './blaise-scientific-jobs.mjs';
+import {buildAlertaRioStationScienceJobs} from './rj-station-science-inputs.mjs';
 export const VECTOR_RJ = Object.freeze({name:'Blaise Vector RJ — Agente de Cálculo e Revalidação Científica',historicalName:'Blaise Sigma AI',engines:['atmosférico','tempestades/nowcasting','hidrológico/geológico','oceânico/sismológico','estatístico/incerteza'],nature:'CALCULO_BLAISE',officialAlert:false});
 function finite(n){if(typeof n!=='number'||!Number.isFinite(n))throw TypeError('finite_number_required');return n;}
 export function advectLocal({xMeters,yMeters,uMetersPerSecond,vMetersPerSecond,seconds}){
@@ -35,15 +36,21 @@ export function fuseComparableReadings(rows,policy,now=Date.now()){
 export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.now,onResult=()=>{},readEvidence=()=>({}),readScientificJobs=()=>[]}={}){
  let result=null;
  let lastCalculationAt=null,lastInputs=null;
+ let stationScientificJobs=Object.freeze([]);
  const scheduler=createOfficialSourceScheduler({now,cadenceMode:'fixed_start',refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
   try{
    const html=await fetchTextContract(ALERTA_RIO_LIVE_URL,{allowedHosts:[ALERTA_RIO_LIVE_HOST],fetchImpl,timeoutMs:7000,maxBytes:1048576});
    const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now())});
-   result={agent:VECTOR_RJ.name,status:'PARTIAL',calculatedAt:new Date(now()).toISOString(),sourceUrl:data.sourceUrl,stations:data.stations.filter(s=>s.freshness==='recent').map(s=>({...s,windVector:s.windSpeedKmh!==null&&s.windDirectionDegrees!==null?windComponents(s.windSpeedKmh,s.windDirectionDegrees):null})),unavailable:['calibrated_fusion','feels_like','CAPE_CIN_SRH','radar_nowcast','cyclone_trajectory','tsunami','regional_coverage'],officialAlert:false};
-  }catch{result={agent:VECTOR_RJ.name,status:'UNAVAILABLE',calculatedAt:new Date(now()).toISOString(),stations:[],officialAlert:false};}
+   stationScientificJobs=buildAlertaRioStationScienceJobs({
+    stations:data.stations,sourceUrl:data.sourceUrl,now:now(),maxJobs:24,
+   });
+   result={agent:VECTOR_RJ.name,status:'PARTIAL',calculatedAt:new Date(now()).toISOString(),sourceUrl:data.sourceUrl,stations:data.stations.filter(s=>s.freshness==='recent').map(s=>({...s,windVector:s.windSpeedKmh!==null&&s.windDirectionDegrees!==null?windComponents(s.windSpeedKmh,s.windDirectionDegrees):null})),unavailable:['calibrated_fusion','CAPE_CIN_SRH','radar_nowcast','cyclone_trajectory','tsunami','regional_coverage'],officialAlert:false};
+  }catch{stationScientificJobs=Object.freeze([]);result={agent:VECTOR_RJ.name,status:'UNAVAILABLE',calculatedAt:new Date(now()).toISOString(),stations:[],officialAlert:false};}
   let scientificCalculations=[];
   try{
-   const jobs=await readScientificJobs();
+   const externalJobs=await readScientificJobs();
+   if(!Array.isArray(externalJobs)||externalJobs.length>40)throw TypeError('invalid_externally_provided_science_jobs');
+   const jobs=[...stationScientificJobs,...externalJobs];
    const fingerprint=JSON.stringify(jobs);
    const time=now();
    const changed=fingerprint!==lastInputs;
@@ -58,7 +65,11 @@ export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.n
     revalidatedAt:new Date(time).toISOString()}};
   }
   catch{scientificCalculations=[{status:'UNAVAILABLE',reason:'scientific_provider_failed',result:null,officialAlert:false}];}
-  result={...result,scientificMethods:SCIENTIFIC_METHODS,scientificCalculations,evidenceReview:reviewBlaiseEvidence({...readEvidence(),now:now()})};
+  result={...result,scientificMethods:SCIENTIFIC_METHODS,scientificCalculations,
+    scientificInputJobs:stationScientificJobs,
+    scientificInputJobCount:stationScientificJobs.length,
+    scientificInputOrigin:'VALIDATED_RECENT_ALERTA_RIO_STATION_METEOROLOGY_ONLY',
+    evidenceReview:reviewBlaiseEvidence({...readEvidence(),now:now()})};
   onResult(result);
  }}]});
  return {start:scheduler.start,stop:scheduler.stop,tick:scheduler.tick,setSeverity(level){if(!Number.isInteger(level)||level<1||level>5)throw RangeError('invalid_severity');return scheduler.setMode(level>=4?'severe':'normal');},snapshot(){return {agent:VECTOR_RJ,scheduler:scheduler.snapshot(),result};}};
