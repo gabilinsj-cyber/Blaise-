@@ -274,7 +274,10 @@ fun BlaiseApp(
                     cities.map { city -> async {
                         city.ibgeCode to weatherClient.currentCity(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
-                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                            // Do not request a fictitious "Centro do Rio" Alerta Rio station.
+                            // The Rio card may show a verified local INMET station with its
+                            // own real station name and timestamp, never as "Centro".
+                            null,
                         ))
                     } }.map { it.await() }.toMap()
                 }
