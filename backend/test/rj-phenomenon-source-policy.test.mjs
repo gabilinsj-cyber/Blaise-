@@ -71,6 +71,22 @@ test('river streamflow, flood and alert authorities never gain fake Windy flow m
   const risk = rjSourceRouting({ ibge: '3303302', phenomenon: 'RISCO_HIDROLOGICO' });
   assert.equal(risk.sources.some(s => s.id === 'SGB_SACE'), true);
 });
+test('health and air sources cannot be incorrectly treated as independent INMET stations in other municipalities',()=>{
+  const rioHeat=rjSourceRouting({ibge:'3304557',phenomenon:'EXCESSO_CALOR_SAUDE'});
+  const niteroiHeat=rjSourceRouting({ibge:'3303302',phenomenon:'EXCESSO_CALOR_SAUDE'});
+  assert.equal(rioHeat.sources[0].id,'MONITORA_RJ_SES');
+  assert.equal(niteroiHeat.sources[0].id,'MONITORA_RJ_SES');
+  assert.equal(rioHeat.sources[0].role,RJ_SOURCE_CLASS.SECONDARY_HEALTH);
+  const rioAir=rjSourceRouting({ibge:'3304557',phenomenon:'QUALIDADE_AR'});
+  assert.equal(rioAir.sources[0].id,'MONITORAR_RIO_SMAC');
+  assert.equal(rioAir.sources[0].role,RJ_SOURCE_CLASS.SPECIALIZED_AIR);
+  const niteroiAir=rjSourceRouting({ibge:'3303302',phenomenon:'QUALIDADE_AR'});
+  assert.equal(niteroiAir.sources.some(x=>x.id==='MONITORAR_RIO_SMAC'),false);
+  assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'RADAR'}).sources.some(x=>x.id==='PLATAFORMA_CLIMA_RIO'),true);
+  assert.equal(rjSourceRouting({ibge:'3303302',phenomenon:'RADAR'}).sources.some(x=>x.id==='PLATAFORMA_CLIMA_RIO'),false);
+  assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'INDICE_UV'}).sources.some(x=>x.id==='INPE_CPTEC_FORECAST'),true);
+  assert.equal(RJ_PHENOMENA.length,28);
+});
 test('unknown municipality or phenomenon is blocked rather than treated as Rio', () => {
   assert.throws(() => rjSourceRouting({ ibge: '4106902', phenomenon: 'TEMPERATURA' }));
   assert.throws(() => rjSourceRouting({ ibge: '3304557', phenomenon: 'FURACAO' }));
