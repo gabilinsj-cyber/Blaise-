@@ -51,7 +51,7 @@ test('current official high severity switches from 60s to 30s refresh (not faste
   assert.deepEqual(levels,[4]);
   assert.equal(result.alertPublished,false);
   assert.equal(result.audioTriggered,false);
-  assert.equal(ctl.snapshot().25SecondPollingAuthorized,false);
+  assert.equal(ctl.snapshot()['25SecondPollingAuthorized'],false);
 });
 test('officially lower subsequent risk can return refresh mode to normal without pretending total safety',()=>{
   const f=fixture({high:false});
