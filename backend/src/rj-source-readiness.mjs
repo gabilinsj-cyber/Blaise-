@@ -85,6 +85,8 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
       registeredPhenomena:buildRjMeteorologicalHomologationTables().table1.length,
       documentedDisputeStages:RJ_METEO_TABLE2.length,
       sourceProductsVerifiedForCommercialUse:false,
+      allRegisteredCategoriesLive:false,
+      // Legacy response field retained for clients that still read it.
       allTwentyFivePhenomenaLive:false,
       type:'CATALOG_PLUS_READ_ONLY_SOURCE_STATUS_NOT_PRODUCTION_LICENSE',
       liveSourceTasksWithRecentData:sourceFresh.length,
