@@ -5,6 +5,12 @@ package br.com.blaise.rj
  * This file deliberately contains no sample weather values: production UI must
  * render only timestamped source data supplied by the runtime adapters.
  */
+data class RjSourceViewer(
+    val title: String,
+    val url: String,
+    val purpose: String,
+)
+
 object FinalDashboardSpec {
     const val STORE_GOOGLE_PLAY = "GOOGLE_PLAY"
     const val STORE_SAMSUNG = "SAMSUNG_GALAXY_STORE"
@@ -40,6 +46,19 @@ object FinalDashboardSpec {
     // forecast context, not interchangeable measured station reports.
     val fiveSituationalWeatherSources = listOf(
         "Alerta Rio", "Defesa Civil", "INMET", "Windy (modelos)", "INPE/CPTEC (previsões)"
+    )
+
+    // Source viewers are manual external links: NOT proof of API integration,
+    // permitted redistribution, data freshness or official tsunami warning.
+    val supplementalViewers = listOf(
+        RjSourceViewer("OpenWeatherMap", "https://openweathermap.org/",
+            "3ª consulta meteorológica complementar dos 10 itens"),
+        RjSourceViewer("Copernicus Marine • MyOcean", "https://marine.copernicus.eu/access-data/myocean-viewer",
+            "Ondas, swell, correntes, nível e temperatura do mar conforme produto"),
+        RjSourceViewer("Copernicus Marine • Pro Viewer", "https://data.marine.copernicus.eu/viewer/expert?view=viewer",
+            "Visualização oceanográfica detalhada do Atlântico"),
+        RjSourceViewer("EUMETSAT • EUMETView", "https://view.eumetsat.int/",
+            "Imagens de satélite de nuvens, tempestades e ciclones"),
     )
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
