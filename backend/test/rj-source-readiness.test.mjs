@@ -102,7 +102,8 @@ test('OIDC-gated evidence reports science job count and adaptive level without e
   assert.equal(res.body.scientificRuntime.level5AudioAuthorized,false);
   assert.equal(res.body.scientificRuntime.modelOnlyAlertsAuthorized,false);
   assert.equal(runtimeReads,1);
-  assert.equal(JSON.stringify(res.body).includes('purchaseToken'),false);
+  assert.equal(res.body.purchaseTokenIncluded,false);
+  assert.equal(Object.hasOwn(res.body,'purchaseToken'),false);
 });
 test('authorized endpoint still reports unhealthy with 503 when disabled',async()=>{
   const fn=createRjSourceReadinessHandler(()=>{},{
