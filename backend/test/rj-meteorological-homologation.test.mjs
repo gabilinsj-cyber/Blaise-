@@ -12,11 +12,11 @@ import {
 } from '../src/rj-meteorological-homologation.mjs';
 
 const NOW=Date.parse('2026-10-11T14:00:00Z');
-test('Table 1 catalogs exactly 25 phenomena with canonical IDs and no INEA',()=>{
+test('Table 1 catalogs 28 categories including health, air and UV with canonical IDs and no INEA',()=>{
   const tables=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
   assert.equal(tables.id,'BLAISE-RJ-METEO-HOMOLOG-01');
   assert.equal(tables.version,RJ_METEO_HOMOLOGATION_VERSION);
-  assert.equal(tables.table1.length,25);
+  assert.equal(tables.table1.length,28);
   assert.deepEqual(tables.table1.map(r=>r.id),RJ_PHENOMENA);
   assert.equal(tables.excludedSource,'INEA');
   assert.equal(tables.operatorVerified,false);
@@ -30,6 +30,24 @@ test('Table 1 catalogs exactly 25 phenomena with canonical IDs and no INEA',()=>
     assert.equal(row.observedLiveData,false);
     assert.equal(row.commercialUseAuthorized,false);
     assert.equal(row.automaticAlertAllowed,false);
+  }
+});
+test('2026-10-11 v2 Table 1 includes Monitora RJ, MonitorAr-Rio and conditional Plataforma Clima without INEA',()=>{
+  const rio=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
+  const other=buildRjMeteorologicalHomologationTables({ibge:'3303302'});
+  const by=(tbl,id)=>tbl.table1.find(x=>x.id===id);
+  assert.equal(rio.version,'2026-10-11.v2');
+  assert.deepEqual(RJ_PHENOMENA.slice(-3),['EXCESSO_CALOR_SAUDE','QUALIDADE_AR','INDICE_UV']);
+  assert.ok(by(rio,'EXCESSO_CALOR_SAUDE').sourceIds.includes('MONITORA_RJ_SES'));
+  assert.ok(by(rio,'QUALIDADE_AR').sourceIds.includes('MONITORAR_RIO_SMAC'));
+  assert.ok(by(rio,'RADAR').sourceIds.includes('PLATAFORMA_CLIMA_RIO'));
+  assert.ok(!by(other,'QUALIDADE_AR').sourceIds.includes('MONITORAR_RIO_SMAC'));
+  assert.ok(!by(other,'RADAR').sourceIds.includes('PLATAFORMA_CLIMA_RIO'));
+  for(const row of rio.table1) {
+    assert.equal(row.aggregatedOrRepublishedSourcesAreNotIndependent,true);
+    assert.equal(row.observedLiveData,false);
+    assert.equal(row.commercialUseAuthorized,false);
+    assert.equal(row.sourceIds.some(x=>x==='INEA'),false);
   }
 });
 test('Table 2 is the independent, eight-step data provenance and dispute criterion',()=>{
@@ -47,7 +65,7 @@ test('each of 92 RJ municipal selections produces source routes without fake cit
   assert.equal(RJ_MUNICIPALITIES.length,92);
   for(const city of RJ_MUNICIPALITIES){
     const table=buildRjMeteorologicalHomologationTables({ibge:city.ibge});
-    assert.equal(table.table1.length,25);
+    assert.equal(table.table1.length,28);
     const temp=table.table1.find(x=>x.id==='TEMPERATURA');
     assert.equal(temp.sourceIds.includes('ALERTA_RIO'),city.ibge==='3304557');
     assert.ok(temp.sourceIds.indexOf('INPE_CPTEC_FORECAST')<temp.sourceIds.indexOf('WINDY_MODELO'));
