@@ -1,5 +1,6 @@
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_EVENT_SOURCE_POLICY, RJ_SOURCE_POLICY_VERSION } from './rj-user-source-priority-policy.mjs';
+import { rjAtlanticMatrixRow, RJ_ATLANTIC_25_VERSION } from './rj-matriz-atlantico-25.mjs';
 
 /**
  * Approved Blaise V6 RJ source routing policy.
@@ -82,6 +83,17 @@ const ROUTES = Object.freeze({
   RADIACAO_SOLAR: series(['MONITORAR_RIO','INMET']),
 });
 
+// Routing metadata only: new suppliers are NOT official warnings and are NOT
+// activated by being named here. Marine products must be confirmed per footprint.
+const MATRIX_INDEX_BY_ROUTED_PHENOMENON = Object.freeze({
+  TEMPERATURA:1,SENSACAO_TERMICA:2,UMIDADE:9,VENTO:6,RAJADA:7,
+  CHUVA_ACUMULADA:3,TEMPORAL:5,TEMPESTADE:5,GRANIZO:10,
+  RAIOS:11,CICLONE_EXTRATROPICAL:12,ONDAS:13,RESSACA:14,
+  TSUNAMI:17,VAZAO_RIO:18,RISCO_HIDROLOGICO:19,
+  DESLIZAMENTO:20,SISMO:21,ALAGAMENTO:22,
+  EXCESSO_CALOR_SAUDE:24,QUALIDADE_AR:25,
+});
+
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');
@@ -93,6 +105,8 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   const keys = ROUTES[phenomenon];
   const approvedKey = ({SISMO:'SISMOS',EL_NINO_LA_NINA:'ENSO',CICLONE_EXTRATROPICAL:'CICLONE',VAZAO_RIO:'VAZAO_RIOS',RISCO_HIDROLOGICO:'ENCHENTE',ALAGAMENTO:'ENCHENTE'})[phenomenon] || phenomenon;
   const approved = RJ_EVENT_SOURCE_POLICY[approvedKey] || null;
+  const matrixNumber=MATRIX_INDEX_BY_ROUTED_PHENOMENON[phenomenon] ?? null;
+  const matrixRow=matrixNumber===null?null:rjAtlanticMatrixRow(matrixNumber);
   const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
@@ -107,6 +121,16 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     phenomenon,
     sources: Object.freeze(eligible),
     approvedPolicyVersion: RJ_SOURCE_POLICY_VERSION,
+    supplementaryMatrixName: 'Matriz Blaise V6 RJ — Atlântico Integrado | 25 Fenômenos',
+    supplementaryMatrixVersion: RJ_ATLANTIC_25_VERSION,
+    supplementaryMatrixRowNumber: matrixNumber,
+    supplementaryProviderIds: Object.freeze(
+      matrixRow?.newComplementarySources
+        .filter(x=>x.role!=='NON_APPLICABLE_DIRECT')
+        .map(x=>x.sourceId) ?? [],
+    ),
+    supplementaryProductsOperational:false,
+    supplementarySourcesCannotPublishOfficialAlerts:true,
     approvedPrimarySources: Object.freeze(approved?.primary || []),
     approvedTieBreakOrder: Object.freeze(approved?.tiebreak || []),
     approvedAggregation: approved?.aggregation || 'NO_MEAN',
