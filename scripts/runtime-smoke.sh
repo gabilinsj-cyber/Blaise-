@@ -61,8 +61,13 @@ sleep 1
 adb_capture_retry "$OUT_DIR/notifications.txt" \
   adb shell dumpsys notification --noredact
 grep -q "$PKG" "$OUT_DIR/notifications.txt"
-grep -q "blaise_p0" "$OUT_DIR/notifications.txt"
+# The test receiver calls AlertNotifier.notify(alert, entitlement) WITHOUT
+# automaticAudioAllowed. Even for P0, the safe default is the SILENT channel.
+# Do not weaken AlertNotifier just to satisfy the legacy "blaise_p0" check.
+P0_EXPECTED_CHANNEL="blaise_official_visible_silent_v1"
+grep -q "$P0_EXPECTED_CHANNEL" "$OUT_DIR/notifications.txt"
 grep -q "$P0_TITLE" "$OUT_DIR/notifications.txt"
+printf 'p0_notification_channel=%s\n' "$P0_EXPECTED_CHANNEL" > "$OUT_DIR/notification-channel.txt"
 
 adb_capture_retry "$OUT_DIR/activity-dumpsys.txt" \
   adb shell dumpsys activity activities
