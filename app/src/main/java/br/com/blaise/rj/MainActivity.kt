@@ -1918,7 +1918,7 @@ private fun RjMeteorologicalTablesPanel() {
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
-        Text("25 fenômenos • 92 municípios do RJ • v${RjMeteorologicalTables.VERSION}",
+        Text("${RjMeteorologicalTables.table1.size} categorias • 92 municípios do RJ • v${RjMeteorologicalTables.VERSION}",
             color = Muted, style = MaterialTheme.typography.labelSmall)
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1946,11 +1946,13 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
-                "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
-                "Windy somente se persistir a divergência. " +
-                "Fontes especializadas têm prioridades próprias.",
-                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Ordem municipal: Alerta Rio (somente cidade do Rio) → " +
+                "Defesa Civil → INMET. Desempate: INPE/CPTEC → Windy. " +
+                "Monitora RJ (indicadores de saúde) e MonitorAr-Rio/SMAC " +
+                "(qualidade do ar no município do Rio) são fontes especializadas. " +
+                "Plataforma Clima: conferir dados originais e excluir INEA.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-new-health-air-sources"))
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
