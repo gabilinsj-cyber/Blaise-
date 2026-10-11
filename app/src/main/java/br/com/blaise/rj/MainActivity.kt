@@ -1931,7 +1931,89 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
+    RjAtlanticMatrixPanel()
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+}
+
+@Composable
+private fun RjAtlanticMatrixPanel() {
+    var opened by remember { mutableStateOf(false) }
+    var chosenGroup by remember { mutableStateOf("1–10") }
+    DashboardSection(
+        title = RjAtlanticMatrixSpec.title,
+        subtitle = RjAtlanticMatrixSpec.version,
+        modifier = Modifier.fillMaxWidth().testTag("rj-atlantic-25-matrix"),
+    ) {
+        Text(
+            "OpenWeatherMap: itens 1–10. Copernicus Marine e EUMETSAT: " +
+                "itens 11–16, 22 e 24, somente com produto pertinente.",
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+        )
+        Text(
+            "As novas fontes são complementares; as prioridades oficiais " +
+                "e a hierarquia de desempate do RJ permanecem preservadas.",
+            color = Muted,
+            style = MaterialTheme.typography.labelSmall,
+        )
+        TextButton(
+            onClick = { opened = !opened },
+            modifier = Modifier.fillMaxWidth().testTag("rj-matrix-toggle"),
+        ) {
+            Text(if (opened) "Recolher matriz" else "Ver matriz completa de 25 fenômenos",
+                color = Gold)
+        }
+        if (opened) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                listOf("1–10", "11–16", "17–25").forEach { group ->
+                    OutlinedButton(
+                        onClick = { chosenGroup = group },
+                        modifier = Modifier.testTag("rj-matrix-group-${group}"),
+                    ) {
+                        Text(group, color = if (chosenGroup == group) Gold else Color.White)
+                    }
+                }
+            }
+            val filtered = RjAtlanticMatrixSpec.rows.filter { item ->
+                when (chosenGroup) {
+                    "1–10" -> item.number in 1..10
+                    "11–16" -> item.number in 11..16
+                    else -> item.number in 17..25
+                }
+            }
+            filtered.forEach { row ->
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-matrix-row-${row.number}")
+                        .padding(vertical = 5.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text("${row.number}. ${row.title}",
+                        color = Gold, fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium)
+                    Text("Prioridade: ${row.primaryPriority}",
+                        color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    Text("Complemento: ${row.addedProviders}",
+                        color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    Text(row.addedSourceRole, color = Muted,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text(row.liveStatus, color = WarningAmber,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text(RjAtlanticMatrixSpec.secretPolicy,
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text("Ao utilizar OpenWeather: " + RjAtlanticMatrixSpec.openWeatherCredit +
+            ". Copernicus Marine: citar produto/DOI; EUMETSAT: verificar licença e área de cobertura.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text(RjAtlanticMatrixSpec.unavailableMessage,
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
