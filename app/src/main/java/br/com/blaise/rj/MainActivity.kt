@@ -27,6 +27,10 @@ import br.com.blaise.rj.data.InmetMetric
 import br.com.blaise.rj.data.PublicRjStatus
 import br.com.blaise.rj.data.PublicRjStatusResult
 import br.com.blaise.rj.data.PublicRjStatusHttpsClient
+import br.com.blaise.rj.data.RjMeteorologicalHttpsClient
+import br.com.blaise.rj.data.RjObservedVariable
+import br.com.blaise.rj.data.RjMeteorologicalResult
+import br.com.blaise.rj.data.RjOfficialStationMetric
 import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
@@ -194,6 +198,7 @@ private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
+private val LocalOfficialMunicipalWeather = compositionLocalOf<Map<Int, Map<RjObservedVariable, RjOfficialStationMetric>>> { emptyMap() }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
@@ -237,6 +242,10 @@ fun BlaiseApp(
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
+    var municipalBackendWeather by remember { mutableStateOf<Map<Int, Map<RjObservedVariable, RjOfficialStationMetric>>>(emptyMap()) }
+    val meteorologyClient = remember {
+        RjMeteorologicalHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
+    }
     val publicRjClient = remember {
         PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
     }
@@ -306,6 +315,32 @@ fun BlaiseApp(
             }
         }
     }
+    // Backend observation channel is independent of purchase credentials.
+    // Refresh at most once every 5 minutes; only request Rio and the two
+    // selected cities. Failed/no-data replies never extend old station times.
+    LaunchedEffect(powerOn, city1.ibgeCode, city2.ibgeCode, lifecycle, meteorologyClient) {
+        municipalBackendWeather = emptyMap()
+        if (!powerOn || meteorologyClient == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val codes = listOf(3304557,city1.ibgeCode,city2.ibgeCode).distinct()
+                val values = coroutineScope {
+                    codes.flatMap { ibge ->
+                        RjObservedVariable.entries.map { variable ->
+                            async {
+                                val reading = meteorologyClient.fetch(ibge, variable)
+                                (reading as? RjMeteorologicalResult.Available)?.reading
+                            }
+                        }
+                    }.mapNotNull { it.await() }
+                }
+                municipalBackendWeather = values.groupBy { it.ibge }.mapValues { (_, rows) ->
+                    rows.associateBy { it.variable }
+                }
+                delay(300_000)
+            }
+        }
+    }
     LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
         backendDashboard = DashboardDataNetworkResult.Unavailable
         val candidate = verifiedPurchase
@@ -344,6 +379,7 @@ fun BlaiseApp(
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
         LocalCityWeather provides if (powerOn) cityWeather else emptyMap(),
         LocalInmetHourlySeries provides if (powerOn) inmetHourlySeries else null,
+        LocalOfficialMunicipalWeather provides if (powerOn) municipalBackendWeather else emptyMap(),
         LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
@@ -2318,6 +2354,12 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    // Prefer the existing direct official station if current; the separate
+    // backend feed can fill otherwise missing station METRICS only.
+    val backend = LocalOfficialMunicipalWeather.current[city.ibgeCode].orEmpty()
+    fun live(variable: RjObservedVariable): Double? =
+        backend[variable]?.takeIf { it.current(clock) }?.value
+    val backendTemperature = live(RjObservedVariable.TEMPERATURE)
     val scientificValues = ScientificDashboardPolicy.derive(observation, clock)
     val feelsLike = scientificValues.firstOrNull { it.title == "Sensação térmica" }
     val context = LocalContext.current
@@ -2370,12 +2412,15 @@ private fun CityPanel(
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Text(
-                observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
+                (observation?.temperatureC ?: backendTemperature)?.let {
+                    String.format(java.util.Locale("pt", "BR"), "%.1f °C", it)
+                } ?: "— °C",
                 color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium,
             )
             Text(
-                if (observation == null) "Medição oficial indisponível" else "Medição oficial com horário válido",
-                color = if (observation == null) WarningAmber else StableGreen,
+                if (observation == null && backendTemperature == null) "Medição oficial indisponível"
+                else "Medição oficial de estação com horário válido",
+                color = if (observation == null && backendTemperature == null) WarningAmber else StableGreen,
                 style = MaterialTheme.typography.labelSmall,
             )
             if (feelsLike != null) {
@@ -2391,12 +2436,23 @@ private fun CityPanel(
                     color = Muted, style = MaterialTheme.typography.labelSmall,
                 )
             }
+            val currentBackend = backend.values.firstOrNull { it.current(clock) }
+            if (currentBackend != null) {
+                Text(
+                    "INMET via backend • estação ${currentBackend.stationId} • " +
+                        currentBackend.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                        " • observação pontual (não média da cidade)",
+                    modifier = Modifier.testTag("city-backend-weather-${city.ibgeCode}"),
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                )
+            }
             fun metric(value: Double?, unit: String) = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "—"
-            Text("Umidade ${metric(observation?.humidityPercent, "%")}  •  Vento ${metric(observation?.windKmh, "km/h")}",
+            Text("Umidade ${metric(observation?.humidityPercent ?: live(RjObservedVariable.HUMIDITY), "%")}  •  Vento ${metric(observation?.windKmh ?: live(RjObservedVariable.WIND), "km/h")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
+            Text("Rajada ${metric(observation?.windGustKmh ?: live(RjObservedVariable.GUST), "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm ?: live(RjObservedVariable.RAIN_1H), "mm")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             PublicMunicipalStatusLine(city.ibgeCode)
             if (onNavigate != null) {
