@@ -176,6 +176,22 @@ class MainActivityTest {
         assertTextDisplayed("MAPA PRÓPRIO • BLAISE V6 RJ")
     }
 
+    @Test fun atlantic25MatrixIsAccessibleInMoreWithExactSourceGroups() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-atlantic-25-matrix").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("Matriz Blaise V6 RJ — Atlântico Integrado | 25 Fenômenos")
+        rule.onNodeWithTag("rj-matrix-toggle").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-matrix-row-1").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("1. Temperatura")
+        rule.onNodeWithTag("rj-matrix-group-11–16").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-matrix-row-11").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-matrix-row-16").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-matrix-group-17–25").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-matrix-row-22").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-matrix-row-24").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-matrix-row-25").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
