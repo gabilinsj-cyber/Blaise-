@@ -40,7 +40,7 @@ export function validateRjOfficialProduct(id,payload,{nowMillis=Date.now()}={}) 
       continue;
     const timestamp=Date.parse(item.observedAt);
     if(!Number.isFinite(timestamp)||timestamp>nowMillis+5*60*1000||
-      nowMillis-timestamp>source.maxAgeMillis||!/^33\\d{5}$/.test(String(item.ibge)))continue;
+      nowMillis-timestamp>source.maxAgeMillis||!/^33\d{5}$/.test(String(item.ibge)))continue;
     if(id==='MONITORA_RJ_SES') {
       if(!/^33\d{5}$/.test(String(item.ibge))||typeof item.riskLabel!=='string'||
         item.riskLabel.length<1||item.riskLabel.length>80||
