@@ -391,6 +391,31 @@ fun BlaiseApp(
 }
 
 @Composable
+private fun RjSourcePriorityNotice() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            "Fontes prioritárias RJ: Alerta Rio + Defesa Civil RJ",
+            color = Gold,
+        )
+        Text(
+            "Conferência: INMET → INPE/CPTEC → NOAA, conforme fenômeno e cobertura.",
+            color = Color.White,
+        )
+        Text(
+            "Tsunami: NOAA + Marinha + autoridades brasileiras. Raios: NOAA/GLM e redes autorizadas.",
+            color = Color.White,
+        )
+        Text(
+            "Prioridades configuradas; disponibilidade de dados depende de coleta oficial validada.",
+            color = Gold,
+        )
+    }
+}
+
+@Composable
 private fun BlaiseDashboard(
     city1: City,
     city2: City,
@@ -443,6 +468,7 @@ private fun BlaiseDashboard(
                             AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
+                        RjSourcePriorityNotice()
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
 
                         when (selectedSection) {
