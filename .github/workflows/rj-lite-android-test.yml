@@ -55,6 +55,15 @@ jobs:
           echo 'LITE_VOICE=ANDROID_SYSTEM_TTS_NOT_DORA' | tee -a evidence/rj-lite/build-report.txt
           echo 'LITE_INSTALL_STATUS=NOT_A_PHYSICAL_PHONE_TEST' | tee -a evidence/rj-lite/build-report.txt
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify "$apk"
+      - name: Upload verified signed test APK without waiting for emulator startup
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-v6-rj-lite-debug-test-apk
+          path: |
+            evidence/rj-lite/blaise-v6-rj-lite-debug.apk
+            evidence/rj-lite/build-report.txt
+          retention-days: 5
+          if-no-files-found: error
       - name: Smoke-test installation, launch and screenshot in Android 35 emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -77,11 +86,11 @@ jobs:
             adb pull /sdcard/blaise-lite-test.png evidence/rj-lite/portrait.png
             test -s evidence/rj-lite/portrait.png
             echo 'EMULATOR_INSTALL_LAUNCH=PASS' | tee -a evidence/rj-lite/build-report.txt
-      - name: Upload single installable test APK and emulator evidence
+      - name: Upload emulator test evidence, separately from test APK
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: blaise-v6-rj-lite-debug-test-apk
-          path: evidence/rj-lite/
+          name: blaise-v6-rj-lite-emulator-evidence
+          path: evidence/rj-lite/portrait.png
           retention-days: 5
           if-no-files-found: warn
