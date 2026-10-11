@@ -1136,6 +1136,10 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
+    var fullMapOpen by remember { mutableStateOf(false) }
+    if (fullMapOpen) {
+        RjFullScreenOwnMapDialog(onClose = { fullMapOpen = false })
+    }
     val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
     var selectedLayer by remember { mutableStateOf("Radar") }
     val stationSeries = LocalInmetHourlySeries.current
@@ -1295,13 +1299,162 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         OutlinedButton(
             onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
         ) { Text("▶ Últimos 30 minutos de radar • aguardando frames oficiais") }
-        OutlinedButton(onClick = { onNavigate("Mapa") }, modifier = Modifier.fillMaxWidth()) {
-            Text("Mais camadas e mapa do RJ")
+        Button(
+            onClick = { fullMapOpen = true },
+            modifier = Modifier.fillMaxWidth().testTag("open-full-rj-map"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1265CB), contentColor = Color.White,
+            ),
+        ) {
+            Text("⤢ Abrir mapa completo do RJ")
+        }
+        TextButton(onClick = { onNavigate("Mapa") }, modifier = Modifier.fillMaxWidth()) {
+            Text("Consultar também mapa de riscos e ocorrências ›")
         }
         TextButton(onClick = { showStations = !showStations }) {
             Text(if (showStations) "Ocultar estações oficiais" else "Ver medições oficiais disponíveis")
         }
         if (showStations) RioStationMeasurementsPanel()
+    }
+}
+
+/**
+ * Full-screen rendering of the BLAISE OWN MAP. No third-party radar tiles,
+ * fictitious rain contours, or assumed 92-city live observations.
+ * All overlays rely on live, validated station/radar inputs from the caller.
+ */
+@Composable
+private fun RjFullScreenOwnMapDialog(onClose: () -> Unit) {
+    val layers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
+    val tools = listOf("Cidades", "Rodovias", "CET-Rio", "Sirenes",
+        "Deslizamentos", "Pluviômetros", "Satélite")
+    var layer by remember { mutableStateOf("Radar") }
+    var tool by remember { mutableStateOf("Cidades") }
+    var zoom by remember { mutableStateOf(1f) }
+    val currentAt = LocalObservationClock.current
+    val series = LocalInmetHourlySeries.current
+    val radarFrame = LocalRjMeasuredRadarFrame.current
+    val metric = when (layer) {
+        "Temperatura" -> InmetMetric.TEMPERATURE
+        "Chuva" -> InmetMetric.HOURLY_RAINFALL
+        "Vento" -> InmetMetric.WIND
+        else -> null
+    }
+    val point = metric?.let { series?.currentPoint(it, currentAt) }
+    val radarReady = RjRadarSpatialPolicy.current(radarFrame, currentAt)
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize().testTag("rj-fullscreen-map-dialog"),
+            color = Navy,
+        ) {
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("MAPA COMPLETO • BLAISE V6 RJ", color = Gold,
+                            fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("92 municípios • desenho próprio • fonte e horário em cada dado",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick = onClose, modifier = Modifier.testTag("close-full-rj-map")) {
+                        Text("✕ Fechar", color = Color.White)
+                    }
+                }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    layers.forEach { name ->
+                        Surface(
+                            modifier = Modifier.testTag("full-map-layer-${name}")
+                                .clickable { layer = name },
+                            color = if (layer == name) Color(0xFF1265CB) else Panel,
+                            shape = RoundedCornerShape(9.dp),
+                            border = BorderStroke(1.dp, if (layer == name) Gold else Divider),
+                        ) {
+                            Text(name, color = Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f).testTag("full-rj-map-canvas")
+                        .background(Color(0xFF061C32)),
+                ) {
+                    RioGeographicBase(Modifier.fillMaxSize(), zoom)
+                    if (layer == "Radar") {
+                        RjRadarSpatialOverlay(radarFrame, currentAt, zoom, Modifier.fillMaxSize())
+                    }
+                    if (metric != null) {
+                        InmetMapStationOverlay(metric, series, currentAt, Modifier.fillMaxSize(), zoom)
+                    }
+                    Column(Modifier.align(Alignment.TopStart).padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Surface(color = Color(0xE906182C), shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Divider)) {
+                            Text("BLAISE • MAPA PRÓPRIO DO RJ",
+                                color = Gold, style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(6.dp))
+                        }
+                        Surface(modifier = Modifier.testTag("full-map-zoom-in")
+                            .clickable { zoom = (zoom + 0.2f).coerceAtMost(1.8f) },
+                            color = Panel, shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Gold)) {
+                            Text("+", color = Color.White, fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp))
+                        }
+                        Surface(modifier = Modifier.testTag("full-map-zoom-out")
+                            .clickable { zoom = (zoom - 0.2f).coerceAtLeast(1f) },
+                            color = Panel, shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Gold)) {
+                            Text("−", color = Color.White, fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp))
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    tools.forEach { name ->
+                        Surface(modifier = Modifier.testTag("full-map-tool-${name}")
+                            .clickable { tool = name },
+                            color = if (tool == name) Gold else PanelSoft,
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, Divider)) {
+                            Text(name, color = if (tool == name) Navy else Color.White,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp))
+                        }
+                    }
+                }
+                val status = when {
+                    tool != "Cidades" -> "${tool}: sem sobreposição georreferenciada oficial validada."
+                    layer == "Radar" && radarReady ->
+                        "Radar: células georreferenciadas autorizadas • ${radarFrame?.providerId ?: "fonte pendente"} • " +
+                        "${radarFrame?.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) ?: "sem hora"} (Brasília)."
+                    layer == "Radar" -> "Radar: aguardando células medidas, georreferenciadas e autorizadas."
+                    point != null && series != null ->
+                        "${layer}: observação pontual INMET • ${series.stationName} • " +
+                        point.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                        " (Brasília). Não representa a média municipal."
+                    else -> "${layer}: não há campo espacial ou medição recente validada nesta consulta."
+                }
+                Text(status, color = if (radarReady && layer == "Radar" || point != null && metric != null) {
+                    StableGreen
+                } else WarningAmber,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2, modifier = Modifier.fillMaxWidth().testTag("full-map-source-status"))
+                Text("Camadas sem dados são identificadas • ausência de leitura não significa ausência de risco.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+            }
+        }
     }
 }
 
@@ -1732,7 +1885,15 @@ private fun MapScreen(city1: City, city2: City) {
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
     ) {
-        RioGeographicBase(Modifier.fillMaxWidth().height(290.dp))
+        var expandedMap by remember { mutableStateOf(false) }
+        if (expandedMap) RjFullScreenOwnMapDialog(onClose = { expandedMap = false })
+        RioGeographicBase(Modifier.fillMaxWidth().height(360.dp))
+        Button(onClick = { expandedMap = true },
+            modifier = Modifier.fillMaxWidth().testTag("map-screen-expand"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+            Text("⤢ Abrir mapa completo em tela cheia")
+        }
         Text("Limites geográficos reais; ainda não é uma camada meteorológica ou de risco.", color = WarningAmber)
         Text("As camadas radar, sirenes e ocorrências só serão ativadas com dados oficiais georreferenciados e válidos.", color = Muted)
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
