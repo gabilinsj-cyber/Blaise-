@@ -74,7 +74,7 @@ const ROUTES = Object.freeze({
   EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
   SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
   TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
-  PRESSAO_ATMOSFERICA: series(['INMET','OPENWEATHER','INPE','WINDY']),
+  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','OPENWEATHER','INPE','WINDY']),
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
 });
 
@@ -87,7 +87,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   }
   const rioCity = String(ibge) === RJ_CITY_IBGE;
   const keys = ROUTES[phenomenon];
-  const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA'].includes(phenomenon)
+  const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
