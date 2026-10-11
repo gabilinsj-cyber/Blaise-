@@ -68,11 +68,19 @@ O CPTEC/INPE documenta consultas por localidade em [serviço XML](https://servic
 Referência normativa: `docs/rj-fontes-por-fenomeno-localidade.md`, `backend/src/rj-phenomenon-source-policy.mjs`.
 
 - Alerta Rio: cidade do Rio, não os 92 municípios. Defesa Civil regional/municipal, CEMADEN e INMET segundo localidade e variável; ANA e SGB/SACE para dados hidro.
-- Marinha/CHM, INMET, NOAA, Windy (modelo comparativo) para mar/Atlântico/ciclones/ondas/frentes de massa de ar quente/fria; fonte marítima competente prevalece em avisos.
+- Marinha/CHM, INMET, **NOAA e Copernicus Marine/CMEMS (União Europeia)**, mais Windy (modelo comparativo), para o mar/Atlântico e a interação oceano–atmosfera. **CMEMS** complementa a NOAA com produtos globais de ondas, temperatura e correntes; não é órgão de aviso marítimo brasileiro, pluviômetro nem sensor de tsunami. A Marinha mantém prioridade nos avisos.
 - Períodos de precipitação e rajadas precisam de unidade, intervalo e validade da própria fonte; nenhuma medição em um município prova cobertura dos outros 91.
 - **INEA aposentado** de coletores operacionais e workflow de sondagem. Código legado com testes históricos ainda não autoriza seu uso. Não reintroduzir como referência nem como substituto.
 - Segundo requisitos da fonte, validar domínio, política de acesso, horário, georreferenciamento, autoria, espécie de produto e segunda fonte independente para ocorrência crítica. Não utilizar raspagem sem autorização; eventos sem evidência ficam indisponíveis.
 - O monitoramento de mudança de domínio/URL deve produzir alerta de manutenção; mudança de origem nunca autorizada automaticamente sem validação humana e técnica.
+
+## Fonte oceânica adicional junto à NOAA — Copernicus Marine Service (CMEMS)
+
+**Fonte oficial da União Europeia:** https://marine.copernicus.eu/ ; dados https://data.marine.copernicus.eu/products . Uso gratuito também para aplicações comerciais, condicionado à **licença aplicável, atribuição e DOI por produto**; registro grátis pode ser necessário. A integração recomendada é por **Copernicus Marine Toolbox no backend**, não por downloads grandes de NetCDF no celular.
+
+Produtos selecionados para o entorno oceânico do RJ: **GLOBAL_ANALYSISFORECAST_WAV_001_027** (ondas, DOI 10.48670/moi-00017); **GLOBAL_ANALYSISFORECAST_PHY_001_024** (correntes/temperatura/altura superficial oceânica, DOI 10.48670/moi-00016); **SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001** (análise de SST, DOI 10.48670/moi-00165). O catálogo específico é `backend/src/rj-copernicus-marine-catalog.mjs`, com validações e testes.
+
+**Prioridade:** a Marinha do Brasil/CHM continua responsável pelos avisos relevantes ao litoral; NOAA e CMEMS são fontes complementares de dados marítimos por produto; INMET/INPE/Defesa Civil e Alerta Rio seguem por variável e região. CMEMS não pode substituir avisos de ciclone, tsunami, ressaca, precipitação ou sismos. Não considerar duas previsões automaticamente independentes se compartilham modelos ou observações assimiladas. **Estado atual: integração de catálogo concluída, consulta em tempo real ainda pendente.**
 
 ## Ordem de consulta das cinco fontes meteorológicas para os 92 municípios
 

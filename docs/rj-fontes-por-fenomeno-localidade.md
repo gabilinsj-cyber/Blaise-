@@ -65,6 +65,24 @@ Implementação: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/
 5. O diagnóstico está em `backend/src/rj-weather-source-reconciliation.mjs` e `backend/test/rj-weather-source-reconciliation.test.mjs`. **É algoritmo local e roteamento, ainda não comprova acesso vivo ou licença de API do INPE.** Todos os resultados derivados permanecem não oficiais e não autorizam alertas automáticos.
 6. **CPTEC/INPE**: a documentação técnica contém o serviço de dados por localidade em [XML](https://servicos.cptec.inpe.br/XML/), mas a [página oficial do CPTEC](https://www.cptec.inpe.br/) avisa que determinados produtos não podem ser usados para fins comerciais ou reprodução sem autorização expressa. Solicitar ou confirmar licença/autorizações aplicáveis antes de integrar dados à assinatura do Blaise, mesmo que o mapa e seus gráficos sejam desenhados pelo próprio aplicativo. Identificar sempre a origem **CPTEC/INPE** e a data/modelo de emissão. Não presumir que XML público seja automaticamente licenciado para a exploração comercial.
 
+## Fonte especializada de oceano: Copernicus Marine Service (CMEMS — União Europeia)
+
+**Fonte oficial:** [Copernicus Marine Service](https://marine.copernicus.eu/) e [Marine Data Store](https://data.marine.copernicus.eu/products). **Colocar junto à NOAA** no catálogo de fontes marítimas e de interação oceano–atmosfera do Blaise V6 RJ, mantendo Marinha do Brasil/CHM como autoridade dos avisos e mantendo o escopo no litoral e Atlântico adjacente ao RJ.
+
+**Custo e autorização:** o [programa Copernicus](https://www.copernicus.eu/en/terms-use/how-access-data) declara acesso livre e gratuito inclusive para serviços comerciais com valor agregado; o [suporte Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-to-register-for-copernicus-marine-service) confirma registro gratuito e uso comercial ou não comercial. Entretanto, **os termos atuais, eventuais obrigações adicionais de produtos com contribuições de terceiros e a atribuição/DOI devem ser verificados para cada produto**. A página de [citação e créditos](https://help.marine.copernicus.eu/en/articles/4444611-citing-copernicus-marine-products-and-services) exige reconhecimento do serviço e DOI; os termos legais aplicáveis prevalecem sobre resumos. O acesso programático recomendado é via [Copernicus Marine Toolbox](https://help.marine.copernicus.eu/en/articles/7949409-copernicus-marine-toolbox-introduction) (backend, credenciais protegidas; **sem baixar arquivos NetCDF enormes no telefone**).
+
+Produtos do catálogo relevantes ao RJ:
+
+| Finalidade | Produto oficial | DOI | Natureza / limitação |
+|---|---|---|---|
+| Altura significativa, direção e período das ondas; contexto de ressaca | [GLOBAL_ANALYSISFORECAST_WAV_001_027](https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_WAV_001_027/description) | 10.48670/moi-00017 | Análise/previsão de **modelo** oceânico em grade global, não aviso da Marinha nem medição costeira de praia |
+| Temperatura da água, correntes, altura da superfície e interação oceano–ciclone | [GLOBAL_ANALYSISFORECAST_PHY_001_024](https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_PHY_001_024/description) | 10.48670/moi-00016 | Análise/previsão **numérica** global; resolução ≈0,083°; altura superficial não é tábua de marés |
+| Temperatura da superfície do mar baseada em satélite + dados in situ | [SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001](https://data.marine.copernicus.eu/product/SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001/description) | 10.48670/moi-00165 | **Análise espacial interpolada**, não termômetro de estação nem medição instantânea de praia |
+
+**Não utilizar CMEMS como pluviômetro, radar de tempestade, sensor sísmico, confirmação de tsunami ou como segundo aviso oficial independente.** Para ciclones extratropicais/frentes/massas de ar, CMEMS pode apoiar diagnósticos das **condições oceânicas**; dados atmosféricos e avisos seguem a hierarquia própria (Marinha, INMET, NOAA, INPE/CPTEC etc.). Reconhecer que produtos podem assimilar observações comuns à NOAA; diversidade de fornecedores não garante independência estatística.
+
+**Implementação de catálogo e controle de qualidade:** `backend/src/rj-copernicus-marine-catalog.mjs`, testes em `backend/test/rj-copernicus-marine-catalog.test.mjs`. O catálogo inclui ID, DOI, tipo (modelo/análise), limites geográficos aproximados, unidade, carimbo de tempo e bloqueio de licença/crédito não verificado. **Ainda não há ingestor CMEMS em produção, conta registrada pelo usuário, coleta contínua nem valores marítimos em tempo real fornecidos por essa mudança.**
+
 ## Fontes por região e fenômeno
 
 | Região / fenômeno | Prioridade de origem | Complementares / critérios |
@@ -74,10 +92,10 @@ Implementação: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/
 | Todos os 92 municípios: temperatura, sensação térmica, umidade, vento/rajadas | INMET e redes oficiais municipais/Defesa Civil **onde houver observações**, com local, horário e qualidade | Sensação térmica calculada quando temperatura, umidade/vento e fórmula se aplicarem; INPE/CPTEC e Windy oferecem previsão complementar; Windy é critério comparativo subsidiário, não desempate autoritativo |
 | Nível de rios, cota e vazão | ANA (HidroWeb / serviços hidrológicos) | CEMADEN e SGB/SACE para contexto e situação de cheia; conferir identificação da estação e atualização |
 | Risco hidrológico/inundação | CEMADEN, Defesa Civil e SGB/SACE segundo competência | Cruzar com ANA quando disponível; risco não é substituível por vazão isolada |
-| Mar, ressaca, ondas, vento marítimo, avisos à navegação | Marinha do Brasil/CHM | NOAA para produtos oficiais pertinentes; INMET costeiro e Windy apenas complemento com tipo de dado explicitado |
-| Ciclone extratropical/temporal no Atlântico Sul | Marinha do Brasil e produtos pertinentes NOAA; INMET para observações/avisos nacionais | Windy para comparação de modelos e trajetória estimada; ao ameaçar RJ, priorizar avisos Marinha, INMET, Alerta Rio e Defesa Civil conforme área |
+| Mar, ressaca, ondas, vento marítimo, avisos à navegação | Marinha do Brasil/CHM | **NOAA + Copernicus Marine/CMEMS** para grades oceânicas pertinentes; INMET costeiro e Windy complementar; CMEMS não emite alerta brasileiro |
+| Ciclone extratropical/temporal no Atlântico Sul | Marinha do Brasil, INMET e produtos atmosféricos pertinentes NOAA | **CMEMS + NOAA** apenas para **ondas, correntes e temperatura oceânica**, Windy para contexto de previsão; avisos de impacto RJ da Marinha/INMET/Defesa Civil prevalecem |
 | Acumulado de chuva oceânica, nuvens, frentes e massas de ar quente/fria | NOAA e produtos oficiais pertinentes da Marinha/INMET; satélites/modelos conforme licenciamento | Windy como referência de previsão e visualização, **não como medidor no oceano** |
-| Interação oceano–litoral RJ / impactos locais | Marinha do Brasil + INMET + Defesa Civil local/estadual + Alerta Rio (somente município do Rio) | Windy complementar; confirmar distância, direção, horário provável e alcance, sem regra artificial de limite de 1 km quando não houver dados |
+| Interação oceano–litoral RJ / impactos locais | Marinha do Brasil + INMET + Defesa Civil local/estadual + Alerta Rio (somente município do Rio) | **NOAA e CMEMS** para condições oceânicas por produtos distintos; Windy complementar; conferir hora, geografia e alcance, sem confundir grade oceânica com observação costeira |
 
 ## Calculadora científica Blaise V6 RJ — cálculos suplementares
 
@@ -98,6 +116,6 @@ A implementação inicial está em `backend/src/rj-scientific-calculator.mjs` e 
 5. Aviso nível 5 só aciona som e voz conforme regra específica de confirmação e elegibilidade do projeto. Dados de terceiros ou cálculos experimentais não são substitutos de avisos oficiais.
 6. Radar real requer fonte licenciada, prova de data do frame, projeção e georreferenciamento; caso contrário a camada permanece **indisponível**.
 7. Capturar falhas de autorização, domínios e mudanças de API, com auditoria; nunca alterar origem automaticamente para página não autorizada.
-8. Conectores INPE/CPTEC, ANA, SGB/SACE, NOAA e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
+8. Conectores INPE/CPTEC, ANA, SGB/SACE, NOAA, **Copernicus Marine/CMEMS** e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
 
 **Situação atual de validação:** o INMET já possui modelo de leitura pontual e testes; última consulta externa reportou HTTP 204 em quatro estações do Rio, portanto **dados horários recentes não comprovados**. As camadas oceânicas, radar espacial, assinatura Google Play e voz física permanecem sujeitas à validação e/ou à autorização aplicável.

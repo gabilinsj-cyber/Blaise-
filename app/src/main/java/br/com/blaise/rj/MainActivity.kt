@@ -1896,8 +1896,9 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
         Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
-            "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
-            "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
+            "SGB/SACE, Marinha, NOAA e Copernicus Marine/CMEMS conforme fenômeno oceânico. " +
+            "CMEMS pode apoiar ondas, temperatura e correntes, com produto e DOI citados. " +
+            "Consulta ao vivo exige integração e validação do produto; avisos da Marinha prevalecem.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
@@ -2052,6 +2053,7 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
         StatusLine("Ondas", "— m • aguardando medição/boletim CHM")
+        StatusLine("NOAA / Copernicus Marine", "Ondas, temperatura e correntes oceânicas • fonte complementar ainda não integrada")
         StatusLine("Vento", "— direção e velocidade")
         StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
