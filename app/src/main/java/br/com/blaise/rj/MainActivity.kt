@@ -1951,6 +1951,32 @@ private fun RjMeteorologicalTablesPanel() {
                 "Windy somente se persistir a divergência. " +
                 "Fontes especializadas têm prioridades próprias.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("FONTES PÚBLICAS ADICIONAIS • 2 CADASTRADAS",
+                color = Gold, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-meteo-extra-source-heading"))
+            RjMeteorologicalTables.additionalSources.forEach { source ->
+                Surface(
+                    color = PanelSoft, shape = RoundedCornerShape(9.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-meteo-extra-${source.code}"),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(source.name, color = GoldSoft,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(source.scope, color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(source.products, color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(source.independenceRule, color = WarningAmber,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Fonte pública: ${source.officialUrl}", color = Gold,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
@@ -1992,6 +2018,10 @@ private fun RjMeteorologicalTablesPanel() {
                 }
             }
         }
+        Text("MonitorAr-Rio: estações meteorológicas e qualidade do ar somente na capital. " +
+            "Monitora RJ: risco de calor e chuva intensa para a saúde nos 92 municípios; " +
+            "boletins baseados em dados INMET não são segunda medição independente.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("INEA excluído. Este cadastro não comprova coleta ativa, autorização " +
             "comercial, cobertura de estação em todos os municípios nem segurança meteorológica.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)

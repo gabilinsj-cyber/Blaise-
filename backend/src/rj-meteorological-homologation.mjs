@@ -13,7 +13,7 @@
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v1';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v2';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -50,6 +50,44 @@ const meta=Object.freeze({
   PRESSAO_ATMOSFERICA:['Pressão e tendência barométrica','92 municípios com estação adequada','hPa e tendência comparável por método'],
   RAIOS:['Raios e descargas elétricas','RJ conforme cobertura do sensor/satélite','NOAA GOES GLM e rede terrestre licenciada'],
 });
+/**
+ * Two public specialist programmes added to Table 1. The air network is
+ * municipal Rio only; the SES-RJ climate-health panels cover the state but
+ * are DERIVED risk information (often using INMET) not independent sensors.
+ */
+export const RJ_METEO_ADDITIONAL_SOURCES=Object.freeze([
+  Object.freeze({
+    sourceId:'MONITORAR_RIO_SMAC',
+    name:'MonitorAr-Rio / SMAC',
+    providerGroup:'SMAC_RIO',
+    scope:'CITY_RIO_ONLY',
+    officialUrl:'https://ambienteclima.prefeitura.rio/monitorar-2026-dados/',
+    products:Object.freeze(['AIR_QUALITY_INDEX','POLLUTANTS',
+      'TEMPERATURE','WIND','HUMIDITY','PRESSURE','RAINFALL','SOLAR_RADIATION']),
+    independentlyMeasuredOnlyWithOwnStation:true,
+    mayCountAsSecondIndependentMeasurementOnlyWithProvenSensor:true,
+    observedLiveData:false,automaticAlertAllowed:false,
+  }),
+  Object.freeze({
+    sourceId:'MONITORA_RJ_SES',
+    name:'Monitora RJ / SES-RJ',
+    providerGroup:'SES_RJ',
+    scope:'ALL_92_RJ_MUNICIPALITIES_BY_PANEL_COVERAGE',
+    officialUrl:'https://www.rj.gov.br/saude/node/4047',
+    products:Object.freeze(['EXCESS_HEAT_HEALTH_RISK','HEAVY_RAIN_HEALTH_RISK']),
+    independentWeatherStation:false,
+    reusesInmetMeteorologicalInputs:true,
+    observedLiveData:false,automaticAlertAllowed:false,
+  }),
+]);
+const AIR_STATION_PHENOMENA=new Set([
+  'TEMPERATURA','SENSACAO_TERMICA','UMIDADE','VENTO',
+  'CHUVA_ACUMULADA','PRESSAO_ATMOSFERICA',
+]);
+const HEALTH_RISK_PHENOMENA=new Set([
+  'TEMPERATURA','SENSACAO_TERMICA','CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE',
+]);
+
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
   CHUVA_ATLANTICO:'ATLANTICO',
@@ -100,6 +138,14 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       id:phenomenon,label,coverage,criteria,
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
+      // Contextual channels must not be mistaken for independent stations
+      // or inserted into the primary 3+INPE+Windy meteorological tie-break.
+      additionalSourceIds:Object.freeze([
+        ...(String(ibge)===RJ_CITY_IBGE && AIR_STATION_PHENOMENA.has(phenomenon)
+          ? ['MONITORAR_RIO_SMAC'] : []),
+        ...(HEALTH_RISK_PHENOMENA.has(phenomenon)
+          ? ['MONITORA_RJ_SES'] : []),
+      ]),
       status:RJ_METEO_SOURCE_STATUS.NOT_HOMOLOGATED,
       evidenceRequired:true,
       observedLiveData:false,
@@ -112,7 +158,8 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     project:'Blaise V6 RJ',ibge:String(ibge),
     geographicCoverage:'92 RJ MUNICIPALITIES SELECTABLE; SOURCE COVERAGE BY PRODUCT',
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
-    table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
+    table1:Object.freeze(t1),table1AdditionalSources:RJ_METEO_ADDITIONAL_SOURCES,
+    table2:RJ_METEO_TABLE2,
     operatorVerified:false,automaticPublication:false,
     excludedSource:'INEA',
   });
@@ -138,6 +185,7 @@ export function checkRjSourceProductEvidence({
     'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
     'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
     'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
+    'MONITORAR_RIO_SMAC','MONITORA_RJ_SES',
   ]);
   if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');

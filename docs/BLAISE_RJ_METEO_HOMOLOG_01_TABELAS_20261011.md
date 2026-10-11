@@ -1,11 +1,22 @@
 # Blaise V6 RJ — Tabelas 1 e 2 vinculadas: homologação das fontes meteorológicas
 
 **Identificador permanente:** `BLAISE-RJ-METEO-HOMOLOG-01`  
-**Versão:** `2026-10-11.v1`  
+**Versão:** `2026-10-11.v2`  
 **Projeto exclusivo:** Blaise V6 RJ (92 municípios fluminenses, suas divisas e Atlântico pertinente).  
 **Status deste documento:** políticas e interface cadastradas; serviços *não* homologados por esta documentação.
 
 Este documento une a **Tabela 1 — Cadastro de fontes por fenômeno** à **Tabela 2 — Critérios de desempate e cálculos**. A implementação está em `backend/src/rj-meteorological-homologation.mjs`, o roteamento em `backend/src/rj-phenomenon-source-policy.mjs` e a interface na seção **Mais → Matriz Meteorológica**. Preservar a interface aprovada na PR #97. **INEA excluído de coleta/consulta operacional**.
+
+## Duas fontes públicas adicionais na Tabela 1 — 11/10/2026
+
+Estas fontes **foram acrescentadas** ao cadastro da interface **Mais → Matriz Meteorológica → Tabela 1** como canais complementares das 25 categorias. Não são dois fenômenos novos, não substituem a hierarquia Alerta Rio → Defesa Civil → INMET → INPE/CPTEC → Windy e não comprovam coleta ativa de serviços remotos.
+
+| Fonte acrescentada | Cobertura e produtos oficiais | Onde participa | Independência e responsabilidade |
+|---|---|---|---|
+| **MonitorAr-Rio / SMAC** | Município do Rio, estações de referência e rede municipal. Poluentes, IQAr, temperatura, chuva, vento, umidade, pressão e radiação solar, **conforme instrumentos reais de cada estação**. [Dados oficiais](https://ambienteclima.prefeitura.rio/monitorar-2026-dados/); [rede](https://ambienteclima.prefeitura.rio/monitorar-2026-rede/). | Temperatura, sensação térmica derivada, umidade, vento, chuva acumulada, pressão atmosférica e qualidade do ar (cartão específico). | Somente estações com medição original, horário e variável verificados podem complementar cálculos. Um boletim que republica outra estação não é uma segunda medição. Só possui cobertura local comprovada; sem extrapolação para 92 municípios. |
+| **Monitora RJ / SES-RJ** | **92 municípios**, conforme painel e boletins de previsão de calor excessivo e chuva intensa com impacto na saúde. [Governo do RJ](https://www.rj.gov.br/saude/node/4047); [orientações de calor](https://www.rj.gov.br/saude/node/3780). | Sensação térmica/risco por calor, temperatura como contexto de saúde; chuva acumulada/temporais/tempestades como risco e informação sanitária, não pluviômetro. | O indicador de calor e suas projeções podem usar dados INMET; **não contam como segunda estação meteorológica independente para a média ponderada**. A escala de risco de saúde não é automaticamente a escala Blaise 1–5. |
+
+A **Tabela 2** mantém suas oito regras de desempate. MonitorAr-Rio pode entrar como estação adicional **somente com prova de sensor independente**. Monitora RJ é fonte de risco especializado e contextual, **não árbitro independente** entre duas leituras derivadas do mesmo INMET. A confirmação de leitura atual, direitos de uso e atualização depende de integração específica e homologação por produto.
 
 ## Tabela 1 — 25 categorias meteorológicas, fontes e localidade
 
