@@ -1,4 +1,5 @@
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
+import { RJ_EVENT_SOURCE_POLICY, RJ_SOURCE_POLICY_VERSION } from './rj-user-source-priority-policy.mjs';
 
 /**
  * Approved Blaise V6 RJ source routing policy.
@@ -11,7 +12,7 @@ export const RJ_PHENOMENA = Object.freeze([
   'VAZAO_RIO', 'RESSACA', 'ONDAS', 'CICLONE_EXTRATROPICAL',
   'CHUVA_ATLANTICO', 'MASSA_AR', 'RADAR', 'GRANIZO',
   'DESLIZAMENTO', 'ALAGAMENTO', 'FRENTE_FRIA', 'EL_NINO_LA_NINA',
-  'SISMO', 'TSUNAMI',
+  'SISMO', 'TSUNAMI', 'RAIOS',
 ]);
 export const RJ_SOURCE_CLASS = Object.freeze({
   AUTHORITATIVE: 'AVISO_OU_MEDICAO_OFICIAL',
@@ -42,6 +43,10 @@ const sources = Object.freeze({
   NOAA: definition('NOAA', MODEL, 'ATLANTICO_PRODUTOS_PERTINENTES'),
   USGS: definition('USGS_EARTHQUAKE', OFFICIAL, 'CATALOGO_SISMICO_ATLANTICO_RJ_CONFORME_EVENTO'),
   WINDY: definition('WINDY_MODELO', COMPARE, 'CONFERENCIA_DE_MODELO_NAO_MEDICAO'),
+  GLM: definition('NOAA_GLM', MODEL, 'FLASHES_SATELITE_NAO_EQUIVALEM_A_RAIOS_SOLO'),
+  GROUND_LIGHTNING: definition('REDE_TERRESTRE_AUTORIZADA', OFFICIAL, 'CONFORME_LICENCA_E_COBERTURA'),
+  GEO_RIO: definition('GEO_RIO', OFFICIAL, 'RISCO_GEOTECNICO_MUNICIPIO_RIO'),
+  BRAZIL_AUTHORITY: definition('AUTORIDADE_BRASILEIRA_COMPETENTE', OFFICIAL, 'ALERTAS_TSUNAMI_CONFORME_COMPETENCIA'),
 });
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
@@ -68,7 +73,8 @@ const ROUTES = Object.freeze({
   FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','MARINHA','NOAA','INPE','WINDY']),
   EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
   SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
-  TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
+  TSUNAMI: series(['NOAA','MARINHA','BRAZIL_AUTHORITY','DEFESA_CIVIL','USGS']),
+  RAIOS: series(['GLM','GROUND_LIGHTNING','DEFESA_CIVIL']),
 });
 
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
@@ -80,6 +86,8 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   }
   const rioCity = String(ibge) === RJ_CITY_IBGE;
   const keys = ROUTES[phenomenon];
+  const approvedKey = ({SISMO:'SISMOS',EL_NINO_LA_NINA:'ENSO',CICLONE_EXTRATROPICAL:'CICLONE',VAZAO_RIO:'VAZAO_RIOS',RISCO_HIDROLOGICO:'ENCHENTE',ALAGAMENTO:'ENCHENTE'})[phenomenon] || phenomenon;
+  const approved = RJ_EVENT_SOURCE_POLICY[approvedKey] || null;
   const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
@@ -92,6 +100,11 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     locality: region === 'MUNICIPAL' ? String(ibge) : region,
     phenomenon,
     sources: Object.freeze(eligible),
+    approvedPolicyVersion: RJ_SOURCE_POLICY_VERSION,
+    approvedPrimarySources: Object.freeze(approved?.primary || []),
+    approvedTieBreakOrder: Object.freeze(approved?.tiebreak || []),
+    approvedAggregation: approved?.aggregation || 'NO_MEAN',
+    approvedPolicyOperational: false,
     historicalGuarantee: 'NONE',
     municipalitySelectionCoverage: RJ_MUNICIPALITY_COUNT,
     geographicScope: 'RJ_INCLUI_MUNICIPIOS_DE_DIVISA_SEM_CONFUNDIR_DADOS_DE_ESTADOS_VIZINHOS',
