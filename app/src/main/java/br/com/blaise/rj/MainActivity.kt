@@ -1806,6 +1806,40 @@ private fun MarineScreen() {
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
     }
+    Spacer(Modifier.height(12.dp))
+    DashboardSection(
+        title = "FONTES OCEANOGRÁFICAS E SATÉLITES",
+        subtitle = "Marinha e NOAA prioritárias • consulta externa complementar",
+    ) {
+        StatusLine("Copernicus Marine", "Ondas, swell, correntes, nível e temperatura do mar")
+        StatusLine("EUMETSAT", "Satélites do Atlântico: ciclones, tempestades e nebulosidade")
+        Text("Visualizadores para consulta. Integração API e autorização comercial ainda pendentes. " +
+            "Tsunami somente com aviso da Marinha, NOAA ou autoridade brasileira competente.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        FinalDashboardSpec.supplementalViewers.drop(1).forEach { portal ->
+            RjExternalSourceLink(portal)
+        }
+    }
+}
+
+@Composable
+private fun RjExternalSourceLink(portal: RjSourceViewer) {
+    val context = LocalContext.current
+    var failed by remember(portal.url) { mutableStateOf(false) }
+    TextButton(
+        onClick = {
+            failed = runCatching {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(portal.url))
+                )
+            }.isFailure
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text("Abrir ${portal.title} ↗", color = Gold) }
+    if (failed) {
+        Text("Não foi possível abrir o visualizador externo neste aparelho.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
@@ -1899,6 +1933,11 @@ private fun MoreScreen(
             "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
             "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Terceira consulta complementar nos 10 itens: OpenWeatherMap. " +
+            "Copernicus Marine e EUMETSAT complementam Marinha/NOAA para mar e satélites; " +
+            "nenhuma dessas fontes emite automaticamente avisos Blaise.",
+            color = GoldSoft, style = MaterialTheme.typography.labelSmall)
+        RjExternalSourceLink(FinalDashboardSpec.supplementalViewers.first())
     }
     Spacer(Modifier.height(10.dp))
     RjMeteorologicalTablesPanel()
@@ -1951,6 +1990,30 @@ private fun RjMeteorologicalTablesPanel() {
                 "Windy somente se persistir a divergência. " +
                 "Fontes especializadas têm prioridades próprias.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("TERCEIRA CONSULTA • ITENS METEOROLÓGICOS 1–10",
+                color = Gold, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-meteo-openweather-ten-title"))
+            Text(RjMeteorologicalTables.PRIMARY_JOINT + " • " +
+                RjMeteorologicalTables.THIRD_CONSULTATION,
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.topTen.forEach { item ->
+                Surface(color = NavyRaised,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-meteo-third-source-${item.number}"),
+                    shape = RoundedCornerShape(8.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${item.number}. ${item.phenomenon}", color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("3ª consulta: OpenWeatherMap • ${item.validation}",
+                            color = GoldSoft, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Text("CATÁLOGO TÉCNICO COMPLETO • 25 FENÔMENOS",
+                color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
@@ -2149,6 +2212,10 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         StatusLine("Vento", "— direção e velocidade")
         StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text("Complementos marítimos: NOAA + Copernicus Marine (ondas, swell e oceano) " +
+            "+ EUMETSAT (imagens de tempestades e ciclones). " +
+            "Aguardando produtos e autorização para dados ao vivo.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
             "Dados indisponíveis não representam mar seguro.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
