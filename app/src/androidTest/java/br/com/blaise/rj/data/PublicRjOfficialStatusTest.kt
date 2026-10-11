@@ -72,6 +72,52 @@ class PublicRjOfficialStatusTest {
             .put("name","Other city")
         assertTrue(runCatching { PublicRjStatusParser.parse(invalid) }.isFailure)
     }
+    private fun withRioScience(): JSONObject {
+        val root = fixture()
+        val cities = root.getJSONArray("municipalities")
+        val rio = (0 until cities.length()).map { cities.getJSONObject(it) }
+            .first { it.getString("ibge") == "3304557" }
+        rio.put("scientificReview", JSONObject()
+            .put("officialDisplayScale", 4)
+            .put("hydroScale", 4)
+            .put("meteorologicalWarningScale", 4)
+            .put("reviewState", "HIGH_PRIORITY_OFFICIAL_SOURCE_RECHECK_REQUIRED")
+            .put("highPriority", true)
+            .put("diagnosticCount", 2)
+            .put("automaticAlertAuthorized", false)
+            .put("audibleAlertAuthorized", false))
+        return root
+    }
+    @Test fun sourceVerifiedScientificReviewDisplaysFourWithoutAuthorizingAutomaticAudio() {
+        val result = PublicRjStatusParser.parse(withRioScience())
+        val reviewed = result.municipality(3304557, now)?.scientificReview
+        assertNotNull(reviewed)
+        assertEquals(4, reviewed?.officialDisplayScale)
+        assertEquals(4, reviewed?.meteorologicalWarningScale)
+        assertTrue(reviewed?.highPriority == true)
+        assertEquals(2, reviewed?.diagnosticCount)
+        assertNull(result.municipality(3303302, now)?.scientificReview)
+    }
+    @Test fun rejectsScientificEscalationToFiveWhenCAPAndCemadenOnlyHaveLevelFour() {
+        val root = withRioScience()
+        val rio = (0 until 92).map {
+            root.getJSONArray("municipalities").getJSONObject(it)
+        }.first { it.getString("ibge") == "3304557" }
+        rio.getJSONObject("scientificReview").put("officialDisplayScale", 5)
+        assertTrue(runCatching { PublicRjStatusParser.parse(root) }.isFailure)
+    }
+    @Test fun rejectsScientificReviewThatClaimsSirenOrUnauthorizedAlert() {
+        val root = withRioScience()
+        val rio = (0 until 92).map {
+            root.getJSONArray("municipalities").getJSONObject(it)
+        }.first { it.getString("ibge") == "3304557" }
+        rio.getJSONObject("scientificReview").put("audibleAlertAuthorized", true)
+        assertTrue(runCatching { PublicRjStatusParser.parse(root) }.isFailure)
+        rio.getJSONObject("scientificReview")
+            .put("audibleAlertAuthorized", false)
+            .put("automaticAlertAuthorized", true)
+        assertTrue(runCatching { PublicRjStatusParser.parse(root) }.isFailure)
+    }
     @Test fun publicStatusClientRejectsHttpAndNeverNeedsPurchaseId() {
         assertNull(PublicRjStatusHttpsClient.create(""))
         assertNull(PublicRjStatusHttpsClient.create("http://example.test"))

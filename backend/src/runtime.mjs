@@ -1,6 +1,7 @@
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
+import {createRjSevereCadenceController} from './rj-severe-cadence-controller.mjs';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
@@ -175,11 +176,21 @@ async function main() {
     });
   }
 
+  // No source may be polled at 25-second intervals: 25 seconds is reserved
+  // for locally recomputing already-verified evidence when the extreme
+  // publisher gate has independently confirmed eligibility.
+  // Automatic severe polling is OFF unless operator + provider terms approve.
+  let severityController=null;
   const sourceWorker = createOfficialSourceWorker({
     config: sourceWorkerConfig,
     publishInmetP0,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
     cadenceMode: 'fixed_start',
+    onEvent: (event) => {
+      if(event?.type !== 'task_finished' || !severityController)return;
+      try { severityController.evaluate(); }
+      catch { /* failure cannot stop collection or publish alerts */ }
+    },
   });
 
   const coreHandler = createHttpHandler({
@@ -205,6 +216,17 @@ async function main() {
     sourceWorker,
     metrics,
   });
+  // Connect real validated Alerta Rio station calculations (Vector 2) to
+  // the public evidence audit. This does not grant alerts or paid entitlements.
+  // No independent scientific jobs are fabricated when the source is down.
+  const vectorAgent = createBlaiseVectorRjAgent();
+  severityController=createRjSevereCadenceController({
+    worker:sourceWorker,vector:vectorAgent,
+    enabled:sourceWorkerConfig.enabled
+      &&process.env.BLAISE_RJ_ADAPTIVE_SEVERITY_ENABLED==='true'
+      &&process.env.BLAISE_RJ_PROVIDER_30S_TERMS_APPROVED==='true',
+    operatorSevereOverride:sourceWorkerConfig.initialMode==='severe',
+  });
   // Public official alerts/risk status does not require a Google Play purchase,
   // but data republication is blocked until the operator approves applicable
   // source-product terms and explicitly enables this service.
@@ -212,19 +234,28 @@ async function main() {
     sourceWorker,
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
     licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
+    readScientificJobs: () => sourceWorkerConfig.enabled
+      ? (vectorAgent.snapshot().result?.scientificInputJobs ?? []) : [],
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
   const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
+    readScienceRuntime: () => ({
+      cadenceMode: severityController.snapshot().mode,
+      sourceDrivenScale: severityController.snapshot().highestCurrentOfficialScale,
+      verifiedStationScientificJobCount:
+        vectorAgent.snapshot().result?.scientificInputJobCount ?? 0,
+      lastSourceValidationAt:
+        severityController.snapshot().lastReviewAt ?? null,
+    }),
   });
   const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const vectorAgent = createBlaiseVectorRjAgent();
   if (sourceWorkerConfig.enabled) {
     vectorAgent.setSeverity(sourceWorkerConfig.initialMode === 'severe' ? 5 : 1);
     vectorAgent.start();

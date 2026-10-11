@@ -85,9 +85,11 @@ function writeJson(res,code,object) {
 }
 export function createRjSourceReadinessHandler(delegate,{
   worker,verifyOperatorOidc=null,clock=()=>Date.now(),
+  readScienceRuntime=()=>null,
 }={}) {
   if(typeof delegate!=='function'||!worker||typeof worker.status!=='function'
-    ||typeof clock!=='function')throw TypeError('invalid_source_readiness_handler');
+    ||typeof clock!=='function'
+    ||typeof readScienceRuntime!=='function')throw TypeError('invalid_source_readiness_handler');
   return async (req,res)=>{
     if(req.url?.split('?',1)[0]!==RJ_SOURCE_READINESS_PATH)
       return delegate(req,res);
@@ -106,8 +108,23 @@ export function createRjSourceReadinessHandler(delegate,{
     }
     try {
       const report=buildRjSourceReadiness(worker,{nowMillis:clock()});
+      const science=readScienceRuntime();
+      const safeScience=science&&typeof science==='object'&&
+        ['normal','severe',null].includes(science.cadenceMode)
+        &&Number.isInteger(science.verifiedStationScientificJobCount)
+        &&science.verifiedStationScientificJobCount>=0&&science.verifiedStationScientificJobCount<=64
+        ?Object.freeze({
+          cadenceMode:science.cadenceMode,
+          sourceDrivenScale:science.sourceDrivenScale??null,
+          verifiedStationScientificJobCount:science.verifiedStationScientificJobCount,
+          lastSourceValidationAt:science.lastSourceValidationAt??null,
+          level5AudioAuthorized:false,
+          modelOnlyAlertsAuthorized:false,
+        }):null;
       const ready=report.collectionState==='LIVE_SOURCES_WITH_FRESH_VALIDATED_DATA';
-      writeJson(res,ready?200:503,report);
+      writeJson(res,ready?200:503,{
+        ...report,scientificRuntime:safeScience,
+      });
     } catch {
       writeJson(res,503,{error:'source_readiness_unavailable'});
     }

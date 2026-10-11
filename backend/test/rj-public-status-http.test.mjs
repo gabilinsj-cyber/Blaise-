@@ -49,6 +49,56 @@ test('public endpoint projects exactly 92 RJ official risk entries without crede
   assert.equal(JSON.stringify(result).includes('entitlement'),false);
   assert.equal(JSON.stringify(result).includes('INEA'),false);
 });
+test('public status reports a source-specific high-risk scientific review but no automated level-5 alarm',()=>{
+  const snapshot=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
+  assert.equal(snapshot.scientificRiskContract,'BLAISE_RJ_SCIENTIFIC_RISK_REVIEW_V1');
+  assert.equal(snapshot.scientificRiskState,'EVALUATED_OFFICIAL_AND_EXPERIMENTAL_INPUTS');
+  assert.equal(snapshot.scientificReviewNotAutomatedAlert,true);
+  const rio=snapshot.municipalities.find(c=>c.ibge==='3304557');
+  assert.equal(rio.scientificReview.officialDisplayScale,4);
+  assert.equal(rio.scientificReview.meteorologicalWarningScale,4);
+  assert.equal(rio.scientificReview.hydroScale,4);
+  assert.equal(rio.scientificReview.reviewState,'HIGH_PRIORITY_OFFICIAL_SOURCE_RECHECK_REQUIRED');
+  assert.equal(rio.scientificReview.automaticAlertAuthorized,false);
+  assert.equal(rio.scientificReview.audibleAlertAuthorized,false);
+  const niteroi=snapshot.municipalities.find(c=>c.ibge==='3303302');
+  assert.equal(niteroi.scientificReview.officialDisplayScale,1);
+  assert.equal(niteroi.scientificReview.meteorologicalWarningScale,null);
+  assert.equal(niteroi.scientificReview.automaticAlertAuthorized,false);
+});
+test('scientific input job from trusted server callback never invents municipal alert or changes official warning',async()=>{
+  const reading=new Date(now-60_000).toISOString();
+  const job={
+    id:'station-science-fixture',method:'vaporPressureFromDewPoint',
+    scopeId:'municipality:3304557',validAt:reading,maxAgeMs:1800_000,
+    inputs:{dewPointC:22},
+    sources:[{sourceId:'ALERTA_RIO_METEOROLOGY_STATION',
+      sourceUrl:'https://www.sistema-alerta-rio.com.br/',
+      observedAt:reading,validAt:reading,scopeId:'municipality:3304557',
+      nature:'OBSERVADO',quality:'VALIDATED'}],
+  };
+  const body=buildRjPublicStatusSnapshot(worker(),{
+    nowMillis:now,scientificJobs:[job],
+  });
+  assert.equal(body.scientificAcceptedJobCount,1);
+  assert.equal(body.municipalities.find(c=>c.ibge==='3304557')
+    .scientificReview.diagnosticCount,1);
+  assert.equal(body.municipalities.find(c=>c.ibge==='3303302')
+    .scientificReview.diagnosticCount,0);
+  assert.equal(body.municipalities.find(c=>c.ibge==='3304557')
+    .scientificReview.audibleAlertAuthorized,false);
+  assert.equal(JSON.stringify(body).includes('purchaseToken'),false);
+  assert.equal(JSON.stringify(body).includes('INEA'),false);
+  const response=fakeResponse();
+  const handler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,sourceWorker:worker(),
+    clock:()=>now,readScientificJobs:()=>[job],
+  });
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},response);
+  assert.equal(response.statusCode,200);
+  assert.equal(response.body.scientificAcceptedJobCount,1);
+  assert.equal(response.body.municipalities.length,92);
+});
 test('ambiguous INMET statewide warning remains unassigned and cannot be displayed in every city',()=>{
   const result=buildRjPublicStatusSnapshot(worker({allUnresolved:true}),{nowMillis:now});
   assert.equal(result.warnings.length,0);

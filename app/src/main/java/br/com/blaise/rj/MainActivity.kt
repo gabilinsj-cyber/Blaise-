@@ -1612,6 +1612,9 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
     val city = snapshot?.municipality(ibge, now)
     val risk = city?.risk?.takeIf { it.current(now) }
     val warnings = snapshot?.warningsFor(ibge, now).orEmpty()
+    // The Android parser independently checks this scale against the
+    // source-specific risk and CAP warnings (not against a model forecast).
+    val scientificReview = city?.scientificReview
     Column(
         Modifier.fillMaxWidth().testTag("official-municipality-status-${ibge}"),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -1637,6 +1640,31 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
         if (warnings.isEmpty()) {
             Text("Avisos oficiais: sem confirmação de cobertura completa; não indica ausência de risco.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        if (scientificReview != null && scientificReview.officialDisplayScale != null) {
+            Text(
+                "Blaise • prioridade das fontes: nível ${scientificReview.officialDisplayScale}/5",
+                color = if (scientificReview.highPriority) WarningAmber else Gold,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("official-science-review-${ibge}"),
+            )
+            if (scientificReview.highPriority) {
+                Text(
+                    "Nível 4 ou 5: reavaliação prioritária das fontes. " +
+                        "Cálculo isolado não aciona alerta sonoro.",
+                    color = WarningAmber,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            if (scientificReview.diagnosticCount > 0) {
+                Text(
+                    "Vector RJ: ${scientificReview.diagnosticCount} cálculo(s) " +
+                        "com entradas validadas • não são avisos oficiais.",
+                    color = Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
     }
 }

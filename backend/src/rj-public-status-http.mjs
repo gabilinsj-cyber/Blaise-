@@ -1,4 +1,5 @@
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
+import {evaluateRjScientificRiskSnapshot} from './rj-science-risk-engine.mjs';
 
 export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
@@ -7,12 +8,18 @@ export const RJ_PUBLIC_STATUS_MAX_BYTES = 80 * 1024;
 // Public safety notices are not tied to purchases. Source/content publication
 // must still be explicitly approved by the operator for its licensing terms.
 // No full provider payload, subscriber/purchase token or personal location.
-export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } = {}) {
+export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now(), scientificJobs = [] } = {}) {
   if(!worker || typeof worker.status !== 'function'
     || typeof worker.readSource !== 'function') throw new TypeError('rj_public_worker_invalid');
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
   const source=buildStatewideDashboardSnapshot(worker,{nowMillis});
   if(!source.workerActive) return null;
+  // Risk and science are separately evaluated from the SAME worker snapshot:
+  // no detached assessment or unchecked severity from client/browser input.
+  const scientificReview=evaluateRjScientificRiskSnapshot({
+    sourceSnapshot:source,scientificJobs,nowMillis,
+  });
+  const reviewByCity=new Map(scientificReview.municipalities.map(row=>[row.ibge,row]));
   const permittedSourceIds=['inmet','cemaden-rj'];
   const sourceSummaries=source.sources
     .filter(s=>permittedSourceIds.includes(s.id))
@@ -35,6 +42,20 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
         }):null,
     warningIds:Object.freeze([...row.warningIds]),
     warningCoverage:row.warningCoverage,
+    // This is an explanatory read-only assessment, NEVER a new alert issued
+    // by the scientific models. Official product and freshness remain linked.
+    scientificReview:reviewByCity.has(row.ibge)?Object.freeze({
+      officialDisplayScale:reviewByCity.get(row.ibge).officialDisplayScale,
+      hydroScale:reviewByCity.get(row.ibge).hydroScale,
+      meteorologicalWarningScale:reviewByCity.get(row.ibge).meteorologicalWarningScale,
+      reviewState:reviewByCity.get(row.ibge).reviewState,
+      highPriority:reviewByCity.get(row.ibge).highPriority,
+      diagnosticCount:reviewByCity.get(row.ibge).diagnosticCount,
+      independentSevereConfirmation:reviewByCity.get(row.ibge).independentSevereConfirmation,
+      highRiskSourceRecheckMs:reviewByCity.get(row.ibge).highRiskSourceRecheckMs,
+      automaticAlertAuthorized:false,
+      audibleAlertAuthorized:false,
+    }):null,
   }));
   const warnings=source.warnings
     .filter(w=>w.attribution==='EXACT_IBGE'&&Array.isArray(w.municipalityIbges)
@@ -48,6 +69,11 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   return Object.freeze({
     contract:RJ_PUBLIC_STATUS_CONTRACT,
     generatedAt:new Date(nowMillis).toISOString(),
+    scientificRiskContract:scientificReview.contract,
+    scientificRiskState:scientificReview.state,
+    scientificEvaluatedJobCount:scientificReview.scientificJobsEvaluated,
+    scientificAcceptedJobCount:scientificReview.scientificJobsAccepted,
+    scientificReviewNotAutomatedAlert:true,
     scope:'RJ_92_MUNICIPALITIES',
     workerActive:true,
     usableOfficialProducts:active,
@@ -78,11 +104,13 @@ function respond(res,code,body) {
 }
 export function createRjPublicStatusHandler(delegate, {
   sourceWorker,enabled=false,licensingApproved=false,clock=()=>Date.now(),
+  readScientificJobs=()=>[],
 }={}) {
   if(typeof delegate!=='function')throw new TypeError('rj_public_delegate_required');
   if(!sourceWorker || typeof sourceWorker.status!=='function'
     || typeof sourceWorker.readSource!=='function')throw new TypeError('rj_public_worker_required');
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
+  if(typeof readScientificJobs!=='function')throw new TypeError('rj_scientific_jobs_provider_required');
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
     if(path!==RJ_PUBLIC_STATUS_PATH || !enabled || !licensingApproved)
@@ -91,7 +119,14 @@ export function createRjPublicStatusHandler(delegate, {
       respond(res,405,{error:'method_not_allowed'});return;
     }
     try {
-      const status=buildRjPublicStatusSnapshot(sourceWorker,{nowMillis:clock()});
+      const scientificJobs=readScientificJobs();
+      // Scientific jobs may only come from this internal trusted provider;
+      // never accept JSON science jobs from an unauthenticated HTTP caller.
+      if(!Array.isArray(scientificJobs)||scientificJobs.length>64)
+        throw new TypeError('invalid_scientific_job_feed');
+      const status=buildRjPublicStatusSnapshot(sourceWorker,{
+        nowMillis:clock(),scientificJobs,
+      });
       if(!status || !status.usableOfficialProducts) {
         respond(res,503,{error:'official_sources_not_validated'});return;
       }
