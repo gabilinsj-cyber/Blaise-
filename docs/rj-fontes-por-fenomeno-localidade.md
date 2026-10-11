@@ -1,5 +1,10 @@
 # Blaise V6 RJ — matriz de fontes por fenômeno e localidade
 
+> **Referência vigente em 11/10/2026:** [MATRIZ COMPLETA DE 25 FENÔMENOS + OPENWEATHER 3ª CONSULTA + DESEMPATE](RJ_MATRIZ_25_FENOMENOS_OPENWEATHER_20261011.md).
+> Qualquer sequência antiga de cinco fontes presente abaixo tem valor **histórico**, substituída pela regra atual: Alerta Rio (onde cobre) → Defesa Civil → **OpenWeatherMap** → INMET para novas medições oficiais → INPE/CPTEC, NOAA e Windy conforme o fenômeno.
+> OpenWeatherMap é estimativa agregada de terceiros e não é automaticamente a segunda estação independente.
+
+
 **Regra do projeto (10/10/2026).** Escopo exclusivo do estado do Rio de Janeiro, seus 92 municípios, litoral adjacente e fenômenos do Atlântico capazes de afetar o RJ. **INEA retirado**, inclusive de coletores opcionais e de sondagens operacionais. Esta matriz é uma especificação de roteamento; **não atesta que todas as integrações já estejam operantes**.
 
 ## Atualização da hierarquia municipal — OpenWeatherMap (11/10/2026)
