@@ -242,6 +242,14 @@ async function main() {
   const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
+    readScienceRuntime: () => ({
+      cadenceMode: severityController.snapshot().mode,
+      sourceDrivenScale: severityController.snapshot().highestCurrentOfficialScale,
+      verifiedStationScientificJobCount:
+        vectorAgent.snapshot().result?.scientificInputJobCount ?? 0,
+      lastSourceValidationAt:
+        severityController.snapshot().lastReviewAt ?? null,
+    }),
   });
   const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
   server.requestTimeout = 10_000;
