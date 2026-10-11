@@ -36,11 +36,21 @@ object FinalDashboardSpec {
         "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
     )
 
-    // Five situational weather channels; Windy and INPE/CPTEC provide
-    // forecast context, not interchangeable measured station reports.
-    val fiveSituationalWeatherSources = listOf(
-        "Alerta Rio", "Defesa Civil", "INMET", "Windy (modelos)", "INPE/CPTEC (previsões)"
+    // Seven consultation priorities, not seven independent stations or
+    // proof of seven live APIs. Source #1 applies only to municipality Rio.
+    // OpenWeather (#3) is an aggregated third-party estimate, not a
+    // second official observation and never an alert authority.
+    val meteorologicalSourcePriority = listOf(
+        "1 Alerta Rio (cidade do Rio)",
+        "2 Defesa Civil (localidade)",
+        "3 OpenWeather (estimativa)",
+        "4 INMET (estações)",
+        "5 INPE/CPTEC (previsões)",
+        "6 NOAA (modelos)",
+        "7 Windy (comparação)"
     )
+    @Deprecated("Use meteorologicalSourcePriority")
+    val fiveSituationalWeatherSources = meteorologicalSourcePriority
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
