@@ -12,7 +12,7 @@ export const RJ_PHENOMENA = Object.freeze([
   'VAZAO_RIO', 'RESSACA', 'ONDAS', 'CICLONE_EXTRATROPICAL',
   'CHUVA_ATLANTICO', 'MASSA_AR', 'RADAR', 'GRANIZO',
   'DESLIZAMENTO', 'ALAGAMENTO', 'FRENTE_FRIA', 'EL_NINO_LA_NINA',
-  'SISMO', 'TSUNAMI', 'RAIOS',
+  'SISMO', 'TSUNAMI', 'RAIOS', 'EXCESSO_CALOR_SAUDE', 'QUALIDADE_AR', 'RADIACAO_SOLAR',
 ]);
 export const RJ_SOURCE_CLASS = Object.freeze({
   AUTHORITATIVE: 'AVISO_OU_MEDICAO_OFICIAL',
@@ -46,6 +46,8 @@ const sources = Object.freeze({
   GLM: definition('NOAA_GLM', MODEL, 'FLASHES_SATELITE_NAO_EQUIVALEM_A_RAIOS_SOLO'),
   GROUND_LIGHTNING: definition('REDE_TERRESTRE_AUTORIZADA', OFFICIAL, 'CONFORME_LICENCA_E_COBERTURA'),
   GEO_RIO: definition('GEO_RIO', OFFICIAL, 'RISCO_GEOTECNICO_MUNICIPIO_RIO'),
+  MONITORA_RJ: definition('MONITORA_RJ_SES', OFFICIAL, 'RJ_92_MUNICIPIOS_PRODUTO_RISCO_SAUDE_NAO_ESTACAO_INDEPENDENTE'),
+  MONITORAR_RIO: definition('MONITORAR_RIO_SMAC', OFFICIAL, 'ESTACOES_MUNICIPIO_RIO_APENAS'),
   BRAZIL_AUTHORITY: definition('AUTORIDADE_BRASILEIRA_COMPETENTE', OFFICIAL, 'ALERTAS_TSUNAMI_CONFORME_COMPETENCIA'),
 });
 
@@ -75,6 +77,9 @@ const ROUTES = Object.freeze({
   SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
   TSUNAMI: series(['NOAA','MARINHA','BRAZIL_AUTHORITY','DEFESA_CIVIL','USGS']),
   RAIOS: series(['GLM','GROUND_LIGHTNING','DEFESA_CIVIL']),
+  EXCESSO_CALOR_SAUDE: series(['MONITORA_RJ','INMET','ALERTA_RIO','MONITORAR_RIO']),
+  QUALIDADE_AR: series(['MONITORAR_RIO']),
+  RADIACAO_SOLAR: series(['MONITORAR_RIO','INMET']),
 });
 
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
@@ -92,6 +97,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
+    if (s.id === 'MONITORAR_RIO_SMAC' && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','NOAA_GLM','REDE_TERRESTRE_AUTORIZADA','AUTORIDADE_BRASILEIRA_COMPETENTE','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
