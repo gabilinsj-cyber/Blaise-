@@ -3,7 +3,7 @@
  * Not a live feed, not an authorization to scrape, not an alert engine.
  * Validate licensing, coverage, provenance, age, units and independence in adapters.
  */
-export const RJ_SOURCE_POLICY_VERSION = '2026-10-11-v1';
+export const RJ_SOURCE_POLICY_VERSION = '2026-10-11-v2-monitorar';
 const joint = ['ALERTA_RIO', 'DEFESA_CIVIL_RJ'];
 const met = ['INMET', 'INPE_CPTEC', 'NOAA', 'CEMADEN_RJ'];
 const row = (primary, tiebreak, aggregation='NO_MEAN') =>
@@ -33,6 +33,8 @@ export const RJ_EVENT_SOURCE_POLICY = Object.freeze({
   TSUNAMI:row(['NOAA_TSUNAMI','MARINHA_CHM','AUTORIDADE_BRASILEIRA_COMPETENTE'],['CENTRO_OFICIAL_ALERTA','USGS','MAREGRAFOS_DART']),
   SECA:row(['CEMADEN_RJ','ANA','INMET'],['INPE_CPTEC','MONITOR_CLIMATICO_AUTORIZADO']),
   ENSO:row(['NOAA','CENTRO_CLIMATICO_OFICIAL'],['INPE_CPTEC']),
+  QUALIDADE_AR:row(['MONITORAR_RIO_SMAC'],['DATA_RIO','REDE_OFICIAL_AR','INDICADOR_AR_VALIDADO']),
+  RADIACAO_SOLAR:row(['MONITORAR_RIO_SMAC'],['INMET','SATELITE_OFICIAL','MODELO_AUTORIZADO'],'CONDITIONAL_WEIGHTED'),
   PREVISAO_1_7_DIAS:row(['INMET','MODELO_OFICIAL'],['INPE_CPTEC','NOAA','MODELO_AUTORIZADO'],'CALIBRATED_FORECAST_ENSEMBLE'),
 });
 export function sourcePolicyForRjEvent(event) {
