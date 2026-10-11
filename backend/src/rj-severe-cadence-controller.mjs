@@ -80,7 +80,7 @@ export function createRjSevereCadenceController({
       lastReviewAt:reviewAt,lastError,
       evaluationCount:calls,
       requiresValidatedOfficialSource:true,
-      25SecondPollingAuthorized:false,
+      '25SecondPollingAuthorized':false,
       alertPublished:false,
     }),
   });
