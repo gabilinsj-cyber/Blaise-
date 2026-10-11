@@ -20,7 +20,7 @@ test('extreme hazards cannot be averaged',()=>{
 test('routing exposes policy without claiming live integration',()=>{
   const t=rjSourceRouting({ibge:'3304557',phenomenon:'TEMPERATURA'});
   assert.equal(t.approvedPolicyOperational,false);
-  assert.deepEqual(t.approvedPrimarySources,['ALERTA_RIO','DEFESA_CIVIL_RJ']);
+  assert.deepEqual(t.approvedPrimarySources,['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET']);
   const tsunami=rjSourceRouting({region:'ATLANTICO',phenomenon:'TSUNAMI'});
   assert.ok(tsunami.sources.some(s=>s.id==='NOAA'));
   assert.ok(tsunami.sources.some(s=>s.id==='MARINHA_CHM'));
