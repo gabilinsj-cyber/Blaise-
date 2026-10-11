@@ -176,6 +176,29 @@ class MainActivityTest {
         assertTextDisplayed("MAPA PRÓPRIO • BLAISE V6 RJ")
     }
 
+    @Test fun fullscreenMapShowsEntireOwnRjCanvasZoomLayersAndValidSourceStatus() {
+        rule.onNodeWithTag("open-full-rj-map").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-fullscreen-map-dialog").assertIsDisplayed()
+        rule.onNodeWithTag("full-rj-map-canvas").assertIsDisplayed()
+        rule.onNodeWithText("MAPA COMPLETO • BLAISE V6 RJ").assertIsDisplayed()
+        rule.onNodeWithTag("full-map-zoom-in").performClick()
+        rule.onNodeWithTag("full-map-zoom-out").performClick()
+        rule.onNodeWithTag("full-map-layer-Temperatura").performClick()
+        rule.onNodeWithTag("full-map-source-status").assertIsDisplayed()
+        rule.onNodeWithTag("close-full-rj-map").performClick()
+        rule.onNodeWithTag("open-full-rj-map").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun separateMapTabAlsoProvidesFullscreenAccessWithoutSyntheticRainfall() {
+        rule.onNodeWithTag("nav-Mapa").performClick()
+        rule.onNodeWithTag("map-screen-expand").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-fullscreen-map-dialog").assertIsDisplayed()
+        rule.onNodeWithText("Radar: aguardando células medidas, georreferenciadas e autorizadas.")
+            .assertIsDisplayed()
+        rule.onNodeWithTag("full-map-tool-Cidades").performClick()
+        rule.onNodeWithTag("close-full-rj-map").performClick()
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
