@@ -1,13 +1,13 @@
 # Blaise V6 RJ — Tabelas 1 e 2 vinculadas: homologação das fontes meteorológicas
 
 **Identificador permanente:** `BLAISE-RJ-METEO-HOMOLOG-01`  
-**Versão:** `2026-10-11.v1`  
+**Versão:** `2026-10-11.v2`  
 **Projeto exclusivo:** Blaise V6 RJ (92 municípios fluminenses, suas divisas e Atlântico pertinente).  
 **Status deste documento:** políticas e interface cadastradas; serviços *não* homologados por esta documentação.
 
 Este documento une a **Tabela 1 — Cadastro de fontes por fenômeno** à **Tabela 2 — Critérios de desempate e cálculos**. A implementação está em `backend/src/rj-meteorological-homologation.mjs`, o roteamento em `backend/src/rj-phenomenon-source-policy.mjs` e a interface na seção **Mais → Matriz Meteorológica**. Preservar a interface aprovada na PR #97. **INEA excluído de coleta/consulta operacional**.
 
-## Tabela 1 — 25 categorias meteorológicas, fontes e localidade
+## Tabela 1 — 28 categorias meteorológicas, fontes e localidade
 
 **Como ler:** a sequência é a *elegibilidade/prioridade de consulta*, não atestado de coleta ativa, disponibilidade de uma API, licença ou presença de sensores no município. Para toda fonte, conferir **produto + horário + latitude/longitude ou área municipal + unidade + autorização**. Produtos oficiais de previsão não são medições pontuais.
 
@@ -38,8 +38,19 @@ Este documento une a **Tabela 1 — Cadastro de fontes por fenômeno** à **Tabe
 | 23 | Tsunami / maremoto / meteotsunami | Costa do RJ e Atlântico | **Marinha + NOAA + autoridades brasileiras**; USGS para mecanismo sísmico; nenhum cálculo isolado cria aviso |
 | 24 | Pressão atmosférica | 92 municípios, estações adequadas | INMET → INPE → Windy; Alerta Rio somente se houver pressão local comprovada |
 | 25 | Raios e descargas elétricas | Cobertura por rede/satélite | NOAA GOES/GLM + rede terrestre licenciada → Defesa Civil; observação satelital é diferente de contagem de solo |
+| 26 | Excesso de calor e risco à saúde | RJ conforme painel e produto da SES-RJ | **Monitora RJ (SES-RJ)** para indicadores de saúde; INMET para medições originais; Alerta Rio apenas no município do Rio quando houver produto aplicável. Dados INMET republicados no painel **não são segunda medição independente** |
+| 27 | Qualidade do ar e poluentes | MonitorAr-Rio apenas município do Rio; outras cidades conforme redes próprias confirmadas | **MonitorAr-Rio (SMAC)**: IQAr, PM2,5, PM10, O3 e outros poluentes por estação, com classificação/horário/validação do sensor. Não atribuir a mesma rede a 92 municípios |
+| 28 | Índice ultravioleta (UV) | RJ conforme cobertura do produto | INPE/CPTEC → INMET → NOAA, somente quando existir produto oficial adequado, com unidade ou índice, local e validade confirmados. Não inferir UV a partir de temperatura |
 
 **Exceções:** Alerta Rio restringe-se ao município do Rio de Janeiro (IBGE 3304557). Outras localidades só entram com cobertura comprovada e base de dados da autoridade competente. Uma estação na divisa de outro estado não vira estação do RJ. Marinha, NOAA, ANA, SGB, CEMADEN, USGS e redes de raios mantêm **prioridade especializada** mesmo que não pertençam à sequência meteorológica geral. Há 92 municípios selecionáveis, não 92 sensores garantidos.
+
+### Fontes acrescentadas e agregadora complementar
+
+**Monitora RJ (SES-RJ)** e **MonitorAr-Rio (SMAC)** foram incluídos na Tabela 1 e no catálogo/roteamento do Blaise. São produtos distintos: Monitora RJ é um **painel de informação em saúde** que não pode ser tratado como estação meteorológica adicional só por republicar temperatura ou risco; MonitorAr-Rio possui **estações municipais de qualidade do ar** restritas ao município do Rio. Quando um indicador depende da medição INMET já utilizada, o algoritmo deve **deduplicar a origem primária**, não somar confirmação artificial.
+
+**Plataforma Clima (Prefeitura do Rio)** foi cadastrada como agregadora complementar condicionada para RADAR e análise meteorológica própria: antes de usar algum produto é obrigatório identificar dados de origem, direito de uso, resolução e horários. Como o projeto Blaise V6 RJ excluiu o **INEA**, nenhum produto derivado desse órgão deve entrar automaticamente via Plataforma Clima. O catálogo não ativa cópia de imagens ou ingestão de API.
+
+Referências oficiais para revisão de produto: [MonitorAr-Rio / SMAC — dados](https://ambienteclima.prefeitura.rio/monitorar-2026-dados/), [Rede MonitorAr-Rio](https://ambienteclima.prefeitura.rio/monitorar-2026-rede/), [Monitora RJ/SES-RJ](https://monitorar.saude.rj.gov.br/) e [Plataforma Clima — sobre](https://plataforma-clima.dados.rio/sobre). Nenhuma dessas referências isoladamente comprova uma integração viva ou as permissões de redistribuição dos produtos selecionados.
 
 ## Tabela 2 — Desempate, média ponderada e identificação de fontes
 
@@ -52,7 +63,7 @@ Este documento une a **Tabela 1 — Cadastro de fontes por fenômeno** à **Tabe
 | 5 | Segundo desempate | **Windy somente se INPE inconclusivo**, com licença compatível com o app e fonte do modelo independente identificada |
 | 6 | Mostrar duas fontes | Duas leituras oficiais ou **1 medição oficial + 1 previsão** rotuladas separadamente; preservar todos os valores oficiais divergentes, sem média entre medição e previsão |
 | 7 | Falta de medições | Buscar outras fontes autorizadas e último cache com horário, quando ainda válido. Se nenhuma entrada verificável, não inventar valor nem falso “sem alerta” |
-| 8 | Eventos especializados | Não fazer média de categorias de alertas, magnitudes sísmicas, classificações de tsunami/ressaca. Priorizar autoridades e avisos aplicáveis |
+| 8 | Eventos especializados | Não fazer média de categorias de alertas, magnitudes sísmicas, classificações de tsunami/ressaca. Priorizar autoridades, dados de saúde e qualidade do ar adequados; Monitora RJ pode republicar INMET, e Plataforma Clima pode agregar dados de origem proibida (INEA). Não contar republicações como validação independente |
 
 Para medições numéricas compatíveis, **média ponderada:** `sum(weight_i * value_i) / sum(weight_i)`. Exigir pesos metodologicamente sustentados; usar a calculadora científica `rj-scientific-calculator.mjs`, que também contém ponto de orvalho e índices térmicos. Para previsões de modelos, cálculo *separado*, usando habilidade retrospectiva documentada. **Nunca transformar previsão em leitura observada ou média em alerta oficial.**
 
@@ -73,6 +84,10 @@ Esta é a **situação demonstrável pelo repositório**, não uma afirmação d
 | NOAA / rede raios | Critério especializado, ainda não integrado | Produto específico, autorização, lat/lon, resolução temporal e QA |
 | USGS | Critério sísmico; ingestão operacional ainda não comprovada | Feed de eventos, georreferenciamento, hora, deduplicação e regras de alerta |
 | Radar espacial próprio | `rj-radar-spatial-layer.mjs`, Canvas Android | Produto de grade/frames real, licença, decodificador, calibração, 30 min de frames e comparação com pluviômetros |
+| Monitora RJ / SES-RJ | Catálogo Tabela 1 categoria 26 (sem API produtiva) | Confirmar produto de excesso de calor/saúde, perímetro real, licença e origem primária; não duplicar INMET |
+| MonitorAr-Rio / SMAC | Catálogo Tabela 1 categoria 27 (sem API produtiva) | Selecionar dados por estação do município do Rio e indicar método de validação, unidade, uso autorizado e horário |
+| Plataforma Clima / Rio | Fonte agregadora candidata para radar (sem API produtiva) | Validar produtos, licença, origem e excluir dados INEA; não copiar mapas de terceiros |
+
 | Backend Cloud Run e Android | Worker/endpoint de prontidão e cliente Android | Revisão de Cloud Run/IAM/env, observação 24h, autorização de publicação, teste físico; CI não comprova produção |
 
 ### Portas de controle e evidências obrigatórias

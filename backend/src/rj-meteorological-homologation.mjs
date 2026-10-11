@@ -2,7 +2,7 @@
  * BLAISE-RJ-METEO-HOMOLOG-01
  *
  * Consolidated and versioned two-table meteorological SOURCE SPECIFICATION.
- * All 25 registered phenomena use the same existing rjSourceRouting policy.
+ * All 28 registered categories use the same existing rjSourceRouting policy.
  * Table 1 is SOURCE ELIGIBILITY BY LOCATION, NOT live proof.
  * Table 2 is DISAGREEMENT/RECONCILIATION DECISION POLICY, NOT a forecast.
  *
@@ -13,7 +13,7 @@
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v1';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v2';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -49,6 +49,9 @@ const meta=Object.freeze({
   TSUNAMI:['Tsunami, maremoto e meteotsunami','Costa RJ/Atlântico com potencial impacto','avisos oficiais marítimos/sismológicos; não inferir por magnitude'],
   PRESSAO_ATMOSFERICA:['Pressão e tendência barométrica','92 municípios com estação adequada','hPa e tendência comparável por método'],
   RAIOS:['Raios e descargas elétricas','RJ conforme cobertura do sensor/satélite','NOAA GOES GLM e rede terrestre licenciada'],
+  EXCESSO_CALOR_SAUDE:['Excesso de calor e risco à saúde','92 municípios conforme indicador da SES-RJ','Monitora RJ/SES como painel de saúde secundário, sem independência se republicar INMET; validar série/produto'],
+  QUALIDADE_AR:['Qualidade do ar e poluentes (IQAr)','MonitorAr-Rio apenas município do Rio, demais redes locais conforme produto','SMAC/MonitorAr-Rio: IQAr, PM2,5, PM10, O3, NO2 e demais poluentes por estação; não interpolar 92 municípios'],
+  INDICE_UV:['Índice de radiação UV','Municípios RJ com produto e resolução adequados','INPE/CPTEC e INMET conforme produto; NOAA quando houver cobertura e base apropriada; não supor índice local'],
 });
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
@@ -80,14 +83,14 @@ export const RJ_METEO_TABLE2=Object.freeze([
   Object.freeze({step:7,code:'SEM_DADO_NOVO',condition:'Nenhum registro atual e verificável',
     decision:'Tentar próxima fonte autorizada e cache recente; se não há medição real, nenhuma fórmula a cria. Não declarar segurança nem emitir alerta.',
     method:'FAIL_CLOSED_SEM_VALOR_SINTETICO'}),
-  Object.freeze({step:8,code:'CATEGORIAS_ESPECIAIS',condition:'Alertas, mar, sismo, tsunami, raios, rios e radar',
-    decision:'Competência da fonte especializada/aviso vigente prevalece; nunca ponderar categorias de alerta, magnitudes ou alarmes.',
-    method:'FONTES_ESPECIALIZADAS_E_CONFIRMACAO_INDEPENDENTE'}),
+  Object.freeze({step:8,code:'CATEGORIAS_ESPECIAIS',condition:'Alertas, mar, sismo, tsunami, raios, rios, calor/saúde e qualidade do ar',
+    decision:'Competência da fonte especializada prevalece. Monitora RJ pode republicar INMET (não contar duas vezes); MonitorAr-Rio limita-se ao Rio. Plataforma Clima é agregadora e pode conter dados INEA, excluídos operacionalmente. Nunca ponderar categorias de alerta, magnitudes ou alarmes.',
+    method:'FONTES_ESPECIALIZADAS_ORIGEM_PRIMARIA_SEM_REPUBLICACAO_DUPLA'}),
 ]);
 
-if(Object.keys(meta).length!==25||RJ_PHENOMENA.length!==25
+if(Object.keys(meta).length!==28||RJ_PHENOMENA.length!==28
   ||RJ_PHENOMENA.some(id=>!Object.hasOwn(meta,id)))
-  throw new Error('rj_25_phenomena_homologation_drift');
+  throw new Error('rj_28_categories_homologation_drift');
 
 export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) {
   // Calls existing 92-municipality validator for every phenomenon. Each row
@@ -100,6 +103,8 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       id:phenomenon,label,coverage,criteria,
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
+      provenance: 'CADA_FONTE_EXIGE_PRODUTO_ORIGINAL_E_LICENCA_VALIDOS',
+      aggregatedOrRepublishedSourcesAreNotIndependent: true,
       status:RJ_METEO_SOURCE_STATUS.NOT_HOMOLOGATED,
       evidenceRequired:true,
       observedLiveData:false,
@@ -138,6 +143,7 @@ export function checkRjSourceProductEvidence({
     'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
     'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
     'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
+    'MONITORA_RJ_SES','MONITORAR_RIO_SMAC','PLATAFORMA_CLIMA_RIO',
   ]);
   if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');
