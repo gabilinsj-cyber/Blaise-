@@ -30,3 +30,14 @@ test('licensed injected JSON transport can supply candidate but never alert',asy
   assert.equal(r.observations.length,1);
   assert.notEqual(r.state,'CURRENT');
 });
+
+test('official adapters reject unrelated HTTPS hosts and forged provenance',async()=>{
+  const foreign=await collectRjOfficialProduct('MONITORA_RJ_SES',{
+    licensed:true,endpoint:'https://example.org/api',fetcher:async()=>({observations:[heat]}),nowMillis:now,
+  });
+  assert.equal(foreign.reason,'VERIFIED_HTTPS_ENDPOINT_REQUIRED');
+  const forged=validateRjOfficialProduct('MONITORA_RJ_SES',{
+    observations:[{...heat,sourceUrl:'https://example.org/forged'}],
+  },{nowMillis:now});
+  assert.equal(forged.state,'UNAVAILABLE');
+});
