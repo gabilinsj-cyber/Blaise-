@@ -194,6 +194,8 @@ private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
+// Backend radar grid remains absent until a licensed quantitative product is connected.
+private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
@@ -1187,6 +1189,11 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         ) {
             BoxWithConstraints {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
+                if (selectedLayer == "Radar") {
+                    RjRadarSpatialOverlay(
+                        LocalRjMeasuredRadarFrame.current, snapshotTime, mapZoom, Modifier.fillMaxSize(),
+                    )
+                }
                 if (stationMetric != null) {
                     InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
                 }

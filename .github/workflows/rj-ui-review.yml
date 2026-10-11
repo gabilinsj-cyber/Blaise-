@@ -18,9 +18,12 @@ concurrency:
 
 jobs:
   emulator-review:
-    # Run only for the isolated RJ interface PR; do not spend emulator minutes
-    # on unrelated subscription, store-release, or backend pull requests.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010'
+    # Limited to the approved RJ interface and real-radar-readiness PRs.
+    # No subscription or production store-release PR can consume emulator time.
+    if: >-
+      github.event_name == 'pull_request' &&
+      (github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
+       github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:

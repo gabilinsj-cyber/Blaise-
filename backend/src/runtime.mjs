@@ -7,6 +7,7 @@ import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
+import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -212,7 +213,13 @@ async function main() {
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
     licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
   });
-  const server = http.createServer(createDrainingHandler(publicStatusHandler, readiness));
+  // The operator can verify genuine live refreshes using Google OIDC;
+  // a configuration flag or a green CI badge is not proof of current data.
+  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
+    worker: sourceWorker,
+    verifyOperatorOidc: metricsOidcVerifier,
+  });
+  const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
