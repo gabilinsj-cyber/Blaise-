@@ -12,11 +12,15 @@ export const RJ_PHENOMENA = Object.freeze([
   'CHUVA_ATLANTICO', 'MASSA_AR', 'RADAR', 'GRANIZO',
   'DESLIZAMENTO', 'ALAGAMENTO', 'FRENTE_FRIA', 'EL_NINO_LA_NINA',
   'SISMO', 'TSUNAMI', 'PRESSAO_ATMOSFERICA', 'RAIOS',
+  'EXCESSO_CALOR_SAUDE', 'QUALIDADE_AR', 'INDICE_UV',
 ]);
 export const RJ_SOURCE_CLASS = Object.freeze({
   AUTHORITATIVE: 'AVISO_OU_MEDICAO_OFICIAL',
   OFFICIAL_MODEL: 'PRODUTO_OFICIAL_MODELO_OU_SATELITE',
   COMPARISON: 'MODELO_DE_TERCEIROS_APENAS_COMPARACAO',
+  SECONDARY_HEALTH: 'PAINEL_SAUDE_INDICADOR_DERIVADO_NAO_MEDICAO_INDEPENDENTE',
+  SPECIALIZED_AIR: 'REDE_OFICIAL_QUALIDADE_AR_MUNICIPIO_RIO',
+  AGGREGATOR: 'PLATAFORMA_AGREGADORA_PROVENIENCIA_ORIGINAL_OBRIGATORIA',
 });
 
 const municipal = Object.freeze(new Set(RJ_MUNICIPALITIES.map(c => c.ibge)));
@@ -44,6 +48,12 @@ const sources = Object.freeze({
 
   USGS: definition('USGS_EARTHQUAKE', OFFICIAL, 'CATALOGO_SISMICO_ATLANTICO_RJ_CONFORME_EVENTO'),
   WINDY: definition('WINDY_MODELO', COMPARE, 'CONFERENCIA_DE_MODELO_NAO_MEDICAO'),
+  MONITORA_RJ: definition('MONITORA_RJ_SES', RJ_SOURCE_CLASS.SECONDARY_HEALTH,
+    'PAINEL_SAUDE_ESTADUAL_CONFORME_PRODUTO_SEM_ESTACAO_NOVA'),
+  MONITORAR_RIO: definition('MONITORAR_RIO_SMAC', RJ_SOURCE_CLASS.SPECIALIZED_AIR,
+    'REDE_MUNICIPAL_AR_APENAS_CIDADE_RIO'),
+  PLATAFORMA_CLIMA: definition('PLATAFORMA_CLIMA_RIO', RJ_SOURCE_CLASS.AGGREGATOR,
+    'RIO_APENAS_PRODUTOS_COM_FONTE_PRIMARIA_LICENCA_E_ORIGEM_NAO_INEA'),
 });
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
@@ -63,7 +73,7 @@ const ROUTES = Object.freeze({
   CICLONE_EXTRATROPICAL: series(['MARINHA','INMET','DEFESA_CIVIL','NOAA','INPE','WINDY']),
   CHUVA_ATLANTICO: series(['MARINHA','NOAA','INPE','WINDY']),
   MASSA_AR: series(['INMET','MARINHA','NOAA','INPE','WINDY']),
-  RADAR: series(['CEMADEN','DEFESA_CIVIL']),
+  RADAR: series(['CEMADEN','DEFESA_CIVIL','PLATAFORMA_CLIMA']),
   GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','INPE','WINDY']),
   DESLIZAMENTO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   ALAGAMENTO: series(['DEFESA_CIVIL','CEMADEN','ANA','SGB']),
@@ -73,6 +83,9 @@ const ROUTES = Object.freeze({
   TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
   PRESSAO_ATMOSFERICA: series(['INMET','INPE','WINDY']),
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
+  EXCESSO_CALOR_SAUDE: series(['MONITORA_RJ','DEFESA_CIVIL','INMET','INPE','WINDY']),
+  QUALIDADE_AR: series(['MONITORAR_RIO','DEFESA_CIVIL']),
+  INDICE_UV: series(['INPE','INMET','NOAA']),
 });
 
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
@@ -88,6 +101,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
+    if (['MONITORAR_RIO_SMAC','PLATAFORMA_CLIMA_RIO'].includes(s.id) && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
