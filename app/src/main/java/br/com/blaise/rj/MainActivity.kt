@@ -1013,6 +1013,8 @@ private fun HomeScreen(
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
     Spacer(Modifier.height(10.dp))
+    FiveSourceOperationalPanel()
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
 @Composable
@@ -1101,6 +1103,43 @@ private fun ScientificReadoutsPanel(city: City, modifier: Modifier = Modifier) {
         }
         Text("Outros cálculos (advecção, cisalhamento, CAPE, CIN, chuva acumulada e radar) " +
             "dependem de entradas, perfis e calibração oficiais. Nenhum cálculo isolado emite alerta.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun FiveSourceOperationalPanel(modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val sourceHealth = snapshot?.fiveSourceHealth?.takeIf { it.current(now) }
+    DashboardSection(
+        title = "ESTADO REAL DAS CINCO FONTES",
+        subtitle = "Alerta Rio • Defesa Civil • INMET • INPE/CPTEC • Windy",
+        modifier = modifier.testTag("five-source-operational-panel"),
+    ) {
+        if (sourceHealth == null) {
+            Text("Sem comprovação atual dos cinco conectores no servidor. " +
+                "As medições pontuais do INMET/Alerta Rio, quando válidas, são consultas separadas.",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("five-source-not-verified"))
+        } else {
+            sourceHealth.sources.forEach { source ->
+                val state = when (source.status) {
+                    "CURRENT_PRODUCT_ONLY" -> "Produto recebido (escopo limitado)"
+                    "STALE_OR_UNVERIFIED" -> "Produto vencido ou não confirmado"
+                    else -> "Integração não conectada"
+                }
+                StatusLine(source.label, state)
+                if (source.status == "CURRENT_PRODUCT_ONLY") {
+                    Text("Produto: ${source.product ?: "sem identificação"} • " +
+                        "não comprova temperatura/vento em 92 municípios",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text("Radar espacial e alimentação completa das cinco fontes: " +
+            "não confirmados. Previsão de modelo não é medição oficial.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -1895,6 +1934,8 @@ private fun MoreScreen(
     }
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+    Spacer(Modifier.height(10.dp))
+    FiveSourceOperationalPanel()
 }
 
 @Composable
