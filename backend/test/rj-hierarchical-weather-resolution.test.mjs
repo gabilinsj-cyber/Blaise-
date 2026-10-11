@@ -205,6 +205,114 @@ test('if INPE and Windy are both unusable, keep two source types visible without
   assert.equal(r.sourcePairForDisplay[1].dataType,'MODEL_FORECAST_NOT_A_MEASURED_STATION');
   assert.equal(r.officialReadings.length,2);
 });
+const thirdPartyCurrent=(value,change={})=>forecast('OPENWEATHER_ESTIMATE',value,{
+  kind:'THIRD_PARTY_CURRENT_ESTIMATE',origin:'THIRD_PARTY_AGGREGATE_NOT_OFFICIAL_OBSERVATION',
+  modelRunId:'OPENWEATHER_CURRENT_TEST',productId:'OPENWEATHER_CURRENT_2_5',
+  sourceUrl:'https://openweathermap.org/api',
+  latitude:-22.9,longitude:-43.2,gridResolutionKm:10,
+  weightBasis:'NOT_BACKTESTED_FOR_INDEPENDENT_STATION_TIE_BREAK',
+  ...change,
+});
+test('OpenWeather is the third consulted source yet NEVER the second official station',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return{
+        observations:[measurement('ALERTA_RIO','AR',24)]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return{
+        observations:[measurement('DEFESA_CIVIL','DC',33)]};},
+      OPENWEATHER_ESTIMATE:async()=>{called.push('OPENWEATHER');return{
+        forecasts:[thirdPartyCurrent(25)]};},
+      INMET_STATION:async()=>{called.push('INMET');return{
+        observations:[measurement('INMET','IN-1',25)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');throw Error('Should not be contacted');},
+    },
+  });
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','OPENWEATHER','INMET']);
+  assert.equal(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
+  assert.deepEqual(r.selectedSourceIds,['ALERTA_RIO','INMET_STATION']);
+  assert.equal(r.value,24.5);
+  assert.equal(r.officialMeasurement,false);
+  assert.equal(r.automaticAlertAuthorized,false);
+  assert.equal(r.examinedSourceIds.includes('OPENWEATHER_ESTIMATE'),true);
+});
+test('OpenWeather may appear beside real observation only with distinct third-party-estimate label',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[measurement('INMET','A652',26)],
+    forecasts:[thirdPartyCurrent(27)],
+  });
+  assert.equal(r.state,'ONE_OFFICIAL_PLUS_FORECAST_CONTEXT');
+  assert.equal(r.value,26);
+  assert.deepEqual(r.selectedSourceIds,['INMET_STATION','OPENWEATHER_ESTIMATE']);
+  assert.deepEqual(r.sourcePairForDisplay.map(p=>p.dataType),[
+    'OFFICIAL_STATION_OBSERVATION',
+    'THIRD_PARTY_CURRENT_ESTIMATE_NOT_A_MEASURED_STATION',
+  ]);
+  assert.equal(r.consensusConfirmed,false);
+  assert.equal(r.weightedMeanApplied,false);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
+test('OpenWeather cannot settle incompatible station readings without verified independent accuracy',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[
+      measurement('ALERTA_RIO','AR',21),
+      measurement('DEFESA_CIVIL','DC',33),
+    ],
+    forecasts:[thirdPartyCurrent(22)],
+  });
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_TWO_SOURCE_CONTEXT');
+  assert.equal(r.value,null);
+  assert.deepEqual(r.sourcePairForDisplay.map(p=>p.sourceId),
+    ['ALERTA_RIO','OPENWEATHER_ESTIMATE']);
+  assert.equal(r.sourcePairForDisplay[1].dataType,
+    'THIRD_PARTY_CURRENT_ESTIMATE_NOT_A_MEASURED_STATION');
+  assert.equal(r.modelTieBreak.favoredStationId,null);
+  assert.equal(r.officialReadings.length,2);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
+test('consultation with OpenWeather context proceeds to INMET then INPE if still no matching official pair',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return{
+        observations:[measurement('ALERTA_RIO','AR',21)]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return{
+        observations:[measurement('DEFESA_CIVIL','DC',35)]};},
+      OPENWEATHER_ESTIMATE:async()=>{called.push('OPENWEATHER');return{
+        forecasts:[thirdPartyCurrent(29)]};},
+      INMET_STATION:async()=>{called.push('INMET');return{
+        observations:[measurement('INMET','IN-1',28)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return{
+        forecasts:[tieModel('INPE_CPTEC_FORECAST',22)]};},
+      NOAA:async()=>{called.push('NOAA');throw Error('should stop at INPE');},
+      WINDY_MODELO:async()=>{called.push('WINDY');throw Error('should stop at INPE');},
+    },
+  });
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','OPENWEATHER','INMET','INPE']);
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
+  assert.equal(r.value,21);
+  assert.equal(r.modelTieBreak.sourceId,'INPE_CPTEC_FORECAST');
+  assert.ok(r.openWeatherConsultation);
+  assert.equal(r.officialReadings.length,3);
+  assert.equal(r.automaticAlertAuthorized,false);
+});
+test('OpenWeather cannot fabricate an official reading even when it impersonates a station',()=>{
+  const r=resolveRjCompatibleSources({
+    ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
+    observations:[
+      measurement('INMET','A652',27),
+      measurement('OPENWEATHER_ESTIMATE','FAKE-OW',28),
+    ],
+  });
+  assert.equal(r.state,'ONE_VERIFIED_OFFICIAL_SOURCE');
+  assert.equal(r.value,27);
+  assert.deepEqual(r.selectedSourceIds,['INMET_STATION']);
+});
+
 test('if no station exists, INPE and Windy independent models can provide separate calibrated forecast estimate',()=>{
   const r=resolveRjCompatibleSources({
     ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
