@@ -18,6 +18,20 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+data class RjMeteoThirdSourceRow(
+    val code: String,
+    val phenomenon: String,
+    val p1Sources: String = "Alerta Rio + Defesa Civil RJ (P1 conjunta quando há cobertura)",
+    val complementarySource: String = "OpenWeatherMap",
+    val qualification: String = "Consulta de dados: verificar licença, município, janela, origem e horário",
+)
+data class RjMarineSourceRow(
+    val code: String,
+    val phenomenon: String,
+    val sources: String,
+    val purpose: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
     const val VERSION = "2026-10-12.v2"
@@ -65,6 +79,43 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA por produto"),
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA; medição e modelo identificados"),
     )
+    /** Exactly the 10 supplemental weather products shown in the approved image. */
+    val table1ThirdSource = listOf(
+        RjMeteoThirdSourceRow("TEMPERATURA", "Temperatura"),
+        RjMeteoThirdSourceRow("SENSACAO_TERMICA", "Sensação térmica",
+            qualification = "Sensação calculada; não atribuir a uma estação não medida"),
+        RjMeteoThirdSourceRow("CHUVA_ATUAL", "Chuva atual",
+            qualification = "Distinguir chuva 1h, instante e previsão"),
+        RjMeteoThirdSourceRow("CHUVA_ACUMULADA", "Chuva acumulada",
+            qualification = "Comparar somente períodos realmente iguais"),
+        RjMeteoThirdSourceRow("TEMPORAL", "Chuva intensa e temporais",
+            qualification = "Produto meteorológico não emite aviso oficial"),
+        RjMeteoThirdSourceRow("VENTO", "Vento sustentado"),
+        RjMeteoThirdSourceRow("RAJADA", "Rajadas fortes",
+            qualification = "Não confundir rajada e vento médio"),
+        RjMeteoThirdSourceRow("PRESSAO_ATMOSFERICA", "Pressão atmosférica"),
+        RjMeteoThirdSourceRow("UMIDADE", "Umidade relativa"),
+        RjMeteoThirdSourceRow("GRANIZO", "Granizo",
+            qualification = "Sem inferir granizo de ícones de chuva comum"),
+    )
+    val marineComplement = listOf(
+        RjMarineSourceRow("CICLONE_OCEANICO", "Ciclones oceânicos",
+            "Marinha + NOAA + EUMETSAT + Copernicus Marine",
+            "Evolução atmosférica, trajeto e efeitos no mar"),
+        RjMarineSourceRow("TEMPESTADE_ATLANTICO", "Tempestades no Atlântico",
+            "Marinha + NOAA + EUMETSAT",
+            "Nuvens, sistemas intensos e deslocamento"),
+        RjMarineSourceRow("ONDAS_SWELL", "Ondas e swell",
+            "Marinha + NOAA + Copernicus Marine",
+            "Altura, período, direção e propagação"),
+        RjMarineSourceRow("RESSACA_LITORAL_RJ", "Ressaca no litoral RJ",
+            "Marinha + boias autorizadas + Copernicus Marine + NOAA",
+            "Avisos marítimos e avaliação contextual do risco costeiro"),
+        RjMarineSourceRow("TSUNAMI", "Tsunami / maremoto",
+            "NOAA + Marinha + autoridades brasileiras",
+            "Avisos oficiais e confirmação por autoridade competente"),
+    )
+
     /** Five explicitly ordered audit checks, not five substitute measurements. */
     val fiveDisputeChecks = listOf(
         RjMeteoDisputeRow("01", "INPE/CPTEC • primeira análise",
@@ -97,6 +148,10 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(table1ThirdSource.size == 10)
+        require(table1ThirdSource.map { it.code }.distinct().size == 10)
+        require(marineComplement.size == 5)
+        require(marineComplement.map { it.code }.distinct().size == 5)
         require(fiveDisputeChecks.size == 5)
         require(fiveDisputeChecks.first().title.startsWith("INPE"))
         require(fiveDisputeChecks[1].title.startsWith("INMET"))
