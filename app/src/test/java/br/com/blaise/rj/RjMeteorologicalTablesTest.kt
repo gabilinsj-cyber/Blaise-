@@ -28,6 +28,22 @@ class RjMeteorologicalTablesTest {
             RjMeteorologicalTables.table2.map { it.code })
     }
 
+    @Test fun table2ShowsAllFiveRequestedSourcesInExactOrderSeparateFromThirteenRules() {
+        assertEquals(5, RjMeteorologicalTables.TABLE2_SOURCE_COUNT)
+        val five = RjMeteorologicalTables.table2ConsultationSources
+        assertEquals((1..5).toList(), five.map { it.order })
+        assertEquals(listOf(
+            "INPE_CPTEC_FORECAST", "INMET_STATION", "CEMADEN_RJ",
+            "WINDY_MODELO", "NOAA",
+        ), five.map { it.sourceId })
+        assertEquals(listOf("INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"),
+            five.map { it.displayName })
+        assertEquals(5, five.map { it.sourceId }.distinct().size)
+        assertEquals(13, RjMeteorologicalTables.table2.size)
+        assertTrue(five.all { it.productRole.isNotBlank() && it.coverageNote.isNotBlank() })
+        assertFalse(five.any { it.sourceId.contains("INEA") })
+    }
+
     @Test fun marineProductsAreRegisteredWithoutClaimingLiveConnectionsOrInea() {
         val byKey = RjMeteorologicalTables.table1.associateBy { it.code }
         listOf("ONDAS","SWELL","RESSACA","MARE","CORRENTES_MARINHAS",
