@@ -202,16 +202,20 @@ export async function consultRjTwoTableSources({
     }
   }
   let closestModelContext=null;
+  let forecastOnlyCandidate=null;
   const t1Official=t1.filter(x=>x.type==='OBSERVATION');
   for(const source of route.table2) {
     await fetchSource(source,t2);
     const newRows=t2.filter(x=>x.sourceId===source.id);
     for(const b of newRows)for(const a of t1) {
       const value=weighted(a,b,now,String(ibge),spec);
-      if(value) return success(value,a,b,{
+      if(value && a.type==='OBSERVATION') return success(value,a,b,{
         ...context(),agreementStage:'ONE_TABLE_1_PLUS_ONE_TABLE_2',
         table2UsedCount:1,
       });
+      if(value && a.type==='FORECAST' && !forecastOnlyCandidate) {
+        forecastOnlyCandidate={value,table1:a,table2:b};
+      }
       // A forecast close to an official observation can guide the display,
       // but cannot be averaged with an observation.
       if(a.type==='OBSERVATION'&&b.type==='FORECAST'
@@ -223,6 +227,15 @@ export async function consultRjTwoTableSources({
         closestModelContext={observed:a,forecast:b};
       }
     }
+  }
+  // An actual official station pair wins over model-model agreement.
+  // Forecast blending is used only when no official Table-1 reading exists.
+  if(t1Official.length===0 && forecastOnlyCandidate) {
+    const f=forecastOnlyCandidate;
+    return success(f.value,f.table1,f.table2,{
+      ...context(),agreementStage:'ONE_TABLE_1_PLUS_ONE_TABLE_2',
+      table2UsedCount:1,
+    });
   }
   if(closestModelContext) {
     return fail('OFFICIAL_READING_CORROBORATED_BY_MODEL_NO_WEIGHTED_MEASUREMENT',{
