@@ -41,6 +41,27 @@ test('unknown city/state and missing phenomenon are blocked',()=>{
   assert.throws(()=>planRjPhenomenonCase({ibge:'3304557',phenomenon:'RAJADA',level:7}),RangeError);
 });
 
+test('every agent case carries links from Table 1 to relevant Table 2 decisions and maritime products',()=>{
+  const temperature=planRjPhenomenonCase({
+    ibge:'3304557',phenomenon:'TEMPERATURA',level:2,
+  });
+  assert.equal(temperature.linkedTable1Phenomenon,'TEMPERATURA');
+  assert.ok(temperature.applicableTable2StepCodes.includes('PONDERACAO_COMPATIVEL'));
+  assert.equal(temperature.weightedObservationalMeanAllowedByPhenomenon,true);
+  assert.deepEqual(temperature.linkedMaritimeCategories,[]);
+  const cyclones=planRjPhenomenonCase({
+    ibge:'3304557',phenomenon:'CICLONE_EXTRATROPICAL',region:'ATLANTICO',level:4,
+  });
+  assert.deepEqual(cyclones.linkedMaritimeCategories,['CICLONES_OCEANICOS']);
+  assert.ok(cyclones.applicableTable2StepCodes.includes('MAR_SATELITE_ESPECIALIZADO'));
+  assert.equal(cyclones.weightedObservationalMeanAllowedByPhenomenon,false);
+  const tsunami=planRjPhenomenonCase({
+    ibge:'3304557',phenomenon:'TSUNAMI',region:'LITORAL',level:5,
+  });
+  assert.deepEqual(tsunami.linkedMaritimeCategories,['TSUNAMI']);
+  assert.equal(tsunami.weightedObservationalMeanAllowedByPhenomenon,false);
+  assert.equal(tsunami.publishersTriggered,false);
+});
 test('Sentinel-Fusion-Vector consultation uses first compatible hierarchy pair and never sends alerts',async()=>{
   const now=Date.parse('2026-10-10T18:00:00Z');
   const record=(sourceId,stationId,value)=>({
