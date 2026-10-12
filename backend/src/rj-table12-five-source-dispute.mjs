@@ -207,7 +207,7 @@ export function resolveRjTable12FiveSourceDispute({
     const pair=gather(id);
     if(pair)return observedPair(pair,spec,{
       stage:'TABLE_1_TWO_OF_THREE_CONVERGED',step:'TWO_TABLE1_READINGS_CONVERGED',
-      consultedSources:checked,allPrimary:validated,
+      consultedSources:checked,allPrimary:[...validated,pair[1]],
     });
   }
   const initial=[...validated];
@@ -237,6 +237,10 @@ export function resolveRjTable12FiveSourceDispute({
   return safe('NO_VERIFIABLE_CONVERGENCE',{
     stage:'ALL_ELIGIBLE_SOURCES_EXAMINED',
     originalPrimaryReadings:Object.freeze(initial.map(observedSummary)),
+    primaryComplementaryForecasts:Object.freeze(forecasts.filter(f=>
+      f.sourceId==='OPENWEATHERMAP_API'&&forecastAllowed(f,{
+        sourceId:'OPENWEATHERMAP_API',ibge,variable,spec,now,
+      })).map(modelSummary)),
     consultedSources:Object.freeze(checked),
     conclusion:'SHOW_REAL_READINGS_OR_UNAVAILABLE_DO_NOT_INVENT_SECOND_READING',
   });
@@ -249,7 +253,7 @@ export async function consultRjTable12FiveSourceDispute({
   if(!adapters||typeof adapters!=='object'||Array.isArray(adapters))
     throw new TypeError('rj_table12_invalid_adapters');
   // Input check before any connector is called.
-  const preliminary=resolveRjTable12FiveSourceDispute({ibge,variable,now});
+  resolveRjTable12FiveSourceDispute({ibge,variable,now});
   const consulted=[],observations=[],forecasts=[],connectorFailures=[];
   const order=[...RJ_TABLE1_THREE.filter(x=>x!=='ALERTA_RIO'||String(ibge)==='3304557'),
     ...RJ_TABLE2_FIVE];
