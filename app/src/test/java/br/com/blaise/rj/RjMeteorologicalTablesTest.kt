@@ -28,6 +28,20 @@ class RjMeteorologicalTablesTest {
             RjMeteorologicalTables.table2.map { it.code })
     }
 
+    @Test fun tableOneHasThreeWeatherConsultationsAndTableTwoFiveRankedTieBreakProviders() {
+        assertEquals(3, RjMeteorologicalTables.table1ThreeSources.size)
+        assertTrue(RjMeteorologicalTables.table1ThreeSources.first().contains("Alerta Rio"))
+        assertTrue(RjMeteorologicalTables.table1ThreeSources.last().contains("OpenWeatherMap"))
+        assertEquals(5, RjMeteorologicalTables.table2FiveSources.size)
+        assertTrue(RjMeteorologicalTables.table2FiveSources[0].contains("INPE"))
+        assertTrue(RjMeteorologicalTables.table2FiveSources[1].contains("INMET"))
+        assertTrue(RjMeteorologicalTables.table2FiveSources[2].contains("Windy"))
+        assertTrue(RjMeteorologicalTables.table2FiveSources[3].contains("CEMADEN"))
+        assertTrue(RjMeteorologicalTables.table2FiveSources[3].contains("confirmado"))
+        assertTrue(RjMeteorologicalTables.table2FiveSources.last().contains("NOAA"))
+        assertTrue(RjMeteorologicalTables.SOURCE_COMPARISON_METHOD.contains("Duas fontes"))
+    }
+
     @Test fun marineProductsAreRegisteredWithoutClaimingLiveConnectionsOrInea() {
         val byKey = RjMeteorologicalTables.table1.associateBy { it.code }
         listOf("ONDAS","SWELL","RESSACA","MARE","CORRENTES_MARINHAS",

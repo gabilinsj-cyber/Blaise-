@@ -20,7 +20,7 @@ data class RjMeteoDisputeRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v2"
+    const val VERSION = "2026-10-12.v3"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -33,6 +33,25 @@ object RjMeteorologicalTables {
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
+    // Two distinct provider catalogs: THREE in the initial comparison,
+    // FIVE in the hierarchical tie-break. Do not confuse the 13 validation
+    // criteria below with the number of tie-break providers.
+    val table1ThreeSources = listOf(
+        "Alerta Rio (somente município do Rio)",
+        "Defesa Civil RJ e municipal (conforme cobertura)",
+        "OpenWeatherMap (3ª consulta complementar; origem independente a verificar)",
+    )
+    val table2FiveSources = listOf(
+        "D1 • INPE/CPTEC",
+        "D2 • INMET",
+        "D3 • Windy",
+        "D4 • CEMADEN (confirmado)",
+        "D5 • NOAA",
+    )
+    const val SOURCE_COMPARISON_METHOD = "Duas fontes independentes e compatíveis na Tabela 1 bastam. " +
+        "Se divergem, consultar D1 a D5 e parar quando uma fonte de desempate corresponder " +
+        "a uma das três primeiras. Médias só entre observações independentes equivalentes; " +
+        "previsões de modelo são exibidas separadamente."
     val table1 = listOf(
         RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil se existir medição; INMET 3ª fonte oficial; OpenWeatherMap 3º complemento; INPE → Windy para divergência"),
         RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "P1 Alerta Rio + Defesa Civil com entradas reais; fórmula Blaise; INMET; OpenWeatherMap complementar; INPE → Windy"),
@@ -83,6 +102,8 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(table1ThreeSources.size == 3)
+        require(table2FiveSources.size == 5 && table2FiveSources.last().contains("NOAA"))
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }

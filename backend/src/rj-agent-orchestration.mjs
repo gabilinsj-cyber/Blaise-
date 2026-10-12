@@ -7,6 +7,7 @@ import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
+import { consultRjTwoTables } from './rj-two-table-weather-consensus.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -135,4 +136,50 @@ export function createRjWeatherSourceExecutor({
   const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
   return async ({ibge,variable,level=1,now=clock()}={})=>
     reconcileRjWeatherCase({ibge,variable,level,adapters,now});
+}
+
+/**
+ * New 3+5 table policy as an explicit opt-in interface for the existing
+ * Sentinel (1) / Fusion (3) / Vector (2) / Audit (8) scientific agents.
+ *
+ * Callers must pass explicitly authorized live adapters returning
+ * {records:[{sourceId,...provenance}]}. This is NOT a deployed live polling
+ * service, and it never publishes alerts or purchases.
+ */
+export async function reconcileRjWeatherCaseTwoTables({
+  ibge,variable,level=1,adapters={},now=Date.now(),
+}={}){
+  const phenomenonByVariable=Object.freeze({
+    TEMPERATURA_C:'TEMPERATURA',SENSACAO_TERMICA_C:'SENSACAO_TERMICA',
+    VENTO_KMH:'VENTO',RAJADA_KMH:'RAJADA',
+    CHUVA_MM_1H:'CHUVA_ACUMULADA',
+    UMIDADE_PERCENTUAL:'UMIDADE',
+  });
+  if(!Object.hasOwn(phenomenonByVariable,variable))
+    throw new TypeError('rj_unsupported_two_tables_variable');
+  const plan=planRjPhenomenonCase({
+    ibge,phenomenon:phenomenonByVariable[variable],level,
+  });
+  const result=await consultRjTwoTables({ibge,variable,adapters,now});
+  return Object.freeze({
+    ...plan,
+    reconciliationVersion:result.policyVersion,
+    sourceStatus:result.state,
+    latestVerifiedResult:result,
+    primaryTableSources:result.table1Sources,
+    tieBreakTableSources:result.table2Sources,
+    tieBreakFifthPosition:'NOAA',
+    tieBreakFourthPositionStatus:result.fourthTieBreakSourceStatus,
+    twoSourceDisplay:result.matchedSources,
+    valueForDisplay:result.estimate,
+    calculationType:result.estimateKind,
+    allPrimaryReadings:result.table1Readings,
+    consultedSourceIds:result.contactedSourceIds,
+    calculatedValues:result.estimate,
+    audibleAlert:false,
+    publishersTriggered:false,
+    purchasesTriggered:false,
+    dataHandlingAgents:Object.freeze([1,3,2,8]),
+    sourcePollingState:'EXPLICIT_CALLER_ADAPTERS_REQUIRED_NO_DEPLOYED_FIVE_SOURCE_POLLING',
+  });
 }
