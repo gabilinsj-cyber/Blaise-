@@ -10,6 +10,7 @@
  */
 import { fetchJsonContract } from './source-contract.mjs';
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
+import { prepareOwnMapObservationLayer } from './rj-own-map-observations.mjs';
 
 export const RJ_INMET_CATALOG_URL = 'https://apitempo.inmet.gov.br/estacoes/T';
 export const RJ_INMET_HOST = 'apitempo.inmet.gov.br';
@@ -162,4 +163,40 @@ export function createRjInmetLiveAdapters({
     }
   };
   return Object.freeze({INMET_STATION});
+}
+
+/**
+ * Projects a VERIFIED station result to one dot on Blaise's OWN RJ map.
+ * No external imagery, no interpolated rainfall pixels, no citywide average,
+ * no radar and no synthetic points. Actual Android delivery needs a separate
+ * authorized API contract and runtime validation.
+ */
+export function projectRjInmetOnOwnMap(readingResult,{now=Date.now()}={}) {
+  const mapVariable=Object.freeze({
+    TEMPERATURA_C:['TEMPERATURE_C','°C'],
+    UMIDADE_PERCENTUAL:['HUMIDITY_PERCENT','%'],
+    VENTO_KMH:['WIND_MS','m/s'],
+    RAJADA_KMH:['GUST_MS','m/s'],
+    CHUVA_MM_1H:['RAIN_MM_1H','mm/1h'],
+  });
+  if(!Number.isFinite(now)||!readingResult
+    ||readingResult.contract!==RJ_INMET_LIVE_ADAPTER_CONTRACT
+    ||readingResult.status!=='VALIDATED_RECENT_OFFICIAL_STATION_READING'
+    ||!Array.isArray(readingResult.observations))
+    return prepareOwnMapObservationLayer({observations:[],now});
+  const observations=readingResult.observations
+    .slice(0,1).flatMap(row=>{
+      const metric=mapVariable[row?.variable];
+      if(!metric||row.sourceId!=='INMET_STATION'
+        ||row.origin!=='OFFICIAL_OBSERVATION'
+        ||!row.sourceUrl?.startsWith('https://apitempo.inmet.gov.br/estacao/'))return [];
+      const [variable,unit]=metric;
+      const value=['VENTO_KMH','RAJADA_KMH'].includes(row.variable)
+        ?Math.round(row.value/3.6*1000)/1000:row.value;
+      return [{
+        ...row,kind:'OFFICIAL_OBSERVATION',variable,unit,value,
+        usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+      }];
+    });
+  return prepareOwnMapObservationLayer({observations,now,maxAgeMs:7_200_000});
 }
