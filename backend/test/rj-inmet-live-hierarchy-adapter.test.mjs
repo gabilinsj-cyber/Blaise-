@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createRjInmetLiveAdapters,
   RJ_INMET_CATALOG_URL,
+  projectRjInmetOnOwnMap,
 } from '../src/rj-inmet-live-hierarchy-adapter.mjs';
 import {consultRjSourcesUntilTwo} from '../src/rj-hierarchical-weather-resolution.mjs';
 import {createRjWeatherSourceExecutor} from '../src/rj-agent-orchestration.mjs';
@@ -207,4 +208,36 @@ test('Blaise executor defaults never activate real network or pretend active sou
   assert.equal(report.observedOrEstimatedValue,null);
   assert.equal(report.publishersTriggered,false);
   assert.equal(api.visited.length,0);
+});
+
+test('real INMET station reading becomes a single own-map point without borrowed radar pixels',async()=>{
+  const api=fakeApi();
+  const adapter=createRjInmetLiveAdapters({
+    enabled:true,usageApproved:true,fetchImpl:api.fetchImpl,
+  }).INMET_STATION;
+  const result=await adapter(input);
+  const map=projectRjInmetOnOwnMap(result,{now:NOW});
+  assert.equal(map.status,'AVAILABLE_STATION_POINTS');
+  assert.equal(map.points.length,1);
+  assert.equal(map.points[0].sourceId,'INMET_STATION');
+  assert.equal(map.points[0].stationId,'A652');
+  assert.equal(map.points[0].variable,'TEMPERATURE_C');
+  assert.equal(map.points[0].value,28.5);
+  assert.equal(map.radarFrameAvailable,false);
+  assert.equal(map.thirdPartyImageCopied,false);
+  assert.equal(map.estimatedMunicipalAverage,null);
+  assert.equal(map.automaticWarningAuthorized,false);
+});
+test('own-map wind rendering preserves m/s units and missing/stale observations remain absent',async()=>{
+  const api=fakeApi();
+  const adapter=createRjInmetLiveAdapters({
+    enabled:true,usageApproved:true,fetchImpl:api.fetchImpl,
+  }).INMET_STATION;
+  const wind=await adapter({...input,variable:'VENTO_KMH'});
+  const map=projectRjInmetOnOwnMap(wind,{now:NOW});
+  assert.equal(map.points[0].variable,'WIND_MS');
+  assert.equal(map.points[0].unit,'m/s');
+  assert.equal(map.points[0].value,4.5);
+  assert.equal(projectRjInmetOnOwnMap(wind,{now:NOW+3*3_600_000}).points.length,0);
+  assert.equal(projectRjInmetOnOwnMap({observations:[{value:90}]},{now:NOW}).points.length,0);
 });
