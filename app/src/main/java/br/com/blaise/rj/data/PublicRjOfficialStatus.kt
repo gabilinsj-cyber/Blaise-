@@ -143,14 +143,32 @@ class PublicRjStatusHttpsClient private constructor(private val endpoint: URI) {
         }finally {connection.disconnect()}
     }
     companion object {
-        fun create(baseUrl: String): PublicRjStatusHttpsClient? = runCatching {
-            val uri=URI(baseUrl.trim())
-            require(uri.scheme == "https" && uri.host != null && uri.userInfo == null)
-            require(uri.rawQuery == null && uri.rawFragment == null &&
-                (uri.path == null || uri.path.isBlank() || uri.path == "/"))
-            require(uri.port in -1..65535)
-            PublicRjStatusHttpsClient(URI("https",null,uri.host,uri.port,
-                PUBLIC_RJ_STATUS_PATH,null,null))
+        /**
+         * Public P0/risk information never requires a Play purchase. Prefer
+         * a configured public HTTPS origin; when absent, derive only the
+         * origin of the already-configured and vetted entitlement verifier.
+         * A malformed explicitly configured public URL always fails closed.
+         */
+        fun create(
+            baseUrl: String,
+            entitlementVerifierUrl: String = "",
+        ): PublicRjStatusHttpsClient? = runCatching {
+            val origin = if (baseUrl.isNotBlank()) {
+                val uri = URI(baseUrl.trim())
+                require(uri.scheme == "https" && uri.host != null && uri.userInfo == null)
+                require(uri.rawQuery == null && uri.rawFragment == null &&
+                    (uri.path == null || uri.path.isBlank() || uri.path == "/"))
+                uri
+            } else {
+                val derived = DashboardDataEndpointPolicy
+                    .deriveFromEntitlementVerifier(entitlementVerifierUrl)
+                    ?: error("No validated HTTPS backend configured for public notices")
+                URI(derived)
+            }
+            require(origin.scheme == "https" && origin.host != null &&
+                origin.userInfo == null && origin.port in -1..65535)
+            PublicRjStatusHttpsClient(URI("https", null, origin.host, origin.port,
+                PUBLIC_RJ_STATUS_PATH, null, null))
         }.getOrNull()
     }
 }

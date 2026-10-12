@@ -25,7 +25,8 @@ jobs:
       (github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
        github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
        github.event.pull_request.head.ref == 'codex/rj-meteo-homolog-20261011' ||
-       github.event.pull_request.head.ref == 'codex/rj-selected-city-inmet-charts-20261012')
+       github.event.pull_request.head.ref == 'codex/rj-selected-city-inmet-charts-20261012' ||
+       github.event.pull_request.head.ref == 'codex/rj-live-dashboard-official-sources-20261012')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
