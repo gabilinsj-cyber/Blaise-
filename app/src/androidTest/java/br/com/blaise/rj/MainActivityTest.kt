@@ -50,6 +50,14 @@ class MainActivityTest {
         assertTrue(rule.onAllNodesWithText("TEMPO ESTÁVEL • SEM ALERTAS P0").fetchSemanticsNodes().isEmpty())
     }
 
+    @Test fun officialSourcePanelReportsUnverifiedStatusInsteadOfFakeLiveCoverage() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-live-source-status").performScrollTo().assertIsDisplayed()
+        assertTextDisplayed(
+            "Estado operacional das fontes: aguardando endpoint público autorizado e dados atuais."
+        )
+    }
+
     @Test fun dashboardFailsClosedWithoutOfficialAlertEvidence() { assertCoreDashboard() }
 
     @Test fun dashboardSurvivesActivityRecreation() {
