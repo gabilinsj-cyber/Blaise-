@@ -158,6 +158,11 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-source-RAIOS").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-2-five-sources").performScrollTo().assertIsDisplayed()
+        (1..5).forEach { number ->
+            rule.onNodeWithTag("rj-meteo-table2-source-${number}")
+                .performScrollTo().assertIsDisplayed()
+        }
         rule.onNodeWithTag("rj-meteo-dispute-04").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-dispute-05").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-1-tab").performScrollTo().performClick()
