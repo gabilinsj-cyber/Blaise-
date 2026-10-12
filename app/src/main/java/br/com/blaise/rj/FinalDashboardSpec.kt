@@ -22,7 +22,7 @@ object FinalDashboardSpec {
 
     val primaryNavigation = listOf(
         "Início", "Cidades", "Mapa", "Alertas", "Trânsito",
-        "Mar e Ondas", "Qualidade do Ar", "Notícias", "Histórico", "Mais"
+        "Mar e Ondas", "Qualidade do Ar", "Notícias", "Histórico", "Fontes", "Mais"
     )
 
     val trafficEvents = listOf(
