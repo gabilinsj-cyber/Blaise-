@@ -17,6 +17,8 @@ O módulo `backend/src/rj-inmet-live-hierarchy-adapter.mjs` usa a consulta HTTPS
 
 `createRjInmetLiveAdapters({enabled:true, usageApproved:true, fetchImpl})` devolve a função `INMET_STATION`, utilizável em `consultRjSourcesUntilTwo({ibge,variable,adapters})` ou `reconcileRjWeatherCase`.
 
+**Ligação operacional ao coordenador dos agentes:** `createRjWeatherSourceExecutor({inmetLive,sourceAdapters,clock})` em `backend/src/rj-agent-orchestration.mjs` instancia o conector INMET uma vez, preserva o cache e o combina com os outros adaptadores de fontes independentes. Retorna uma função de consulta sob demanda `({ibge,variable,level})`, com a ordem de prioridade, medição ponderada e apresentação de proveniência mantidas. A função **não está registrada como serviço público no Cloud Run**, não agenda coleta e não emite alertas.
+
 A ordem para fenômenos municipais continua:
 **Alerta Rio (somente município Rio) → Defesa Civil competente → INMET (agora tem adaptador real preparado) → INPE/CPTEC (previsão comparativa) → Windy (previsão subsidiária)**.
 
