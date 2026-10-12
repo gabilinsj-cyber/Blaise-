@@ -1,3 +1,5 @@
+import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
+
 /**
  * Optional server-side Windy Point Forecast adapter for Blaise V6 RJ.
  *
@@ -16,7 +18,8 @@ const bounded=(x,min,max)=>typeof x==='number'&&Number.isFinite(x)&&x>=min&&x<=m
 
 export function validateWindyPointForecast(body,{ibge,latitude,longitude,now=Date.now()}={}) {
   if(!Number.isFinite(now)||!bounded(latitude,-23.7,-20.4)
-    ||!bounded(longitude,-45.5,-40.4)|| !/^33\\d{5}$/.test(String(ibge)))
+    ||!bounded(longitude,-45.5,-40.4)
+    ||!RJ_MUNICIPALITIES.some(c=>c.ibge===String(ibge)))
     throw new TypeError('windy_rj_invalid_location');
   if(!body||typeof body!=='object'||Array.isArray(body)
     ||!Array.isArray(body.ts)||body.ts.length<1||body.ts.length>240
