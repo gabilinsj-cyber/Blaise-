@@ -37,7 +37,7 @@ test('three primary sources are distinct from five priority tie-break sources; N
     ['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API']);
   assert.deepEqual(RJ_TABLE2_SOURCES,
     ['INPE_CPTEC_FORECAST','INMET_STATION','WINDY_MODELO','CEMADEN_RJ','NOAA']);
-  assert.match(RJ_TABLE2_FOURTH_SOURCE_STATUS,/PROVISIONAL/);
+  assert.equal(RJ_TABLE2_FOURTH_SOURCE_STATUS,'CEMADEN_CONFIRMED_BY_PROJECT_OWNER');
   assert.equal(new Set([...RJ_TABLE1_SOURCES,...RJ_TABLE2_SOURCES]).size,8);
 });
 test('two compatible official readings in table one stop without any tie breaker and allow simple mean',()=>{
