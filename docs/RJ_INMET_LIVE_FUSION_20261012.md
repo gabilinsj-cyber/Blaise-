@@ -7,7 +7,7 @@
 O módulo `backend/src/rj-inmet-live-hierarchy-adapter.mjs` usa a consulta HTTPS oficial:
 - Catálogo de estações automáticas **INMET** `https://apitempo.inmet.gov.br/estacoes/T`;
 - Observações **da estação concreta** `https://apitempo.inmet.gov.br/estacao/<dia-UTC-inicial>/<dia-UTC-final>/<codigo-da-estacao>`.
-- A estação precisa ter `SG_ESTADO=RJ`, `CD_SITUACAO=Operante`, nome municipal idêntico ao nome canônico do município IBGE do catálogo RJ, código `A###` válido e coordenadas plausíveis no RJ.
+- A estação precisa ter `SG_ESTADO=RJ`, `SG_ENTIDADE=INMET`, `CD_SITUACAO=Operante`, nome municipal idêntico ao nome canônico do município IBGE do catálogo RJ, código automático `A###` ou `B###` válido e coordenadas plausíveis no RJ.
 - Temperatura (`TEM_INS`, °C), umidade (`UMD_INS`, %), vento médio (`VEN_VEL`, m/s convertido a km/h), rajada (`VEN_RAJ`, m/s convertido a km/h), chuva acumulada em 1h (`CHUVA`, mm).
 - A leitura precisa ser atual (até 2h), com horário em UTC compatível, valor dentro da faixa física, unidade preservada e URL institucional. Só produz `origin='OFFICIAL_OBSERVATION'` e `sourceId='INMET_STATION'` quando a medição passou no filtro.
 - A rede nunca é interpretada como uma medição municipal média. Se não houver estação nomeada da cidade selecionada, **não utilizar estação vizinha como se fosse a cidade**. Todas as 92 cidades são selecionáveis; não se presume que haja 92 estações INMET.
