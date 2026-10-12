@@ -61,8 +61,14 @@ sleep 1
 adb_capture_retry "$OUT_DIR/notifications.txt" \
   adb shell dumpsys notification --noredact
 grep -q "$PKG" "$OUT_DIR/notifications.txt"
-grep -q "blaise_p0" "$OUT_DIR/notifications.txt"
+# This smoke broadcast invokes AlertNotifier.notify(alert, inactiveEntitlement)
+# with automaticAudioAllowed=false. The authorized channel is therefore the
+# SILENT official notifications channel, not blaise_p0 (sound-only opt-in).
+# Failing this assertion previously marked a successfully delivered silent P0
+# notification as an Android Runtime CI failure.
+grep -q "blaise_official_visible_silent_v1" "$OUT_DIR/notifications.txt"
 grep -q "$P0_TITLE" "$OUT_DIR/notifications.txt"
+printf '%s\n' 'P0_VISIBLE_WITHOUT_ENTITLEMENT=PASS' 'P0_AUTOMATIC_AUDIO_DISABLED=PASS' > "$OUT_DIR/p0-channel.txt"
 
 adb_capture_retry "$OUT_DIR/activity-dumpsys.txt" \
   adb shell dumpsys activity activities
