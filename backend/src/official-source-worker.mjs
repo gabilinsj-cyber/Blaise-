@@ -10,6 +10,9 @@ import { stageInmetP0Batch } from './inmet-p0-publish.mjs';
 import { createInmetCapWarningsCache } from './inmet-warning-cache.mjs';
 import { probeInmetCapWarnings } from './inmet-source.mjs';
 import {
+  USGS_RJ_TASK_ID, createUsgsRjCache, probeUsgsRjEarthquakes,
+} from './usgs-rj-earthquakes.mjs';
+import {
   createAlertaRioRainfallCache,
 } from './official-source-cache.mjs';
 import { createOfficialSourceScheduler } from './official-source-scheduler.mjs';
@@ -178,6 +181,9 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
   if (inmetP0PublishEnabled && !inmetWarningsEnabled) {
     throw new OfficialSourceWorkerError('official_source_worker_inmet_p0_publish_requires_warnings');
   }
+  const usgsEarthquakesEnabled = parseBoolean(env.BLAISE_USGS_EARTHQUAKES_ENABLED, {
+    defaultValue: false,code: 'official_source_worker_invalid_usgs_enabled_flag',
+  });
   const defesaCivilRioAssetsEnabled = parseBoolean(env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED, {
     defaultValue: false,
     code: 'official_source_worker_invalid_defesa_civil_rio_assets_enabled_flag',
@@ -206,6 +212,11 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_INMET_P0_PUBLISH_ENABLED !== null
       && env.BLAISE_INMET_P0_PUBLISH_ENABLED !== '') {
     config.inmetP0PublishEnabled = inmetP0PublishEnabled;
+  }
+  if (env.BLAISE_USGS_EARTHQUAKES_ENABLED !== undefined
+      && env.BLAISE_USGS_EARTHQUAKES_ENABLED !== null
+      && env.BLAISE_USGS_EARTHQUAKES_ENABLED !== '') {
+    config.usgsEarthquakesEnabled = usgsEarthquakesEnabled;
   }
   if (env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== undefined
       && env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== null
@@ -251,6 +262,7 @@ export function createOfficialSourceWorker({
   stageInmetP0 = stageInmetP0Batch,
   publishInmetP0 = null,
   probeDefesaCivilRioAssetsLive = probeDefesaCivilRioMapAssets,
+  probeUsgsEarthquakesLive = probeUsgsRjEarthquakes,
 } = {}) {
   if (!config || typeof config !== 'object') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_config');
@@ -269,6 +281,9 @@ export function createOfficialSourceWorker({
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
   const inmetP0PublishEnabled = config.inmetP0PublishEnabled ?? false;
   const defesaCivilRioAssetsEnabled = config.defesaCivilRioAssetsEnabled ?? false;
+  const usgsEarthquakesEnabled = config.usgsEarthquakesEnabled ?? false;
+  if(typeof usgsEarthquakesEnabled !== 'boolean')
+    throw new OfficialSourceWorkerError('official_source_worker_invalid_usgs_enabled_flag');
   if (typeof cemadenRjEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');
   }
@@ -298,7 +313,8 @@ export function createOfficialSourceWorker({
       || typeof probeChmWarningsLive !== 'function'
       || typeof probeInmetWarningsLive !== 'function'
       || typeof stageInmetP0 !== 'function'
-      || typeof probeDefesaCivilRioAssetsLive !== 'function') {
+      || typeof probeDefesaCivilRioAssetsLive !== 'function'
+      || typeof probeUsgsEarthquakesLive !== 'function') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_probe');
   }
   if (typeof onEvent !== 'function') {
@@ -310,6 +326,7 @@ export function createOfficialSourceWorker({
   const chmWarningsCache = chmWarningsEnabled ? createChmWarningsInventoryCache({ now }) : null;
   const inmetWarningsCache = inmetWarningsEnabled ? createInmetCapWarningsCache({ now }) : null;
   const defesaCivilRioAssetsCache = defesaCivilRioAssetsEnabled ? createDefesaCivilRioAssetsCache({ now }) : null;
+  const usgsEarthquakesCache = usgsEarthquakesEnabled ? createUsgsRjCache({ now }) : null;
   const inmetAutomaticPublication = inmetP0PublishEnabled ? 'ENABLED_EXPLICIT' : 'DISABLED';
   let inmetP0Evaluation = inmetP0Status({
     configured: inmetWarningsEnabled,
@@ -442,6 +459,25 @@ export function createOfficialSourceWorker({
     });
   }
 
+  if (usgsEarthquakesEnabled) {
+    tasks.push({
+      id: USGS_RJ_TASK_ID,
+      run: async ({ startedAt }) => {
+        try {
+          const snapshot = await probeUsgsEarthquakesLive({
+            fetchImpl,nowMs:Date.parse(startedAt),
+          });
+          usgsEarthquakesCache.recordSuccess(snapshot,{fetchedAt:startedAt});
+        } catch(error) {
+          usgsEarthquakesCache.recordFailure(safeSourceErrorCode(error),{
+            attemptedAt:startedAt,
+          });
+          throw error;
+        }
+      },
+    });
+  }
+
   const scheduler = createOfficialSourceScheduler({
     tasks,
     now,
@@ -479,6 +515,9 @@ export function createOfficialSourceWorker({
     if (taskId === INMET_WARNINGS_TASK_ID && inmetWarningsCache) {
       return inmetWarningsCache.read({ mode: scheduler.snapshot().mode });
     }
+    if (taskId === USGS_RJ_TASK_ID && usgsEarthquakesCache) {
+      return usgsEarthquakesCache.read();
+    }
     if (taskId === DEFESA_CIVIL_RIO_ASSETS_TASK_ID && defesaCivilRioAssetsCache) {
       return defesaCivilRioAssetsCache.read({ mode: scheduler.snapshot().mode });
     }
@@ -502,6 +541,9 @@ export function createOfficialSourceWorker({
     if (defesaCivilRioAssetsCache) {
       sourceStates.push(sourceStateWithoutPayload(defesaCivilRioAssetsCache.read({ mode: schedulerStatus.mode })));
     }
+    if (usgsEarthquakesCache) {
+      sourceStates.push(sourceStateWithoutPayload(usgsEarthquakesCache.read()));
+    }
 
     return Object.freeze({
       contract: OFFICIAL_SOURCE_WORKER_CONTRACT,
@@ -517,6 +559,7 @@ export function createOfficialSourceWorker({
       inmetP0PublishEnabled,
       inmetP0Evaluation,
       defesaCivilRioAssetsConfigured: defesaCivilRioAssetsEnabled,
+      usgsEarthquakesConfigured: usgsEarthquakesEnabled,
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
       statusPayloads: 'REDACTED',
       externalPolling: config.enabled ? 'EXPLICITLY_ENABLED' : 'DISABLED_FAIL_CLOSED',

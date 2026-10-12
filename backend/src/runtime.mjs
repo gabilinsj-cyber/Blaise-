@@ -7,6 +7,7 @@ import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
+import { createRjEarthquakesPublicHandler } from './rj-earthquakes-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
@@ -219,7 +220,13 @@ async function main() {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
-  const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
+  // USGS-only informational seismic feed. Never behind a purchase;
+  // explicit enable flag and fresh source evidence still required.
+  const seismicHandler = createRjEarthquakesPublicHandler(sourceReadinessHandler, {
+    sourceWorker,
+    enabled: process.env.BLAISE_RJ_USGS_PUBLIC_ENABLED === 'true',
+  });
+  const server = http.createServer(createDrainingHandler(seismicHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;

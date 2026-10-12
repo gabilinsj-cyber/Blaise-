@@ -51,6 +51,25 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
     &&Number.isInteger(t?.runCount)&&t.runCount>=1);
   const sourceFresh=reports.filter(s=>s.fresh);
   const live=enabled&&started&&completed.length>=1&&sourceFresh.length>=1;
+  // Product-level proof: an INMET CAP warning is not INMET station
+  // temperature; a Defesa Civil siren inventory is not a flood warning.
+  const productTasks=Object.freeze([
+    ['Alerta Rio','chuva-estacoes-Rio','alerta-rio-rainfall-live'],
+    ['Defesa Civil Rio','mapa-sirenes-e-apoio','defesa-civil-rio-map-assets'],
+    ['INMET','avisos-CAP','inmet-cap-warnings'],
+    ['CEMADEN RJ','risco-hidrologico','cemaden-rj-hydrological-risk'],
+    ['Marinha CHM','avisos-maritimos','chm-marine-warnings'],
+    ['USGS','abalos-globais','usgs-global-earthquakes'],
+  ].map(([source,product,sourceId])=>Object.freeze({
+    source,product,sourceId,
+    live:live&&reports.some(x=>x.sourceId===sourceId&&x.fresh)
+      &&tasks.some(t=>t.taskId===sourceId&&t.lastOutcome==='SUCCESS'),
+  })));
+  const notYetDeployed=Object.freeze([
+    'INPE_CPTEC_FORECAST','WINDY_LICENSED_API','ANA_HIDROWEB',
+    'SGB_SACE','NOAA_RJ_GRID','COPERNICUS_MARINE',
+    'EUMETSAT_RJ_FRAMES','NOAA_GLM_RJ','COR_RIO_CET_RIO',
+  ]);
   return Object.freeze({
     contract:RJ_SOURCE_READINESS_CONTRACT,
     checkedAt:new Date(nowMillis).toISOString(),
@@ -64,6 +83,12 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
       scheduler.refreshIntervalMs:null,
     sourceCount:reports.length,
     freshSourceCount:sourceFresh.length,
+    validatedSourceProducts:productTasks,
+    notYetIntegratedProducts:notYetDeployed,
+    allRequestedSourcesLive:false,
+    all92MunicipalitiesHaveDirectStations:false,
+    usgsGlobalEarthquakesLive:productTasks.some(x=>x.source==='USGS'&&x.live),
+    perProductReadinessIsNotWholeAgencyReadiness:true,
     taskCount:tasks.length,
     completedSourceTaskCount:completed.length,
     sourceStates:Object.freeze(reports),

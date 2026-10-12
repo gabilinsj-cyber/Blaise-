@@ -3,6 +3,7 @@ import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
 import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CEMADEN_RJ_HYDRO_URL } from './cemaden-rj-source.mjs';
 import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from './inmet-source.mjs';
+import { USGS_RJ_TASK_ID } from './usgs-rj-earthquakes.mjs';
 
 export const STATEWIDE_DASHBOARD_PATH = '/v1/data/municipalities';
 export const STATEWIDE_DASHBOARD_CONTRACT = 'RJ_92_MUNICIPALITIES_V1';
@@ -21,11 +22,12 @@ export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
   { id: 'ww3', name: 'Marinha / WW3', products: ['previsao-de-ondas'], scope: 'GRADE_MODELO_MARITIMO' },
   { id: 'pnboia', name: 'Marinha / PNBOIA', products: ['boias', 'ondas-observadas'], scope: 'PONTOS_OBSERVADOS' },
   { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
+  { id: 'inpe', name: 'INPE/CPTEC', products: ['previsao-temperatura', 'chuva-prevista', 'vento-previsto', 'ciclones', 'frente-fria'], scope: 'PREVISAO_POR_PRODUTO_E_MUNICIPIO_COM_LICENCA' },
   { id: 'windy', name: 'Windy', products: ['vento-modelado', 'rajadas-modeladas'], scope: 'MODELO_COM_LICENCA_E_CHAVE' },
   { id: 'defesa-civil', name: 'Defesa Civil estadual e municipal', products: ['avisos-locais', 'ocorrencias', 'sirenes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'cor-cet', name: 'COR.Rio / CET-Rio', products: ['transito', 'alagamentos', 'interdicoes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'prf-pmerj', name: 'PRF / PMERJ', products: ['rodovias', 'ocorrencias'], scope: 'JURISDICAO_DO_ORGAO' },
-  { id: 'usgs', name: 'USGS', products: ['sismos'], scope: 'EVENTOS_GLOBAIS_E_RELEVANCIA_RJ' },
+  { id: 'usgs', name: 'USGS', products: ['sismos'], scope: 'EVENTOS_GLOBAIS_SEM_INFERIR_IMPACTO_RJ', taskId: USGS_RJ_TASK_ID },
 ].map(Object.freeze));
 
 function reading(worker, task) {
@@ -101,7 +103,9 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
         state: actual?.state ?? 'NOT_CONNECTED', observedAt: actual?.observedAt ?? null,
         // Connector state applies only to this product, never every listed responsibility.
         connectedProduct: actual ? (source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
-          : source.id === 'alerta-rio' ? 'chuva' : 'inventario-avisos-maritimos') : null };
+          : source.id === 'alerta-rio' ? 'chuva'
+          : source.id === 'usgs' ? 'catalogo-sismico-global'
+          : 'inventario-avisos-maritimos') : null };
     }),
   };
 }
