@@ -7,8 +7,8 @@
  *
  * Table 2: five hierarchically consulted candidates. Four are explicitly
  * confirmed by the owner's latest instruction: INPE, INMET, Windy, NOAA.
- * The remaining fourth slot is CEMADEN, drawn from the previously approved
- * RJ hydro source inventory, PROVISIONAL pending the owner's confirmation.
+ * The fourth slot is CEMADEN, confirmed explicitly by the project owner
+ * on 2026-10-12. NOAA is fifth and last.
  *
  * This file performs deterministic validation/selection of GIVEN observations;
  * it has no network access, no source credentials and NO alert-publishing code.
@@ -25,10 +25,10 @@ export const RJ_TABLE2_SOURCES=Object.freeze([
   'INPE_CPTEC_FORECAST',
   'INMET_STATION',
   'WINDY_MODELO',
-  'CEMADEN_RJ', // Provisional remaining slot; validate with project owner.
+  'CEMADEN_RJ', // Fourth tie-break: confirmed by project owner.
   'NOAA',       // Always last in this table.
 ]);
-export const RJ_TABLE2_FOURTH_SOURCE_STATUS='CEMADEN_PROVISIONAL_AWAITING_OWNER_CONFIRMATION';
+export const RJ_TABLE2_FOURTH_SOURCE_STATUS='CEMADEN_CONFIRMED_BY_PROJECT_OWNER';
 export const RJ_TWO_TABLES_POLICY_VERSION='RJ_TWO_TABLES_20261012_1';
 
 const VARIABLES=Object.freeze({
