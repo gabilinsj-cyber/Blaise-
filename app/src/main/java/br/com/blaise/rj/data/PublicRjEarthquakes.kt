@@ -1,6 +1,5 @@
 package br.com.blaise.rj.data
 
-import android.os.StrictMode
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
