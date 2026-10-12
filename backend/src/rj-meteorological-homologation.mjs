@@ -2,7 +2,7 @@
  * BLAISE-RJ-METEO-HOMOLOG-01
  *
  * Consolidated and versioned two-table meteorological SOURCE SPECIFICATION.
- * All 25 registered phenomena use the same existing rjSourceRouting policy.
+ * All 30 registered phenomena use the same existing rjSourceRouting policy.
  * Table 1 is SOURCE ELIGIBILITY BY LOCATION, NOT live proof.
  * Table 2 is DISAGREEMENT/RECONCILIATION DECISION POLICY, NOT a forecast.
  *
@@ -13,7 +13,7 @@
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-11.v1';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-12.v2';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -49,10 +49,17 @@ const meta=Object.freeze({
   TSUNAMI:['Tsunami, maremoto e meteotsunami','Costa RJ/Atlântico com potencial impacto','avisos oficiais marítimos/sismológicos; não inferir por magnitude'],
   PRESSAO_ATMOSFERICA:['Pressão e tendência barométrica','92 municípios com estação adequada','hPa e tendência comparável por método'],
   RAIOS:['Raios e descargas elétricas','RJ conforme cobertura do sensor/satélite','NOAA GOES GLM e rede terrestre licenciada'],
+  CHUVA_ATUAL:['Chuva atual','RJ conforme estação e cobertura','Alerta Rio + Defesa Civil P1; OpenWeatherMap complementar quando autorizado'],
+  MARE:['Marés e nível do mar','Litoral RJ conforme estação/grade','Marinha/CHM; Copernicus Marine e NOAA por produto'],
+  SWELL:['Ondulação/swell','Litoral e Atlântico próximo','Marinha, NOAA e Copernicus Marine: altura, período, direção'],
+  CORRENTES_MARINHAS:['Correntes marítimas','Litoral/Atlântico RJ conforme grade','Marinha/CHM, Copernicus Marine e NOAA'],
+  TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','Marinha/CHM, Copernicus Marine e NOAA'],
+
 });
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
   CHUVA_ATLANTICO:'ATLANTICO',
+  MARE:'LITORAL',SWELL:'LITORAL',CORRENTES_MARINHAS:'LITORAL',TEMPERATURA_MAR:'LITORAL',
   // Keep SISMO and TSUNAMI in municipal routing when presenting the
   // catalog so Defesa Civil is retained alongside Marinha/NOAA/USGS.
   // The coverage text still includes the Atlantic risk perimeter.
@@ -83,11 +90,27 @@ export const RJ_METEO_TABLE2=Object.freeze([
   Object.freeze({step:8,code:'CATEGORIAS_ESPECIAIS',condition:'Alertas, mar, sismo, tsunami, raios, rios e radar',
     decision:'Competência da fonte especializada/aviso vigente prevalece; nunca ponderar categorias de alerta, magnitudes ou alarmes.',
     method:'FONTES_ESPECIALIZADAS_E_CONFIRMACAO_INDEPENDENTE'}),
+  Object.freeze({step:9,code:'P1_CONJUNTA',condition:'Rio: Alerta Rio + Defesa Civil por produto',
+    decision:'P1 conjunta; dados republicados não formam duas medições independentes.',
+    method:'IDENTIDADE_DE_ORIGEM_E_COMPETENCIA'}),
+  Object.freeze({step:10,code:'OPENWEATHER_COMPLEMENTAR',condition:'As dez variáveis meteorológicas de referência',
+    decision:'OpenWeatherMap como terceira consulta complementar, não autoridade oficial; atribuição e direitos por produto.',
+    method:'LICENCA_PRODUTO_E_NAO_DUPLICACAO'}),
+  Object.freeze({step:11,code:'PONDERACAO_COMPATIVEL',condition:'Grandeza, unidade, tempo, local e pesos comparáveis',
+    decision:'Sem compatibilidade ou evidência estatística, não criar média observacional ou aviso.',
+    method:'MEDIA_PONDERADA_SOMENTE_DADOS_COMPATIVEIS'}),
+  Object.freeze({step:12,code:'MAR_SATELITE_ESPECIALIZADO',condition:'Ondas, ressaca, swell, ciclone e tsunami',
+    decision:'Marinha/NOAA/Copernicus por produto; EUMETSAT para nuvens/ciclones; tsunami depende de autoridade competente.',
+    method:'ROTEAMENTO_POR_AUTORIDADE_E_TIPO_DE_PRODUTO'}),
+  Object.freeze({step:13,code:'AUTORIZACAO_E_FRESCOR',condition:'Origem e direitos de cada produto',
+    decision:'Atribuição, licença, autorização, localização, horário e produto comprovados antes de publicar.',
+    method:'FAIL_CLOSED_SEM_PROVA_OPERACIONAL'}),
 ]);
 
-if(Object.keys(meta).length!==25||RJ_PHENOMENA.length!==25
-  ||RJ_PHENOMENA.some(id=>!Object.hasOwn(meta,id)))
-  throw new Error('rj_25_phenomena_homologation_drift');
+if(Object.keys(meta).length!==30||RJ_PHENOMENA.length!==30
+  ||RJ_PHENOMENA.some(id=>!Object.hasOwn(meta,id))
+  ||RJ_METEO_TABLE2.length!==13)
+  throw new Error('rj_30_phenomena_homologation_drift');
 
 export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) {
   // Calls existing 92-municipality validator for every phenomenon. Each row
@@ -100,6 +123,7 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       id:phenomenon,label,coverage,criteria,
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
+      supplementaryThirdSource:route.complementaryThirdSource,
       status:RJ_METEO_SOURCE_STATUS.NOT_HOMOLOGATED,
       evidenceRequired:true,
       observedLiveData:false,
@@ -138,6 +162,7 @@ export function checkRjSourceProductEvidence({
     'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
     'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
     'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
+    'OPENWEATHERMAP_API','COPERNICUS_MARINE','EUMETSAT_SATELLITE',
   ]);
   if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');
