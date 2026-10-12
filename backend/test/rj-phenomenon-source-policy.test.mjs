@@ -1,8 +1,49 @@
+test('exactly 30 RJ phenomena, including marine extensions, and ten OpenWeatherMap complementary variables',()=>{
+  assert.equal(RJ_PHENOMENA.length,30);
+  assert.equal(new Set(RJ_PHENOMENA).size,30);
+  assert.equal(RJ_TEN_WEATHER_COMPLEMENTS.length,10);
+  for(const key of ['CHUVA_ATUAL','MARE','SWELL','CORRENTES_MARINHAS','TEMPERATURA_MAR'])
+    assert.equal(RJ_PHENOMENA.includes(key),true);
+  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.sourceId,'OPENWEATHERMAP_API');
+  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.ingestion,'NOT_CONNECTED');
+  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.neverCountsAsIndependentRepublishedStation,true);
+  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.copernicusMarine.ingestion,'NOT_CONNECTED');
+  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.eumetsat.ingestion,'NOT_CONNECTED');
+});
+test('OpenWeatherMap is third complementary consultation for first ten categories, not official alert authority',()=>{
+  for(const {ibge} of RJ_MUNICIPALITIES){
+    for(const phenomenon of RJ_TEN_WEATHER_COMPLEMENTS){
+      const route=rjSourceRouting({ibge,phenomenon});
+      assert.equal(route.complementaryThirdSource,'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY');
+      assert.equal(route.phenomenonMatrixCount,30);
+      assert.equal(route.sources.some(s=>s.id==='OPENWEATHERMAP_API'&&s.automaticAlertAuthority),false);
+      assert.equal(route.ineaPolicy,'EXCLUDED');
+    }
+  }
+});
+test('Copernicus Marine and EUMETSAT are category-specialized, not default tsunami alarms or radar frames',()=>{
+  for(const category of ['ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','RESSACA']){
+    const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});
+    assert.ok(route.sources.some(s=>s.id==='MARINHA_CHM'));
+    assert.ok(route.sources.some(s=>s.id==='COPERNICUS_MARINE'));
+    assert.equal(route.liveData,'NOT_CONFIRMED');
+  }
+  for(const category of ['CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA']){
+    const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});
+    assert.ok(route.sources.some(s=>s.id==='EUMETSAT_SATELLITE'));
+  }
+  const tsunami=rjSourceRouting({region:'ATLANTICO',phenomenon:'TSUNAMI'});
+  assert.equal(tsunami.sources.some(s=>s.id==='COPERNICUS_MARINE'),false);
+  assert.equal(tsunami.sources.some(s=>s.id==='EUMETSAT_SATELLITE'),false);
+  assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'RADAR'}).sources.some(s=>s.id==='EUMETSAT_SATELLITE'),false);
+});
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 import {
   RJ_MUNICIPALITY_COUNT, RJ_PHENOMENA, RJ_SOURCE_CLASS,
+  RJ_SUPPLEMENTAL_PRODUCTS, RJ_TEN_WEATHER_COMPLEMENTS,
   rjSourceRouting,
 } from '../src/rj-phenomenon-source-policy.mjs';
 
