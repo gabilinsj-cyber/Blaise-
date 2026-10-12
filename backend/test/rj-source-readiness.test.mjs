@@ -53,6 +53,36 @@ test('stale station data and no successful tasks cannot masquerade as live',()=>
     assert.notEqual(r.collectionState,'LIVE_SOURCES_WITH_FRESH_VALIDATED_DATA');
   }
 });
+test('OWM flag alone cannot prove recent live data, but actual fresh validated product can',()=>{
+  const active=(time,sourceTime,productStatus)=>({
+    status:()=>({
+      sourceId:'OPENWEATHERMAP_API',
+      enabled:true,configured:true,licensedForApp:true,
+      lastSuccessAt:time,lastSourceTime:sourceTime,lastStatus:productStatus,
+    }),
+  });
+  const good=buildRjSourceReadiness({status:()=>status()},{
+    nowMillis:NOW,
+    supplementalAdapters:[active('2026-10-11T03:59:00Z','2026-10-11T03:30:00Z',
+      'FRESH_VALIDATED_COMPLEMENTARY_PRODUCT')],
+  });
+  assert.equal(good.homologationRegister.openWeatherMapLiveProof,true);
+  assert.equal(good.supplementalSources.length,1);
+  assert.equal(good.supplementalSources[0].recentValidProduct,true);
+  assert.equal(JSON.stringify(good).includes('apiKey'),false);
+  assert.equal(good.homologationRegister.copernicusMarineLiveProof,false);
+  assert.equal(good.homologationRegister.eumetsatSatelliteLiveProof,false);
+  for(const adapter of [
+    active(null,null,'FRESH_VALIDATED_COMPLEMENTARY_PRODUCT'),
+    active('2026-10-10T22:00:00Z','2026-10-10T21:00:00Z','FRESH_VALIDATED_COMPLEMENTARY_PRODUCT'),
+    active('2026-10-11T03:59:00Z','2026-10-11T03:50:00Z','NOT_QUERIED'),
+  ]){
+    const r=buildRjSourceReadiness({status:()=>status()},{
+      nowMillis:NOW,supplementalAdapters:[adapter],
+    });
+    assert.equal(r.homologationRegister.openWeatherMapLiveProof,false);
+  }
+});
 const response=()=>({
   statusCode:null,headers:{},body:null,
   setHeader(k,v){this.headers[k]=v;},

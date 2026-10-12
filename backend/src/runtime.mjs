@@ -8,6 +8,8 @@ import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
+import { createRjOpenWeatherLiveAdapter } from './rj-openweather-live-adapter.mjs';
+import { createRjOpenWeatherInternalHandler } from './rj-openweather-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -181,6 +183,14 @@ async function main() {
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
     cadenceMode: 'fixed_start',
   });
+  // On-demand, protected OWM current weather ingestion. Keys remain only on
+  // the server, preferably provided by Cloud Run Secret Manager. This source
+  // is complementary; no paid product is exposed to anonymous clients.
+  const openWeatherAdapter = createRjOpenWeatherLiveAdapter({
+    enabled: process.env.BLAISE_OWM_ENABLED === 'true',
+    licensedForApp: process.env.BLAISE_OWM_PRODUCT_RIGHTS_VERIFIED === 'true',
+    apiKey: process.env.BLAISE_OWM_API_KEY || '',
+  });
 
   const coreHandler = createHttpHandler({
     config,
@@ -215,9 +225,14 @@ async function main() {
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
-  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
+  const openWeatherInternalHandler = createRjOpenWeatherInternalHandler(publicStatusHandler, {
+    adapter: openWeatherAdapter,
+    verifyOperatorOidc: metricsOidcVerifier,
+  });
+  const sourceReadinessHandler = createRjSourceReadinessHandler(openWeatherInternalHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
+    supplementalAdapters: [openWeatherAdapter],
   });
   const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
   server.requestTimeout = 10_000;
