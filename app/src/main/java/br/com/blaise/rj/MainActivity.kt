@@ -234,7 +234,11 @@ fun BlaiseApp(
     val weatherClient = remember { OfficialWeatherClient() }
     var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
-    var inmetHourlySeries by remember { mutableStateOf<InmetHourlySeries?>(null) }
+    // Associate the fetched station with the selected municipality to prevent
+    // showing Rio's readings when the user switches cities mid-request.
+    var selectedInmetHourlySeries by remember {
+        mutableStateOf<Pair<Int, InmetHourlySeries?>?>(null)
+    }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
@@ -285,12 +289,14 @@ fun BlaiseApp(
     }
     // Public INMET station data is free for every user, independent of store billing.
     // Rate-limit polling; no fake cache extension when a source becomes stale.
-    LaunchedEffect(powerOn, lifecycle) {
-        inmetHourlySeries = null
+    LaunchedEffect(powerOn, city1.ibgeCode, lifecycle) {
+        selectedInmetHourlySeries = null
         if (!powerOn) return@LaunchedEffect
+        val selectedCity = city1
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                inmetHourlySeries = weatherClient.recentRioHourlySeries()
+                val verified = weatherClient.recentMunicipalityHourlySeries(selectedCity)
+                selectedInmetHourlySeries = selectedCity.ibgeCode to verified
                 delay(300_000)
             }
         }
@@ -345,7 +351,9 @@ fun BlaiseApp(
         LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
         LocalCityWeather provides if (powerOn) cityWeather else emptyMap(),
-        LocalInmetHourlySeries provides if (powerOn) inmetHourlySeries else null,
+        LocalInmetHourlySeries provides if (powerOn &&
+            selectedInmetHourlySeries?.first == city1.ibgeCode)
+            selectedInmetHourlySeries?.second else null,
         LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
@@ -985,7 +993,7 @@ private fun HomeScreen(
             }
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
-                DailyChartPanel(Modifier.fillMaxWidth())
+                DailyChartPanel(city1, Modifier.fillMaxWidth())
                 ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1008,7 +1016,7 @@ private fun HomeScreen(
         Spacer(Modifier.height(10.dp))
         ForecastPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
-        DailyChartPanel(Modifier.fillMaxWidth())
+        DailyChartPanel(city1, Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
@@ -1377,7 +1385,7 @@ private fun ForecastPanel(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DailyChartPanel(modifier: Modifier = Modifier) {
+private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     val choices = listOf("Temperatura", "Chuva", "Vento")
     var variable by remember { mutableStateOf("Temperatura") }
     var showRainfall by remember { mutableStateOf(false) }
@@ -1402,8 +1410,8 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
         InmetMetric.WIND -> "km/h"
     }
     DashboardSection(
-        title = "GRÁFICOS DO DIA • RIO DE JANEIRO",
-        subtitle = "INMET • estação identificada • últimas 24 horas",
+        title = "GRÁFICOS DO DIA • ${city.name.uppercase(java.util.Locale("pt", "BR"))}",
+        subtitle = "INMET • estação local validada • últimas 24 horas",
         modifier = modifier,
     ) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1487,7 +1495,7 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
             Text("Dado bruto de estação, não média municipal. Lacunas não são preenchidas; série some se a última leitura vencer.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         } else {
-            Text("Não há medições INMET recentes suficientes para este gráfico; nenhum valor foi estimado.",
+            Text("Não há série INMET recente de estação local confirmada para ${city.name}; nenhum valor foi estimado.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         TextButton(onClick = { showRainfall = !showRainfall }) {
