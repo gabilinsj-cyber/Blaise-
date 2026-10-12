@@ -1926,7 +1926,9 @@ private fun RjMeteorologicalTablesPanel() {
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
-        Text("25 fenômenos • 92 municípios do RJ • v${RjMeteorologicalTables.VERSION}",
+        Text("${RjMeteorologicalTables.PHENOMENA_COUNT} fenômenos • 92 municípios do RJ • " +
+            "${RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS} verificações novas de desempate • " +
+            "v${RjMeteorologicalTables.VERSION}",
             color = Muted, style = MaterialTheme.typography.labelSmall)
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1959,6 +1961,17 @@ private fun RjMeteorologicalTablesPanel() {
                 "Windy somente se persistir a divergência. " +
                 "Fontes especializadas têm prioridades próprias.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("OpenWeatherMap • 3ª fonte COMPLEMENTAR para os 10 fenômenos meteorológicos da primeira tabela. " +
+                "Não substitui Alerta Rio/Defesa Civil (P1) nem a medição oficial INMET.",
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-openweather-complement"))
+            Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
+                "temperatura do mar. EUMETSAT: nuvens, tempestades e ciclones no Atlântico.",
+                color = Muted, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-ocean-eumetsat-complement"))
+            Text(RjMeteorologicalTables.LIVE_STATUS,
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-extra-source-integration-status"))
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
@@ -2000,8 +2013,8 @@ private fun RjMeteorologicalTablesPanel() {
                 }
             }
         }
-        Text("INEA excluído. Este cadastro não comprova coleta ativa, autorização " +
-            "comercial, cobertura de estação em todos os municípios nem segurança meteorológica.",
+        Text("INEA excluído. Este cadastro não comprova coleta ativa das fontes complementares, " +
+            "licença comercial, cobertura dos 92 municípios ou operação meteorológica contínua.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -2154,9 +2167,16 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
         StatusLine("Ondas", "— m • aguardando medição/boletim CHM")
+        StatusLine("Swell", "— altura/período/direção • Copernicus Marine/NOAA não conectados")
+        StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
+        StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
         StatusLine("Vento", "— direção e velocidade")
         StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
+            "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
             "Dados indisponíveis não representam mar seguro.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
