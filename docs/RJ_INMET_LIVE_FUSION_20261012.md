@@ -24,6 +24,12 @@ A ordem para fenômenos municipais continua:
 
 A dupla oficial só gera média ponderada entre medições independentes, comparáveis no local, unidade, intervalo e horário. O modelo INPE/Windy nunca é apresentado como medição de estação. Avisos oficiais, sismos, ondas, ressaca, tsunami e risco geológico seguem seus canais especializados. **INEA excluído**.
 
+## Camada pontual no mapa próprio Blaise
+
+`projectRjInmetOnOwnMap(result,{now})` usa a observação oficial validada para gerar **um ponto georreferenciado no mapa próprio do Blaise**, com estação, unidade, horário e fonte. Conversões são explícitas: velocidade do vento/rajada em km/h da calculadora vira m/s somente no contrato cartográfico que exige m/s; chuva horária é mm acumulados em janela de 1h. O ponto passa pela segunda validação `prepareOwnMapObservationLayer`. **Não é mosaico de radar, interpolação, chuva de toda a cidade nem imagem de outro fornecedor.**
+
+A projeção é um módulo de backend: ainda é necessário um endpoint autenticado/licitamente permitido e o recebimento no Android para que o ponto apareça no aparelho. Nenhum endpoint público é aberto por esta PR.
+
 ## Não autorizar publicação automaticamente
 
 O adaptador **vem desligado** e precisa de **dois controles verdadeiros, separados** (`enabled` e `usageApproved`). Isso não é prova por si só de direito comercial sobre um produto; o responsável deverá registrar a confirmação específica das condições de uso do INMET para o aplicativo e, em seguida, executar a homologação com respostas reais da API. A PR não altera variáveis do Cloud Run nem publica dados a assinantes.
