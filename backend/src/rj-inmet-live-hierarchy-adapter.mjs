@@ -51,10 +51,10 @@ function catalogForMunicipality(raw,ibge) {
   const seen=new Set();
   for(const s of raw) {
     if(!s||typeof s!=='object'||Array.isArray(s))continue;
-    if(s.SG_ESTADO!=='RJ'||s.CD_SITUACAO!=='Operante')continue;
+    if(s.SG_ESTADO!=='RJ'||s.SG_ENTIDADE!=='INMET'||s.CD_SITUACAO!=='Operante')continue;
     if(normalize(s.DC_NOME)!==normalize(name))continue;
     const code=s.CD_ESTACAO;
-    if(typeof code!=='string'||!/^A\d{3}$/.test(code)||seen.has(code))continue;
+    if(typeof code!=='string'||!/^[AB]\d{3}$/.test(code)||seen.has(code))continue;
     const lat=number(s.VL_LATITUDE,-23.7,-20.4);
     const lon=number(s.VL_LONGITUDE,-45.5,-40.4);
     if(lat===null||lon===null)continue;
