@@ -17,6 +17,25 @@ class RjFiveDisputeChecksTest {
         assertFalse(checks.any { it.decision.contains("INEA") })
     }
 
+    @Test fun tenOpenWeatherAndFiveMarineReferencesMatchApprovedTables() {
+        assertEquals(10, RjMeteorologicalTables.table1ThirdSource.size)
+        assertTrue(RjMeteorologicalTables.table1ThirdSource.all {
+            it.complementarySource == "OpenWeatherMap"
+        })
+        assertTrue(RjMeteorologicalTables.table1ThirdSource.first().p1Sources.contains("Defesa Civil"))
+        assertEquals("GRANIZO",RjMeteorologicalTables.table1ThirdSource.last().code)
+        assertEquals(5,RjMeteorologicalTables.marineComplement.size)
+        assertTrue(RjMeteorologicalTables.marineComplement.any {
+            it.code == "CICLONE_OCEANICO" && it.sources.contains("EUMETSAT")
+        })
+        assertTrue(RjMeteorologicalTables.marineComplement.any {
+            it.code == "ONDAS_SWELL" && it.sources.contains("Copernicus Marine")
+        })
+        assertTrue(RjMeteorologicalTables.marineComplement.any {
+            it.code == "TSUNAMI" && it.sources.contains("autoridades brasileiras")
+        })
+    }
+
     @Test fun alertsAndRawForecastsStaySeparateFromObservedWeightedMeasurements() {
         assertTrue(RjMeteorologicalTables.METHOD.contains("medição + previsão separadas"))
         assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
