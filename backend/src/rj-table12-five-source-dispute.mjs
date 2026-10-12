@@ -193,7 +193,13 @@ export function resolveRjTable12FiveSourceDispute({
       if(uniqueStation.has(key))continue;
       uniqueStation.add(key);
       // A specific sensor shown by two publishers is still ONE observation.
-      const candidate=validated.filter(old=>independent(old,row)
+      // A Table 2 reference must match AT LEAST ONE of the initial
+      // Table 1 observations. Agreement between two comparator providers
+      // alone does not resolve the original primary-source discrepancy.
+      const primaryCandidates=RJ_TABLE2_FIVE.includes(id)
+        ?validated.filter(old=>primary.includes(SOURCE_ORIGIN[old.sourceId]))
+        :validated;
+      const candidate=primaryCandidates.filter(old=>independent(old,row)
         &&SOURCE_ORIGIN[old.sourceId]!==SOURCE_ORIGIN[row.sourceId]
         &&comparable(old,row,spec)
         &&Math.abs(old.value-row.value)<=spec.threshold)[0];
