@@ -107,6 +107,86 @@ export const RJ_METEO_TABLE2=Object.freeze([
     method:'FAIL_CLOSED_SEM_PROVA_OPERACIONAL'}),
 ]);
 
+/**
+ * Link every phenomenon in Table 1 to the applicable evaluation steps from
+ * Table 2. Never weight warnings, hazard levels, seismic magnitudes or events.
+ * Generic 01/07/09/13 always explain provenance, fallback, competence and
+ * permission. Scientific formula rules are variable-specific.
+ */
+const WEIGHTABLE=Object.freeze(new Set([
+  'TEMPERATURA','UMIDADE','VENTO','RAJADA','CHUVA_ATUAL',
+  'CHUVA_ACUMULADA','PRESSAO_ATMOSFERICA',
+]));
+const DERIVED=Object.freeze(new Set(['SENSACAO_TERMICA']));
+const MARITIME=Object.freeze(new Set([
+  'RESSACA','ONDAS','SWELL','MARE','CORRENTES_MARINHAS',
+  'TEMPERATURA_MAR','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','TSUNAMI',
+]));
+const BASE_CODES=Object.freeze(['PRIMEIRAS_TRES','SEM_DADO_NOVO','P1_CONJUNTA','AUTORIZACAO_E_FRESCOR']);
+const BY_CODE=new Map(RJ_METEO_TABLE2.map(x=>[x.code,x]));
+export function linkedRjDisputeSteps(phenomenon) {
+  if(!RJ_PHENOMENA.includes(phenomenon))throw TypeError('rj_unknown_linked_phenomenon');
+  const chosen=new Set(BASE_CODES);
+  if(WEIGHTABLE.has(phenomenon)) {
+    for(const key of ['DUAS_OFICIAIS','OFICIAIS_DIVERGENTES','INPE_PRIMEIRO',
+      'WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
+      'OPENWEATHER_COMPLEMENTAR'])chosen.add(key);
+  } else if(DERIVED.has(phenomenon)) {
+    for(const key of ['OFICIAIS_DIVERGENTES','INPE_PRIMEIRO','WINDY_SUBSIDIARIO',
+      'DUAS_FONTES_EXIBIDAS','OPENWEATHER_COMPLEMENTAR',
+      'PONDERACAO_COMPATIVEL'])chosen.add(key);
+  } else if(MARITIME.has(phenomenon)) {
+    for(const key of ['CATEGORIAS_ESPECIAIS','MAR_SATELITE_ESPECIALIZADO',
+      'DUAS_FONTES_EXIBIDAS'])chosen.add(key);
+  } else {
+    for(const key of ['CATEGORIAS_ESPECIAIS','OFICIAIS_DIVERGENTES',
+      'DUAS_FONTES_EXIBIDAS'])chosen.add(key);
+    if(['GRANIZO','TEMPORAL','TEMPESTADE'].includes(phenomenon))
+      chosen.add('OPENWEATHER_COMPLEMENTAR');
+  }
+  return Object.freeze(RJ_METEO_TABLE2.filter(x=>chosen.has(x.code)));
+}
+
+export const RJ_METEO_MARINE_TABLE=Object.freeze([
+  Object.freeze({
+    code:'CICLONES_OCEANICOS',phenomena:Object.freeze(['CICLONE_EXTRATROPICAL']),
+    label:'Ciclones oceânicos',sources:Object.freeze([
+      'MARINHA_CHM','NOAA','EUMETSAT_SATELLITE','COPERNICUS_MARINE']),
+    purpose:'Acompanhar evolução atmosférica, trajetória e efeitos no mar',
+    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+  }),
+  Object.freeze({
+    code:'TEMPESTADES_ATLANTICO',phenomena:Object.freeze(['TEMPESTADE','CHUVA_ATLANTICO']),
+    label:'Tempestades no Atlântico',sources:Object.freeze([
+      'MARINHA_CHM','NOAA','EUMETSAT_SATELLITE']),
+    purpose:'Nuvens, sistemas intensos e deslocamento; satélite não é radar medido',
+    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+  }),
+  Object.freeze({
+    code:'ONDAS_SWELL',phenomena:Object.freeze(['ONDAS','SWELL']),
+    label:'Ondas e swell',sources:Object.freeze([
+      'MARINHA_CHM','NOAA','COPERNICUS_MARINE']),
+    purpose:'Altura, período, direção e propagação das ondas por produto',
+    alertAuthority:'MARINHA_CHM',
+  }),
+  Object.freeze({
+    code:'RESSACA_LITORAL',phenomena:Object.freeze(['RESSACA']),
+    label:'Ressaca no litoral RJ',sources:Object.freeze([
+      'MARINHA_CHM','BOIAS_AUTORIZADAS','COPERNICUS_MARINE','NOAA']),
+    purpose:'Previsão de ondas e avaliação do risco costeiro',
+    alertAuthority:'MARINHA_CHM',
+  }),
+  Object.freeze({
+    code:'TSUNAMI',phenomena:Object.freeze(['TSUNAMI']),
+    label:'Tsunami / maremoto',sources:Object.freeze([
+      'NOAA','MARINHA_CHM','AUTORIDADES_BRASILEIRAS']),
+    purpose:'Avisos oficiais, observação do nível do mar e ameaça confirmada',
+    alertAuthority:'AUTORIDADES_BRASILEIRAS_E_AVISOS_COMPETENTES',
+  }),
+]);
+const MARINE_CODES=new Set(RJ_METEO_MARINE_TABLE.map(x=>x.code));
+if(MARINE_CODES.size!==5||RJ_METEO_MARINE_TABLE.some(row=>!row.label||!row.purpose))
+  throw new Error('rj_marine_five_source_matrix_invalid');
 if(Object.keys(meta).length!==30||RJ_PHENOMENA.length!==30
   ||RJ_PHENOMENA.some(id=>!Object.hasOwn(meta,id))
   ||RJ_METEO_TABLE2.length!==13)
@@ -124,6 +204,11 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
       supplementaryThirdSource:route.complementaryThirdSource,
+      disputeStepCodes:Object.freeze(linkedRjDisputeSteps(phenomenon).map(x=>x.code)),
+      applicableToWeightedObservation:WEIGHTABLE.has(phenomenon),
+      calculatedOnlyWithValidInputs:DERIVED.has(phenomenon),
+      linkedMarineCategories:Object.freeze(RJ_METEO_MARINE_TABLE.filter(
+        x=>x.phenomena.includes(phenomenon)).map(x=>x.code)),
       status:RJ_METEO_SOURCE_STATUS.NOT_HOMOLOGATED,
       evidenceRequired:true,
       observedLiveData:false,
@@ -137,6 +222,7 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     geographicCoverage:'92 RJ MUNICIPALITIES SELECTABLE; SOURCE COVERAGE BY PRODUCT',
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
     table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
+    marineTable:RJ_METEO_MARINE_TABLE,
     operatorVerified:false,automaticPublication:false,
     excludedSource:'INEA',
   });
