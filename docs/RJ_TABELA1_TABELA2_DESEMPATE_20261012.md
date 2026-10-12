@@ -23,10 +23,10 @@ Consultada **somente se a Tabela 1 não encontrar duas observações independent
 | D1 | **INPE/CPTEC** | Previsão/modelo e produtos meteorológicos oficiais, não medição municipal de estação |
 | D2 | **INMET** | Observação oficial por estação, quando houver localidade e variável |
 | D3 | **Windy** | Visualização/previsão de modelos, não estação oficial |
-| D4 | **CEMADEN — provisório** | Fonte especializada de chuva/monitoramento por estação; **a usuária ainda não confirmou expressamente o quinto nome desta tabela** |
+| D4 | **CEMADEN — confirmado** | Fonte especializada de chuva/monitoramento por estação e localidade, conforme cobertura e produto |
 | D5 | **NOAA** | Produtos pertinentes por variável/região; verificar se o valor é previsão, medição ou alerta |
 
-As quatro fontes **nominalmente confirmadas** na última solicitação são **INPE, INMET, Windy e NOAA**, com **NOAA por último**. CEMADEN ocupa a posição restante como **hipótese de implementação provisória** aproveitando uma fonte já definida no projeto. **Confirmar ou substituir esse nome antes de declarar a hierarquia definitiva.** Outros provedores ANA/SGB/SACE/Marinha/Copernicus/EUMETSAT seguem como fontes especializadas por fenômeno, não como provas da existência de dados para todo o RJ.
+As cinco fontes de desempate foram **confirmadas pela usuária em 12/10/2026**: **INPE → INMET → Windy → CEMADEN → NOAA**. CEMADEN ocupa a quarta posição e NOAA permanece por último. Outros provedores ANA/SGB/SACE/Marinha/Copernicus/EUMETSAT seguem como fontes especializadas por fenômeno, não como provas da existência de dados para todo o RJ.
 
 ### Resultado do desempate
 
