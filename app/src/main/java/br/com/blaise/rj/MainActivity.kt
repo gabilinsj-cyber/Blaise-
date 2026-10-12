@@ -1209,7 +1209,20 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     )
                 }
                 if (stationMetric != null) {
-                    InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
+                    // A full, current INMET series gives a point at the
+                    // verified station coordinate of the selected graph city.
+                    InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime,
+                        Modifier.fillMaxSize(), mapZoom)
+                    // Other selected municipalities with actual recent INMET
+                    // station readings appear as extra points, never raster.
+                    RjMunicipalStationMapOverlay(
+                        reports = LocalCityWeather.current,
+                        metric = stationMetric,
+                        now = snapshotTime,
+                        modifier = Modifier.fillMaxSize(),
+                        zoom = mapZoom,
+                        excludeSourceUrl = stationSeries?.sourceUrl,
+                    )
                 }
                 Surface(
                     modifier = Modifier.align(Alignment.TopStart).padding(9.dp),
