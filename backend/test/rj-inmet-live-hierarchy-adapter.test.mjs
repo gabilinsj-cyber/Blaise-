@@ -9,7 +9,7 @@ import {createRjWeatherSourceExecutor} from '../src/rj-agent-orchestration.mjs';
 
 const NOW=Date.parse('2026-10-12T12:00:00.000Z');
 const station=(changes={})=>({
-  SG_ESTADO:'RJ',CD_SITUACAO:'Operante',DC_NOME:'RIO DE JANEIRO',
+  SG_ESTADO:'RJ',SG_ENTIDADE:'INMET',CD_SITUACAO:'Operante',DC_NOME:'RIO DE JANEIRO',
   CD_ESTACAO:'A652',VL_LATITUDE:'-22,9000',VL_LONGITUDE:'-43,2000',...changes,
 });
 const reading=(changes={})=>({
@@ -96,6 +96,25 @@ test("only Rio local station is accepted; never substitute another municipality 
   const outside=await adapter({...input,ibge:'4106902'});
   assert.equal(outside.status,'INVALID_RJ_SCOPE_OR_VARIABLE');
   assert.equal(api.visited.length,1);
+});
+test('a catalog entry from another operator is never attributed to INMET',async()=>{
+  const api=fakeApi({catalog:[station({SG_ENTIDADE:'OUTRA_REDE'})]});
+  const adapter=createRjInmetLiveAdapters({
+    enabled:true,usageApproved:true,fetchImpl:api.fetchImpl,
+  }).INMET_STATION;
+  const result=await adapter(input);
+  assert.equal(result.status,'NO_EXACT_MUNICIPAL_INMET_STATION');
+  assert.equal(result.observations.length,0);
+});
+test('recent official B-series station IDs remain eligible when city and operator match',async()=>{
+  const api=fakeApi({catalog:[station({CD_ESTACAO:'B652'})],
+    hourly:[reading({CD_ESTACAO:'B652'})]});
+  const adapter=createRjInmetLiveAdapters({
+    enabled:true,usageApproved:true,fetchImpl:api.fetchImpl,
+  }).INMET_STATION;
+  const r=await adapter(input);
+  assert.equal(r.status,'VALIDATED_RECENT_OFFICIAL_STATION_READING');
+  assert.equal(r.observations[0].stationId,'B652');
 });
 test('municipality with exact catalog station uses its own label even if accents differ',async()=>{
   const api=fakeApi({catalog:[station({DC_NOME:'NITEROI',CD_ESTACAO:'A618'})],
