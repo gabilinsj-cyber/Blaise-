@@ -45,7 +45,7 @@ object RjMeteorologicalTables {
         "D1 • INPE/CPTEC",
         "D2 • INMET",
         "D3 • Windy",
-        "D4 • CEMADEN (provisório, aguardando confirmação)",
+        "D4 • CEMADEN (confirmado)",
         "D5 • NOAA",
     )
     const val SOURCE_COMPARISON_METHOD = "Duas fontes independentes e compatíveis na Tabela 1 bastam. " +
