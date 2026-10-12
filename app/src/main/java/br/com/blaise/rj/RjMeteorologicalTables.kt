@@ -18,9 +18,18 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+/** Five source channels explicitly shown in Table 2; not five live measurements. */
+data class RjMeteoConsultationSource(
+    val order: Int,
+    val sourceId: String,
+    val displayName: String,
+    val productRole: String,
+    val coverageNote: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v2"
+    const val VERSION = "2026-10-12.v3"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -30,6 +39,23 @@ object RjMeteorologicalTables {
     const val MARINE_COMPLEMENT = "Copernicus Marine: ondas, swell, marés, correntes e temperatura do mar"
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
+
+    const val TABLE2_SOURCE_COUNT = 5
+    // Requested explicit consultation register for Table 2. This list is a
+    // display/review order, not a replacement for the competent authority's
+    // product priority in Table 1 (e.g. Marinha for sea, ANA for river flow).
+    val table2ConsultationSources = listOf(
+        RjMeteoConsultationSource(1, "INPE_CPTEC_FORECAST", "INPE/CPTEC",
+            "Previsões e produtos oficiais meteorológicos", "Tempo, tempestades, massas de ar e satélite; validade por produto"),
+        RjMeteoConsultationSource(2, "INMET_STATION", "INMET",
+            "Medições oficiais e avisos", "Estações efetivamente existentes; não cobre automaticamente 92 municípios"),
+        RjMeteoConsultationSource(3, "CEMADEN_RJ", "CEMADEN",
+            "Chuva e monitoramento de riscos", "Pluviômetros, acumulados, bacias e riscos conforme rede local"),
+        RjMeteoConsultationSource(4, "WINDY_MODELO", "Windy",
+            "Comparação de previsões de modelos", "Não equivale a medição oficial; identificar modelo e condições de uso"),
+        RjMeteoConsultationSource(5, "NOAA", "NOAA",
+            "Dados de satélite, oceano e modelos", "Atlântico, ciclones e produtos por área, validade e especialidade"),
+    )
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
@@ -83,6 +109,9 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(table2ConsultationSources.size == TABLE2_SOURCE_COUNT)
+        require(table2ConsultationSources.map { it.order } == (1..TABLE2_SOURCE_COUNT).toList())
+        require(table2ConsultationSources.map { it.sourceId }.distinct().size == TABLE2_SOURCE_COUNT)
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }

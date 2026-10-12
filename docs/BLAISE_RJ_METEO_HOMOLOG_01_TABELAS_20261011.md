@@ -1,7 +1,7 @@
 # Blaise V6 RJ — Tabelas 1 e 2 vinculadas: homologação das fontes meteorológicas
 
 **Identificador permanente:** `BLAISE-RJ-METEO-HOMOLOG-01`  
-**Versão:** `2026-10-11.v1`  
+**Versão:** `2026-10-12.v3`  
 **Projeto exclusivo:** Blaise V6 RJ (92 municípios fluminenses, suas divisas e Atlântico pertinente).  
 **Status deste documento:** políticas e interface cadastradas; serviços *não* homologados por esta documentação.
 
@@ -41,7 +41,21 @@ Este documento une a **Tabela 1 — Cadastro de fontes por fenômeno** à **Tabe
 
 **Exceções:** Alerta Rio restringe-se ao município do Rio de Janeiro (IBGE 3304557). Outras localidades só entram com cobertura comprovada e base de dados da autoridade competente. Uma estação na divisa de outro estado não vira estação do RJ. Marinha, NOAA, ANA, SGB, CEMADEN, USGS e redes de raios mantêm **prioridade especializada** mesmo que não pertençam à sequência meteorológica geral. Há 92 municípios selecionáveis, não 92 sensores garantidos.
 
-## Tabela 2 — Desempate, média ponderada e identificação de fontes
+## Tabela 2 — Cinco fontes e critérios de desempate
+
+**A Tabela 2 possui cinco fontes meteorológicas de consulta, na ordem informada para o cadastro**, e não apenas duas. O número **dois** é a quantidade de medições oficiais independentes que *pode* bastar para média ponderada, não um limite de fontes cadastradas.
+
+| Ordem | Fonte de consulta | Finalidade | Restrição |
+|---:|---|---|---|
+| 1 | **INPE/CPTEC** | Previsões, massas de ar, tempestades e satélites | Produto de previsão, não estação medida; verificar autorização |
+| 2 | **INMET** | Medições de estações e avisos | Disponibilidade e município dependem da estação e do produto |
+| 3 | **CEMADEN** | Chuva, acumulados e riscos hidrológicos | Cobertura por estação/bacia; não há 92 estações garantidas |
+| 4 | **Windy** | Consulta e comparação de modelos | Modelo não é observação; exigir identificação e condições de uso |
+| 5 | **NOAA** | Satélites, ciclones, Oceano Atlântico e modelos | Usar o produto específico e sua geografia/validade |
+
+**Não confundir a lista de cinco fontes desta tabela com prioridade obrigatória para toda categoria.** Os avisos locais da cidade do Rio mantêm Alerta Rio e Defesa Civil em prioridade conjunta onde competentes; fenômenos marítimos usam Marinha/CHM, NOAA e fontes específicas; hidrologia usa ANA/CEMADEN/SGB. O desempate e a calculadora preservam a diferença entre uma leitura observada e uma previsão. Não fazer média de previsões com medições ou declarar alertas sem evidência.
+
+### Treze critérios de comparação e cálculo
 
 | Ordem | Etapa | Decisão fundamentada |
 |---:|---|---|

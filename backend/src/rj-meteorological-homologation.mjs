@@ -13,7 +13,7 @@
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-12.v2';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-12.v3';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -65,6 +65,25 @@ const scope=Object.freeze({
   // The coverage text still includes the Atlantic risk perimeter.
 });
 
+/**
+ * Five supplementary consultation sources shown at the top of Table 2.
+ * They are ordered for the register requested by the app owner and are
+ * NOT five simultaneous sensor readings or a global replacement for the
+ * phenomenon-dependent authority order of Table 1.
+ */
+export const RJ_METEO_TABLE2_SOURCE_ORDER=Object.freeze([
+  Object.freeze({order:1,sourceId:'INPE_CPTEC_FORECAST',name:'INPE/CPTEC',
+    kind:'OFFICIAL_FORECAST',purpose:'PREVISOES_METEOROLOGICAS_E_SATELITE'}),
+  Object.freeze({order:2,sourceId:'INMET_STATION',name:'INMET',
+    kind:'OFFICIAL_STATION_AND_WARNING',purpose:'OBSERVACOES_E_AVISOS_POR_PRODUTO_E_MUNICIPIO'}),
+  Object.freeze({order:3,sourceId:'CEMADEN_RJ',name:'CEMADEN',
+    kind:'OFFICIAL_RAIN_AND_HYDROLOGICAL',purpose:'CHUVA_RISCO_E_COBERTURA_POR_REDE'}),
+  Object.freeze({order:4,sourceId:'WINDY_MODELO',name:'Windy',
+    kind:'THIRD_PARTY_MODEL',purpose:'COMPARACAO_MODELOS_SEM_CONFUNDIR_COM_SENSOR'}),
+  Object.freeze({order:5,sourceId:'NOAA',name:'NOAA',
+    kind:'OFFICIAL_SPECIALIST_DATA_AND_MODEL',purpose:'SATELITE_ATLANTICO_CICLONES_E_OCEANO'}),
+]);
+
 export const RJ_METEO_TABLE2=Object.freeze([
   Object.freeze({step:1,code:'PRIMEIRAS_TRES',condition:'Temperatura, umidade, vento, rajada, chuva e alertas',
     decision:'Priorizar Alerta Rio (somente cidade Rio) → Defesa Civil competente → INMET. Fontes especializadas por fenômeno permanecem elegíveis.',
@@ -109,7 +128,9 @@ export const RJ_METEO_TABLE2=Object.freeze([
 
 if(Object.keys(meta).length!==30||RJ_PHENOMENA.length!==30
   ||RJ_PHENOMENA.some(id=>!Object.hasOwn(meta,id))
-  ||RJ_METEO_TABLE2.length!==13)
+  ||RJ_METEO_TABLE2.length!==13
+  ||RJ_METEO_TABLE2_SOURCE_ORDER.length!==5
+  ||new Set(RJ_METEO_TABLE2_SOURCE_ORDER.map(row=>row.sourceId)).size!==5)
   throw new Error('rj_30_phenomena_homologation_drift');
 
 export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) {
@@ -137,6 +158,8 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     geographicCoverage:'92 RJ MUNICIPALITIES SELECTABLE; SOURCE COVERAGE BY PRODUCT',
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
     table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
+    table2SourceConsultations:RJ_METEO_TABLE2_SOURCE_ORDER,
+    table2SourceCount:RJ_METEO_TABLE2_SOURCE_ORDER.length,
     operatorVerified:false,automaticPublication:false,
     excludedSource:'INEA',
   });
