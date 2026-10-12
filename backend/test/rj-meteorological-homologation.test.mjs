@@ -6,6 +6,7 @@ import {
   RJ_METEO_HOMOLOGATION_ID,
   RJ_METEO_HOMOLOGATION_VERSION,
   RJ_METEO_TABLE2,
+  RJ_METEO_TABLE2_SOURCE_ORDER,
   RJ_METEO_SOURCE_STATUS,
   buildRjMeteorologicalHomologationTables,
   checkRjSourceProductEvidence,
@@ -44,6 +45,19 @@ test('Table 2 is the independent, thirteen-step data provenance and dispute crit
   assert.match(RJ_METEO_TABLE2[3].decision,/INPE/);
   assert.match(RJ_METEO_TABLE2[4].decision,/Windy/);
   assert.equal(RJ_METEO_TABLE2.some(x=>/média mista de modelo e sensor/i.test(x.decision)),true);
+});
+test('Table 2 includes five explicitly ordered consultation sources separate from 13 calculation rules',()=>{
+  const expected=['INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA'];
+  const result=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
+  assert.deepEqual(RJ_METEO_TABLE2_SOURCE_ORDER.map(x=>x.sourceId),expected);
+  assert.deepEqual(result.table2SourceConsultations.map(x=>x.order),[1,2,3,4,5]);
+  assert.equal(result.table2SourceCount,5);
+  assert.equal(result.table2.length,13);
+  assert.equal(new Set(result.table2SourceConsultations.map(x=>x.sourceId)).size,5);
+  assert.equal(result.table2SourceConsultations[0].kind,'OFFICIAL_FORECAST');
+  assert.equal(result.table2SourceConsultations[3].kind,'THIRD_PARTY_MODEL');
+  assert.equal(result.operatorVerified,false);
+  assert.equal(result.automaticPublication,false);
 });
 test('each of 92 RJ municipal selections produces source routes without fake city coverage',()=>{
   assert.equal(RJ_MUNICIPALITIES.length,92);
