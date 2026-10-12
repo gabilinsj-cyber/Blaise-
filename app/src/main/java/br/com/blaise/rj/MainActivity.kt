@@ -1930,7 +1930,28 @@ private fun MoreScreen(
         title = "FONTES OFICIAIS",
         subtitle = "Prioridade local e origem preservada",
     ) {
-        FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
+        val currentPublicStatus = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+            ?.snapshot?.takeIf { it.current(LocalObservationClock.current) }
+        Text(
+            if (currentPublicStatus == null)
+                "Estado operacional das fontes: aguardando endpoint público autorizado e dados atuais."
+            else "Estado operacional por produto • informações oficiais recebidas, sem generalizar para todos os municípios.",
+            color = if (currentPublicStatus == null) WarningAmber else Gold,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-live-source-status"),
+        )
+        if (currentPublicStatus != null) {
+            currentPublicStatus.sources.forEach { source ->
+                val label = if (source.liveProduct())
+                    "Atual: ${source.connectedProduct} • ${source.scope}"
+                else "Sem produto atual validado • ${source.scope}"
+                StatusLine(source.name, label)
+            }
+        }
+        Text("INPE/CPTEC, Windy, ANA, SGB/SACE, NOAA, Copernicus, EUMETSAT e " +
+            "ocorrências de trânsito exigem conectores e autorização por produto. " +
+            "A lista cadastrada não prova operação ao vivo.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Cinco fontes meteorológicas por situação: " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" • ") +
             ". Alerta Rio limitado ao município do Rio; INMET é medição por estação, " +
