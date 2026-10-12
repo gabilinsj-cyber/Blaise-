@@ -1991,9 +1991,41 @@ private fun RjMeteorologicalTablesPanel() {
                 }
             }
         } else {
-            Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
+            Text("TABELA 2 • Cinco fontes e critérios de desempate", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            Text("5 FONTES DE CONSULTA • INPE → INMET → CEMADEN → Windy → NOAA",
+                color = GoldSoft,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-meteo-table-2-five-sources"))
+            Text("Fontes cadastradas por produto e localidade. Duas medições oficiais " +
+                "compatíveis podem bastar para um cálculo, mas não significam " +
+                "que apenas duas fontes estejam disponíveis no cadastro.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.table2ConsultationSources.forEach { source ->
+                Surface(
+                    color = NavyRaised,
+                    shape = RoundedCornerShape(9.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-meteo-table2-source-${source.order}"),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("${source.order}. ${source.displayName}",
+                            color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text(source.productRole, color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(source.coverageNote, color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Text("CRITÉRIOS DE CÁLCULO E DESEMPATE • 13 VERIFICAÇÕES",
+                color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium)
             RjMeteorologicalTables.table2.forEach { item ->
                 Surface(
                     color = Panel,
