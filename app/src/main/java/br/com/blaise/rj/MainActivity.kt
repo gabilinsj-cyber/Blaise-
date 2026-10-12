@@ -452,6 +452,17 @@ private fun BlaiseDashboard(
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
+                        if (selectedSection == "Início") {
+                            Text(
+                                "Tabela 1: Alerta Rio + Defesa Civil RJ (P1) • OpenWeatherMap (3ª consulta) ›",
+                                color = Gold,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("home-open-table-1")
+                                    .clickable { onSelectSection("Mais") }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -1972,6 +1983,7 @@ private fun RjMeteorologicalTablesPanel() {
                     color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.testTag("rj-openweather-complement"))
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (maxWidth >= 580.dp) {
                         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1989,7 +2001,6 @@ private fun RjMeteorologicalTablesPanel() {
                                 fontWeight = FontWeight.Bold)
                         }
                     }
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         RjMeteorologicalTables.referenceTable1.forEachIndexed { index, item ->
                             Surface(
                                 modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}"),
