@@ -7,6 +7,7 @@ import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
+import { linkedRjDisputeSteps, RJ_METEO_MARINE_TABLE } from './rj-meteorological-homologation.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -45,6 +46,14 @@ export function planRjPhenomenonCase({ibge=null,phenomenon,region='MUNICIPAL',le
     municipalitySelectionCoverage:92,
     requestedPhenomenon:phenomenon,
     locality:routing.locality,
+    linkedTable1Phenomenon:phenomenon,
+    applicableTable2StepCodes:Object.freeze(
+      linkedRjDisputeSteps(phenomenon).map(step=>step.code)),
+    linkedMaritimeCategories:Object.freeze(RJ_METEO_MARINE_TABLE.filter(
+      row=>row.phenomena.includes(phenomenon)).map(row=>row.code)),
+    weightedObservationalMeanAllowedByPhenomenon:linkedRjDisputeSteps(phenomenon).some(
+      step=>step.code==='PONDERACAO_COMPATIVEL' &&
+        !['SENSACAO_TERMICA'].includes(phenomenon)),
     level,
     eligibleSources:routing.sources,
     sourceStatus:'NOT_CONFIRMED_LIVE',
