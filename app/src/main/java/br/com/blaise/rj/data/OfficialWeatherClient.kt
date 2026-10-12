@@ -1,6 +1,7 @@
 package br.com.blaise.rj.data
 
 import br.com.blaise.rj.assistant.WeatherRequest
+import br.com.blaise.rj.core.City
 import br.com.blaise.rj.assistant.normalizedSpeech
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -39,47 +40,58 @@ class OfficialWeatherClient {
     }
 
     /**
-     * Hourly chart feed from an officially listed INMET station IN Rio city.
-     * Never substitute a nearby municipality or invent/interpolate missing hours.
-     * A station named RIO DE JANEIRO is attempted before other expressly
-     * Rio de Janeiro-labelled stations, and its real name remains visible.
+     * Real INMET hourly series for a station officially cataloged inside the
+     * SELECTED RJ municipality. If there is no exact station match or current
+     * readings, the graph remains unavailable. Never borrow another city.
      */
-    suspend fun recentRioHourlySeries(): InmetHourlySeries? = withContext(Dispatchers.IO) {
-        try {
-            recentRioHourlySeriesBlocking()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun recentRioHourlySeriesBlocking(): InmetHourlySeries? {
-        val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
-        val stations = (0 until catalog.length()).map { catalog.getJSONObject(it) }
-            .filter { station ->
-                station.optString("SG_ESTADO") == "RJ" &&
-                    station.optString("CD_SITUACAO") == "Operante" &&
-                    normalizedSpeech(station.optString("DC_NOME")).startsWith("rio de janeiro") &&
-                    Regex("[A-Z][0-9]{3}").matches(station.optString("CD_ESTACAO"))
+    suspend fun recentMunicipalityHourlySeries(city: City): InmetHourlySeries? =
+        withContext(Dispatchers.IO) {
+            try {
+                recentMunicipalityHourlySeriesBlocking(city)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
             }
-            .sortedWith(compareBy<JSONObject> {
-                it.optString("CD_ESTACAO") != "A652"
-            }.thenBy { it.optString("CD_ESTACAO") })
-            .take(4)
+        }
+
+    /** Kept for any old Rio-only callers; uses exactly the same validated path. */
+    suspend fun recentRioHourlySeries(): InmetHourlySeries? =
+        recentMunicipalityHourlySeries(City("Rio de Janeiro", 3304557))
+
+    private fun recentMunicipalityHourlySeriesBlocking(city: City): InmetHourlySeries? {
+        if (br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(city.ibgeCode)?.name != city.name)
+            return null
+        val catalogJson = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
+        if (catalogJson.length() !in 1..2000) return null
+        val entries = (0 until catalogJson.length()).mapNotNull { index ->
+            val row = catalogJson.optJSONObject(index) ?: return@mapNotNull null
+            fun coordinate(key: String) =
+                row.optString(key).replace(',', '.').toDoubleOrNull()
+            InmetCatalogStation(
+                code = row.optString("CD_ESTACAO"),
+                name = row.optString("DC_NOME"),
+                state = row.optString("SG_ESTADO"),
+                provider = row.optString("SG_ENTIDADE"),
+                operationalStatus = row.optString("CD_SITUACAO"),
+                latitude = coordinate("VL_LATITUDE"),
+                longitude = coordinate("VL_LONGITUDE"),
+            )
+        }
+        val stations = InmetMunicipalityStationPolicy.select(city, entries)
         val utcToday = LocalDate.now(ZoneOffset.UTC)
         for (station in stations) {
-            val code = station.optString("CD_ESTACAO")
-            val name = station.optString("DC_NOME")
-            val latitude = station.optString("VL_LATITUDE").replace(',', '.').toDoubleOrNull()
-            val longitude = station.optString("VL_LONGITUDE").replace(',', '.').toDoubleOrNull()
-            if (latitude == null || longitude == null) continue
+            val code = station.code
+            val name = station.name
+            val latitude = station.latitude ?: continue
+            val longitude = station.longitude ?: continue
             val url = "https://apitempo.inmet.gov.br/estacao/${utcToday.minusDays(1)}/$utcToday/$code"
             val readings = try {
                 val response = JSONArray(get(url))
                 if (response.length() !in 1..500) continue
                 (0 until response.length()).mapNotNull { index ->
                     val item = response.getJSONObject(index)
+                    if (item.optString("CD_ESTACAO", code) != code) return@mapNotNull null
                     val observedAt = OfficialWeatherParser.observedAt(item) ?: return@mapNotNull null
                     InmetHourlyPoint(
                         observedAt = observedAt,

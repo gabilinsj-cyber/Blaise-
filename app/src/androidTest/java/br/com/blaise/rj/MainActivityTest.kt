@@ -93,6 +93,16 @@ class MainActivityTest {
         rule.onNodeWithText("IBGE 3304904").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun selectedRjCityChangesInmetHourlyGraphScopeWithoutBorrowingRioReading() {
+        rule.onNodeWithText("Escolher cidade 1").performScrollTo().performClick()
+        rule.onNodeWithTag("city-search").performTextInput("angra dos reis")
+        rule.onNodeWithTag("city-option-3300100").performClick()
+        rule.waitForIdle()
+        assertTextDisplayed("GRÁFICOS DO DIA • ANGRA DOS REIS")
+        assertTextDisplayed("INMET • estação local validada • últimas 24 horas")
+        rule.onNodeWithTag("expanded-daily-chart").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun assistantRoutesQuestionsWithoutInventingLiveConditions() {
         rule.onNodeWithTag("assistant-input").performTextInput("Tem tornado no Rio?")
         rule.onNodeWithTag("assistant-send").performClick()
