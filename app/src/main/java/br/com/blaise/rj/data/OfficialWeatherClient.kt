@@ -194,6 +194,8 @@ class OfficialWeatherClient {
                         7200,
                         windGustKmh = OfficialWeatherParser.number(data, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
                         hourlyRainMm = OfficialWeatherParser.number(data, "CHUVA", 0.0, 400.0),
+                        stationLatitude = station.latitude,
+                        stationLongitude = station.longitude,
                     ).takeIf { it.current(now) }
                 }
             } catch (error: CancellationException) {
