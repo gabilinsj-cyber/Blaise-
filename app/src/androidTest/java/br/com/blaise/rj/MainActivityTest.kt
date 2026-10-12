@@ -202,6 +202,18 @@ class MainActivityTest {
         assertTextDisplayed("MAPA PRÓPRIO • BLAISE V6 RJ")
     }
 
+    @Test fun meteorologicalMatrixContainsThirtyPhenomenaAndSupplementaryOceanSources() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-openweather-complement").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-ocean-eumetsat-complement").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-extra-source-integration-status").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA_MAR").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-CHUVA_ATUAL").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {
         assertTextDisplayed("92 municípios • não é radar")
         assertTextDisplayed("Radar: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.")
