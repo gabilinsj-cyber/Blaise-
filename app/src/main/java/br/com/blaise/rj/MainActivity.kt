@@ -1953,14 +1953,19 @@ private fun RjMeteorologicalTablesPanel() {
             }
         }
         if (selected == 1) {
-            Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
+            Text("TABELA 1 • Fontes prioritárias e fenômenos", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
-                "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
-                "Windy somente se persistir a divergência. " +
-                "Fontes especializadas têm prioridades próprias.",
-                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.table1PrimaryChannels.forEach { channel ->
+                Text(channel, color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-two-table-primary-source"))
+            }
+            Text(RjMeteorologicalTables.TWO_SOURCE_RULE,
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall)
+            Text("Fontes de prevenção de riscos e fenômenos oceânicos mantêm regras oficiais especializadas.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("OpenWeatherMap • 3ª fonte COMPLEMENTAR para os 10 fenômenos meteorológicos da primeira tabela. " +
                 "Não substitui Alerta Rio/Defesa Civil (P1) nem a medição oficial INMET.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
@@ -1991,9 +1996,18 @@ private fun RjMeteorologicalTablesPanel() {
                 }
             }
         } else {
-            Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
+            Text("TABELA 2 • Cinco fontes de desempate", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            RjMeteorologicalTables.table2TieBreakChannels.forEach { channel ->
+                Text(channel, color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-two-table-secondary-source"))
+            }
+            Text("Duas medições reais comparáveis permitem ponderação; " +
+                "previsão + medição são apresentadas separadamente, sem média mista.",
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.table2.forEach { item ->
                 Surface(
                     color = Panel,
@@ -2013,9 +2027,13 @@ private fun RjMeteorologicalTablesPanel() {
                 }
             }
         }
-        Text("INEA excluído. Este cadastro não comprova coleta ativa das fontes complementares, " +
-            "licença comercial, cobertura dos 92 municípios ou operação meteorológica contínua.",
-            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text(RjMeteorologicalTables.UPDATE_RULE,
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text(RjMeteorologicalTables.TWO_TABLES_LIVE_NOTICE,
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-two-table-live-status"))
+        Text("INEA excluído. A cobertura e a autorização devem ser verificadas por cidade e produto.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 

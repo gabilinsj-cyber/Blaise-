@@ -20,7 +20,7 @@ data class RjMeteoDisputeRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v2"
+    const val VERSION = "2026-10-12.v3"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -30,6 +30,24 @@ object RjMeteorologicalTables {
     const val MARINE_COMPLEMENT = "Copernicus Marine: ondas, swell, marés, correntes e temperatura do mar"
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
+    // Source priority is a DIFFERENT dimension from the 30 phenomenon rows
+    // and the 13 dispute validation checks below.
+    val table1PrimaryChannels = listOf(
+        "1. Alerta Rio (apenas município do Rio)",
+        "2. Defesa Civil RJ e regional (conforme cobertura)",
+        "3. OpenWeatherMap (produto complementar; não é estação oficial)",
+    )
+    val table2TieBreakChannels = listOf(
+        "1. INPE/CPTEC (previsão/satélite)",
+        "2. INMET (medição de estação e avisos oficiais)",
+        "3. CEMADEN (chuva e riscos conforme cobertura)",
+        "4. Windy (comparação de modelos)",
+        "5. NOAA (previsão, oceano e satélite)",
+    )
+    const val TWO_SOURCE_RULE = "Duas medições oficiais independentes compatíveis bastam para média ponderada; modelo + medição = comparação separada."
+    const val UPDATE_RULE = "Atualização-alvo: 1–5 min; situações graves: coleta 30 s e recálculo 30 s, segundo a frequência da fonte."
+    const val TWO_TABLES_LIVE_NOTICE = "Fontes cadastradas; duas tabelas e recálculos não comprovam consultas externas ativas em tempo real."
+
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
@@ -83,6 +101,8 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(table1PrimaryChannels.size == 3)
+        require(table2TieBreakChannels.size == 5)
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }
