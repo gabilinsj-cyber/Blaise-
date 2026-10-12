@@ -2007,8 +2007,8 @@ private fun RjMeteorologicalTablesPanel() {
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.testTag("rj-tiebreak-source-${index + 1}"))
             }
-            Text("CEMADEN é uma posição provisória até confirmação da quinta fonte. " +
-                "NOAA é a última consulta. Os 13 critérios abaixo são verificações, " +
+            Text("CEMADEN confirmado como quarta fonte de desempate; " +
+                "NOAA é a quinta e última consulta. Os 13 critérios abaixo são verificações, " +
                 "não 13 fontes de desempate.",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             Text(RjMeteorologicalTables.SOURCE_COMPARISON_METHOD,
