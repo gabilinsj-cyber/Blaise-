@@ -41,16 +41,34 @@ data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
     val warningIds: List<String>, val warningCoverage: String,
 )
+data class PublicRjSourceEvidence(
+    val id: String,
+    val name: String,
+    val state: String,
+    val connectedProduct: String?,
+    val scope: String,
+) {
+    fun liveProduct(): Boolean =
+        state in setOf("CURRENT", "CURRENT_DEGRADED") &&
+        !connectedProduct.isNullOrBlank()
+}
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
     val warnings: List<PublicRjWarning>,
+    val sources: List<PublicRjSourceEvidence> = emptyList(),
 ) {
     init {
         require(municipalities.size == 92)
         require(municipalities.map { it.ibge }.distinct().size == 92)
         require(municipalities.all { RioMunicipalities.byIbgeCode(it.ibge)?.name == it.name })
         require(warnings.size <= 64 && warnings.map { it.id }.distinct().size == warnings.size)
+        require(sources.size <= 20)
+        require(sources.map { it.id }.distinct().size == sources.size)
+        require(sources.all { it.id.length in 2..60 && it.name.length in 2..100
+            && it.scope.length in 2..100
+            && it.state.length in 2..60
+            && (it.connectedProduct == null || it.connectedProduct.length in 2..80) })
         require(warnings.all { it.municipalityIbges.all { ibge -> RioMunicipalities.byIbgeCode(ibge) != null } })
         require(municipalities.all { city -> city.warningIds.all { id ->
             warnings.any { warning -> warning.id == id && city.ibge in warning.municipalityIbges }
@@ -107,7 +125,22 @@ object PublicRjStatusParser {
                 (0 until codes.length()).map { codes.getString(it).toInt() },
                 item.getString("sourceUrl"))
         }
-        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings)
+        val statusJson=root.optJSONArray("sources")
+        val sources=if(statusJson==null) emptyList() else {
+            require(statusJson.length()<=20)
+            (0 until statusJson.length()).map { i ->
+                val item=statusJson.getJSONObject(i)
+                PublicRjSourceEvidence(
+                    item.getString("id"),
+                    item.getString("name"),
+                    item.getString("state"),
+                    if(item.isNull("connectedProduct"))null else item.getString("connectedProduct"),
+                    item.getString("scope"),
+                )
+            }
+        }
+        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
+            municipalities,warnings,sources)
     }
 }
 
