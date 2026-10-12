@@ -2,6 +2,34 @@
 
 **Regra do projeto (10/10/2026).** Escopo exclusivo do estado do Rio de Janeiro, seus 92 municípios, litoral adjacente e fenômenos do Atlântico capazes de afetar o RJ. **INEA retirado**, inclusive de coletores opcionais e de sondagens operacionais. Esta matriz é uma especificação de roteamento; **não atesta que todas as integrações já estejam operantes**.
 
+## Regra atualizada em 12/10/2026 — duas tabelas para divergências
+
+**Tabela 1 — fontes prioritárias de consulta meteorológica terrestre (conforme cobertura e licença):**
+
+| Ordem | Fonte | Natureza e limites |
+|---|---|---|
+| 1 | **Alerta Rio** | Medições e avisos oficiais disponíveis **apenas para o município do Rio de Janeiro** |
+| 2 | **Defesa Civil RJ/regional** | Avisos, riscos e, quando houver produto publicado, observações locais da área competente |
+| 3 | **OpenWeatherMap** | Consulta complementar; identificar **modelo, previsão ou produto derivado**, sem presumir que seja uma estação oficial independente |
+
+**Tabela 2 — fontes de comparação em caso de divergência (nessa ordem):**
+
+| Ordem | Fonte | Natureza e limites |
+|---|---|---|
+| 1 | **INPE/CPTEC** | Previsão e produtos oficiais de satélite; **não** equivalem automaticamente a observação de estação |
+| 2 | **INMET** | Estações e avisos meteorológicos oficiais, conforme cobertura |
+| 3 | **CEMADEN** | Chuva, estações e risco hidrológico/geológico, conforme produto e local |
+| 4 | **Windy** | Visualização de previsões e modelos; não é observação independente de estação |
+| 5 | **NOAA** | Produtos oficiais especializados de previsão, satélite e oceano/Atlântico; tipo de produto documentado |
+
+**Regra de decisão:** pesquisar inicialmente a Tabela 1. **Duas observações independentes, atualizadas, geograficamente compatíveis, com mesma unidade, período e variável** bastam para a média ponderada da calculadora Blaise. Se não existir essa dupla ou houver divergência, consultar sucessivamente fontes da Tabela 2 e procurar uma das fontes da Tabela 1 compatível com uma fonte da Tabela 2. Caso sejam **duas observações reais**, com pesos justificados e sem republicação da mesma estação, a média ponderada poderá ser produzida. Caso a Tabela 2 traga **previsão/modelo**, exibir a comparação entre as duas fontes **com tipos e horários separados**, sem somá-las como se fossem medições iguais. O OpenWeatherMap não substitui uma observação independente sem comprovação da origem do produto.
+
+O **desempate não suprime avisos oficiais** e não faz médias de categorias de tempestades, riscos, alerta ou tsunami. Um número único não será fabricado quando não houver medições comparáveis. Preservar todas as leituras discordantes para auditoria. Na falta de duas fontes comprovadas, exibir o que existe com procedência e momento real, sem afirmar que a medição está em tempo real.
+
+Acompanhamento de atualização: normalmente **1–5 minutos**; níveis altos **coleta e recálculo-alvo em 30 segundos cada**, apenas quando a periodicidade do fornecedor, o acesso autorizado e a infraestrutura permitirem. **Regra na memória e existência de módulos não equivalem a conectores executando continuamente em produção.**
+
+Implementação técnica isolada para revisão: `backend/src/rj-two-table-weather-policy.mjs`, testes `backend/test/rj-two-table-weather-policy.test.mjs`. A seleção dinâmica das demais fontes ANA/SGB/Marinha/NOAA/USGS por fenômeno continua válida nas suas matrizes especializadas. **INEA permanece excluído.**
+
 ## Cartografia e imagens: mapa próprio Blaise
 
 A interface **renderiza seu próprio mapa** com código Android/Canvas do Blaise V6 RJ (`RioGeographicBase.kt`). As malhas de limites municipais têm como base cartográfica um conjunto derivado de dados do IBGE, redistribuído como **CC0** por geodata-br; não são imagens meteorológicas, mosaicos, imagens de radar, tiles ou mapas copiados de um prestador meteorológico.
