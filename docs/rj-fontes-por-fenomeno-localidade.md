@@ -16,6 +16,14 @@ Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializ
 
 **Situação de validação:** o cadastro anterior continha **25 categorias**. Cinco categorias adicionais foram registradas para atingir **30 no código** (`CHUVA_ATUAL`, `MARE`, `SWELL`, `CORRENTES_MARINHAS`, `TEMPERATURA_MAR`), com **cinco novas verificações de desempate** na interface (treze critérios ao todo). Esta é uma reconciliação técnica com os requisitos recuperados; **as duas capturas apresentadas exibem somente os dez primeiros fenômenos e o quadro marítimo**, logo não comprovam que estes sejam exatamente os dois itens adicionais da tabela original de 28. Não declarar correspondência histórica exata sem a tabela integral.
 
+### Onde encontrar as tabelas no Blaise V6 RJ (correção de 12/10/2026)
+
+A versão anterior registrava 30 fenômenos em uma relação única dentro de `Mais`, mas não exibia a Tabela 1 isolada no formato aprovado. A PR #123 cria um atalho na tela inicial para **Tabela 1: Alerta Rio + Defesa Civil RJ (P1) • OpenWeatherMap (3ª consulta)**. Em `Mais → Matriz Meteorológica`, a **Tabela 1 • 10 itens** mostra as colunas **Fenômeno monitorado / Fontes prioritárias (P1) / 3ª fonte**; há versão em três colunas para telas largas e cartões verticais para celular.
+
+Aba **Mar e Atlântico**: ciclones, tempestades oceânicas, ondas/swell, ressaca e tsunami, com Marinha, NOAA, Copernicus e EUMETSAT conforme o fenômeno. Aba **Outros 20 fenômenos**: categorias complementares sem misturar os 10 itens originais. A **Tabela 2** contém os critérios de desempate.
+
+A atualização é de interface e regras de consulta. **Não ativa serviços comerciais, não inventa observações, não altera alertas oficiais e mantém o INEA excluído.**
+
 ### Tabela 1, itens 1–10 — prioridade P1 e terceiro complemento OpenWeatherMap
 
 | Fenômeno | Prioridade P1 (por disponibilidade do produto) | Terceiro complemento |
