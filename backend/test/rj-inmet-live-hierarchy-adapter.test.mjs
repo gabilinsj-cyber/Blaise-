@@ -83,7 +83,7 @@ test('wind and gust speed are converted from INMET m/s to km/h; rainfall uses ho
   }
   assert.equal(api.visited.length,2); // catalog and hourly are both reused
 });
-test('only Rio's own station is accepted; never silently substitute São Paulo or Niterói',async()=>{
+test("only Rio local station is accepted; never substitute another municipality or state",async()=>{
   const api=fakeApi({catalog:[
     station({CD_ESTACAO:'A777',DC_NOME:'NITEROI'}),
     station({CD_ESTACAO:'A652',SG_ESTADO:'SP'}),
