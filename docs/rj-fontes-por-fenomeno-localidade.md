@@ -12,6 +12,44 @@ A matriz meteorológica principal tem **cinco fontes**, selecionadas conforme a 
 
 Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializados reais* (por exemplo, células/grade de radar ou satélite com resolução, hora, refletividade/intensidade e georreferenciamento) devidamente autorizados; quatro leituras pontuais **não permitem deduzir esses pixels**. Até existir a entrada, a camada permanece indisponível.
 
+## Revisão de 12/10/2026 — ampliação para 30 fenômenos e complementos
+
+**Situação de validação:** o cadastro anterior continha **25 categorias**. Cinco categorias adicionais foram registradas para atingir **30 no código** (`CHUVA_ATUAL`, `MARE`, `SWELL`, `CORRENTES_MARINHAS`, `TEMPERATURA_MAR`), com **cinco novas verificações de desempate** na interface (treze critérios ao todo). Esta é uma reconciliação técnica com os requisitos recuperados; **as duas capturas apresentadas exibem somente os dez primeiros fenômenos e o quadro marítimo**, logo não comprovam que estes sejam exatamente os dois itens adicionais da tabela original de 28. Não declarar correspondência histórica exata sem a tabela integral.
+
+### Tabela 1, itens 1–10 — prioridade P1 e terceiro complemento OpenWeatherMap
+
+| Fenômeno | Prioridade P1 (por disponibilidade do produto) | Terceiro complemento |
+| --- | --- | --- |
+| Temperatura | Alerta Rio (cidade do Rio) + Defesa Civil local/RJ | OpenWeatherMap |
+| Sensação térmica | Alerta Rio + Defesa Civil, com T/UR/vento válidos; cálculo Blaise | OpenWeatherMap |
+| Chuva atual | Alerta Rio + Defesa Civil, por estação e horário | OpenWeatherMap |
+| Chuva acumulada | Alerta Rio + Defesa Civil, mesma janela (1h, 24h etc.) | OpenWeatherMap, se a janela existir |
+| Chuva intensa / temporal | Alerta Rio + Defesa Civil, avisos confirmados | OpenWeatherMap, contexto não oficial |
+| Vento sustentado | Alerta Rio + Defesa Civil, se houver observação | OpenWeatherMap |
+| Rajadas fortes | Alerta Rio + Defesa Civil, se houver medição da rajada | OpenWeatherMap |
+| Pressão atmosférica | Alerta Rio + Defesa Civil, se houver produto | OpenWeatherMap |
+| Umidade relativa | Alerta Rio + Defesa Civil, se houver produto | OpenWeatherMap |
+| Granizo | Alerta Rio + Defesa Civil por aviso oficial | OpenWeatherMap, somente se o produto suportar |
+
+**P1 conjunta** significa consulta e autoridade dos avisos conforme competência, **não** presumir dois sensores independentes quando um órgão apenas republica o dado de outro. INMET segue como terceira *fonte oficial observacional* de verificação pela hierarquia estabelecida; OpenWeatherMap é a **terceira fonte de consulta complementar**, função diferente. Havendo divergência entre observações oficiais, INPE/CPTEC é a primeira previsão comparativa e Windy é consultado somente se INPE inconclusivo. Não ponderar aviso, perigo ou previsão com medição pontual. O cálculo Blaise verifica fonte, variável, janela, estação, município, hora e independência antes de atribuir pesos. Alerta Rio **não** representa os outros 91 municípios.
+
+OpenWeatherMap oferece APIs conforme plano e exige atribuição/licença correspondente, a exemplo de [seu FAQ](https://openweathermap.org/faq). Produtos meteorológicos combinam estações, satélites e modelos e podem reutilizar observações já presentes em outras fontes: **proibido contá-los automaticamente como nova medição independente**. Cada produto, nível do plano, API, autorização comercial, taxa de uso e atribuição devem ser configurados e testados antes de apresentar dados na interface.
+
+### Complemento marítimo — Marinha, NOAA, Copernicus e EUMETSAT
+
+| Categoria | Fontes específicas | Papel / restrição |
+| --- | --- | --- |
+| Ciclones oceânicos e extratropicais | Marinha/CHM + NOAA + EUMETSAT + Copernicus Marine | Evolução atmosférica e efeitos oceânicos; avisos brasileiros prevalecem |
+| Tempestades no Atlântico | Marinha/CHM + NOAA + EUMETSAT | Nuvens/sistemas intensos por satélite; não chamar nuvem de radar de chuva |
+| Ondas e swell | Marinha/CHM + NOAA + Copernicus Marine | Altura, período, direção, grade/estação e horário |
+| Ressaca no litoral RJ | Marinha/CHM + boias competentes + Copernicus Marine + NOAA | Previsão oceânica complementa o aviso costeiro oficial |
+| Correntes, marés e temperatura do mar | Marinha/CHM + Copernicus Marine + NOAA | Separar nível real, maré prevista e estimativa de modelo |
+| Tsunami e maremoto | NOAA + Marinha + autoridades brasileiras; USGS para origem sísmica | **Nunca** inferir tsunami só por magnitude, imagem satelital ou altura de onda |
+
+O [Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-to-register-for-copernicus-marine-service) informa que os produtos podem ser usados inclusive comercialmente sem tarifa, com **créditos/citação e termos aplicáveis**; cada produto precisa de identificador/DOI e atribuição. [EUMETSAT](https://www.eumetsat.int/legal-framework/data-policy) tem **regimes de licenciamento por produto/latência**; não assumir que um canal recente para redistribuição comercial esteja automaticamente liberado. Algumas categorias como OSI SAF possuem licença CC-BY 4.0, que exige atribuição. Os serviços não estão conectados ao vivo só porque constam desta tabela.
+
+**Contrato técnico auditável:** `backend/src/rj-phenomenon-source-policy.mjs` (`RJ_PHENOMENA` com 30 categorias e `RJ_SUPPLEMENTAL_PRODUCTS`), `app/src/main/java/br/com/blaise/rj/RjMeteorologicalTables.kt` (tabelas visíveis) e testes respectivos. O mapa RJ permanece desenhado pela Blaise; imagens externas só são reproduzidas dentro dos termos do produto e com aprovação técnica.
+
 ## Classes de origem
 - **Medição/aviso oficial:** só quando for do órgão competente, identificando produto, coordenada ou município coberto, valor e unidade, observação/emissão em data válida e URL de origem. NOAA é agência oficial para seus produtos, mas previsões numéricas não são medições locais.
 - **Contexto de modelo e comparação:** INPE/CPTEC (produtos oficiais de previsão meteorológica e satélite) e Windy (visualização/consulta de modelos); registrar tipo de produto, execução, validade, resolução espacial e autoria. Windy e as previsões do INPE não são automaticamente estações de observação. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.
