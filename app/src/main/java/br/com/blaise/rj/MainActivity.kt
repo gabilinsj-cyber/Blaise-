@@ -1161,6 +1161,11 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         else -> null
     }
     val stationSample = stationMetric?.let { stationSeries?.currentPoint(it, snapshotTime) }
+    val additionalLivePoints = stationMetric?.let {
+        RjMunicipalPointPolicy.points(
+            LocalCityWeather.current, snapshotTime, it, stationSeries?.sourceUrl,
+        )
+    }.orEmpty()
     var enlarged by remember { mutableStateOf(false) }
     var showStations by remember { mutableStateOf(false) }
     var mapZoom by remember { mutableStateOf(1f) }
@@ -1284,9 +1289,11 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     Text(
                         if (stationSample != null && stationSeries != null)
                             "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
+                        else if (additionalLivePoints.isNotEmpty())
+                            "$selectedLayer • ${additionalLivePoints.size} estação(ões) INMET atual(is) • leituras pontuais com fonte e horário na lista. Não são radar nem médias municipais."
                         else "$selectedLayer: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        color = if (stationSample != null) Color.White else WarningAmber,
+                        color = if (stationSample != null || additionalLivePoints.isNotEmpty()) Color.White else WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         textAlign = TextAlign.Center,
                     )
@@ -1336,11 +1343,29 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
 private fun RioStationMeasurementsPanel() {
     val clock = LocalObservationClock.current
     val stations = LocalRioStations.current.filter { it.current(clock) }
+    val localInmet = LocalCityWeather.current.values.mapNotNull {
+        it.currentObservation(clock)
+    }.filter { it.source == "INMET" }.distinctBy { it.sourceUrl }
     var expanded by remember { mutableStateOf(false) }
     Text("MEDIÇÕES • ESTAÇÕES ALERTA RIO", color = Gold, fontWeight = FontWeight.Bold)
     Text("Cobertura de cada estação; não são dados do Centro, de Niterói ou de São Gonçalo.", color = Muted, style = MaterialTheme.typography.labelSmall)
+    if (localInmet.isNotEmpty()) {
+        Text("INMET • ${localInmet.size} estação(ões) local(is) com leitura atual.",
+            color = StableGreen, style = MaterialTheme.typography.labelSmall)
+        localInmet.forEach { reading ->
+            val municipality = RioMunicipalities.byIbgeCode(reading.municipalityIbge)?.name
+                ?: "Município com identificação inválida"
+            Text("${municipality} • ${reading.station}",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text(reading.summary(clock),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+    } else {
+        Text("INMET • sem leitura pontual validada nas cidades consultadas.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
     if (stations.isEmpty()) {
-        Text("Nenhuma medição recente validada nesta consulta.", color = Muted)
+        Text("Alerta Rio • nenhuma medição recente validada nesta consulta.", color = Muted)
     } else {
         Text("${stations.size} estações com medições recentes.", color = Color.White)
         TextButton(onClick = { expanded = !expanded }) {
