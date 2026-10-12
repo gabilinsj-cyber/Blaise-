@@ -12,11 +12,11 @@ import {
 } from '../src/rj-meteorological-homologation.mjs';
 
 const NOW=Date.parse('2026-10-11T14:00:00Z');
-test('Table 1 catalogs exactly 25 phenomena with canonical IDs and no INEA',()=>{
+test('Table 1 catalogs exactly 30 phenomena with canonical IDs and no INEA',()=>{
   const tables=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
   assert.equal(tables.id,'BLAISE-RJ-METEO-HOMOLOG-01');
   assert.equal(tables.version,RJ_METEO_HOMOLOGATION_VERSION);
-  assert.equal(tables.table1.length,25);
+  assert.equal(tables.table1.length,30);
   assert.deepEqual(tables.table1.map(r=>r.id),RJ_PHENOMENA);
   assert.equal(tables.excludedSource,'INEA');
   assert.equal(tables.operatorVerified,false);
@@ -32,12 +32,14 @@ test('Table 1 catalogs exactly 25 phenomena with canonical IDs and no INEA',()=>
     assert.equal(row.automaticAlertAllowed,false);
   }
 });
-test('Table 2 is the independent, eight-step data provenance and dispute criterion',()=>{
-  assert.equal(RJ_METEO_TABLE2.length,8);
+test('Table 2 is the independent, thirteen-step data provenance and dispute criterion',()=>{
+  assert.equal(RJ_METEO_TABLE2.length,13);
   assert.deepEqual(RJ_METEO_TABLE2.map(x=>x.code),[
     'PRIMEIRAS_TRES','DUAS_OFICIAIS','OFICIAIS_DIVERGENTES',
     'INPE_PRIMEIRO','WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS',
-    'SEM_DADO_NOVO','CATEGORIAS_ESPECIAIS']);
+    'SEM_DADO_NOVO','CATEGORIAS_ESPECIAIS',
+    'P1_CONJUNTA','OPENWEATHER_COMPLEMENTAR','PONDERACAO_COMPATIVEL',
+    'MAR_SATELITE_ESPECIALIZADO','AUTORIZACAO_E_FRESCOR']);
   assert.equal(RJ_METEO_TABLE2[4].step,5);
   assert.match(RJ_METEO_TABLE2[3].decision,/INPE/);
   assert.match(RJ_METEO_TABLE2[4].decision,/Windy/);
@@ -47,7 +49,7 @@ test('each of 92 RJ municipal selections produces source routes without fake cit
   assert.equal(RJ_MUNICIPALITIES.length,92);
   for(const city of RJ_MUNICIPALITIES){
     const table=buildRjMeteorologicalHomologationTables({ibge:city.ibge});
-    assert.equal(table.table1.length,25);
+    assert.equal(table.table1.length,30);
     const temp=table.table1.find(x=>x.id==='TEMPERATURA');
     assert.equal(temp.sourceIds.includes('ALERTA_RIO'),city.ibge==='3304557');
     assert.ok(temp.sourceIds.indexOf('INPE_CPTEC_FORECAST')<temp.sourceIds.indexOf('WINDY_MODELO'));
