@@ -5,6 +5,7 @@ import {
   RJ_INMET_CATALOG_URL,
 } from '../src/rj-inmet-live-hierarchy-adapter.mjs';
 import {consultRjSourcesUntilTwo} from '../src/rj-hierarchical-weather-resolution.mjs';
+import {createRjWeatherSourceExecutor} from '../src/rj-agent-orchestration.mjs';
 
 const NOW=Date.parse('2026-10-12T12:00:00.000Z');
 const station=(changes={})=>({
@@ -150,4 +151,41 @@ test('adapter is a real data bridge into the existing prioritized two-source Bla
   assert.equal(answer.value,28.5);
   assert.deepEqual(answer.selectedSourceIds,['DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION']);
   assert.equal(answer.automaticAlertAuthorized,false);
+});
+
+test('Blaise agent executor uses live INMET adapter on demand, with Defender input independent of INMET',async()=>{
+  const api=fakeApi({hourly:[reading({TEM_INS:'29'})]});
+  const runCase=createRjWeatherSourceExecutor({
+    inmetLive:{enabled:true,usageApproved:true,fetchImpl:api.fetchImpl},
+    clock:()=>NOW,
+    sourceAdapters:{
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[{
+        origin:'OFFICIAL_OBSERVATION',sourceId:'DEFESA_CIVIL',
+        stationId:'DC-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
+        value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:00:00.000Z',
+        latitude:-22.905,longitude:-43.205,
+        sourceUrl:'https://defesacivil.rj.gov.br/fixture-only',
+      }]}),
+    },
+  });
+  const report=await runCase({ibge:'3304557',variable:'TEMPERATURA_C'});
+  assert.equal(report.sourceStatus,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
+  assert.equal(report.observedOrEstimatedValue,28.5);
+  assert.equal(report.calculatedValues,28.5);
+  assert.equal(report.latestVerifiedResult.officialMeasurement,false);
+  assert.equal(report.publishersTriggered,false);
+  assert.equal(report.audibleAlert,false);
+  assert.equal(api.visited.length,2);
+});
+test('Blaise executor defaults never activate real network or pretend active sources',async()=>{
+  const api=fakeApi();
+  const runCase=createRjWeatherSourceExecutor({
+    inmetLive:{enabled:false,usageApproved:false,fetchImpl:api.fetchImpl},
+    clock:()=>NOW,
+  });
+  const report=await runCase(input);
+  assert.equal(report.sourceStatus,'NO_VERIFIABLE_SOURCE_VALUE');
+  assert.equal(report.observedOrEstimatedValue,null);
+  assert.equal(report.publishersTriggered,false);
+  assert.equal(api.visited.length,0);
 });
