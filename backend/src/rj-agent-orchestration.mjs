@@ -6,6 +6,7 @@
 import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
+import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -111,4 +112,27 @@ export async function reconcileRjWeatherCase({
     purchasesTriggered:false,
     sourcePollingState:'NO_AUTONOMOUS_SOURCE_CONNECTORS_REGISTERED_HERE',
   });
+}
+
+/**
+ * Explicit on-demand integration entrypoint for Sentinel/Fusion/Vector:
+ * builds the real INMET adapter once (caching bounded station responses),
+ * then passes it together with independently provided source adapters to
+ * the validated two-source hierarchy. No background polling, publication,
+ * paid entitlement or emergency alert is started by this function.
+ *
+ * Defaults must remain disabled until product-specific rights and actual
+ * live source responses are verified by the operator.
+ */
+export function createRjWeatherSourceExecutor({
+  inmetLive={enabled:false,usageApproved:false},
+  sourceAdapters={},
+  clock=()=>Date.now(),
+}={}) {
+  if(!sourceAdapters||typeof sourceAdapters!=='object'||Array.isArray(sourceAdapters)
+    ||typeof clock!=='function')throw TypeError('rj_weather_executor_invalid_configuration');
+  const inmet=createRjInmetLiveAdapters(inmetLive);
+  const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
+  return async ({ibge,variable,level=1,now=clock()}={})=>
+    reconcileRjWeatherCase({ibge,variable,level,adapters,now});
 }
