@@ -1983,8 +1983,9 @@ private fun RjMeteorologicalTablesPanel() {
                     color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.testTag("rj-openweather-complement"))
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val threeColumns = maxWidth >= 580.dp
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (maxWidth >= 580.dp) {
+                    if (threeColumns) {
                         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             Text("Fenômeno monitorado",
@@ -2008,7 +2009,7 @@ private fun RjMeteorologicalTablesPanel() {
                                 shape = RoundedCornerShape(8.dp),
                                 border = BorderStroke(1.dp, Divider),
                             ) {
-                                if (maxWidth >= 580.dp) {
+                                if (threeColumns) {
                                     Row(Modifier.fillMaxWidth().padding(9.dp),
                                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                                         verticalAlignment = Alignment.Top) {
