@@ -38,9 +38,35 @@ function normalizeSource(entry,nowMillis) {
     dataPayloadIncluded:false,
   });
 }
-export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
+export function buildRjSourceReadiness(worker,{
+  nowMillis=Date.now(),supplementalAdapters=[],
+}={}) {
   if(!worker||typeof worker.status!=='function')throw TypeError('source_worker_required');
   if(!Number.isFinite(nowMillis)||nowMillis<0)throw TypeError('invalid_readiness_clock');
+  if(!Array.isArray(supplementalAdapters)||supplementalAdapters.length>3
+    ||supplementalAdapters.some(x=>typeof x?.status!=='function'))
+    throw TypeError('invalid_supplemental_source_adapters');
+  const thirdPartyStatus=supplementalAdapters.map(adapter=>{
+    let source;
+    try {source=adapter.status();}catch {source=null;}
+    const fetched=source?.lastSuccessAt?Date.parse(source.lastSuccessAt):NaN;
+    const measured=source?.lastSourceTime?Date.parse(source.lastSourceTime):NaN;
+    const fresh=source?.configured===true
+      &&source?.licensedForApp===true
+      &&source?.lastStatus==='FRESH_VALIDATED_COMPLEMENTARY_PRODUCT'
+      &&Number.isFinite(fetched)&&nowMillis>=fetched&&nowMillis-fetched<=15*60_000
+      &&Number.isFinite(measured)&&nowMillis>=measured&&nowMillis-measured<=2*60*60_000;
+    return Object.freeze({
+      sourceId:String(source?.sourceId??'unknown').slice(0,50),
+      configured:source?.configured===true,
+      recentValidProduct:fresh,
+      lastFetchAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,
+      lastObservedAt:Number.isFinite(measured)?new Date(measured).toISOString():null,
+      productState:fresh?'FRESH_COMPLEMENTARY_PRODUCT':'NO_RECENT_VALIDATED_PRODUCT',
+      licenseClaimIsNotIndependentVerification:true,
+      keyIncluded:false,
+    });
+  });
   const info=worker.status();
   const enabled=info?.enabled===true;
   const started=info?.started===true;
@@ -67,6 +93,7 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
     taskCount:tasks.length,
     completedSourceTaskCount:completed.length,
     sourceStates:Object.freeze(reports),
+    supplementalSources:Object.freeze(thirdPartyStatus),
     tasks:Object.freeze(tasks.map(t=>Object.freeze({
       taskId:String(t.taskId??'unknown').slice(0,70),
       lastOutcome:String(t.lastOutcome??'NOT_RUN').slice(0,30),
@@ -86,7 +113,8 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
       documentedDisputeStages:RJ_METEO_TABLE2.length,
       sourceProductsVerifiedForCommercialUse:false,
       allThirtyPhenomenaLive:false,
-      openWeatherMapLiveProof:false,
+      openWeatherMapLiveProof:thirdPartyStatus.some(x=>
+        x.sourceId==='OPENWEATHERMAP_API'&&x.recentValidProduct),
       copernicusMarineLiveProof:false,
       eumetsatSatelliteLiveProof:false,
       type:'CATALOG_PLUS_READ_ONLY_SOURCE_STATUS_NOT_PRODUCTION_LICENSE',
@@ -105,6 +133,7 @@ function writeJson(res,code,object) {
 }
 export function createRjSourceReadinessHandler(delegate,{
   worker,verifyOperatorOidc=null,clock=()=>Date.now(),
+  supplementalAdapters=[],
 }={}) {
   if(typeof delegate!=='function'||!worker||typeof worker.status!=='function'
     ||typeof clock!=='function')throw TypeError('invalid_source_readiness_handler');
@@ -125,7 +154,9 @@ export function createRjSourceReadinessHandler(delegate,{
       writeJson(res,403,{error:'not_authorized'});return;
     }
     try {
-      const report=buildRjSourceReadiness(worker,{nowMillis:clock()});
+      const report=buildRjSourceReadiness(worker,{
+        nowMillis:clock(),supplementalAdapters,
+      });
       const ready=report.collectionState==='LIVE_SOURCES_WITH_FRESH_VALIDATED_DATA';
       writeJson(res,ready?200:503,report);
     } catch {
