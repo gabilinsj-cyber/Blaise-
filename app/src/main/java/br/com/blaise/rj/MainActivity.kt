@@ -1956,11 +1956,16 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
-                "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
-                "Windy somente se persistir a divergência. " +
-                "Fontes especializadas têm prioridades próprias.",
-                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("TABELA 1 • Três fontes principais da consulta meteorológica:",
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold)
+            RjMeteorologicalTables.table1ThreeSources.forEachIndexed { index, source ->
+                Text("${index + 1}. $source", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-primary-source-${index + 1}"))
+            }
+            Text(RjMeteorologicalTables.SOURCE_COMPARISON_METHOD,
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("OpenWeatherMap • 3ª fonte COMPLEMENTAR para os 10 fenômenos meteorológicos da primeira tabela. " +
                 "Não substitui Alerta Rio/Defesa Civil (P1) nem a medição oficial INMET.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
@@ -1994,6 +1999,20 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            Text("CINCO FONTES HIERÁRQUICAS DE DESEMPATE",
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold)
+            RjMeteorologicalTables.table2FiveSources.forEachIndexed { index, source ->
+                Text(source, color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-tiebreak-source-${index + 1}"))
+            }
+            Text("CEMADEN é uma posição provisória até confirmação da quinta fonte. " +
+                "NOAA é a última consulta. Os 13 critérios abaixo são verificações, " +
+                "não 13 fontes de desempate.",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            Text(RjMeteorologicalTables.SOURCE_COMPARISON_METHOD,
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.table2.forEach { item ->
                 Surface(
                     color = Panel,
