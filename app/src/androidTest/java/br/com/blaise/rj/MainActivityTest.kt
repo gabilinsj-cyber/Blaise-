@@ -164,6 +164,30 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun tappingTableOneLinksDirectlyToMatchingTableTwoWeightedCalculationRules() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-linked-phenomenon").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-linked-weighted-eligibility").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-dispute-11").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-show-all-dispute-rules").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun maritimeMatrixLinksTsunamiToAuthorityChecksNotWeightedAverage() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-3-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-matrix-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-source-ONDAS_SWELL")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-source-TSUNAMI")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("rj-linked-weighted-eligibility").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-dispute-12").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
         rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()
         assertTextDisplayed("Cidades: desenho próprio do Blaise, limites de base cartográfica aberta dos 92 municípios; sem chuva ou radar simulados.")
