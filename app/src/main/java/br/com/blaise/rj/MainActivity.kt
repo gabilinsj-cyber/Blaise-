@@ -244,7 +244,10 @@ fun BlaiseApp(
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
     val publicRjClient = remember {
-        PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
+        PublicRjStatusHttpsClient.create(
+            BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL,
+            BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL,
+        )
     }
     val statewideClient = remember(context) {
         StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
