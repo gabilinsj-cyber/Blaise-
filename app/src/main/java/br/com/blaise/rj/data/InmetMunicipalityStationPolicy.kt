@@ -41,10 +41,8 @@ object InmetMunicipalityStationPolicy {
                 station.operationalStatus == "Operante" &&
                 Regex("[AB][0-9]{3}").matches(station.code) &&
                 correctName &&
-                station.latitude?.isFinite() == true &&
-                station.latitude in -23.7..-20.4 &&
-                station.longitude?.isFinite() == true &&
-                station.longitude in -45.5..-40.4
+                station.latitude?.let { it.isFinite() && it in -23.7..-20.4 } == true &&
+                station.longitude?.let { it.isFinite() && it in -45.5..-40.4 } == true
         }.distinctBy { it.code }.sortedWith(
             compareBy<InmetCatalogStation> {
                 if (isRioCity && it.code == "A652") 0 else 1
