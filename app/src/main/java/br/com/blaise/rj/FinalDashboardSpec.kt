@@ -42,6 +42,22 @@ object FinalDashboardSpec {
         "Alerta Rio", "Defesa Civil", "INMET", "Windy (modelos)", "INPE/CPTEC (previsões)"
     )
 
+    // Supplementary provider catalog: visible configuration, NOT live status.
+    // The OpenWeatherMap "third source" in the reference image means third
+    // complementary CONSULTATION, not the third official alert authority.
+    val tenVariableOpenWeatherMap = listOf(
+        "Temperatura", "Sensação térmica", "Chuva atual", "Chuva acumulada",
+        "Temporais", "Vento sustentado", "Rajadas", "Pressão atmosférica",
+        "Umidade relativa", "Granizo"
+    )
+    val oceanSatelliteSources = listOf(
+        "Marinha do Brasil/CHM", "NOAA", "Copernicus Marine",
+        "EUMETSAT", "INMET", "INPE/CPTEC", "Windy"
+    )
+    const val EXPANDED_METEO_PHENOMENA_COUNT = 30
+    const val EXTRA_DISPUTE_CHECKS = 5
+    const val SUPPLEMENTAL_SOURCE_STATUS = "Cadastrada • ingestão de dados ainda não validada"
+
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
     fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
