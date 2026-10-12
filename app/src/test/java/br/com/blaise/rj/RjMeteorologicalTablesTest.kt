@@ -18,6 +18,21 @@ class RjMeteorologicalTablesTest {
         })
     }
 
+    @Test fun latestTwoTablesPreserveThreePrimaryAndFiveFallbackSources() {
+        assertEquals(3, RjMeteorologicalTables.table1PrimaryChannels.size)
+        assertEquals(5, RjMeteorologicalTables.table2TieBreakChannels.size)
+        assertTrue(RjMeteorologicalTables.table1PrimaryChannels[0].contains("Alerta Rio"))
+        assertTrue(RjMeteorologicalTables.table1PrimaryChannels[1].contains("Defesa Civil"))
+        assertTrue(RjMeteorologicalTables.table1PrimaryChannels[2].contains("OpenWeatherMap"))
+        assertTrue(RjMeteorologicalTables.table2TieBreakChannels[0].contains("INPE"))
+        assertTrue(RjMeteorologicalTables.table2TieBreakChannels[1].contains("INMET"))
+        assertTrue(RjMeteorologicalTables.table2TieBreakChannels[2].contains("CEMADEN"))
+        assertTrue(RjMeteorologicalTables.table2TieBreakChannels[3].contains("Windy"))
+        assertTrue(RjMeteorologicalTables.table2TieBreakChannels[4].contains("NOAA"))
+        assertTrue(RjMeteorologicalTables.TWO_SOURCE_RULE.contains("Duas medições oficiais"))
+        assertTrue(RjMeteorologicalTables.TWO_TABLES_LIVE_NOTICE.contains("não comprovam"))
+    }
+
     @Test fun expandedTablesMatchThirtyDistinctCategoriesAndFiveExtraDisputeChecks() {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)
