@@ -1918,6 +1918,8 @@ private fun MoreScreen(
 @Composable
 private fun RjMeteorologicalTablesPanel() {
     var selected by remember { mutableStateOf(1) }
+    var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
+    var showAllCriteria by remember { mutableStateOf(false) }
     DashboardSection(
         title = "MATRIZ METEOROLÓGICA • BLAISE V6 RJ",
         subtitle = RjMeteorologicalTables.ID,
@@ -1935,12 +1937,16 @@ private fun RjMeteorologicalTablesPanel() {
             val tableButtons = listOf(
                 1 to "Tabela 1 • Fontes",
                 2 to "Tabela 2 • Desempate",
+                3 to "Mar • Satélite",
             )
             tableButtons.forEach { (number, caption) ->
                 Surface(
                     modifier = Modifier.weight(1f)
                         .testTag("rj-meteo-table-${number}-tab")
-                        .clickable { selected = number },
+                        .clickable {
+                            selected = number
+                            if (number == 2 && chosenPhenomenon == null) showAllCriteria = true
+                        },
                     shape = RoundedCornerShape(9.dp),
                     border = BorderStroke(1.dp, if (selected == number) Gold else Divider),
                     color = if (selected == number) Color(0xFF20527C) else Navy,
@@ -1976,7 +1982,12 @@ private fun RjMeteorologicalTablesPanel() {
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
                     shape = RoundedCornerShape(9.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}"),
+                    modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}")
+                        .clickable {
+                            chosenPhenomenon = item.code
+                            showAllCriteria = false
+                            selected = 2
+                        },
                 ) {
                     Column(Modifier.fillMaxWidth().padding(9.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1987,14 +1998,41 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.labelSmall)
                         Text(item.priority, color = GoldSoft,
                             style = MaterialTheme.typography.labelSmall)
+                        Text("Ver desempate e cálculo aplicáveis ›", color = Gold,
+                            style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
-        } else {
+        } else if (selected == 2) {
             Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
-            RjMeteorologicalTables.table2.forEach { item ->
+            val active = chosenPhenomenon?.let { code ->
+                RjMeteorologicalTables.table1.firstOrNull { it.code == code }
+            }
+            if (active != null) {
+                Text("Fenômeno selecionado: ${active.phenomenon}",
+                    color = Color.White, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("rj-linked-phenomenon"))
+                Text(
+                    if (RjMeteorologicalTables.canWeightOfficialObservations(active.code))
+                        "Média ponderada permitida somente entre observações independentes compatíveis, com pesos tecnicamente justificados."
+                    else "Não realizar média ponderada de categorias de alerta, sismos ou fenômenos marítimos; seguir autoridade competente ou cálculo físico específico.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-linked-weighted-eligibility"),
+                )
+                TextButton(
+                    onClick = { showAllCriteria = !showAllCriteria },
+                    modifier = Modifier.testTag("rj-show-all-dispute-rules"),
+                ) {
+                    Text(if (showAllCriteria) "Mostrar só critérios deste fenômeno"
+                        else "Ver os 13 critérios completos", color = Gold)
+                }
+            }
+            val applicable = if (showAllCriteria || chosenPhenomenon == null)
+                RjMeteorologicalTables.table2 else
+                RjMeteorologicalTables.table2ForPhenomenon(chosenPhenomenon!!)
+            applicable.forEach { item ->
                 Surface(
                     color = Panel,
                     modifier = Modifier.fillMaxWidth()
@@ -2008,6 +2046,39 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.bodySmall)
                         Text(item.decision,
                             color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        } else {
+            Text("TABELA MARÍTIMA • Marinha, NOAA, Copernicus e EUMETSAT",
+                color = Gold, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-marine-matrix-content"))
+            Text("Avisos de ressaca, ciclones e tsunami dependem das autoridades competentes. " +
+                "Copernicus fornece produtos oceânicos e EUMETSAT imagens de satélite. " +
+                "Nenhum dado representa observação real até validar produto, hora e licença.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.marineTable.forEach { item ->
+                Surface(
+                    color = Panel,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-marine-source-${item.code}")
+                        .clickable {
+                            chosenPhenomenon = item.linkedPhenomena.first()
+                            showAllCriteria = false
+                            selected = 2
+                        },
+                    shape = RoundedCornerShape(9.dp),
+                ) {
+                    Column(Modifier.padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(item.phenomenon, color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Fontes: ${item.sources}", color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Função: ${item.function}", color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Ver regras aplicáveis de alerta e desempate ›", color = Gold,
                             style = MaterialTheme.typography.labelSmall)
                     }
                 }
