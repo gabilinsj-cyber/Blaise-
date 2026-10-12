@@ -78,7 +78,7 @@ export function createUsgsRjCache({now=()=>Date.now()}={}) {
       if(!snapshot||snapshot.sourceId!==USGS_RJ_SOURCE_ID
          || !Number.isFinite(Date.parse(snapshot.generatedAt)))
          throw new UsgsRjError('usgs_invalid_cache_snapshot');
-      last={snapshot,fetchedAt:Date.parse(fetchedAt)};
+      last={snapshot,fetchedAt:typeof fetchedAt==='number'?fetchedAt:Date.parse(fetchedAt)};
       lastAttemptAt=new Date(fetchedAt).toISOString();lastErrorCode=null;
     },
     recordFailure(code,{attemptedAt=now()}={}) {
