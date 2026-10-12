@@ -15,12 +15,36 @@ test('OpenWeatherMap is third complementary consultation for first ten categorie
     for(const phenomenon of RJ_TEN_WEATHER_COMPLEMENTS){
       const route=rjSourceRouting({ibge,phenomenon});
       assert.equal(route.complementaryThirdSource,'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY');
+      assert.deepEqual(route.supplementaryConsultations.map(source=>source.id),['OPENWEATHERMAP_API']);
+      assert.equal(route.supplementaryConsultations[0].role,RJ_SOURCE_CLASS.COMPARISON);
+      assert.equal(route.supplementaryConsultations[0].automaticAlertAuthority,false);
+      assert.deepEqual(route.officialJointPriorityP1,
+        ibge==='3304557'
+          ?['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']
+          :['DEFESA_CIVIL_RJ_REGIONAL']);
+      // OpenWeatherMap is a supplementary product, not a second
+      // independent official sensor, warning authority or an override
+      // of the INPE/Windy forecast dispute cascade.
+      assert.equal(route.sources.some(source=>source.id==='OPENWEATHERMAP_API'),false);
       assert.equal(route.phenomenonMatrixCount,30);
       assert.equal(route.sources.some(s=>s.id==='OPENWEATHERMAP_API'&&s.automaticAlertAuthority),false);
       assert.equal(route.ineaPolicy,'EXCLUDED');
     }
   }
 });
+test('non-Table-1 specialists do not borrow OpenWeatherMap or Alerta Rio P1',()=>{
+  for(const phenomenon of ['SISMO','TSUNAMI','ONDAS','VAZAO_RIO','RESSACA']){
+    const route=rjSourceRouting({ibge:'3304557',phenomenon});
+    assert.deepEqual(route.supplementaryConsultations,[]);
+    assert.deepEqual(route.officialJointPriorityP1,[]);
+    assert.equal(route.sources.some(source=>source.id==='OPENWEATHERMAP_API'),false);
+  }
+  assert.deepEqual(rjSourceRouting({ibge:'3304557',phenomenon:'PRESSAO_ATMOSFERICA'})
+    .officialJointPriorityP1,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.deepEqual(rjSourceRouting({ibge:'3303302',phenomenon:'GRANIZO'})
+    .officialJointPriorityP1,['DEFESA_CIVIL_RJ_REGIONAL']);
+});
+
 test('Copernicus Marine and EUMETSAT are category-specialized, not default tsunami alarms or radar frames',()=>{
   for(const category of ['ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','RESSACA']){
     const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});

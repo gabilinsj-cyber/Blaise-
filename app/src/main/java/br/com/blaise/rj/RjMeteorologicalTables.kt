@@ -18,9 +18,25 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+/** Exact 10-row table requested for the UI; NOT a proof of live API ingestion. */
+data class RjReferenceP1Row(
+    val code: String,
+    val phenomenon: String,
+    val jointP1: String = "Alerta Rio + Defesa Civil RJ*",
+    val thirdComplement: String = "OpenWeatherMap",
+    val conditionalProduct: Boolean = false,
+)
+
+/** Specialist maritime matrix remains separate from the municipal P1 table. */
+data class RjMarineComplementRow(
+    val phenomenon: String,
+    val consultationSources: String,
+    val purpose: String,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v2"
+    const val VERSION = "2026-10-12.v3-tabela1"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -30,6 +46,49 @@ object RjMeteorologicalTables {
     const val MARINE_COMPLEMENT = "Copernicus Marine: ondas, swell, marés, correntes e temperatura do mar"
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
+
+    /**
+     * P1 priority is joint for authoritative warnings and eligible readings,
+     * not proof that two independent stations exist. Alerta Rio only covers
+     * Rio (IBGE 3304557). Other RJ municipalities use competent local civil
+     * defense and available official station products. OpenWeatherMap is a
+     * third COMPLEMENTARY consultation, not a third issuer of warnings.
+     */
+    val referenceTable1 = listOf(
+        RjReferenceP1Row("TEMPERATURA", "Temperatura"),
+        RjReferenceP1Row("SENSACAO_TERMICA", "Sensação térmica"),
+        RjReferenceP1Row("CHUVA_ATUAL", "Chuva atual"),
+        RjReferenceP1Row("CHUVA_ACUMULADA", "Chuva acumulada", conditionalProduct = true),
+        RjReferenceP1Row("TEMPORAL", "Chuva intensa e temporais"),
+        RjReferenceP1Row("VENTO", "Vento sustentado"),
+        RjReferenceP1Row("RAJADA", "Rajadas fortes"),
+        RjReferenceP1Row("PRESSAO_ATMOSFERICA", "Pressão atmosférica"),
+        RjReferenceP1Row("UMIDADE", "Umidade relativa"),
+        RjReferenceP1Row("GRANIZO", "Granizo", conditionalProduct = true),
+    )
+
+    val maritimeReference = listOf(
+        RjMarineComplementRow(
+            "Ciclones oceânicos", "Marinha + NOAA + EUMETSAT + Copernicus",
+            "Acompanhar evolução atmosférica e efeitos no mar",
+        ),
+        RjMarineComplementRow(
+            "Tempestades no Atlântico", "Marinha + NOAA + EUMETSAT",
+            "Monitorar nuvens, sistemas intensos e deslocamento",
+        ),
+        RjMarineComplementRow(
+            "Ondas e swell", "Marinha + NOAA + Copernicus",
+            "Altura, período, direção e propagação das ondas",
+        ),
+        RjMarineComplementRow(
+            "Ressaca no litoral RJ", "Marinha + boias + Copernicus + NOAA",
+            "Previsão e avaliação do risco costeiro; avisos da Marinha prevalecem",
+        ),
+        RjMarineComplementRow(
+            "Tsunami", "NOAA + Marinha + autoridades brasileiras",
+            "Avisos oficiais, observações do nível do mar e avaliação de ameaça",
+        ),
+    )
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
@@ -82,6 +141,11 @@ object RjMeteorologicalTables {
     )
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
+        require(referenceTable1.size == 10 &&
+            referenceTable1.map { it.code } == table1.take(10).map { it.code })
+        require(referenceTable1.all { it.jointP1.contains("Alerta Rio + Defesa Civil RJ") &&
+            it.thirdComplement == "OpenWeatherMap" })
+        require(maritimeReference.size == 5)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }

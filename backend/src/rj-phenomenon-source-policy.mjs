@@ -122,6 +122,16 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   const keys = ROUTES[phenomenon];
   const withRio = rioCity && ['CHUVA_ATUAL','CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
+  // The P1 joint decision applies only where both public authorities have
+  // a competent product. Two republishes of one station are NOT independent.
+  const jointP1 = RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon)
+    ? Object.freeze(rioCity
+      ? ['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']
+      : ['DEFESA_CIVIL_RJ_REGIONAL'])
+    : Object.freeze([]);
+  const supplementaryConsultations = RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon)
+    ? Object.freeze([sources.OPENWEATHER])
+    : Object.freeze([]);
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE','COPERNICUS_MARINE','EUMETSAT_SATELLITE'].includes(s.id);
@@ -135,6 +145,9 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     historicalGuarantee: 'NONE',
     municipalitySelectionCoverage: RJ_MUNICIPALITY_COUNT,
     phenomenonMatrixCount: RJ_PHENOMENA.length,
+    officialJointPriorityP1: jointP1,
+    supplementaryConsultations,
+    consultationVsOfficialWarning: 'OPENWEATHERMAP_COMPLEMENTS_NEVER_EMIT_OFFICIAL_RJ_WARNINGS',
     complementaryThirdSource: RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon)
       ? 'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY' : null,
     specialistSeaSources: ['RESSACA','ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL'].includes(phenomenon)

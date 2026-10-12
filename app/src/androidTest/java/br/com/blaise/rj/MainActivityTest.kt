@@ -155,6 +155,9 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-homologation-status").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-source-TEMPERATURA").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-GRANIZO").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-4-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-additional-phenomena-content").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-source-RAIOS").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
@@ -162,6 +165,16 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-dispute-05").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-1-tab").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun homeShortcutOpensExactFirstTenP1OpenWeatherMapRows() {
+        rule.onNodeWithTag("nav-Início").performScrollTo().performClick()
+        rule.onNodeWithTag("home-open-table-1").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-SENSACAO_TERMICA").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-source-GRANIZO").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-openweather-complement").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
@@ -208,8 +221,12 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-openweather-complement").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-ocean-eumetsat-complement").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-extra-source-integration-status").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA_MAR").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ATUAL").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-3-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-marine-table-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-marine-row-4").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-4-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA_MAR").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
     }
