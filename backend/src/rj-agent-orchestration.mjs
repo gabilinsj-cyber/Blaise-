@@ -8,6 +8,7 @@ import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
 import { linkedRjDisputeSteps, RJ_METEO_MARINE_TABLE } from './rj-meteorological-homologation.mjs';
+import { consultRjTable12FiveSourceDispute, RJ_TABLE1_THREE, RJ_TABLE2_FIVE } from './rj-table12-five-source-dispute.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -144,4 +145,62 @@ export function createRjWeatherSourceExecutor({
   const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
   return async ({ibge,variable,level=1,now=clock()}={})=>
     reconcileRjWeatherCase({ibge,variable,level,adapters,now});
+}
+
+/**
+ * Opt-in Table 1 -> Table 2 operational calculator entrypoint.
+ * It follows the new two-of-three first, five-source conditional arbitration
+ * without replacing the pre-existing legacy executor or silently deploying a
+ * polling service. All external adapters must be independently authorized.
+ */
+export async function reconcileRjTable12Case({
+  ibge,variable,level=1,adapters={},now=Date.now(),
+}={}) {
+  const variablePhenomena=Object.freeze({
+    TEMPERATURA_C:'TEMPERATURA',
+    UMIDADE_PERCENTUAL:'UMIDADE',
+    VENTO_KMH:'VENTO',
+    RAJADA_KMH:'RAJADA',
+    CHUVA_MM_1H:'CHUVA_ACUMULADA',
+    PRESSAO_HPA:'PRESSAO_ATMOSFERICA',
+  });
+  if(!Object.hasOwn(variablePhenomena,variable))
+    throw new TypeError('rj_table12_not_a_numeric_observation_variable');
+  const plan=planRjPhenomenonCase({
+    ibge,phenomenon:variablePhenomena[variable],level,
+  });
+  const reconciliation=await consultRjTable12FiveSourceDispute({
+    ibge,variable,adapters,now,
+  });
+  return Object.freeze({
+    ...plan,
+    sourcePolicy:'THREE_TABLE1_THEN_FIVE_TABLE2_CONDITIONAL',
+    firstThreeSources:RJ_TABLE1_THREE,
+    fallbackFiveSources:RJ_TABLE2_FIVE,
+    table2ActuallyRequired:reconciliation.stage!=='TABLE_1_TWO_OF_THREE_CONVERGED',
+    arbitration:reconciliation,
+    resultKind:reconciliation.state,
+    observedOrEstimatedValue:reconciliation.estimatedValue,
+    estimatedValueIsNotOfficialMunicipalMeasurement:true,
+    resultHasSourcePair:reconciliation.selectedSources.length===2,
+    mathIsWeighted:reconciliation.weighted,
+    noWarningOnCalculations:true,
+    audibleAlert:false,
+    publishersTriggered:false,
+    purchasesTriggered:false,
+    sourcePollingState:'SOURCE_ADAPTERS_ON_DEMAND_ONLY_NO_BACKGROUND_RUNTIME_DEPLOYED',
+  });
+}
+
+export function createRjTable12SourceExecutor({
+  inmetLive={enabled:false,usageApproved:false},
+  sourceAdapters={},
+  clock=()=>Date.now(),
+}={}) {
+  if(!sourceAdapters||typeof sourceAdapters!=='object'||Array.isArray(sourceAdapters)
+    ||typeof clock!=='function')throw TypeError('rj_table12_executor_invalid');
+  const inmet=createRjInmetLiveAdapters(inmetLive);
+  const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
+  return ({ibge,variable,level=1,now=clock()}={})=>
+    reconcileRjTable12Case({ibge,variable,level,adapters,now});
 }
