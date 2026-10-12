@@ -463,6 +463,7 @@ private fun BlaiseDashboard(
                             "Qualidade do Ar" -> AirQualityScreen()
                             "Notícias" -> NewsScreen()
                             "Histórico" -> HistoryScreen(city1, city2)
+                            "Fontes" -> RjMeteorologicalTablesPanel()
                             "Mais" -> MoreScreen(
                                 powerOn = powerOn,
                                 silentMode = silentMode,
@@ -925,7 +926,8 @@ private fun PrimaryNavigation(selected: String, onSelect: (String) -> Unit) {
     val labels = mapOf(
         "Início" to "⌂", "Cidades" to "⌖", "Mapa" to "▣",
         "Alertas" to "⚠", "Trânsito" to "≋", "Mar e Ondas" to "≈",
-        "Qualidade do Ar" to "◉", "Notícias" to "▤", "Histórico" to "◷", "Mais" to "⋯",
+        "Qualidade do Ar" to "◉", "Notícias" to "▤", "Histórico" to "◷",
+        "Fontes" to "☷", "Mais" to "⋯",
     )
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("primary-navigation"),
@@ -978,6 +980,26 @@ private fun HomeScreen(
     onChooseCity2: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
+    // Direct access to the approved meteorological source tables.
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .testTag("home-open-meteorological-table-1")
+            .clickable { onNavigate("Fontes") },
+        color = Color(0xFF0C3055),
+        shape = RoundedCornerShape(9.dp),
+        border = BorderStroke(1.dp, Divider),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text("☷", color = Gold, fontWeight = FontWeight.Bold)
+            Text("Tabela 1 • monitoramento meteorológico (10 fenômenos)",
+                color = Color.White, fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("Consultar fontes ›", color = Gold, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+    Spacer(Modifier.height(7.dp))
     // The approved reference is a three-column CONTROL CENTER on landscape,
     // but remains a single vertically scrollable dashboard on phones.
     if (wide) {
@@ -1972,6 +1994,14 @@ private fun RjMeteorologicalTablesPanel() {
             Text(RjMeteorologicalTables.LIVE_STATUS,
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-extra-source-integration-status"))
+            Text("ITENS 1–10 • P1: ALERTA RIO + DEFESA CIVIL RJ",
+                color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.testTag("rj-ten-primary-source-rows"))
+            Text("Alerta Rio cobre apenas o município do Rio. " +
+                "P1 conjunta não significa que dados republicados sejam medições independentes. " +
+                "Nos demais municípios, usar Defesa Civil e fontes locais competentes.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
@@ -1979,15 +2009,52 @@ private fun RjMeteorologicalTablesPanel() {
                     modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}"),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(9.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("${index + 1}. ${item.phenomenon}", color = Color.White,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodySmall)
+                        if (index < 10) {
+                            Text("FONTES PRIORITÁRIAS (P1) • Alerta Rio + Defesa Civil RJ",
+                                color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            Text("3ª FONTE COMPLEMENTAR • " +
+                                RjMeteorologicalTables.openWeatherMapThirdComplement.getValue(item.code),
+                                color = GoldSoft,
+                                modifier = Modifier.testTag("rj-openweather-row-${item.code}"),
+                                style = MaterialTheme.typography.labelSmall)
+                        }
                         Text(item.coverage, color = Muted,
                             style = MaterialTheme.typography.labelSmall)
-                        Text(item.priority, color = GoldSoft,
+                        Text("Critério específico: ${item.priority}", color = GoldSoft,
                             style = MaterialTheme.typography.labelSmall)
                     }
+                }
+                if (index == 9) {
+                    Text("COMPLEMENTO MARÍTIMO • MARINHA, NOAA, COPERNICUS E EUMETSAT",
+                        color = Gold, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("rj-maritime-supplement-table"))
+                    RjMeteorologicalTables.marineComplement.forEach { sea ->
+                        Surface(
+                            color = PanelSoft,
+                            modifier = Modifier.fillMaxWidth().testTag("rj-marine-${sea.code}"),
+                            shape = RoundedCornerShape(9.dp),
+                            border = BorderStroke(1.dp, Divider),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(9.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(sea.phenomenon, color = Color.White,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(sea.priority, color = GoldSoft,
+                                    style = MaterialTheme.typography.labelSmall)
+                                Text(sea.coverage, color = Muted,
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    Text("Outros 20 fenômenos • hidrologia, geologia, litoral e Atlântico",
+                        color = Gold, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium)
                 }
             }
         } else {
