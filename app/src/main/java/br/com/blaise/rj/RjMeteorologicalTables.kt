@@ -65,6 +65,20 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA por produto"),
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA; medição e modelo identificados"),
     )
+    /** Five explicitly ordered audit checks, not five substitute measurements. */
+    val fiveDisputeChecks = listOf(
+        RjMeteoDisputeRow("01", "INPE/CPTEC • primeira análise",
+            "Comparar previsão válida, local e modelo com os dados oficiais; não é leitura de estação."),
+        RjMeteoDisputeRow("02", "INMET • medição independente",
+            "Verificar estação e horário do município fluminense; nunca usar estação de outro estado como medição local."),
+        RjMeteoDisputeRow("03", "OpenWeatherMap • terceira consulta",
+            "Produto meteorológico complementar com chave/licença verificadas; não é nova autoridade de alerta nem estação necessariamente independente."),
+        RjMeteoDisputeRow("04", "Windy • modelo subsidiário",
+            "Usar como contexto se INPE não conseguir resolver comparação; identificar o modelo e seu horário."),
+        RjMeteoDisputeRow("05", "Marinha/NOAA/Copernicus/EUMETSAT",
+            "Para ondas, swell, ciclones e satélite escolher especialistas; tsunami só com aviso das autoridades competentes."),
+    )
+
     val table2 = listOf(
         RjMeteoDisputeRow("01", "Primeiras fontes", "Alerta Rio somente na cidade do Rio, depois Defesa Civil regional e INMET; selecionar por fenômeno e local."),
         RjMeteoDisputeRow("02", "Duas medições compatíveis", "Usar duas estações oficiais independentes; ponderação apenas com pesos, janela e unidade comprovados."),
@@ -83,6 +97,9 @@ object RjMeteorologicalTables {
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(fiveDisputeChecks.size == 5)
+        require(fiveDisputeChecks.first().title.startsWith("INPE"))
+        require(fiveDisputeChecks[1].title.startsWith("INMET"))
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }
