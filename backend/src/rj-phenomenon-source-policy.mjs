@@ -74,7 +74,7 @@ const ROUTES = Object.freeze({
   CICLONE_EXTRATROPICAL: series(['MARINHA','INMET','DEFESA_CIVIL','NOAA','EUMETSAT','COPERNICUS','INPE','WINDY']),
   CHUVA_ATLANTICO: series(['MARINHA','NOAA','EUMETSAT','INPE','WINDY']),
   MASSA_AR: series(['INMET','MARINHA','NOAA','EUMETSAT','INPE','WINDY']),
-  RADAR: series(['CEMADEN','DEFESA_CIVIL','EUMETSAT']),
+  RADAR: series(['CEMADEN','DEFESA_CIVIL']),
   GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','INPE','WINDY']),
   DESLIZAMENTO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   ALAGAMENTO: series(['DEFESA_CIVIL','CEMADEN','ANA','SGB']),
@@ -82,7 +82,7 @@ const ROUTES = Object.freeze({
   EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
   SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
   TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
-  PRESSAO_ATMOSFERICA: series(['INMET','INPE','WINDY']),
+  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
 });
 
@@ -107,7 +107,7 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
   }),
   eumetsat: Object.freeze({ sourceId:'EUMETSAT_SATELLITE',
     role:'SATELLITE_CLOUD_STORM_CYCLONE_MONITORING_NOT_TSUNAMI_ALERT',
-    phenomena:Object.freeze(['TEMPESTADE','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','RADAR','FRENTE_FRIA']),
+    phenomena:Object.freeze(['TEMPESTADE','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA']),
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
   }),
 });
@@ -120,7 +120,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   }
   const rioCity = String(ibge) === RJ_CITY_IBGE;
   const keys = ROUTES[phenomenon];
-  const withRio = rioCity && ['CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA'].includes(phenomenon)
+  const withRio = rioCity && ['CHUVA_ATUAL','CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
