@@ -1994,6 +1994,30 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            Text("CINCO VERIFICAÇÕES DE DESEMPATE • INPE E INMET PRIMEIRO",
+                color = GoldSoft, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-five-checks-title"))
+            RjMeteorologicalTables.fiveDisputeChecks.forEach { item ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-five-check-${item.code}"),
+                    color = PanelSoft,shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("${item.code}. ${item.title}",color = Gold,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold)
+                        Text(item.decision,color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Text("Os cinco passos são critérios de verificação, não cinco medições. " +
+                "INPE e Windy são previsões e não substituem avisos oficiais. " +
+                "Nova fonte só aparece com licença, horário e leitura conferidos.",
+                color = WarningAmber,style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.table2.forEach { item ->
                 Surface(
                     color = Panel,
