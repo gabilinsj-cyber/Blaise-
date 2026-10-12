@@ -1804,6 +1804,8 @@ private fun TrafficScreen() {
 @Composable
 private fun MarineScreen() {
     MarinePanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(10.dp))
+    RjMarineSourceMatrixPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
@@ -1813,6 +1815,42 @@ private fun MarineScreen() {
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
+    }
+}
+
+@Composable
+private fun RjMarineSourceMatrixPanel() {
+    DashboardSection(
+        title = "FONTES DO MAR • RJ E ATLÂNTICO",
+        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        modifier = Modifier.fillMaxWidth().testTag("rj-marine-source-matrix"),
+    ) {
+        RjMeteorologicalTables.marineComplement.forEachIndexed { i,item ->
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("rj-marine-source-${item.code}"),
+                color = if (i % 2 == 0) Panel else NavyRaised,
+                shape = RoundedCornerShape(9.dp),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(9.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(item.phenomenon, color = Gold,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Fontes: ${item.sources}",
+                        color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    Text(item.purpose, color = Muted,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text("Marinha e NOAA: avisos marítimos. Copernicus Marine: dados oceânicos " +
+            "por produto; EUMETSAT: satélite para nuvens e ciclones. " +
+            "Tsunami requer confirmação oficial de autoridade competente.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Fontes cadastradas • conexões marítimas adicionais ainda não homologadas " +
+            "em tempo real. Ausência de dado não significa ausência de risco.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1972,6 +2010,33 @@ private fun RjMeteorologicalTablesPanel() {
             Text(RjMeteorologicalTables.LIVE_STATUS,
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-extra-source-integration-status"))
+            Text("TABELA 1 • 10 FENÔMENOS • 3ª CONSULTA OPENWEATHERMAP",
+                color = Gold, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-table1-openweather-heading"))
+            RjMeteorologicalTables.table1ThirdSource.forEachIndexed { index,item ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-table1-owm-${item.code}"),
+                    color = if (index % 2 == 0) Panel else NavyRaised,
+                    shape = RoundedCornerShape(9.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("${index+1}. ${item.phenomenon}",
+                            color = Color.White,fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("P1: ${item.p1Sources}", color = GoldSoft,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("3ª consulta: ${item.complementarySource}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(item.qualification,color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Text("MATRIZ COMPLETA • 30 FENÔMENOS",
+                color = Gold,fontWeight = FontWeight.Bold)
             RjMeteorologicalTables.table1.forEachIndexed { index, item ->
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
