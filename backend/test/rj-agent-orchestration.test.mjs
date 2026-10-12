@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
-import { planRjPhenomenonCase, reconcileRjWeatherCase } from '../src/rj-agent-orchestration.mjs';
+import { planRjPhenomenonCase, reconcileRjWeatherCase, reconcileRjWeatherCaseTwoTables } from '../src/rj-agent-orchestration.mjs';
 
 test('all 92 municipalities receive policy routing, never fabricated live data',()=>{
   assert.equal(RJ_MUNICIPALITIES.length,92);
@@ -120,4 +120,29 @@ test('no installed source adapter gives no weather value rather than an invented
   assert.equal(r.verifiedSourceCount,0);
   assert.equal(r.sourceStatus,'NO_VERIFIABLE_SOURCE_VALUE');
   assert.equal(r.publishersTriggered,false);
+});
+
+test('new three-plus-five weather policy is reachable through Sentinel/Fusion/Vector without activating source polling',async()=>{
+ const now=Date.parse('2026-10-12T18:00:00Z');
+ const record=(sourceId,stationId,value)=>({
+  sourceId,stationId,value,kind:'OFFICIAL_OBSERVATION',
+  ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',
+  observedAt:'2026-10-12T17:40:00Z',latitude:-22.9,longitude:-43.2,
+  sourceUrl:'https://example.org/fixture',usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+ });
+ const r=await reconcileRjWeatherCaseTwoTables({
+  ibge:'3304557',variable:'TEMPERATURA_C',now,adapters:{
+   ALERTA_RIO:async()=>({records:[record('ALERTA_RIO','AR-1',25)]}),
+   DEFESA_CIVIL_RJ_REGIONAL:async()=>({records:[record('DEFESA_CIVIL_RJ_REGIONAL','DC-1',26)]}),
+  },
+ });
+ assert.equal(r.sourceStatus,'TABLE1_TWO_COMPATIBLE_SOURCES');
+ assert.equal(r.valueForDisplay,25.5);
+ assert.deepEqual(r.twoSourceDisplay.map(x=>x.sourceId),['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
+ assert.deepEqual(r.dataHandlingAgents,[1,3,2,8]);
+ assert.equal(r.tieBreakTableSources.length,5);
+ assert.equal(r.tieBreakFifthPosition,'NOAA');
+ assert.equal(r.audibleAlert,false);
+ assert.equal(r.publishersTriggered,false);
+ assert.equal(r.purchasesTriggered,false);
 });
