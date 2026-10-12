@@ -32,6 +32,15 @@ test('configuration, running process and one successful fresh source task requir
   assert.equal(r.radarSpatialFrameReady,false);
   assert.equal(r.inpeApiReady,false);
   assert.equal(r.windyLicensedModelApiReady,false);
+  assert.deepEqual(r.fiveSourceVerification.map(x=>x.source),
+    ['ALERTA_RIO','DEFESA_CIVIL','INMET','INPE_CPTEC','WINDY']);
+  assert.equal(r.fiveSourceVerification[2].productFresh,true);
+  assert.equal(r.fiveSourceVerification[2].knownProduct,
+    'CAP_WARNINGS_NOT_HOURLY_STATION_FEED');
+  assert.equal(r.fiveSourceVerification[3].productFresh,false);
+  assert.equal(r.fiveSourceVerification[4].productFresh,false);
+  assert.equal(r.allFiveMeteorologicalSourcesValidated,false);
+  assert.equal(r.stationObservationsAcrossAll92Proven,false);
   assert.equal(r.homologationRegister.id,'BLAISE-RJ-METEO-HOMOLOG-01');
   assert.equal(r.homologationRegister.registeredPhenomena,25);
   assert.equal(r.homologationRegister.documentedDisputeStages,8);
