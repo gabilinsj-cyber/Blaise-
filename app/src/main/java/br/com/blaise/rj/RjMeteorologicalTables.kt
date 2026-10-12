@@ -18,9 +18,17 @@ data class RjMeteoDisputeRow(
     val decision: String,
 )
 
+data class RjMeteoMarineRow(
+    val code: String,
+    val phenomenon: String,
+    val sources: String,
+    val function: String,
+    val linkedPhenomena: List<String>,
+)
+
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v2"
+    const val VERSION = "2026-10-12.v3"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "2 medições oficiais compatíveis ou medição + previsão separadas"
     const val NO_INEA = "INEA excluído"
@@ -80,9 +88,72 @@ object RjMeteorologicalTables {
         RjMeteoDisputeRow("12", "Exceções marítimas", "Marinha/NOAA/Copernicus/EUMETSAT conforme o evento; tsunami depende de aviso competente, nunca de imagens ou de média."),
         RjMeteoDisputeRow("13", "Licença e rastreabilidade", "Verificar produto, fonte, hora, autorização de uso comercial, atribuição e independência; sem evidência, não emitir alerta."),
     )
+    // Map one selected Table 1 item to ONLY the Table 2 checks that
+    // apply. Distinct checks for measurements, formulas, warning categories
+    // and maritime events prevent unsafe weighted averages.
+    private val weightableCodes = setOf(
+        "TEMPERATURA", "UMIDADE", "VENTO", "RAJADA", "CHUVA_ATUAL",
+        "CHUVA_ACUMULADA", "PRESSAO_ATMOSFERICA",
+    )
+    private val marineCodes = setOf(
+        "RESSACA", "ONDAS", "SWELL", "MARE", "CORRENTES_MARINHAS",
+        "TEMPERATURA_MAR", "CICLONE_EXTRATROPICAL", "CHUVA_ATLANTICO", "TSUNAMI",
+    )
+    private val baseChecks = setOf("01", "07", "09", "13")
+    fun table2ForPhenomenon(phenomenonCode: String): List<RjMeteoDisputeRow> {
+        require(table1.any { it.code == phenomenonCode }) { "RJ phenomenon not registered" }
+        val checks = baseChecks.toMutableSet()
+        when {
+            phenomenonCode in weightableCodes ->
+                checks.addAll(listOf("02", "03", "04", "05", "06", "10", "11"))
+            phenomenonCode == "SENSACAO_TERMICA" ->
+                checks.addAll(listOf("03", "04", "05", "06", "10", "11"))
+            phenomenonCode in marineCodes ->
+                checks.addAll(listOf("06", "08", "12"))
+            else -> {
+                checks.addAll(listOf("03", "06", "08"))
+                if (phenomenonCode in setOf("TEMPORAL", "TEMPESTADE", "GRANIZO"))
+                    checks.add("10")
+            }
+        }
+        return table2.filter { it.code in checks }
+    }
+    fun canWeightOfficialObservations(phenomenonCode: String): Boolean =
+        phenomenonCode in weightableCodes
+
+    // The five exact maritime rows supplied in the approved screenshot.
+    // These are SOURCE ELIGIBILITY, not live observations or warnings.
+    val marineTable = listOf(
+        RjMeteoMarineRow("CICLONES_OCEANICOS", "Ciclones oceânicos",
+            "Marinha + NOAA + EUMETSAT + Copernicus",
+            "Evolução atmosférica, deslocamento e efeitos no mar",
+            listOf("CICLONE_EXTRATROPICAL")),
+        RjMeteoMarineRow("TEMPESTADES_ATLANTICO", "Tempestades no Atlântico",
+            "Marinha + NOAA + EUMETSAT",
+            "Nuvens e sistemas intensos; satélite não substitui radar",
+            listOf("TEMPESTADE", "CHUVA_ATLANTICO")),
+        RjMeteoMarineRow("ONDAS_SWELL", "Ondas e swell",
+            "Marinha + NOAA + Copernicus",
+            "Altura, período, direção e propagação das ondas",
+            listOf("ONDAS", "SWELL")),
+        RjMeteoMarineRow("RESSACA_LITORAL", "Ressaca no litoral RJ",
+            "Marinha + boias + Copernicus + NOAA",
+            "Previsão e avaliação do risco costeiro por aviso competente",
+            listOf("RESSACA")),
+        RjMeteoMarineRow("TSUNAMI", "Tsunami / maremoto",
+            "NOAA + Marinha + autoridades brasileiras",
+            "Avisos oficiais, nível do mar e avaliação de ameaça",
+            listOf("TSUNAMI")),
+    )
+
     init {
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
+        require(marineTable.size == 5 && marineTable.map { it.code }.distinct().size == 5)
+        require(table1.all { table2ForPhenomenon(it.code).isNotEmpty() })
+        require(listOf("TEMPORAL", "GRANIZO", "SISMO", "TSUNAMI").all {
+            !canWeightOfficialObservations(it)
+        })
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
     }
 }
