@@ -1804,6 +1804,8 @@ private fun TrafficScreen() {
 @Composable
 private fun MarineScreen() {
     MarinePanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(10.dp))
+    RjMarineSourceMatrixPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
@@ -1813,6 +1815,51 @@ private fun MarineScreen() {
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
+    }
+}
+
+/** Marine source catalogue linked to the canonical weather and dispute tables.
+ *  This panel must not imply the products are connected or issuing live alerts.
+ */
+@Composable
+private fun RjMarineSourceMatrixPanel() {
+    DashboardSection(
+        title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
+        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
+    ) {
+        Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
+            "com autorização, cobertura, fonte, horário e validade verificados.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("rj-marine-screen-row-${item.code}"),
+                color = if (index % 2 == 0) Panel else NavyRaised,
+                shape = RoundedCornerShape(9.dp),
+                border = BorderStroke(1.dp, Divider),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(9.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(item.phenomenon, color = Gold, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Fontes: ${item.sources}", color = Color.White,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text("Variáveis / objetivo: ${item.function}", color = Muted,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text("Fenômenos vinculados: ${item.linkedPhenomena.joinToString(", ")}",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text("Dados atuais: aguardando produto marítimo validado",
+                        color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text("Marinha/CHM e autoridades brasileiras prevalecem nos avisos oficiais " +
+            "de ressaca, tsunami e maremoto. Copernicus/EUMETSAT oferecem produtos " +
+            "oceânicos/satélite, não confirmações autônomas de tsunami.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
