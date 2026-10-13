@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRjInmetLiveAdapters,
+  createRjTable12InmetLiveAdapter,
   RJ_INMET_CATALOG_URL,
   projectRjInmetOnOwnMap,
 } from '../src/rj-inmet-live-hierarchy-adapter.mjs';
 import {consultRjSourcesUntilTwo} from '../src/rj-hierarchical-weather-resolution.mjs';
 import {createRjWeatherSourceExecutor} from '../src/rj-agent-orchestration.mjs';
+import {consultRjTable12FiveSourceDispute}
+  from '../src/rj-table12-five-source-dispute.mjs';
 
 const NOW=Date.parse('2026-10-12T12:00:00.000Z');
 const station=(changes={})=>({
@@ -240,4 +243,38 @@ test('own-map wind rendering preserves m/s units and missing/stale observations 
   assert.equal(map.points[0].value,4.5);
   assert.equal(projectRjInmetOnOwnMap(wind,{now:NOW+3*3_600_000}).points.length,0);
   assert.equal(projectRjInmetOnOwnMap({observations:[{value:90}]},{now:NOW}).points.length,0);
+});
+
+test('Table 2 real INMET adapter reconciles authorized Alerta Rio observation, without synthetic sensors',async()=>{
+  const api=fakeApi({hourly:[reading({TEM_INS:'29'})]});
+  const adapters={
+    ...createRjTable12InmetLiveAdapter({enabled:true,usageApproved:true,fetchImpl:api.fetchImpl}),
+    ALERTA_RIO:async()=>({observations:[{
+      sourceId:'ALERTA_RIO',origin:'OFFICIAL_OBSERVATION',
+      stationId:'AR-VALIDATED-STATION',ibge:'3304557',variable:'TEMPERATURA_C',
+      unit:'°C',value:28,observedAt:'2026-10-12T11:00:00.000Z',
+      latitude:-22.9,longitude:-43.2,
+      sourceUrl:'https://alertario.rio.rj.gov.br/official-test-fixture',
+      usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+    }]}),
+  };
+  const r=await consultRjTable12FiveSourceDispute({...input,adapters});
+  assert.equal(r.state,'TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS');
+  assert.equal(r.stage,'TABLE_2_OBSERVED_DISPUTE_RESOLVED');
+  assert.equal(r.estimatedValue,28.5);
+  assert.deepEqual(r.selectedSources,['ALERTA_RIO','INMET_STATION']);
+  assert.equal(r.safeForAutomaticWarning,false);
+  assert.equal(r.mayClaimOfficialMunicipalMeasurement,false);
+  assert.equal(api.visited.length,2);
+});
+test('Table 2 INMET adapter requires source and license gates before network access',async()=>{
+  for(const config of [{enabled:false,usageApproved:true},{enabled:true,usageApproved:false}]){
+    const api=fakeApi();
+    const bridge=createRjTable12InmetLiveAdapter({...config,fetchImpl:api.fetchImpl}).INMET_STATION;
+    const reading=await bridge(input);
+    assert.equal(reading.observations.length,0);
+    assert.equal(reading.status,'NO_AUTHORIZED_CURRENT_STATION');
+    assert.equal(reading.automaticAlertAuthorized,false);
+    assert.equal(api.visited.length,0);
+  }
 });
