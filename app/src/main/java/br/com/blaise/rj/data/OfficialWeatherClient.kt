@@ -17,6 +17,12 @@ import java.util.Locale
 /** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
+    private val inmetCatalogCache = InmetStationCatalogCache()
+    private fun currentInmetCatalog(): JSONArray = JSONArray(
+        inmetCatalogCache.read(System.currentTimeMillis()) {
+            get("https://apitempo.inmet.gov.br/estacoes/T")
+        }
+    )
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
         try {
             currentCityBlocking(request)
@@ -66,7 +72,7 @@ class OfficialWeatherClient {
     private fun recentMunicipalityHourlySeriesBlocking(city: City): InmetHourlySeries? {
         if (br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(city.ibgeCode)?.name != city.name)
             return null
-        val catalogJson = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
+        val catalogJson = currentInmetCatalog()
         if (catalogJson.length() !in 1..2000) return null
         val entries = (0 until catalogJson.length()).mapNotNull { index ->
             val row = catalogJson.optJSONObject(index) ?: return@mapNotNull null
@@ -133,7 +139,7 @@ class OfficialWeatherClient {
         // Use the SAME strict metadata policy as the hourly chart:
         // exact RJ municipality, INMET operator, operational station, real
         // coordinates and code. Never attribute a neighbor's reading to RJ.
-        val catalogJson = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
+        val catalogJson = currentInmetCatalog()
         if (catalogJson.length() !in 1..2000) return CityWeatherResult(
             request.city.ibgeCode, scope,
             unavailableReason = "Catálogo oficial de estações INMET inválido nesta consulta.")
