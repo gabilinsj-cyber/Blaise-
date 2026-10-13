@@ -1824,6 +1824,9 @@ private fun MarineScreen() {
  */
 @Composable
 private fun RjMarineSourceMatrixPanel() {
+    val clock = LocalObservationClock.current
+    val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
         subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
@@ -1852,8 +1855,14 @@ private fun RjMarineSourceMatrixPanel() {
                         style = MaterialTheme.typography.labelSmall)
                     Text("Fenômenos vinculados: ${item.linkedPhenomena.joinToString(", ")}",
                         color = Muted, style = MaterialTheme.typography.labelSmall)
-                    Text("Dados atuais: aguardando produto marítimo validado",
-                        color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    val evidence=RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
+                    Text("Dados/avisos regionais: ${evidence.description}",
+                        color = if(evidence.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.testTag("rj-marine-current-${item.code}"))
+                    if(evidence.source!=null) Text("Fonte: ${evidence.source} • " +
+                        (evidence.observedAt?.let(RjLiveTableEvidence::localTime) ?: "horário pendente"),
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -2324,6 +2333,12 @@ private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = nu
 
 @Composable
 private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
+    val clock = LocalObservationClock.current
+    val marine=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val wave=RjLiveTableEvidence.marine("ONDAS",marine,clock)
+    val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
+    val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
     DashboardSection(
         title = "MAR E ONDAS • MARINHA DO BRASIL",
         subtitle = "Maré • ondas altas • vento • ressaca",
@@ -2333,13 +2348,22 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas", "— m • aguardando medição/boletim CHM")
-        StatusLine("Swell", "— altura/período/direção • Copernicus Marine/NOAA não conectados")
+        StatusLine("Ondas (CHM)",wave.description)
+        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
+            "— altura/período/direção • Copernicus/NOAA aguardam integração autorizada")
         StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
         StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
-        StatusLine("Vento", "— direção e velocidade")
-        StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
+        StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
+        StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text(if (marine==null)
+                "CHM: aguardando boletim oficial regional recente e autorizado."
+            else "Boletim CHM consultado em ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • " +
+                "${marine.warnings.count { it.current(clock) }} aviso(s) regional(is) vigente(s). " +
+                "Não são alertas municipais nem garantia de segurança costeira.",
+            color = if(marine==null) WarningAmber else GoldSoft,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("marine-chm-regional-status"))
         Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
             "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
