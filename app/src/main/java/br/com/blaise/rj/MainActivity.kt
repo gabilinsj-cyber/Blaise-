@@ -1804,6 +1804,8 @@ private fun TrafficScreen() {
 @Composable
 private fun MarineScreen() {
     MarinePanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(10.dp))
+    RjMarineSourceMatrixPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
@@ -1813,6 +1815,51 @@ private fun MarineScreen() {
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
+    }
+}
+
+/** Marine source catalogue linked to the canonical weather and dispute tables.
+ *  This panel must not imply the products are connected or issuing live alerts.
+ */
+@Composable
+private fun RjMarineSourceMatrixPanel() {
+    DashboardSection(
+        title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
+        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
+    ) {
+        Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
+            "com autorização, cobertura, fonte, horário e validade verificados.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("rj-marine-screen-row-${item.code}"),
+                color = if (index % 2 == 0) Panel else NavyRaised,
+                shape = RoundedCornerShape(9.dp),
+                border = BorderStroke(1.dp, Divider),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(9.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(item.phenomenon, color = Gold, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Fontes: ${item.sources}", color = Color.White,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text("Variáveis / objetivo: ${item.function}", color = Muted,
+                        style = MaterialTheme.typography.labelSmall)
+                    Text("Fenômenos vinculados: ${item.linkedPhenomena.joinToString(", ")}",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text("Dados atuais: aguardando produto marítimo validado",
+                        color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text("Marinha/CHM e autoridades brasileiras prevalecem nos avisos oficiais " +
+            "de ressaca, tsunami e maremoto. Copernicus/EUMETSAT oferecem produtos " +
+            "oceânicos/satélite, não confirmações autônomas de tsunami.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1897,10 +1944,10 @@ private fun MoreScreen(
         subtitle = "Prioridade local e origem preservada",
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
-        Text("Cinco fontes meteorológicas por situação: " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" • ") +
-            ". Alerta Rio limitado ao município do Rio; INMET é medição por estação, " +
-            "CPTEC/INPE oferece previsões oficiais e Windy compara modelos.",
+        Text("Desempate Tabela 2 (cinco fontes): " +
+            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
+            ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
+            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
         Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
@@ -1918,6 +1965,8 @@ private fun MoreScreen(
 @Composable
 private fun RjMeteorologicalTablesPanel() {
     var selected by remember { mutableStateOf(1) }
+    var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
+    var showAllCriteria by remember { mutableStateOf(false) }
     DashboardSection(
         title = "MATRIZ METEOROLÓGICA • BLAISE V6 RJ",
         subtitle = RjMeteorologicalTables.ID,
@@ -1935,12 +1984,16 @@ private fun RjMeteorologicalTablesPanel() {
             val tableButtons = listOf(
                 1 to "Tabela 1 • Fontes",
                 2 to "Tabela 2 • Desempate",
+                3 to "Mar • Satélite",
             )
             tableButtons.forEach { (number, caption) ->
                 Surface(
                     modifier = Modifier.weight(1f)
                         .testTag("rj-meteo-table-${number}-tab")
-                        .clickable { selected = number },
+                        .clickable {
+                            selected = number
+                            if (number == 2 && chosenPhenomenon == null) showAllCriteria = true
+                        },
                     shape = RoundedCornerShape(9.dp),
                     border = BorderStroke(1.dp, if (selected == number) Gold else Divider),
                     color = if (selected == number) Color(0xFF20527C) else Navy,
@@ -1956,13 +2009,14 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
-                "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
-                "Windy somente se persistir a divergência. " +
-                "Fontes especializadas têm prioridades próprias.",
+            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
+                "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
+                "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
+                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("OpenWeatherMap • 3ª fonte COMPLEMENTAR para os 10 fenômenos meteorológicos da primeira tabela. " +
-                "Não substitui Alerta Rio/Defesa Civil (P1) nem a medição oficial INMET.",
+            Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
+                "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
+                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
             Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
@@ -1976,7 +2030,12 @@ private fun RjMeteorologicalTablesPanel() {
                 Surface(
                     color = if (index % 2 == 0) Panel else NavyRaised,
                     shape = RoundedCornerShape(9.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}"),
+                    modifier = Modifier.fillMaxWidth().testTag("rj-meteo-source-${item.code}")
+                        .clickable {
+                            chosenPhenomenon = item.code
+                            showAllCriteria = false
+                            selected = 2
+                        },
                 ) {
                     Column(Modifier.fillMaxWidth().padding(9.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1987,14 +2046,48 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.labelSmall)
                         Text(item.priority, color = GoldSoft,
                             style = MaterialTheme.typography.labelSmall)
+                        Text("Ver desempate e cálculo aplicáveis ›", color = Gold,
+                            style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
-        } else {
-            Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
+        } else if (selected == 2) {
+            Text("TABELA 2 • Cinco fontes de desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
-            RjMeteorologicalTables.table2.forEach { item ->
+            Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
+                color = GoldSoft, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("rj-five-dispute-source-priority"))
+            Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
+                "Uma leitura primária pode ser comparada a uma fonte de desempate. " +
+                "Média numérica somente entre MEDIÇÕES compatíveis; previsão e medição são exibidas separadamente.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            val active = chosenPhenomenon?.let { code ->
+                RjMeteorologicalTables.table1.firstOrNull { it.code == code }
+            }
+            if (active != null) {
+                Text("Fenômeno selecionado: ${active.phenomenon}",
+                    color = Color.White, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("rj-linked-phenomenon"))
+                Text(
+                    if (RjMeteorologicalTables.canWeightOfficialObservations(active.code))
+                        "Média ponderada permitida somente entre observações independentes compatíveis, com pesos tecnicamente justificados."
+                    else "Não realizar média ponderada de categorias de alerta, sismos ou fenômenos marítimos; seguir autoridade competente ou cálculo físico específico.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-linked-weighted-eligibility"),
+                )
+                TextButton(
+                    onClick = { showAllCriteria = !showAllCriteria },
+                    modifier = Modifier.testTag("rj-show-all-dispute-rules"),
+                ) {
+                    Text(if (showAllCriteria) "Mostrar só critérios deste fenômeno"
+                        else "Ver os 13 critérios completos", color = Gold)
+                }
+            }
+            val applicable = if (showAllCriteria || chosenPhenomenon == null)
+                RjMeteorologicalTables.table2 else
+                RjMeteorologicalTables.table2ForPhenomenon(chosenPhenomenon!!)
+            applicable.forEach { item ->
                 Surface(
                     color = Panel,
                     modifier = Modifier.fillMaxWidth()
@@ -2008,6 +2101,39 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.bodySmall)
                         Text(item.decision,
                             color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        } else {
+            Text("TABELA MARÍTIMA • Marinha, NOAA, Copernicus e EUMETSAT",
+                color = Gold, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("rj-marine-matrix-content"))
+            Text("Avisos de ressaca, ciclones e tsunami dependem das autoridades competentes. " +
+                "Copernicus fornece produtos oceânicos e EUMETSAT imagens de satélite. " +
+                "Nenhum dado representa observação real até validar produto, hora e licença.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            RjMeteorologicalTables.marineTable.forEach { item ->
+                Surface(
+                    color = Panel,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-marine-source-${item.code}")
+                        .clickable {
+                            chosenPhenomenon = item.linkedPhenomena.first()
+                            showAllCriteria = false
+                            selected = 2
+                        },
+                    shape = RoundedCornerShape(9.dp),
+                ) {
+                    Column(Modifier.padding(9.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(item.phenomenon, color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Fontes: ${item.sources}", color = Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Função: ${item.function}", color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Ver regras aplicáveis de alerta e desempate ›", color = Gold,
                             style = MaterialTheme.typography.labelSmall)
                     }
                 }

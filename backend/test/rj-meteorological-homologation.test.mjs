@@ -6,6 +6,8 @@ import {
   RJ_METEO_HOMOLOGATION_ID,
   RJ_METEO_HOMOLOGATION_VERSION,
   RJ_METEO_TABLE2,
+  RJ_METEO_MARINE_TABLE,
+  linkedRjDisputeSteps,
   RJ_METEO_SOURCE_STATUS,
   buildRjMeteorologicalHomologationTables,
   checkRjSourceProductEvidence,
@@ -44,6 +46,52 @@ test('Table 2 is the independent, thirteen-step data provenance and dispute crit
   assert.match(RJ_METEO_TABLE2[3].decision,/INPE/);
   assert.match(RJ_METEO_TABLE2[4].decision,/Windy/);
   assert.equal(RJ_METEO_TABLE2.some(x=>/média mista de modelo e sensor/i.test(x.decision)),true);
+});
+test('Table 1 is linked to the applicable Table 2 steps for every phenomenon',()=>{
+  const t=buildRjMeteorologicalHomologationTables();
+  const stepCodes=new Set(t.table2.map(x=>x.code));
+  assert.equal(t.table1.length,30);
+  for(const item of t.table1) {
+    const matching=linkedRjDisputeSteps(item.id);
+    assert.deepEqual(item.disputeStepCodes,matching.map(x=>x.code));
+    assert.ok(item.disputeStepCodes.length>=4);
+    assert.ok(item.disputeStepCodes.every(x=>stepCodes.has(x)));
+    assert.equal(item.automaticAlertAllowed,false);
+  }
+  assert.throws(()=>linkedRjDisputeSteps('INEA'),/rj_unknown_linked_phenomenon/);
+});
+test('only compatible numeric station variables are eligible for an observed weighted average',()=>{
+  const t=buildRjMeteorologicalHomologationTables();
+  const by=Object.fromEntries(t.table1.map(row=>[row.id,row]));
+  for(const key of ['TEMPERATURA','VENTO','RAJADA','UMIDADE','CHUVA_ATUAL',
+    'CHUVA_ACUMULADA','PRESSAO_ATMOSFERICA']) {
+    assert.equal(by[key].applicableToWeightedObservation,true);
+    assert.ok(by[key].disputeStepCodes.includes('PONDERACAO_COMPATIVEL'));
+  }
+  for(const key of ['SENSACAO_TERMICA','TEMPORAL','TEMPESTADE','GRANIZO',
+    'SISMO','TSUNAMI','RESSACA','CICLONE_EXTRATROPICAL']) {
+    assert.equal(by[key].applicableToWeightedObservation,false);
+  }
+  assert.equal(by.SENSACAO_TERMICA.calculatedOnlyWithValidInputs,true);
+});
+test('five maritime source categories link the relevant Table 1 ocean phenomena and keep tsunami as official alert only',()=>{
+  const t=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
+  assert.equal(t.marineTable.length,5);
+  assert.equal(t.marineTable,RJ_METEO_MARINE_TABLE);
+  const by=Object.fromEntries(t.table1.map(row=>[row.id,row]));
+  for(const category of t.marineTable) {
+    assert.ok(category.phenomena.length>0);
+    for(const name of category.phenomena)
+      assert.ok(by[name].linkedMarineCategories.includes(category.code));
+  }
+  const sea=t.marineTable.find(x=>x.code==='ONDAS_SWELL');
+  assert.deepEqual(sea.sources,['MARINHA_CHM','NOAA','COPERNICUS_MARINE']);
+  const storm=t.marineTable.find(x=>x.code==='TEMPESTADES_ATLANTICO');
+  assert.ok(storm.sources.includes('EUMETSAT_SATELLITE'));
+  const tsunami=t.marineTable.find(x=>x.code==='TSUNAMI');
+  assert.deepEqual(tsunami.sources,['NOAA','MARINHA_CHM','AUTORIDADES_BRASILEIRAS']);
+  assert.equal(by.TSUNAMI.applicableToWeightedObservation,false);
+  assert.ok(by.TSUNAMI.disputeStepCodes.includes('MAR_SATELITE_ESPECIALIZADO'));
 });
 test('each of 92 RJ municipal selections produces source routes without fake city coverage',()=>{
   assert.equal(RJ_MUNICIPALITIES.length,92);
