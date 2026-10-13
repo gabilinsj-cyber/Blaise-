@@ -19,6 +19,10 @@ data class CityWeatherObservation(
     val maxAgeSeconds: Long,
     val windGustKmh: Double? = null,
     val hourlyRainMm: Double? = null,
+    // Only actual INMET station coordinates from the official catalog.
+    // No municipality centroid or geolocation may be inferred here.
+    val stationLatitude: Double? = null,
+    val stationLongitude: Double? = null,
 ) {
     fun current(now: Instant): Boolean = maxAgeSeconds in 1..7200 &&
         !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= maxAgeSeconds &&
@@ -28,7 +32,11 @@ data class CityWeatherObservation(
         (humidityPercent == null || humidityPercent.isFinite() && humidityPercent in 0.0..100.0) &&
         (windKmh == null || windKmh.isFinite() && windKmh in 0.0..400.0) &&
         (windGustKmh == null || windGustKmh.isFinite() && windGustKmh in 0.0..400.0) &&
-        (hourlyRainMm == null || hourlyRainMm.isFinite() && hourlyRainMm in 0.0..400.0)
+        (hourlyRainMm == null || hourlyRainMm.isFinite() && hourlyRainMm in 0.0..400.0) &&
+        ((stationLatitude == null && stationLongitude == null) ||
+            (stationLatitude != null && stationLongitude != null &&
+                stationLatitude.isFinite() && stationLatitude in -23.7..-20.4 &&
+                stationLongitude.isFinite() && stationLongitude in -45.5..-40.4))
 
     fun summary(now: Instant): String {
         if (!current(now)) return "Medição indisponível ou desatualizada."
