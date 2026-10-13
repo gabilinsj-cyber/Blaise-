@@ -72,6 +72,38 @@ class PublicRjOfficialStatusTest {
             .put("name","Other city")
         assertTrue(runCatching { PublicRjStatusParser.parse(invalid) }.isFailure)
     }
+    @Test fun acceptsBoundedCHMRegionalWarningsWithoutInventingMunicipalAlerts() {
+        val chm=JSONObject()
+            .put("sourceId","chm-marine")
+            .put("sourceUrl",
+                "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
+            .put("scope","METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL")
+            .put("fetchedAt",before)
+            .put("warningCount",1)
+            .put("municipalityGeofenceValidated",false)
+            .put("noWarningsDoesNotMeanSafe",true)
+            .put("warnings",JSONArray().put(JSONObject()
+                .put("id","321/2026").put("warningType","AVISO DE RESSACA")
+                .put("issuedAt",before).put("validUntil",after)
+                .put("areas",JSONArray().put("CHARLIE"))
+                .put("waveMinMeters",3.5).put("waveMaxMeters",4.2)
+                .put("waveDirection","SE")
+                .put("waveThresholdExceeded",true)
+                .put("officialRessacaLabel",true)
+                .put("municipalityGeofenceValidated",false)
+                .put("mayIssueMunicipalP0",false)))
+        val root=fixture().put("marine",chm)
+        val parsed=PublicRjStatusParser.parse(root)
+        assertNotNull(parsed.marine)
+        assertEquals(1,parsed.marine?.warnings?.size)
+        assertEquals(4.2,parsed.marine!!.warnings[0].waveMaxMeters!!,0.001)
+        assertTrue(parsed.marine!!.warnings[0].officialRessacaLabel)
+        assertTrue(parsed.marine!!.warnings[0].current(now))
+        val wrong=root.put("marine",JSONObject(chm.toString())
+            .put("municipalityGeofenceValidated",true))
+        assertTrue(runCatching { PublicRjStatusParser.parse(wrong) }.isFailure)
+    }
+
     @Test fun publicStatusClientRejectsHttpAndNeverNeedsPurchaseId() {
         assertNull(PublicRjStatusHttpsClient.create(""))
         assertNull(PublicRjStatusHttpsClient.create("http://example.test"))
