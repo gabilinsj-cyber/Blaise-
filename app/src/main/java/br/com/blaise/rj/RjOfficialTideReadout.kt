@@ -21,6 +21,17 @@ data class RjOfficialTideReadout(
 object RjOfficialTidePolicy {
     const val RIO_PORT_STATION = 40
     const val RIO_PORT_NAME = "PORTO DO RIO DE JANEIRO - I FISCAL"
+    // Station numbers from the pinned official RJ CHM catalogue test. The
+    // backend still validates station, year, signed source digest and delivery.
+    val rjStations = linkedMapOf(
+        38 to "Porto do Açu",
+        39 to "Terminal de Imbetiba",
+        40 to "Porto do Rio de Janeiro",
+        41 to "Porto de Itaguaí",
+        42 to "Porto do Forno",
+        43 to "Terminal da Ilha Guaíba",
+        44 to "Porto de Angra dos Reis",
+    )
     private val tz = ZoneId.of("America/Sao_Paulo")
     private val fmt = DateTimeFormatter.ofPattern("dd/MM HH:mm")
     private const val MAX_AGE = 86_400L
