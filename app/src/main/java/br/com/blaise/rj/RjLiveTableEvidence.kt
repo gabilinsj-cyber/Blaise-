@@ -27,6 +27,24 @@ object RjLiveTableEvidence {
     fun localTime(instant: Instant) =
         instant.atZone(brasilia).format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília)"
 
+    fun calculationCriteria(phenomenon: String): String = when(phenomenon) {
+        "TEMPERATURA","UMIDADE","VENTO","RAJADA","CHUVA_ATUAL",
+        "CHUVA_ACUMULADA","PRESSAO_ATMOSFERICA" ->
+            "Média: Σ(peso × medição)/Σ(pesos), apenas duas fontes independentes com mesma grandeza, janela e área; pesos comprovados. Senão, uma leitura pontual ou duas fontes identificadas."
+        "SENSACAO_TERMICA" ->
+            "Calcular sensação térmica com temperatura e umidade (Rothfusz no calor) ou temperatura e vento (vento-frio no frio), somente no domínio da fórmula. Nunca média de índices."
+        "CICLONE_EXTRATROPICAL","MASSA_AR","FRENTE_FRIA","CHUVA_ATLANTICO" ->
+            "Advecção x(t)=x₀+v×t, tendência da pressão e vento por grades/perfis temporais válidos; ETA é estimativa com incerteza e não afirma impacto."
+        "ONDAS","SWELL","RESSACA" ->
+            "Altura, período e direção com produto/boia compatível; velocidade/propagação por teoria de ondas somente com profundidade e período validados. Aviso CHM prevalece."
+        "MARE","CORRENTES_MARINHAS","TEMPERATURA_MAR" ->
+            "Produto marítimo espacial/temporal adequado; não misturar maré prevista, nível observado, corrente e temperatura do mar."
+        "TSUNAMI","SISMO" ->
+            "Não calcular média de magnitudes, alarmes ou avisos. Conferir autoridade marítima, rede sísmica e vigência oficial."
+        else ->
+            "Verificar fonte, município, área, horário e qualidade; cálculos físicos e alertas oficiais são processos separados."
+    }
+
     fun municipality(
         phenomenon: String,
         municipalityIbge: Int,
