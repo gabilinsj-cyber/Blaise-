@@ -38,6 +38,17 @@ object RjMeteorologicalTables {
     const val MARINE_COMPLEMENT = "Copernicus Marine: ondas, swell, marés, correntes e temperatura do mar"
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
+    // MUNICIPAL observation priority already enforced by the backend's
+    // rj-hierarchical-weather-resolution.mjs. This is separate from the
+    // research/product catalog below: OpenWeatherMap remains an OPTIONAL
+    // third complementary product for ten phenomena, not third official
+    // station and not a replacement for INMET in actual observed readings.
+    val operationalMunicipalSources = listOf(
+        "Alerta Rio (só município do Rio)", "Defesa Civil", "INMET",
+        "INPE/CPTEC (previsão)", "Windy (modelo se INPE inconclusivo)"
+    )
+    const val OPERATIONAL_CONSISTENCY =
+        "Hierarquia de medições municipais 3+2; produtos complementares e especializados não alteram o desempate oficial."
     val primaryTable1Sources = listOf(
         "Alerta Rio", "Defesa Civil RJ", "OpenWeatherMap (3ª consulta complementar)"
     )
@@ -154,6 +165,10 @@ object RjMeteorologicalTables {
 
     init {
         require(primaryTable1Sources.size == 3 && disputeTable2FiveSources.size == 5)
+        require(operationalMunicipalSources.size == 5 &&
+            operationalMunicipalSources[2] == "INMET" &&
+            operationalMunicipalSources[3].startsWith("INPE/CPTEC") &&
+            operationalMunicipalSources.last().startsWith("Windy"))
         require(disputeTable2FiveSources.take(2) == listOf("INPE/CPTEC", "INMET"))
         require(disputeTable2FiveSources.last() == "NOAA")
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
