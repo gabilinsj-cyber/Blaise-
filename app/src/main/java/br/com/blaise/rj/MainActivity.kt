@@ -461,6 +461,8 @@ private fun BlaiseDashboard(
                             "Alertas" -> AlertsScreen(city1, city2)
                             "Trânsito" -> TrafficScreen()
                             "Mar e Ondas" -> MarineScreen()
+                            "Tabela 1" -> RjMeteorologicalTablesPanel(initialSelection = 1)
+                            "Tabela 2" -> RjMeteorologicalTablesPanel(initialSelection = 2)
                             "Qualidade do Ar" -> AirQualityScreen()
                             "Notícias" -> NewsScreen()
                             "Histórico" -> HistoryScreen(city1, city2)
@@ -1025,6 +1027,35 @@ private fun HomeScreen(
     }
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+    Spacer(Modifier.height(8.dp))
+    RjMeteoQuickAccess(onNavigate)
+}
+
+@Composable
+private fun RjMeteoQuickAccess(onNavigate: (String) -> Unit) {
+    DashboardSection(
+        title = "TABELAS E FONTES • BLAISE V6 RJ",
+        subtitle = "30 fenômenos • comparação e dados do mar",
+        modifier = Modifier.fillMaxWidth().testTag("rj-table-quick-access"),
+    ) {
+        Text("Consulte a hierarquia, o desempate e as fontes oceanográficas; " +
+            "o cadastro não comprova medição atual de cada canal.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf(
+                Triple("Tabela 1", "Tabela 1", "open-rj-table1"),
+                Triple("Tabela 2", "Tabela 2", "open-rj-table2"),
+                Triple("Mar", "Mar e Ondas", "open-rj-marine"),
+            ).forEach { (label, section, tag) ->
+                OutlinedButton(
+                    onClick = { onNavigate(section) },
+                    modifier = Modifier.weight(1f).testTag(tag),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
 }
 @Composable
 private fun CompactServicesRow(onNavigate: (String) -> Unit) {
@@ -1929,8 +1960,8 @@ private fun MoreScreen(
 
 /** Tables of registered source priorities; they make no live-data claims. */
 @Composable
-private fun RjMeteorologicalTablesPanel() {
-    var selected by remember { mutableStateOf(1) }
+private fun RjMeteorologicalTablesPanel(initialSelection: Int = 1) {
+    var selected by remember(initialSelection) { mutableStateOf(initialSelection) }
     DashboardSection(
         title = "MATRIZ METEOROLÓGICA • BLAISE V6 RJ",
         subtitle = RjMeteorologicalTables.ID,
