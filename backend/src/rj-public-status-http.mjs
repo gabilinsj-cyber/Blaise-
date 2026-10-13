@@ -81,6 +81,15 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
       id:s.id,name:s.name,state:s.state,
       connectedProduct:s.connectedProduct,scope:s.scope,
     }));
+  // A fresh CHM regional warning inventory is itself an official public
+  // product. It must not be hidden just because both municipal collectors are
+  // temporarily stale. It does not establish absence of marine danger.
+  const marine=projectRjPublicMarineWarnings(worker,nowMillis);
+  if(marine) sourceSummaries.push(Object.freeze({
+    id:'chm-marine',name:'Marinha / CHM',
+    state:'CURRENT',connectedProduct:'inventario-avisos-maritimos',
+    scope:'METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL',
+  }));
   const active=sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state));
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
@@ -114,7 +123,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     usableOfficialProducts:active,
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
-    marine:projectRjPublicMarineWarnings(worker,nowMillis),
+    marine,
     sources:Object.freeze(sourceSummaries),
     thirdPartyImagesIncluded:false,
     subscriberDataIncluded:false,

@@ -200,3 +200,44 @@ export function projectRjInmetOnOwnMap(readingResult,{now=Date.now()}={}) {
     });
   return prepareOwnMapObservationLayer({observations,now,maxAgeMs:7_200_000});
 }
+
+/**
+ * Bridge the exact same authorized INMET station product into the newer
+ * Table 1 / Table 2 dispute calculator. The original adapter gates the
+ * network independently on enabled AND approved product usage; this bridge
+ * does not grant usage rights, does not fetch twice or create a second source.
+ *
+ * INMET is an observed Table 2 provider, never a replacement for Alerta Rio
+ * or a fake station in a municipality that has no exact INMET match.
+ */
+export function createRjTable12InmetLiveAdapter(options={}) {
+  const original=createRjInmetLiveAdapters(options).INMET_STATION;
+  return Object.freeze({
+    INMET_STATION: async ({ibge,variable,now}={})=>{
+      const candidate=await original({ibge,variable,now});
+      const accepted=candidate?.contract===RJ_INMET_LIVE_ADAPTER_CONTRACT
+        &&candidate.status==='VALIDATED_RECENT_OFFICIAL_STATION_READING'
+        &&candidate.sourceId==='INMET_STATION'
+        &&Array.isArray(candidate.observations)
+        &&candidate.observations.length===1
+        &&candidate.observations[0]?.sourceId==='INMET_STATION'
+        &&candidate.observations[0]?.origin==='OFFICIAL_OBSERVATION'
+        &&candidate.observations[0]?.sourceUrl?.startsWith(
+          'https://apitempo.inmet.gov.br/estacao/')
+        &&String(candidate.observations[0]?.ibge)===String(ibge)
+        &&candidate.observations[0]?.variable===variable;
+      return Object.freeze({
+        contract:'BLAISE_RJ_TABLE12_INMET_AUTHORIZED_BRIDGE_V1',
+        status:accepted?'VALIDATED_STATION_READINGS':'NO_AUTHORIZED_CURRENT_STATION',
+        sourceId:'INMET_STATION',
+        observations:Object.freeze(accepted?candidate.observations.map(o=>Object.freeze({
+          ...o,usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+          independentStationOrigin:'INMET_AUTOMATIC_OBSERVATION_NOT_FORECAST',
+        })):[]),
+        forecasts:Object.freeze([]),
+        automaticAlertAuthorized:false,
+        mayClaimMunicipalAverage:false,
+      });
+    },
+  });
+}

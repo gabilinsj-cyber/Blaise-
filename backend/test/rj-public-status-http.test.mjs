@@ -123,6 +123,57 @@ test('fresh CHM warnings expose regional facts and waves, never municipal P0',()
   assert.equal(buildRjPublicStatusSnapshot(staleWorker,{nowMillis:now}).marine,null);
 });
 
+test('fresh CHM bulletin alone remains publicly available when INMET and CEMADEN are stale',async()=>{
+  const baseline=worker({stale:true});
+  const official={
+    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+    snapshot:{
+      sourceId:'chm-marine',
+      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
+      warnings:[{
+        id:'410/2026',warningType:'AVISO DE VENTO FORTE',
+        issuedAt:stamp,validUntil:until,
+        rjRouting:{
+          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
+          canPromoteMunicipalityP0:false,directRjAreas:['DELTA'],
+          marineSignal:{explicitWaveHeight:false,officialRessacaLabel:false},
+        },
+      }],
+    },
+  };
+  const marineOnly={
+    status:()=>baseline.status(),
+    readSource:id=>id==='chm-marine-warnings'?official:baseline.readSource(id),
+  };
+  const projection=buildRjPublicStatusSnapshot(marineOnly,{nowMillis:now});
+  assert.equal(projection.usableOfficialProducts,true);
+  assert.equal(projection.marine.warningCount,1);
+  assert.equal(projection.marine.warnings[0].mayIssueMunicipalP0,false);
+  assert.equal(projection.sources.find(s=>s.id==='chm-marine').state,'CURRENT');
+  assert.ok(projection.municipalities.every(m=>m.risk===null));
+  assert.equal(projection.warnings.length,0);
+  const response=fakeResponse();
+  const handler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,sourceWorker:marineOnly,clock:()=>now,
+  });
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},response);
+  assert.equal(response.statusCode,200);
+  assert.equal(response.body.marine.warnings[0].id,'410/2026');
+  assert.equal(response.body.usableOfficialProducts,true);
+  // Expired maritime cache plus stale municipal products still fails closed.
+  const past={...official,fetchedAt:new Date(now-31*60_000).toISOString()};
+  const expiredWorker={
+    ...marineOnly,
+    readSource:id=>id==='chm-marine-warnings'?past:baseline.readSource(id),
+  };
+  const expiredResponse=fakeResponse();
+  const expiredHandler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,sourceWorker:expiredWorker,clock:()=>now,
+  });
+  await expiredHandler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},expiredResponse);
+  assert.equal(expiredResponse.statusCode,503);
+});
+
 test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{
   const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
   assert.equal(result.marine,null);
