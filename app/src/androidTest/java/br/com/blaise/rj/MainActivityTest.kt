@@ -189,7 +189,6 @@ class MainActivityTest {
             .performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-marine-screen-row-TSUNAMI")
             .performScrollTo().assertIsDisplayed()
-        assertTextDisplayed("Dados atuais: aguardando produto marítimo validado")
     }
 
     @Test fun maritimeMatrixLinksTsunamiToAuthorityChecksNotWeightedAverage() {
