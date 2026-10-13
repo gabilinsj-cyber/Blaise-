@@ -3,6 +3,13 @@ name: Android Runtime
 on:
   push:
     branches: [main]
+  pull_request:
+    paths:
+      - 'scripts/runtime-smoke.sh'
+      - 'scripts/runtime-adb-retry.sh'
+      - 'app/src/main/java/br/com/blaise/rj/alerts/AlertNotifier.kt'
+      - 'app/src/debug/java/br/com/blaise/rj/debug/RuntimeDebugReceiver.kt'
+      - '.github/workflows/android-runtime.yml'
   workflow_dispatch:
 
 permissions:
