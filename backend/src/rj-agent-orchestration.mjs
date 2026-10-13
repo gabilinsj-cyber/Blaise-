@@ -7,6 +7,7 @@ import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
+import { consultRjTwoTableSources, RJ_TWO_TABLE_VERSION } from './rj-two-table-weighted-consensus.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -135,4 +136,36 @@ export function createRjWeatherSourceExecutor({
   const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
   return async ({ibge,variable,level=1,now=clock()}={})=>
     reconcileRjWeatherCase({ibge,variable,level,adapters,now});
+}
+
+/**
+ * Explicit two-table consultation entrypoint for Blaise Sentinel (sources),
+ * Fusion (independence/compatibility), Vector (weighted calculation) and
+ * Audit (provenance). This is called only when actual approved adapters
+ * are supplied; it does not start a 24/7 polling service or issue warnings.
+ */
+export async function reconcileRjTwoTableWeatherCase({
+  ibge,phenomenon,level=1,adapters={},now=Date.now(),
+}={}) {
+  const plan=planRjPhenomenonCase({ibge,phenomenon,level});
+  const resolved=await consultRjTwoTableSources({
+    ibge,phenomenon,adapters,now,
+  });
+  return Object.freeze({
+    ...plan,
+    reconciliationVersion:RJ_TWO_TABLE_VERSION,
+    sourceStatus:resolved.status,
+    table1Sources:resolved.table1Readings ?? Object.freeze([]),
+    table2Sources:resolved.table2Readings ?? Object.freeze([]),
+    displayedPair:resolved.usedSources,
+    weightedValue:resolved.weightedValue,
+    weightedSourceCount:resolved.weightedSourceCount,
+    estimateKind:resolved.estimateKind,
+    calculationAgents:Object.freeze([1,3,2,8]),
+    latestVerifiedResult:resolved,
+    liveFeedState:'REQUIRES_SOURCE_SPECIFIC_APPROVED_ADAPTERS',
+    audibleAlert:false,
+    publishersTriggered:false,
+    purchasesTriggered:false,
+  });
 }

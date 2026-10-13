@@ -16,6 +16,16 @@ Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializ
 
 **Situação de validação:** o cadastro anterior continha **25 categorias**. Cinco categorias adicionais foram registradas para atingir **30 no código** (`CHUVA_ATUAL`, `MARE`, `SWELL`, `CORRENTES_MARINHAS`, `TEMPERATURA_MAR`), com **cinco novas verificações de desempate** na interface (treze critérios ao todo). Esta é uma reconciliação técnica com os requisitos recuperados; **as duas capturas apresentadas exibem somente os dez primeiros fenômenos e o quadro marítimo**, logo não comprovam que estes sejam exatamente os dois itens adicionais da tabela original de 28. Não declarar correspondência histórica exata sem a tabela integral.
 
+### Regra operacional de cálculo, 12/10 — Tabela 1 antes da Tabela 2
+
+A **Tabela 1** possui prioridades **P1 conjuntas: Alerta Rio + Defesa Civil RJ** (Alerta Rio apenas no município do Rio), com **OpenWeatherMap como terceiro complemento**, quando houver produto com direitos de uso e dados válidos. As fontes P1 recebem a mesma prioridade institucional; sua ordem de consulta é operacional, não altera autoridade oficial de avisos.
+
+Na presença de divergência, após tentar o par P1, consultar a **Tabela 2** em ordem de avaliação: **INPE/CPTEC → INMET → CEMADEN → Windy → NOAA**. **Apenas uma fonte elegível da Tabela 2 concordando com uma fonte da Tabela 1 é suficiente**; usar exatamente **dois registros** na média ponderada, com pesos auditados, unidades, tempo, coordenadas, intervalo e origem independente. Nunca fazer média de três ou mais, nem exigir concordância de todas as cinco fontes da Tabela 2.
+
+**Média de duas observações oficiais** produz estimativa local derivada; **média de dois modelos independentes e calibrados** produz previsão derivada, não medição oficial. Quando a fonte da Tabela 2 for **modelo/previsão (INPE, Windy ou NOAA por produto)** e a da Tabela 1 for uma medição, apresentar **duas leituras de naturezas diferentes, sem combiná-las como medição ponderada**. OpenWeatherMap também não conta como outra estação oficial só porque está disponível publicamente. Não contar informação republicada duas vezes (Alerta Rio reenviado por Defesa Civil, por exemplo). Sensação térmica deve ser calculada fisicamente; temporais e granizo não têm categoria numérica que possa ser promediada.
+
+**Fontes marítimas especializadas** (Marinha, NOAA, Copernicus Marine, EUMETSAT) mantêm sua própria classificação por fenômeno; sismo/tsunami e avisos oficiais não entram nessa média meteorológica genérica. A matriz abaixo continua sendo de **fontes potenciais**, não prova de integrações vivas. A rotina `consultRjTwoTableSources` fica em `backend/src/rj-two-table-weighted-consensus.mjs` e as verificações estão em `backend/test/rj-two-table-weighted-consensus.test.mjs`.
+
 ### Tabela 1, itens 1–10 — prioridade P1 e terceiro complemento OpenWeatherMap
 
 | Fenômeno | Prioridade P1 (por disponibilidade do produto) | Terceiro complemento |

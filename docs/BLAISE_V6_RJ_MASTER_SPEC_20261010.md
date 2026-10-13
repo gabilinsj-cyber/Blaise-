@@ -55,6 +55,16 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 
 **Classificação obrigatória das saídas:** `MEDICAO_OFICIAL`, `CALCULO_EXPERIMENTAL_BLAISE` ou `INFORMACAO_INDISPONIVEL`. Cálculo jamais substitui fonte oficial e **não aciona alerta P0** por si só.
 
+## Revisão 12/10/2026 — consulta Tabela 1 → Tabela 2, somente DUAS fontes no cálculo
+
+**Conforme as tabelas aprovadas:** Tabela 1 para os dez fenômenos locais (temperatura, sensação térmica, chuva atual/acumulada, chuva intensa/temporal, vento, rajada, pressão, umidade, granizo): **Alerta Rio + Defesa Civil RJ P1 conjunta**, com **OpenWeatherMap** como **terceira fonte complementar**. Alerta Rio é restrito à cidade do Rio; nenhum dado seu é atribuído automaticamente aos outros 91 municípios.
+
+Se não for possível validar um par P1 comparável, consultar a **Tabela 2** na ordem indicada: **INPE/CPTEC → INMET → CEMADEN → Windy → NOAA**; um único produto elegível da Tabela 2 que concorde com uma fonte da Tabela 1 **é suficiente para produzir um par**. A média usa **EXATAMENTE DOIS valores** de provedores independentes, com mesmo fenômeno/unidade/local/intervalo/horário, origem não republicada e pesos tecnicamente justificados. O terceiro complemento OpenWeatherMap não é uma autoridade de alerta. Não exigir concordância simultânea de todos os integrantes da Tabela 2.
+
+**Tipos de entrada importam:** duas observações oficiais verificáveis podem formar uma **estimativa ponderada local**; dois modelos independentes com pesos de habilidade histórica auditados formam somente **média ponderada de previsão**. Quando a aproximação ocorre entre **medição oficial + INPE/Windy/NOAA/OpenWeather como previsão**, apresentar os dois valores separados (medição e previsão), **sem dizer que a média é uma medição oficial**. Se não houver par validado, exibir as evidências que existirem e não criar valor fictício. **Sensação térmica exige cálculo físico**, **granizo e nível de temporal não são números para média**, e qualquer cálculo experimental fica impedido de ativar alerta sonoro/P0 sozinho.
+
+Código: `backend/src/rj-phenomenon-source-policy.mjs` (`rjTwoTableRouting`), `backend/src/rj-two-table-weighted-consensus.mjs` (`consultRjTwoTableSources`) e `backend/src/rj-agent-orchestration.mjs` (`reconcileRjTwoTableWeatherCase`). Não comprova ingestão ao vivo nem direitos de uso comercial das fontes nomeadas; integrar as APIs somente após verificação individual.
+
 ## Cinco fontes meteorológicas situacionais e conferência por INPE/CPTEC
 
 **Cinco fontes principais por situação:** **Alerta Rio** (exclusivamente município do Rio), **Defesa Civil regional**, **INMET** (avisos e medições de estações), **Windy** (visualização/comparação de modelos) e **INPE/CPTEC** (produtos meteorológicos oficiais de previsão e satélite). As demais fontes especializadas ANA, CEMADEN, SGB/SACE, Marinha, NOAA e USGS permanecem conforme fenômeno e competência. INEA continua excluído.

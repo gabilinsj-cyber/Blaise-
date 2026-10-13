@@ -164,6 +164,28 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun homeQuickAccessOpensBothTablesAndMarineSourceCatalog() {
+        rule.onNodeWithTag("open-rj-table1").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-table1-source-1").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-table1-source-3").performScrollTo().assertIsDisplayed()
+
+        rule.onNodeWithTag("nav-Início").performScrollTo().performClick()
+        rule.onNodeWithTag("open-rj-table2").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-table2-source-1").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-table2-source-5").performScrollTo().assertIsDisplayed()
+
+        rule.onNodeWithTag("nav-Início").performScrollTo().performClick()
+        rule.onNodeWithTag("open-rj-marine").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-source-viewers").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-viewer-MARINHA_CHM").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-viewer-NOAA").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-viewer-COPERNICUS_MY_OCEAN").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-viewer-EUMETSAT").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-source-viewer-not-live").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
         rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()
         assertTextDisplayed("Cidades: desenho próprio do Blaise, limites de base cartográfica aberta dos 92 municípios; sem chuva ou radar simulados.")

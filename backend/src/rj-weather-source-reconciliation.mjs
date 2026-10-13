@@ -18,7 +18,7 @@ const OFFICIAL_OBSERVERS = new Set([
   'INMET','INMET_STATION','ALERTA_RIO','CEMADEN','CEMADEN_RJ',
   'DEFESA_CIVIL','DEFESA_CIVIL_RJ_REGIONAL','MARINHA_CHM',
 ]);
-const FORECAST_PROVIDERS = new Set(['INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']);
+const FORECAST_PROVIDERS = new Set(['INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO','OPENWEATHERMAP_API']);
 const THRESHOLDS = Object.freeze({
   TEMPERATURA_C: {unit:'°C',maxDifference:2.0,minimum:-30,maximum:60},
   VENTO_KMH: {unit:'km/h',maxDifference:12,minimum:0,maximum:400},

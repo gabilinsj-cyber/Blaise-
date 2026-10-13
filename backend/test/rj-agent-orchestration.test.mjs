@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
-import { planRjPhenomenonCase, reconcileRjWeatherCase } from '../src/rj-agent-orchestration.mjs';
+import { planRjPhenomenonCase, reconcileRjWeatherCase, reconcileRjTwoTableWeatherCase } from '../src/rj-agent-orchestration.mjs';
 
 test('all 92 municipalities receive policy routing, never fabricated live data',()=>{
   assert.equal(RJ_MUNICIPALITIES.length,92);
@@ -120,4 +120,34 @@ test('no installed source adapter gives no weather value rather than an invented
   assert.equal(r.verifiedSourceCount,0);
   assert.equal(r.sourceStatus,'NO_VERIFIABLE_SOURCE_VALUE');
   assert.equal(r.publishersTriggered,false);
+});
+
+test('two-table policy invokes Blaise Sentinel/Fusion/Vector with only two validated inputs',async()=>{
+  const now=Date.parse('2026-10-12T18:00:00Z');
+  const data=(sourceId,stationId,value)=>({
+    sourceId,type:'OBSERVATION',origin:'OFFICIAL_OBSERVATION',
+    ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',value,
+    weight:1,weightBasis:'DOCUMENTED_STATION_QC',
+    originOrganization:sourceId,originObservationId:sourceId+'-1745',
+    stationId,observedAt:'2026-10-12T17:45:00Z',
+    latitude:-22.9,longitude:-43.2,
+    sourceUrl:'https://example.org/valid-example',
+    usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+  });
+  const r=await reconcileRjTwoTableWeatherCase({
+    ibge:'3304557',phenomenon:'TEMPERATURA',level:2,now,
+    adapters:{
+      ALERTA_RIO:async()=>({observations:[data('ALERTA_RIO','AR-1',24)]}),
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[data('DEFESA_CIVIL_RJ_REGIONAL','DC-1',34)]}),
+      INMET_STATION:async()=>({observations:[data('INMET_STATION','IN-1',25)]}),
+    },
+  });
+  assert.equal(r.weightedSourceCount,2);
+  assert.equal(r.weightedValue,24.5);
+  assert.deepEqual(r.displayedPair.map(x=>x.sourceId),['ALERTA_RIO','INMET_STATION']);
+  assert.deepEqual(r.calculationAgents,[1,3,2,8]);
+  assert.equal(r.sourceStatus,'TWO_COMPATIBLE_OFFICIAL_OBSERVATIONS');
+  assert.equal(r.publishersTriggered,false);
+  assert.equal(r.audibleAlert,false);
+  assert.equal(r.liveFeedState,'REQUIRES_SOURCE_SPECIFIC_APPROVED_ADAPTERS');
 });

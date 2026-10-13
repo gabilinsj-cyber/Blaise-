@@ -95,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -460,6 +461,8 @@ private fun BlaiseDashboard(
                             "Alertas" -> AlertsScreen(city1, city2)
                             "Trânsito" -> TrafficScreen()
                             "Mar e Ondas" -> MarineScreen()
+                            "Tabela 1" -> RjMeteorologicalTablesPanel(initialSelection = 1)
+                            "Tabela 2" -> RjMeteorologicalTablesPanel(initialSelection = 2)
                             "Qualidade do Ar" -> AirQualityScreen()
                             "Notícias" -> NewsScreen()
                             "Histórico" -> HistoryScreen(city1, city2)
@@ -1024,6 +1027,35 @@ private fun HomeScreen(
     }
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
+    Spacer(Modifier.height(8.dp))
+    RjMeteoQuickAccess(onNavigate)
+}
+
+@Composable
+private fun RjMeteoQuickAccess(onNavigate: (String) -> Unit) {
+    DashboardSection(
+        title = "TABELAS E FONTES • BLAISE V6 RJ",
+        subtitle = "30 fenômenos • comparação e dados do mar",
+        modifier = Modifier.fillMaxWidth().testTag("rj-table-quick-access"),
+    ) {
+        Text("Consulte a hierarquia, o desempate e as fontes oceanográficas; " +
+            "o cadastro não comprova medição atual de cada canal.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            listOf(
+                Triple("Tabela 1", "Tabela 1", "open-rj-table1"),
+                Triple("Tabela 2", "Tabela 2", "open-rj-table2"),
+                Triple("Mar", "Mar e Ondas", "open-rj-marine"),
+            ).forEach { (label, section, tag) ->
+                OutlinedButton(
+                    onClick = { onNavigate(section) },
+                    modifier = Modifier.weight(1f).testTag(tag),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
 }
 @Composable
 private fun CompactServicesRow(onNavigate: (String) -> Unit) {
@@ -1804,6 +1836,12 @@ private fun TrafficScreen() {
 @Composable
 private fun MarineScreen() {
     MarinePanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(10.dp))
+    RjSourceViewersSection(
+        "FONTES E DADOS MARÍTIMOS • ATLÂNTICO RJ",
+        FinalDashboardSpec.marineSourceViewers,
+        Modifier.fillMaxWidth().testTag("rj-marine-source-viewers"),
+    )
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
@@ -1911,13 +1949,19 @@ private fun MoreScreen(
     Spacer(Modifier.height(10.dp))
     RjMeteorologicalTablesPanel()
     Spacer(Modifier.height(10.dp))
+    RjSourceViewersSection(
+        "FONTES COMPLEMENTARES • METEOROLOGIA RJ",
+        FinalDashboardSpec.meteorologicalSourceViewers,
+        Modifier.fillMaxWidth().testTag("rj-meteorological-source-viewers"),
+    )
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
 
 /** Tables of registered source priorities; they make no live-data claims. */
 @Composable
-private fun RjMeteorologicalTablesPanel() {
-    var selected by remember { mutableStateOf(1) }
+private fun RjMeteorologicalTablesPanel(initialSelection: Int = 1) {
+    var selected by remember(initialSelection) { mutableStateOf(initialSelection) }
     DashboardSection(
         title = "MATRIZ METEOROLÓGICA • BLAISE V6 RJ",
         subtitle = RjMeteorologicalTables.ID,
@@ -1956,6 +2000,13 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
+            Text("P1 conjunta no município do Rio; OpenWeatherMap é complemento e não substitui observação oficial.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            FinalDashboardSpec.table1PrincipalSources.forEachIndexed { i, source ->
+                Text("${i + 1} • ${source}", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-table1-source-${i + 1}"))
+            }
             Text("Ordem oficial municipal: Alerta Rio (apenas cidade do Rio) → " +
                 "Defesa Civil → INMET. Primeiro desempate: INPE/CPTEC; " +
                 "Windy somente se persistir a divergência. " +
@@ -1994,6 +2045,13 @@ private fun RjMeteorologicalTablesPanel() {
             Text("TABELA 2 • Desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
+            Text("Consultar conforme produto/localidade; previsão e medição permanecem diferentes.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            FinalDashboardSpec.table2DisputeSources.forEachIndexed { i, source ->
+                Text("${i + 1} • ${source}", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-table2-source-${i + 1}"))
+            }
             RjMeteorologicalTables.table2.forEach { item ->
                 Surface(
                     color = Panel,
@@ -2016,6 +2074,53 @@ private fun RjMeteorologicalTablesPanel() {
         Text("INEA excluído. Este cadastro não comprova coleta ativa das fontes complementares, " +
             "licença comercial, cobertura dos 92 municípios ou operação meteorológica contínua.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/**
+ * Opens the actual provider website only after a user tap.
+ * A link is NOT a live API adapter, redistribution licence, or observation.
+ */
+@Composable
+private fun RjSourceViewersSection(
+    title: String,
+    sources: List<RjSourceViewer>,
+    modifier: Modifier = Modifier,
+) {
+    val uriHandler = LocalUriHandler.current
+    var failedLink by remember { mutableStateOf<String?>(null) }
+    DashboardSection(
+        title = title,
+        subtitle = "Consulta externa • sem importar imagens de outros mapas",
+        modifier = modifier,
+    ) {
+        sources.forEach { source ->
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("rj-viewer-${source.sourceId}"),
+                onClick = {
+                    runCatching { uriHandler.openUri(source.url) }
+                        .onFailure { failedLink = source.title }
+                },
+            ) {
+                Column(Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("${source.title} ↗", color = Gold,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text(source.purpose, color = Color.White,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        Text("Esses links abrem os portais das fontes. Não representam " +
+            "leituras recebidas, licença de redistribuição ou coleta automática.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-source-viewer-not-live"))
+        failedLink?.let {
+            Text("Não foi possível abrir ${it} neste aparelho.",
+                color = AlertRed, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
