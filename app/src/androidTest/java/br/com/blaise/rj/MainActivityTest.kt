@@ -176,6 +176,22 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun marineSectionDisplaysIndependentSourceAndDataTableWithFiveRows() {
+        rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-screen-table").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-screen-row-CICLONES_OCEANICOS")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-screen-row-TEMPESTADES_ATLANTICO")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-screen-row-ONDAS_SWELL")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-screen-row-RESSACA_LITORAL")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-screen-row-TSUNAMI")
+            .performScrollTo().assertIsDisplayed()
+        assertTextDisplayed("Dados atuais: aguardando produto marítimo validado")
+    }
+
     @Test fun maritimeMatrixLinksTsunamiToAuthorityChecksNotWeightedAverage() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-table-3-tab").performScrollTo().performClick()
