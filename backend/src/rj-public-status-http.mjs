@@ -1,8 +1,69 @@
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
+import { CHM_WARNINGS_TASK_ID } from './official-source-worker.mjs';
+import { CHM_SOURCE_ID, CHM_WARNINGS_URL } from './chm-source.mjs';
 
 export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
 export const RJ_PUBLIC_STATUS_MAX_BYTES = 80 * 1024;
+
+const MARINE_FRESH_MS = 30 * 60_000;
+const MARINE_MAX_WARNINGS = 16;
+/** Regional METAREA V is not a coastal municipality polygon. */
+export function projectRjPublicMarineWarnings(worker, nowMillis) {
+  let feed;
+  try { feed=worker.readSource(CHM_WARNINGS_TASK_ID); }
+  catch { return null; }
+  if(!feed || !['CURRENT','CURRENT_DEGRADED'].includes(feed.state)
+    || !feed.snapshot || feed.snapshot.sourceId!==CHM_SOURCE_ID
+    || feed.snapshot.sourceUrl!==CHM_WARNINGS_URL) return null;
+  const fetched=Date.parse(feed.fetchedAt);
+  if(!Number.isFinite(fetched)||fetched>nowMillis||nowMillis-fetched>MARINE_FRESH_MS)
+    return null;
+  const warnings=feed.snapshot.warnings;
+  if(!Array.isArray(warnings) || warnings.length>64)return null;
+  const current=warnings.filter(w=>{
+    const issued=Date.parse(w?.issuedAt),validUntil=Date.parse(w?.validUntil);
+    return w?.rjRouting?.route==='RJ_MARINE_REGIONAL'
+      && w.rjRouting.canExposeRjMarineWarning===true
+      && w.rjRouting.canPromoteMunicipalityP0===false
+      && Number.isFinite(issued)&&issued<=nowMillis
+      && Number.isFinite(validUntil)&&validUntil>nowMillis
+      && typeof w.id==='string'&&/^\d{1,4}\/\d{4}$/.test(w.id)
+      && typeof w.warningType==='string'&&w.warningType.length<=96
+      && Array.isArray(w.rjRouting.directRjAreas);
+  });
+  if(current.length>MARINE_MAX_WARNINGS) return null;
+  return Object.freeze({
+    sourceId:CHM_SOURCE_ID,sourceUrl:CHM_WARNINGS_URL,
+    fetchedAt:feed.fetchedAt,scope:'METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL',
+    warningCount:current.length,
+    warnings:Object.freeze(current.map(w=>{
+      const signal=w.rjRouting.marineSignal;
+      const hasWave=signal?.explicitWaveHeight===true
+        && Number.isFinite(signal.waveMinMeters)
+        && Number.isFinite(signal.waveMaxMeters)
+        && signal.waveMinMeters>0&&signal.waveMaxMeters<=30
+        && signal.waveMinMeters<=signal.waveMaxMeters;
+      return Object.freeze({
+        id:w.id,warningType:w.warningType,issuedAt:w.issuedAt,
+        validUntil:w.validUntil,
+        areas:Object.freeze(w.rjRouting.directRjAreas.filter(area=>
+          typeof area==='string'&&area.length<=48)),
+        waveMinMeters:hasWave?signal.waveMinMeters:null,
+        waveMaxMeters:hasWave?signal.waveMaxMeters:null,
+        waveDirection:hasWave?signal.waveDirection:null,
+        officialRessacaLabel:signal?.officialRessacaLabel===true,
+        // The marine wave threshold is a contextual value, not an
+        // independent coastal ressaca declaration or municipal warning.
+        waveThresholdExceeded:hasWave?signal.waveHeightThresholdExceeded:null,
+        municipalityGeofenceValidated:false,
+        mayIssueMunicipalP0:false,
+      });
+    })),
+    noWarningsDoesNotMeanSafe:true,municipalityGeofenceValidated:false,
+  });
+}
+
 
 // Public safety notices are not tied to purchases. Source/content publication
 // must still be explicitly approved by the operator for its licensing terms.
@@ -53,6 +114,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     usableOfficialProducts:active,
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
+    marine:projectRjPublicMarineWarnings(worker,nowMillis),
     sources:Object.freeze(sourceSummaries),
     thirdPartyImagesIncluded:false,
     subscriberDataIncluded:false,

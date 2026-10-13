@@ -41,10 +41,46 @@ data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
     val warningIds: List<String>, val warningCoverage: String,
 )
+/**
+ * An official CHM warning for a REGION of METAREA V, never a mapped RJ
+ * municipality. Warnings must not be converted into automatic local P0.
+ */
+data class PublicRjMarineWarning(
+    val id: String,
+    val warningType: String,
+    val issuedAt: Instant,
+    val validUntil: Instant,
+    val areas: List<String>,
+    val waveMinMeters: Double?,
+    val waveMaxMeters: Double?,
+    val waveDirection: String?,
+    val officialRessacaLabel: Boolean,
+) {
+    fun current(now: Instant): Boolean =
+        id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
+        !issuedAt.isAfter(now) && validUntil.isAfter(now) &&
+        areas.isNotEmpty() && areas.all { it.isNotBlank() } &&
+        (waveMinMeters == null && waveMaxMeters == null ||
+            waveMinMeters != null && waveMaxMeters != null &&
+            waveMinMeters.isFinite() && waveMaxMeters.isFinite() &&
+            waveMinMeters > 0.0 && waveMinMeters <= waveMaxMeters && waveMaxMeters <= 30.0)
+}
+
+data class PublicRjMarine(
+    val fetchedAt: Instant,
+    val sourceUrl: String,
+    val warnings: List<PublicRjMarineWarning>,
+) {
+    fun current(now: Instant): Boolean =
+        sourceUrl == "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo" &&
+        !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..1800
+}
+
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
     val warnings: List<PublicRjWarning>,
+    val marine: PublicRjMarine? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -55,6 +91,8 @@ data class PublicRjStatus(
         require(municipalities.all { city -> city.warningIds.all { id ->
             warnings.any { warning -> warning.id == id && city.ibge in warning.municipalityIbges }
         } })
+        require(marine == null || marine.warnings.size <= 16 &&
+            marine.warnings.map { it.id }.distinct().size == marine.warnings.size)
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) &&
         Duration.between(generatedAt, now).seconds in 0..120
@@ -107,7 +145,50 @@ object PublicRjStatusParser {
                 (0 until codes.length()).map { codes.getString(it).toInt() },
                 item.getString("sourceUrl"))
         }
-        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings)
+        // Older public-status deployments are backwards compatible and have
+        // no marine object. Do not synthesize a warning from an empty feed.
+        val marine = root.optJSONObject("marine")?.let { sea ->
+            require(sea.getString("sourceId") == "chm-marine")
+            require(sea.getString("scope") == "METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL")
+            require(!sea.getBoolean("municipalityGeofenceValidated"))
+            require(sea.getBoolean("noWarningsDoesNotMeanSafe"))
+            val waveList = sea.getJSONArray("warnings")
+            require(waveList.length() <= 16 && sea.getInt("warningCount") == waveList.length())
+            val warningRows=(0 until waveList.length()).map { idx ->
+                val w=waveList.getJSONObject(idx)
+                require(!w.getBoolean("municipalityGeofenceValidated") &&
+                    !w.getBoolean("mayIssueMunicipalP0"))
+                val regionList=w.getJSONArray("areas")
+                require(regionList.length() in 1..8)
+                val areas=(0 until regionList.length()).map { regionIndex ->
+                    regionList.getString(regionIndex).also {
+                        require(it.isNotBlank() && it.length<=48)
+                    }
+                }
+                val hasWave=!w.isNull("waveMinMeters") && !w.isNull("waveMaxMeters")
+                val min=if(hasWave) w.getDouble("waveMinMeters") else null
+                val max=if(hasWave) w.getDouble("waveMaxMeters") else null
+                require((min == null && max == null) || (min != null && max != null &&
+                    min.isFinite() && max.isFinite() && min>0.0 && max>=min && max<=30.0))
+                val direction=if (w.isNull("waveDirection")) null else w.getString("waveDirection")
+                require((min==null)==(direction==null))
+                if(direction!=null) require(direction.matches(Regex("^[NSEW/]{1,7}$")))
+                val exceeded=if(w.isNull("waveThresholdExceeded")) null else w.getBoolean("waveThresholdExceeded")
+                require(exceeded==(max?.let { it>3.5 }))
+                PublicRjMarineWarning(
+                    w.getString("id"),w.getString("warningType"),
+                    Instant.parse(w.getString("issuedAt")),Instant.parse(w.getString("validUntil")),
+                    areas,min,max,direction,w.getBoolean("officialRessacaLabel"),
+                ).also { require(it.id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
+                    it.warningType.length in 3..96 && it.validUntil>it.issuedAt) }
+            }
+            PublicRjMarine(Instant.parse(sea.getString("fetchedAt")),
+                sea.getString("sourceUrl"),warningRows).also {
+                require(it.sourceUrl ==
+                    "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
+            }
+        }
+        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings,marine)
     }
 }
 

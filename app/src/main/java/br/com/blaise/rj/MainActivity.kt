@@ -464,6 +464,7 @@ private fun BlaiseDashboard(
                             "Notícias" -> NewsScreen()
                             "Histórico" -> HistoryScreen(city1, city2)
                             "Mais" -> MoreScreen(
+                                city = city1,
                                 powerOn = powerOn,
                                 silentMode = silentMode,
                                 onPowerChange = onPowerChange,
@@ -1823,6 +1824,9 @@ private fun MarineScreen() {
  */
 @Composable
 private fun RjMarineSourceMatrixPanel() {
+    val clock = LocalObservationClock.current
+    val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
         subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
@@ -1851,8 +1855,14 @@ private fun RjMarineSourceMatrixPanel() {
                         style = MaterialTheme.typography.labelSmall)
                     Text("Fenômenos vinculados: ${item.linkedPhenomena.joinToString(", ")}",
                         color = Muted, style = MaterialTheme.typography.labelSmall)
-                    Text("Dados atuais: aguardando produto marítimo validado",
-                        color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    val evidence=RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
+                    Text("Dados/avisos regionais: ${evidence.description}",
+                        color = if(evidence.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.testTag("rj-marine-current-${item.code}"))
+                    if(evidence.source!=null) Text("Fonte: ${evidence.source} • " +
+                        (evidence.observedAt?.let(RjLiveTableEvidence::localTime) ?: "horário pendente"),
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -1913,6 +1923,7 @@ private fun HistoryScreen(city1: City, city2: City) {
 
 @Composable
 private fun MoreScreen(
+    city: City,
     powerOn: Boolean,
     silentMode: Boolean,
     onPowerChange: (Boolean) -> Unit,
@@ -1956,14 +1967,19 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
-    RjMeteorologicalTablesPanel()
+    RjMeteorologicalTablesPanel(city)
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
 
 /** Tables of registered source priorities; they make no live-data claims. */
 @Composable
-private fun RjMeteorologicalTablesPanel() {
+private fun RjMeteorologicalTablesPanel(city: City) {
+    val clock = LocalObservationClock.current
+    val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock)
+    val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }
+    val marine = public?.marine?.takeIf { it.current(clock) }
     var selected by remember { mutableStateOf(1) }
     var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
     var showAllCriteria by remember { mutableStateOf(false) }
@@ -1975,6 +1991,14 @@ private fun RjMeteorologicalTablesPanel() {
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
+        Text("Leituras atuais para ${city.name}: somente produtos realmente recebidos, " +
+            "com horário da medição (não da atualização da tela).",
+            color = Color.White, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-meteo-selected-city"))
+        Text("Reconsulta em intervalos; um painel atualizado não prova que uma " +
+            "estação publicou leitura nova. Desempate entre duas fontes requer " +
+            "observações comparáveis, nunca duas republicações.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("${RjMeteorologicalTables.PHENOMENA_COUNT} fenômenos • 92 municípios do RJ • " +
             "${RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS} verificações novas de desempate • " +
             "v${RjMeteorologicalTables.VERSION}",
@@ -2046,6 +2070,20 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.labelSmall)
                         Text(item.priority, color = GoldSoft,
                             style = MaterialTheme.typography.labelSmall)
+                        val live = if(item.code in listOf("RESSACA","ONDAS","SWELL",
+                                "CICLONE_EXTRATROPICAL","CHUVA_ATLANTICO","TSUNAMI"))
+                            RjLiveTableEvidence.marine(item.code,marine,clock)
+                            else RjLiveTableEvidence.municipality(item.code,
+                                city.ibgeCode,observation,public,clock)
+                        Text("Dado consultado: ${live.description}",
+                            color = if(live.source != null) StableGreen else WarningAmber,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.testTag("rj-meteo-live-${item.code}"))
+                        if(live.source!=null) {
+                            Text("Origem: ${live.source} • " +
+                                (live.observedAt?.let(RjLiveTableEvidence::localTime) ?: "horário não confirmado"),
+                                color = Muted, style = MaterialTheme.typography.labelSmall)
+                        }
                         Text("Ver desempate e cálculo aplicáveis ›", color = Gold,
                             style = MaterialTheme.typography.labelSmall)
                     }
@@ -2076,6 +2114,10 @@ private fun RjMeteorologicalTablesPanel() {
                     color = Muted, style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.testTag("rj-linked-weighted-eligibility"),
                 )
+                Text("Critério de cálculo Blaise: " +
+                    RjLiveTableEvidence.calculationCriteria(active.code),
+                    color = GoldSoft, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-linked-calculation-method"))
                 TextButton(
                     onClick = { showAllCriteria = !showAllCriteria },
                     modifier = Modifier.testTag("rj-show-all-dispute-rules"),
@@ -2133,6 +2175,14 @@ private fun RjMeteorologicalTablesPanel() {
                             style = MaterialTheme.typography.labelSmall)
                         Text("Função: ${item.function}", color = Muted,
                             style = MaterialTheme.typography.labelSmall)
+                        val live = RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
+                        Text("Aviso marítimo regional: ${live.description}",
+                            color = if(live.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.testTag("rj-marine-live-${item.code}"))
+                        Text("Critério: " +
+                            RjLiveTableEvidence.calculationCriteria(item.linkedPhenomena.first()),
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
                         Text("Ver regras aplicáveis de alerta e desempate ›", color = Gold,
                             style = MaterialTheme.typography.labelSmall)
                     }
@@ -2283,6 +2333,12 @@ private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = nu
 
 @Composable
 private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
+    val clock = LocalObservationClock.current
+    val marine=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val wave=RjLiveTableEvidence.marine("ONDAS",marine,clock)
+    val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
+    val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
     DashboardSection(
         title = "MAR E ONDAS • MARINHA DO BRASIL",
         subtitle = "Maré • ondas altas • vento • ressaca",
@@ -2292,13 +2348,22 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas", "— m • aguardando medição/boletim CHM")
-        StatusLine("Swell", "— altura/período/direção • Copernicus Marine/NOAA não conectados")
+        StatusLine("Ondas (CHM)",wave.description)
+        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
+            "— altura/período/direção • Copernicus/NOAA aguardam integração autorizada")
         StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
         StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
-        StatusLine("Vento", "— direção e velocidade")
-        StatusLine("Ressaca", "Sem aviso validado nesta consulta • status não confirmado")
+        StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
+        StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text(if (marine==null)
+                "CHM: aguardando boletim oficial regional recente e autorizado."
+            else "Boletim CHM consultado em ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • " +
+                "${marine.warnings.count { it.current(clock) }} aviso(s) regional(is) vigente(s). " +
+                "Não são alertas municipais nem garantia de segurança costeira.",
+            color = if(marine==null) WarningAmber else GoldSoft,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("marine-chm-regional-status"))
         Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
             "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
             color = Muted, style = MaterialTheme.typography.labelSmall,

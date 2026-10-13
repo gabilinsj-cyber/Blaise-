@@ -82,6 +82,53 @@ test('public API defaults off and requires independent operator data-usage appro
   assert.equal(res.body.municipalities.length,92);
   assert.equal(delegated,2);
 });
+test('fresh CHM warnings expose regional facts and waves, never municipal P0',()=>{
+  const baseline=worker();
+  const maritime={
+    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+    snapshot:{
+      sourceId:'chm-marine',
+      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
+      warnings:[{
+        id:'321/2026',warningType:'AVISO DE RESSACA',issuedAt:stamp,validUntil:until,
+        rjRouting:{
+          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
+          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
+          marineSignal:{explicitWaveHeight:true,waveMinMeters:3.5,waveMaxMeters:4.2,
+            waveDirection:'SE',officialRessacaLabel:true,waveHeightThresholdExceeded:true},
+        },
+      },{
+        id:'322/2026',warningType:'AVISO DE MAU TEMPO',issuedAt:stamp,validUntil:until,
+        rjRouting:{route:'NOT_DIRECT_RJ',canExposeRjMarineWarning:false,
+          canPromoteMunicipalityP0:false,directRjAreas:[]},
+      }],
+    },
+  };
+  const withMarine={
+    status:()=>baseline.status(),
+    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
+  };
+  const result=buildRjPublicStatusSnapshot(withMarine,{nowMillis:now});
+  assert.equal(result.marine.scope,'METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL');
+  assert.equal(result.marine.warningCount,1);
+  assert.deepEqual(result.marine.warnings[0].areas,['CHARLIE']);
+  assert.equal(result.marine.warnings[0].waveMaxMeters,4.2);
+  assert.equal(result.marine.warnings[0].officialRessacaLabel,true);
+  assert.equal(result.marine.warnings[0].mayIssueMunicipalP0,false);
+  assert.equal(result.marine.municipalityGeofenceValidated,false);
+  assert.equal(result.municipalities[0].warningIds.includes('321/2026'),false);
+  const expired={...maritime,fetchedAt:new Date(now-31*60_000).toISOString()};
+  const staleWorker={...withMarine,readSource:id=>id==='chm-marine-warnings'?
+    expired:baseline.readSource(id)};
+  assert.equal(buildRjPublicStatusSnapshot(staleWorker,{nowMillis:now}).marine,null);
+});
+
+test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{
+  const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
+  assert.equal(result.marine,null);
+  assert.equal(result.usableOfficialProducts,true);
+});
+
 test('public endpoint only supports GET and blocks stale status without claiming absence of danger',async()=>{
   const res=fakeResponse();
   const handler=createRjPublicStatusHandler(()=>{},{
