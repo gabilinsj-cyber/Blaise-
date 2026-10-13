@@ -1999,6 +1999,13 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             "estação publicou leitura nova. Desempate entre duas fontes requer " +
             "observações comparáveis, nunca duas republicações.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("PRIORIDADE DE CONSULTA MUNICIPAL • " +
+            RjMeteorologicalTables.operationalMunicipalSources.joinToString(" → "),
+            color = Gold, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-operational-five-source-hierarchy"))
+        Text("A matriz OpenWeatherMap abaixo é somente consulta complementar. " +
+            "Não substitui a 3ª fonte de medição INMET nem configura uma segunda observação oficial.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("${RjMeteorologicalTables.PHENOMENA_COUNT} fenômenos • 92 municípios do RJ • " +
             "${RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS} verificações novas de desempate • " +
             "v${RjMeteorologicalTables.VERSION}",
