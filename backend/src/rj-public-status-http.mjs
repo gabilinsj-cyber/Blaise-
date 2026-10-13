@@ -28,7 +28,7 @@ export function projectRjPublicMarineWarnings(worker, nowMillis) {
       && w.rjRouting.canPromoteMunicipalityP0===false
       && Number.isFinite(issued)&&issued<=nowMillis
       && Number.isFinite(validUntil)&&validUntil>nowMillis
-      && typeof w.id==='string'&&/^\\d{1,4}\\/\\d{4}$/.test(w.id)
+      && typeof w.id==='string'&&/^\d{1,4}\/\d{4}$/.test(w.id)
       && typeof w.warningType==='string'&&w.warningType.length<=96
       && Array.isArray(w.rjRouting.directRjAreas);
   });
