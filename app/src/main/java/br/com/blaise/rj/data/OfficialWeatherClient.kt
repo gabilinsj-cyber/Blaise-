@@ -59,26 +59,46 @@ class OfficialWeatherClient {
     suspend fun recentRioHourlySeries(): InmetHourlySeries? =
         recentMunicipalityHourlySeries(City("Rio de Janeiro", 3304557))
 
+    // Several municipality cards and the chart can refresh concurrently.
+    // The official INMET station CATALOG changes far less frequently than
+    // measurements; fetch it once per hour, without extending measurement
+    // freshness or manufacturing coverage for municipalities without a station.
+    private val inmetCatalogLock = Any()
+    private var inmetCatalogCachedAtMs = 0L
+    private var inmetCatalogCache: List<InmetCatalogStation>? = null
+
+    private fun inmetCatalogEntries(): List<InmetCatalogStation> =
+        synchronized(inmetCatalogLock) {
+            val at = System.currentTimeMillis()
+            val cached = inmetCatalogCache
+            if (cached != null && at - inmetCatalogCachedAtMs in 0..3_600_000L) {
+                return@synchronized cached
+            }
+            val array = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
+            require(array.length() in 1..2000)
+            val entries = (0 until array.length()).mapNotNull { index ->
+                val row = array.optJSONObject(index) ?: return@mapNotNull null
+                fun coordinate(key: String) =
+                    row.optString(key).replace(',', '.').toDoubleOrNull()
+                InmetCatalogStation(
+                    code = row.optString("CD_ESTACAO"),
+                    name = row.optString("DC_NOME"),
+                    state = row.optString("SG_ESTADO"),
+                    provider = row.optString("SG_ENTIDADE"),
+                    operationalStatus = row.optString("CD_SITUACAO"),
+                    latitude = coordinate("VL_LATITUDE"),
+                    longitude = coordinate("VL_LONGITUDE"),
+                )
+            }
+            inmetCatalogCache = entries
+            inmetCatalogCachedAtMs = at
+            entries
+        }
+
     private fun recentMunicipalityHourlySeriesBlocking(city: City): InmetHourlySeries? {
         if (br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(city.ibgeCode)?.name != city.name)
             return null
-        val catalogJson = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
-        if (catalogJson.length() !in 1..2000) return null
-        val entries = (0 until catalogJson.length()).mapNotNull { index ->
-            val row = catalogJson.optJSONObject(index) ?: return@mapNotNull null
-            fun coordinate(key: String) =
-                row.optString(key).replace(',', '.').toDoubleOrNull()
-            InmetCatalogStation(
-                code = row.optString("CD_ESTACAO"),
-                name = row.optString("DC_NOME"),
-                state = row.optString("SG_ESTADO"),
-                provider = row.optString("SG_ENTIDADE"),
-                operationalStatus = row.optString("CD_SITUACAO"),
-                latitude = coordinate("VL_LATITUDE"),
-                longitude = coordinate("VL_LONGITUDE"),
-            )
-        }
-        val stations = InmetMunicipalityStationPolicy.select(city, entries)
+        val stations = InmetMunicipalityStationPolicy.select(city, inmetCatalogEntries())
         val utcToday = LocalDate.now(ZoneOffset.UTC)
         for (station in stations) {
             val code = station.code
@@ -113,46 +133,83 @@ class OfficialWeatherClient {
     }
 
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
+        val city = request.city
         val scope = request.localScope
-        if (request.city.ibgeCode == 3304557 && scope != null) {
-            if (AlertaRioObservationParser.stations.none { normalizedSpeech(it) == normalizedSpeech(scope) }) {
-                return CityWeatherResult(request.city.ibgeCode, scope,
-                    unavailableReason = "Não há medição de $scope confirmada nesta consulta. Informe uma estação para consultar sua área de cobertura.")
+        // Fail closed if a caller passes an out-of-state code or mismatched name.
+        if (br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(city.ibgeCode)?.name != city.name) {
+            return CityWeatherResult(city.ibgeCode, scope,
+                unavailableReason = "Cidade fora do cadastro dos 92 municípios do RJ.")
+        }
+        if (scope != null) {
+            // Alerta Rio stations are neighbourhood point measurements, never
+            // automatically interchangeable with an entire municipality.
+            if (city.ibgeCode != 3304557 ||
+                AlertaRioObservationParser.stations.none {
+                    normalizedSpeech(it) == normalizedSpeech(scope)
+                }) {
+                return CityWeatherResult(city.ibgeCode, scope,
+                    unavailableReason = "Estação ou cobertura de $scope não confirmada para ${city.name}.")
             }
             val url = "https://websempre.rio.rj.gov.br/estacoes/"
-            val row = AlertaRioObservationParser.parse(get(url)).firstOrNull { normalizedSpeech(it.station) == normalizedSpeech(scope) }
-            return CityWeatherResult(request.city.ibgeCode, scope, row?.let {
-                CityWeatherObservation(request.city.ibgeCode, it.station, "Alerta Rio", url, it.observedAt,
-                    it.temperatureC, it.humidityPercent, it.windKmh, 1800)
+            val row = AlertaRioObservationParser.parse(get(url)).firstOrNull {
+                normalizedSpeech(it.station) == normalizedSpeech(scope)
+            }
+            return CityWeatherResult(city.ibgeCode, scope, row?.let {
+                CityWeatherObservation(city.ibgeCode, it.station, "Alerta Rio", url,
+                    it.observedAt, it.temperatureC, it.humidityPercent, it.windKmh, 1800)
             })
         }
-        val today = LocalDate.now(zone)
-        val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
-        val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
-            it.optString("SG_ESTADO") == "RJ" && it.optString("CD_SITUACAO") == "Operante" &&
-                normalizedSpeech(it.optString("DC_NOME")) == normalizedSpeech(request.city.name)
-        } ?: return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Nenhuma estação INMET local confirmada para ${request.city.name}. Não é usada uma cidade vizinha como substituta.")
-        val code = station.getString("CD_ESTACAO")
-        check(Regex("[A-Z][0-9]{3}").matches(code))
-        val url = "https://apitempo.inmet.gov.br/estacao/${today.minusDays(1)}/$today/$code"
-        val rows = JSONArray(get(url))
-        val instant = Instant.now()
-        val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
-            OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..7200 }.maxByOrNull { it.second }
-            ?: return CityWeatherResult(request.city.ibgeCode, scope,
-                unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
-        if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Cobertura de $scope não confirmada pela estação INMET $code.")
-        return CityWeatherResult(request.city.ibgeCode, scope, CityWeatherObservation(
-            request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
-            OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
-            OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
-            windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
-            hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
-        ))
+
+        // Reuse the same exact-municipality, operational, georeferenced
+        // station policy as the INMET graph; never substitute nearby cities.
+        val stations = InmetMunicipalityStationPolicy.select(city, inmetCatalogEntries())
+        if (stations.isEmpty()) {
+            return CityWeatherResult(city.ibgeCode, null,
+                unavailableReason = "Nenhuma estação INMET operacional com localização municipal comprovada em ${city.name}.")
+        }
+        val utc = LocalDate.now(ZoneOffset.UTC)
+        val now = Instant.now()
+        for (station in stations) {
+            val url = "https://apitempo.inmet.gov.br/estacao/${utc.minusDays(1)}/$utc/${station.code}"
+            val result = try {
+                val rows = JSONArray(get(url))
+                if (rows.length() !in 1..500) continue
+                val valid = (0 until rows.length()).mapNotNull { index ->
+                    val row = rows.optJSONObject(index) ?: return@mapNotNull null
+                    if (row.optString("CD_ESTACAO", station.code) != station.code)
+                        return@mapNotNull null
+                    val at = OfficialWeatherParser.observedAt(row) ?: return@mapNotNull null
+                    if (Duration.between(at, now).seconds !in 0..7200) return@mapNotNull null
+                    row to at
+                }.sortedByDescending { it.second }
+                valid.firstNotNullOfOrNull { (data, at) ->
+                    CityWeatherObservation(
+                        city.ibgeCode,
+                        "${station.name} (${station.code})",
+                        "INMET",
+                        url,
+                        at,
+                        OfficialWeatherParser.number(data, "TEM_INS", -30.0, 60.0),
+                        OfficialWeatherParser.number(data, "UMD_INS", 0.0, 100.0),
+                        OfficialWeatherParser.number(data, "VEN_VEL", 0.0, 100.0)?.times(3.6),
+                        7200,
+                        windGustKmh = OfficialWeatherParser.number(data, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
+                        hourlyRainMm = OfficialWeatherParser.number(data, "CHUVA", 0.0, 400.0),
+                        stationLatitude = station.latitude,
+                        stationLongitude = station.longitude,
+                    ).takeIf { it.current(now) }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // A different eligible INMET station may still have fresh
+                // observations. Continue without inventing a source.
+                null
+            }
+            if (result != null) return CityWeatherResult(city.ibgeCode, null, result)
+        }
+        return CityWeatherResult(city.ibgeCode, null,
+            unavailableReason = "Não há observação INMET atual e válida nas estações identificadas de ${city.name}.")
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
         // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
