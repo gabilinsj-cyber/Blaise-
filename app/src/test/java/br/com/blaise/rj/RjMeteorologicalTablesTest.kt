@@ -42,4 +42,29 @@ class RjMeteorologicalTablesTest {
         })
         assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
     }
+    @Test fun interfaceCatalogShowsBothStagesAndMaritimeProvidersWithoutInventedLiveStatus() {
+        assertEquals(3, FinalDashboardSpec.table1PrincipalSources.size)
+        assertEquals(5, FinalDashboardSpec.table2DisputeSources.size)
+        assertEquals(5, FinalDashboardSpec.marineSourceViewers.size)
+        assertTrue(FinalDashboardSpec.table1PrincipalSources[0].contains("Alerta Rio"))
+        assertTrue(FinalDashboardSpec.table1PrincipalSources[2].contains("OpenWeatherMap"))
+        assertTrue(FinalDashboardSpec.table2DisputeSources[0].contains("INPE/CPTEC"))
+        assertTrue(FinalDashboardSpec.table2DisputeSources[4].contains("NOAA"))
+        assertEquals(
+            listOf("Alerta Rio", "Defesa Civil", "INMET",
+                "INPE/CPTEC (previsões)", "Windy (modelos)"),
+            FinalDashboardSpec.fiveSituationalWeatherSources
+        )
+        assertEquals(setOf("MARINHA_CHM","NOAA","COPERNICUS_MY_OCEAN","COPERNICUS_PRO","EUMETSAT"),
+            FinalDashboardSpec.marineSourceViewers.map { it.sourceId }.toSet())
+        assertTrue(FinalDashboardSpec.marineSourceViewers.all {
+            it.url.startsWith("https://") && it.productStatus.contains("não validada")
+        })
+        assertTrue(FinalDashboardSpec.meteorologicalSourceViewers.any {
+            it.sourceId == "OPENWEATHERMAP"
+        })
+        assertEquals(30,RjMeteorologicalTables.table1.size)
+        assertEquals(13,RjMeteorologicalTables.table2.size)
+    }
+
 }
