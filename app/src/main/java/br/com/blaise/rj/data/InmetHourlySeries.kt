@@ -46,7 +46,7 @@ data class InmetHourlySeries(
     fun currentPoint(metric: InmetMetric, now: Instant): Pair<InmetHourlyPoint, Double>? {
         if (!trustedMetadata()) return null
         return points.asSequence()
-            .filter { elapsedSeconds(it, now) in 0..7200 }
+            .filter { !it.observedAt.isAfter(now) && !it.observedAt.isBefore(now.minusSeconds(300)) }
             .mapNotNull { point -> point.reading(metric)?.let { point to it } }
             .maxByOrNull { it.first.observedAt }
     }

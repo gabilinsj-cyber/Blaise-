@@ -42,6 +42,7 @@ const STATIONS=new Set([
   'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','CEMADEN_RJ',
 ]);
 const MODELS=new Set(['INPE_CPTEC_FORECAST','WINDY_MODELO','NOAA','OPENWEATHERMAP_API']);
+const CEMADEN_VARIABLES=new Set(['CHUVA_MM_1H']);
 const valid=(n,min,max)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max;
 const time=(x)=>typeof x==='string'?Date.parse(x):NaN;
 const withinTime=(t,now,maxAgeMs)=>Number.isFinite(t)&&now-t>=0&&now-t<=maxAgeMs;
@@ -73,6 +74,7 @@ function provenanceValid(row,{sourceId,ibge,variable,spec,now}) {
 }
 function readingAllowed(row,opts){
   if(!provenanceValid(row,opts))return false;
+  if(opts.sourceId==='CEMADEN_RJ'&&!CEMADEN_VARIABLES.has(opts.variable))return false;
   if(typeof row.stationId!=='string'||row.stationId.length<2)return false;
   if(STATIONS.has(opts.sourceId))
     return row.origin==='OFFICIAL_OBSERVATION';
@@ -254,12 +256,22 @@ export function resolveRjTable12FiveSourceDispute({
 
 /** Authorized adapter contract. Does not connect external services itself. */
 export async function consultRjTable12FiveSourceDispute({
-  ibge,variable,adapters={},now=Date.now(),
+  ibge,variable,adapters={},now=Date.now(),adapterTimeoutMs=8000,
+  elapsedClock=()=>performance.now(),
 }={}){
-  if(!adapters||typeof adapters!=='object'||Array.isArray(adapters))
+  if(!adapters||typeof adapters!=='object'||Array.isArray(adapters)
+    ||!Number.isInteger(adapterTimeoutMs)||adapterTimeoutMs<10||adapterTimeoutMs>8000
+    ||typeof elapsedClock!=='function')
     throw new TypeError('rj_table12_invalid_adapters');
   // Input check before any connector is called.
   resolveRjTable12FiveSourceDispute({ibge,variable,now});
+  const started=elapsedClock();
+  if(!Number.isFinite(started))throw new TypeError('rj_table12_invalid_clock');
+  const decisionNow=()=>{
+    const elapsed=elapsedClock()-started;
+    if(!Number.isFinite(elapsed)||elapsed<0)throw new TypeError('rj_table12_invalid_clock');
+    return now+elapsed;
+  };
   const consulted=[],observations=[],forecasts=[],connectorFailures=[];
   const order=[...RJ_TABLE1_THREE.filter(x=>x!=='ALERTA_RIO'||String(ibge)==='3304557'),
     ...RJ_TABLE2_FIVE];
@@ -267,8 +279,13 @@ export async function consultRjTable12FiveSourceDispute({
     const adapter=adapters[id];
     if(typeof adapter!=='function')continue;
     consulted.push(id);
+    const controller=new AbortController();
+    let timer;
     try{
-      const result=await adapter(Object.freeze({ibge:String(ibge),variable,now,sourceId:id}));
+      const result=await Promise.race([
+        Promise.resolve().then(()=>adapter(Object.freeze({ibge:String(ibge),variable,now:decisionNow(),sourceId:id,signal:controller.signal}))),
+        new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('source_timeout'));},adapterTimeoutMs);}),
+      ]);
       if(result&&typeof result==='object'&&!Array.isArray(result)){
         if(Array.isArray(result.observations))
           observations.push(...result.observations.slice(0,8).filter(x=>
@@ -277,8 +294,9 @@ export async function consultRjTable12FiveSourceDispute({
           forecasts.push(...result.forecasts.slice(0,8).filter(x=>x?.sourceId===id));
       }
     }catch(_){connectorFailures.push(id);}
+    finally{clearTimeout(timer);}
     const decision=resolveRjTable12FiveSourceDispute({
-      ibge,variable,observations,forecasts,now,
+      ibge,variable,observations,forecasts,now:decisionNow(),
     });
     if(decision.state==='TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS'
       ||decision.state==='OFFICIAL_OR_VETTED_READING_WITH_MODEL_REFERENCE')
@@ -288,7 +306,7 @@ export async function consultRjTable12FiveSourceDispute({
       });
   }
   const final=resolveRjTable12FiveSourceDispute({
-    ibge,variable,observations,forecasts,now,
+    ibge,variable,observations,forecasts,now:decisionNow(),
   });
   return Object.freeze({...final,
     actuallyContactedSources:Object.freeze(consulted),

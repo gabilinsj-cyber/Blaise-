@@ -71,7 +71,7 @@ function stationAllowed(v, sourceId, spec, ibge, now) {
     && typeof v?.stationId === 'string' && v.stationId.length > 0
     && within(v?.latitude, -23.7, -20.4) && within(v?.longitude, -45.5, -40.4)
     && typeof v?.sourceUrl === 'string' && v.sourceUrl.startsWith('https://')
-    && finite(observed) && now-observed >= 0 && now-observed <= 7_200_000
+    && finite(observed) && now-observed >= 0 && now-observed <= 300_000
     && within(v?.weight, 0.01, 5)
     && (spec.variable!=='CHUVA_MM_1H'||v.measurementWindowMinutes===60);
 }
@@ -125,7 +125,7 @@ function stagedForecastDispute(official, forecasts, spec, ibge, now) {
     isOfficialObservation:false,
   });
   const comparableOfficialPair=official.every(o=>official.every(other=>
-    Math.abs(Date.parse(o.observedAt)-Date.parse(other.observedAt))<=900_000
+    Math.abs(Date.parse(o.observedAt)-Date.parse(other.observedAt))<=300_000
     &&distanceKm(o,other)<=25));
   let inpeReference=null;
   for(const id of ['INPE_CPTEC_FORECAST','WINDY_MODELO']) {
@@ -235,8 +235,8 @@ export function resolveRjCompatibleSources({
           const first={...earlier,sourceId:earlier.canonicalSourceId};
           const second={...row,sourceId:id};
           const weighted=weightedOfficialMean({
-            observations:[first,second],now,maxAgeMs:7_200_000,
-            maxSkewMs:900_000,maxSeparationKm:25,
+            observations:[first,second],now,maxAgeMs:300_000,
+            maxSkewMs:300_000,maxSeparationKm:25,
           });
           if(weighted.state!=='CALCULO_EXPERIMENTAL_BLAISE') {
             conflicts.push(Object.freeze({

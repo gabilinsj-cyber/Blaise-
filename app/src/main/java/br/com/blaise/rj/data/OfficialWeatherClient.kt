@@ -30,7 +30,7 @@ class OfficialWeatherClient {
             val url = "https://websempre.rio.rj.gov.br/estacoes/"
             AlertaRioObservationParser.parse(get(url)).map { row ->
                 CityWeatherObservation(3304557, row.station, "Alerta Rio", url, row.observedAt,
-                    row.temperatureC, row.humidityPercent, row.windKmh, 1800)
+                    row.temperatureC, row.humidityPercent, row.windKmh, 300)
             }.filter { it.current(Instant.now()) }
         } catch (error: CancellationException) {
             throw error
@@ -123,7 +123,7 @@ class OfficialWeatherClient {
             val row = AlertaRioObservationParser.parse(get(url)).firstOrNull { normalizedSpeech(it.station) == normalizedSpeech(scope) }
             return CityWeatherResult(request.city.ibgeCode, scope, row?.let {
                 CityWeatherObservation(request.city.ibgeCode, it.station, "Alerta Rio", url, it.observedAt,
-                    it.temperatureC, it.humidityPercent, it.windKmh, 1800)
+                    it.temperatureC, it.humidityPercent, it.windKmh, 300)
             })
         }
         val today = LocalDate.now(zone)
@@ -140,7 +140,7 @@ class OfficialWeatherClient {
         val instant = Instant.now()
         val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
             OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..7200 }.maxByOrNull { it.second }
+        }.filter { Duration.between(it.second, instant).seconds in 0..300 }.maxByOrNull { it.second }
             ?: return CityWeatherResult(request.city.ibgeCode, scope,
                 unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
         if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
@@ -149,7 +149,7 @@ class OfficialWeatherClient {
             request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
             OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
             OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
+            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 300,
             windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
             hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
         ))

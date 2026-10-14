@@ -6,7 +6,7 @@ export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
 export const RJ_PUBLIC_STATUS_MAX_BYTES = 80 * 1024;
 
-const MARINE_FRESH_MS = 30 * 60_000;
+const MARINE_FRESH_MS = 5 * 60_000;
 const MARINE_MAX_WARNINGS = 16;
 /** Regional METAREA V is not a coastal municipality polygon. */
 export function projectRjPublicMarineWarnings(worker, nowMillis) {
@@ -92,6 +92,9 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
     risk:row.hydrologicalRisk?.level!=null&&
       ['CURRENT','CURRENT_DEGRADED'].includes(row.hydrologicalRisk.state)
+      &&Number.isFinite(Date.parse(row.hydrologicalRisk.observedAt))
+      &&nowMillis-Date.parse(row.hydrologicalRisk.observedAt)>=0
+      &&nowMillis-Date.parse(row.hydrologicalRisk.observedAt)<=300_000
       ? Object.freeze({
           level:row.hydrologicalRisk.level,
           label:row.hydrologicalRisk.label,
@@ -153,8 +156,11 @@ export function createRjPublicStatusHandler(delegate, {
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
-    if(path!==RJ_PUBLIC_STATUS_PATH || !enabled || !licensingApproved)
-      return delegate(req,res);
+    if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
+    if(!enabled || !licensingApproved) {
+      respond(res,503,{error:!enabled?'official_status_not_enabled':'source_terms_not_approved'});
+      return;
+    }
     if(req.method!=='GET') {
       respond(res,405,{error:'method_not_allowed'});return;
     }

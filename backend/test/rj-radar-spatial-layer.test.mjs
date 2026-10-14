@@ -54,3 +54,7 @@ test('never turn sparse surface stations, unknown license or copied radar images
   assert.equal(prepareRjRadarTimeline({now,frames:[]}).reason,
     'NO_AUTHORIZED_RADAR_GRID_INPUT');
 });
+
+test('a six-minute-old radar frame cannot be displayed as current',()=>{
+  assert.equal(prepareRjRadarTimeline({now,frames:[frame('2026-10-11T03:54:00Z')]}).status,'UNAVAILABLE');
+});

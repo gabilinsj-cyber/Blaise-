@@ -14,7 +14,7 @@ const station=(changes={})=>({
   CD_ESTACAO:'A652',VL_LATITUDE:'-22,9000',VL_LONGITUDE:'-43,2000',...changes,
 });
 const reading=(changes={})=>({
-  CD_ESTACAO:'A652',DT_MEDICAO:'2026-10-12',HR_MEDICAO:'1100',
+  CD_ESTACAO:'A652',DT_MEDICAO:'2026-10-12',HR_MEDICAO:'1159',
   TEM_INS:'28,5',UMD_INS:'77',VEN_VEL:'4.5',
   VEN_RAJ:'9',CHUVA:'5.5',...changes,
 });
@@ -33,6 +33,7 @@ function fakeApi({catalog=[station()],hourly=[reading()],status=200,contentType=
   };
   return {fetchImpl,visited};
 }
+const qualityEvidence={stationId:'A652',variable:'TEMPERATURA_C',weight:1,basis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',evidenceId:'fixture-station-qc'};
 const input={ibge:'3304557',variable:'TEMPERATURA_C',now:NOW};
 
 test('INMET adapter never contacts external network without BOTH feature and rights gate',async()=>{
@@ -58,7 +59,7 @@ test('official INMET live API responses produce a real, locally matched, dated s
   assert.equal(r.observations[0].value,28.5);
   assert.equal(r.observations[0].unit,'°C');
   assert.equal(r.observations[0].ibge,'3304557');
-  assert.equal(r.observations[0].observedAt,'2026-10-12T11:00:00.000Z');
+  assert.equal(r.observations[0].observedAt,'2026-10-12T11:59:00.000Z');
   assert.equal(r.observations[0].origin,'OFFICIAL_OBSERVATION');
   assert.ok(r.observations[0].sourceUrl.endsWith('/A652'));
   assert.deepEqual(api.visited.map(x=>x.href),[
@@ -156,12 +157,12 @@ test('upstream redirects and malformed or oversized catalogs fail closed',async(
 test('adapter is a real data bridge into the existing prioritized two-source Blaise Fusion calculator',async()=>{
   const api=fakeApi({hourly:[reading({TEM_INS:'29'})]});
   const adapters={
-    ...createRjInmetLiveAdapters({enabled:true,usageApproved:true,
+    ...createRjInmetLiveAdapters({enabled:true,usageApproved:true,qualityEvidence,
       fetchImpl:api.fetchImpl}),
     DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[{
       origin:'OFFICIAL_OBSERVATION',sourceId:'DEFESA_CIVIL',
       stationId:'DC-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
-      value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:00:00.000Z',
+      value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:59:00.000Z',
       latitude:-22.905,longitude:-43.205,
       sourceUrl:'https://defesacivil.rj.gov.br/example-station-fixture',
     }],forecasts:[]}),
@@ -176,13 +177,13 @@ test('adapter is a real data bridge into the existing prioritized two-source Bla
 test('Blaise agent executor uses live INMET adapter on demand, with Defender input independent of INMET',async()=>{
   const api=fakeApi({hourly:[reading({TEM_INS:'29'})]});
   const runCase=createRjWeatherSourceExecutor({
-    inmetLive:{enabled:true,usageApproved:true,fetchImpl:api.fetchImpl},
+    inmetLive:{enabled:true,usageApproved:true,qualityEvidence,fetchImpl:api.fetchImpl},
     clock:()=>NOW,
     sourceAdapters:{
       DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[{
         origin:'OFFICIAL_OBSERVATION',sourceId:'DEFESA_CIVIL',
         stationId:'DC-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
-        value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:00:00.000Z',
+        value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:59:00.000Z',
         latitude:-22.905,longitude:-43.205,
         sourceUrl:'https://defesacivil.rj.gov.br/fixture-only',
       }]}),
@@ -240,4 +241,29 @@ test('own-map wind rendering preserves m/s units and missing/stale observations 
   assert.equal(map.points[0].value,4.5);
   assert.equal(projectRjInmetOnOwnMap(wind,{now:NOW+3*3_600_000}).points.length,0);
   assert.equal(projectRjInmetOnOwnMap({observations:[{value:90}]},{now:NOW}).points.length,0);
+});
+
+test('a live adapter cannot invent calibration weights or revive delayed observations',async()=>{
+  const api=fakeApi();
+  const r=await createRjInmetLiveAdapters({enabled:true,usageApproved:true,fetchImpl:api.fetchImpl}).INMET_STATION(input);
+  assert.equal(r.observations[0].usagePermissionStatus,'VERIFIED_FOR_APP_DATA_DISPLAY');
+  assert.equal(r.observations[0].weight,undefined);
+  assert.equal(r.observations[0].qualityWeight,undefined);
+  const delayed=await createRjInmetLiveAdapters({enabled:true,usageApproved:true,
+    fetchImpl:fakeApi({hourly:[reading({HR_MEDICAO:'1154'})]}).fetchImpl}).INMET_STATION(input);
+  assert.equal(delayed.observations.length,0);
+});
+
+test('one INMET station without data does not block another actual station in the same municipality',async()=>{
+  const api=fakeApi({catalog:[station({CD_ESTACAO:'A651'}),station()]});
+  const fetchImpl=async(url,opts)=>String(url).endsWith('/A651')
+    ?new Response(null,{status:204}):api.fetchImpl(url,opts);
+  const r=await createRjInmetLiveAdapters({enabled:true,usageApproved:true,fetchImpl}).INMET_STATION(input);
+  assert.equal(r.observations[0].stationId,'A652');
+});
+test('quality weights are applied only to their calibrated station and variable',async()=>{
+  const api=fakeApi();
+  const run=createRjInmetLiveAdapters({enabled:true,usageApproved:true,qualityEvidence,fetchImpl:api.fetchImpl}).INMET_STATION;
+  assert.equal((await run(input)).observations[0].qualityWeight,1);
+  assert.equal((await run({...input,variable:'VENTO_KMH'})).observations[0].qualityWeight,undefined);
 });

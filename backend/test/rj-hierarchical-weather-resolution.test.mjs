@@ -7,7 +7,7 @@ const NOW=Date.parse('2026-10-10T18:00:00Z');
 const measurement=(sourceId,stationId,value,mod={})=>({
   origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
   variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
-  observedAt:'2026-10-10T17:45:00Z',
+  observedAt:'2026-10-10T17:59:00Z',
   latitude:-22.90,longitude:-43.20,
   sourceUrl:'https://apitempo.inmet.gov.br/estacao/test-fixture',
   ...mod,

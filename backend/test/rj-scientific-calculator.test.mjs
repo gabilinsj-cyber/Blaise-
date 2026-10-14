@@ -6,7 +6,7 @@ import {
 } from '../src/rj-scientific-calculator.mjs';
 
 const NOW = Date.parse('2026-10-10T18:00:00Z');
-const at = '2026-10-10T17:30:00Z';
+const at = '2026-10-10T17:59:00Z';
 const observation = (stationId, value, weight = 1) => ({
   origin: 'OFFICIAL_OBSERVATION',
   sourceId: stationId === 'INMET-1' ? 'INMET' : 'DEFESA_CIVIL',
@@ -75,8 +75,8 @@ test('do not combine distant stations or records from different times', () => {
   assert.equal(out.reason, 'STATIONS_TOO_FAR_APART');
   assert.equal(weightedOfficialMean({ observations: [
     observation('INMET-1', 30),
-    { ...observation('DC-2', 31), observedAt: '2026-10-10T17:05:00Z' },
-  ], now: NOW }).reason, 'OBSERVATION_TIMES_NOT_COMPARABLE');
+    { ...observation('DC-2', 31), observedAt: '2026-10-10T17:56:00Z' },
+  ], now: NOW, maxSkewMs:60_000 }).reason, 'OBSERVATION_TIMES_NOT_COMPARABLE');
 });
 
 test('dew point reaches temperature at 100 percent humidity and stays a calculation', () => {

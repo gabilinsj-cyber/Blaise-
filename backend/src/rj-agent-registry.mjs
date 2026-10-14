@@ -86,7 +86,7 @@ if (BLAISE_RJ_AGENTS.length !== 10 || new Set(BLAISE_RJ_AGENTS.map(a => a.number
 
 export const RJ_AGENT_CADENCE = Object.freeze({
   normalLevels123Ms: 300_000, // severe level 3 still never bypasses evidence requirements
-  severeLevels45Ms: 60_000,
+  severeLevels45Ms: 30_000,
   criticalRecalculationOnlyMs: 25_000,
   officialSourceMinIntervalMs: 30_000,
   criticalRequiresTwoIndependentOfficialLevel5Alerts: true,

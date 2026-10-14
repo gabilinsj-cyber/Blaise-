@@ -55,7 +55,7 @@ class RjLiveTableEvidenceTest {
 
     @Test fun delayedStationIsUnavailableEvenWhenProviderCacheStillAcceptsIt() {
         val delayed=station().copy(observedAt=now.minusSeconds(301))
-        assertTrue(delayed.current(now))
+        assertFalse(delayed.current(now))
         assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(
             "TEMPERATURA",3304557,delayed,null,now).state)
         assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(

@@ -42,7 +42,7 @@ object RjRadarSpatialPolicy {
             || !Regex("[A-Za-z0-9][A-Za-z0-9._-]{1,83}").matches(frame.calibrationId)
             || !frame.sourceUrl.startsWith("https://")) return false
         val age = Duration.between(frame.observedAt, now).seconds
-        if (age !in 0..600 || frame.cells.size !in 1..4096) return false
+        if (age !in 0..300 || frame.cells.size !in 1..4096) return false
         return frame.cells.all { c ->
             c.latitude.isFinite() && c.latitude in -24.3..-20.4 &&
                 c.longitude.isFinite() && c.longitude in -45.2..-40.4 &&

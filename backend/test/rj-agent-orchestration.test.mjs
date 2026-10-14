@@ -26,7 +26,7 @@ test('litoral/Atlantic cyclone, marine and earthquake cases select the relevant 
   assert.ok(cyclone.agents.some(a=>a.number===4));
   assert.ok(cyclone.agents.some(a=>a.number===6));
   assert.ok(cyclone.eligibleSources.some(a=>a.id==='MARINHA_CHM'));
-  assert.equal(cyclone.cadence.observationUpdateMs,60000);
+  assert.equal(cyclone.cadence.observationUpdateMs,30000);
   assert.equal(cyclone.audibleAlert,false);
   const seismic=planRjPhenomenonCase({region:'ATLANTICO',phenomenon:'SISMO',level:4});
   assert.ok(seismic.agents.some(a=>a.number===7));
@@ -67,7 +67,7 @@ test('Sentinel-Fusion-Vector consultation uses first compatible hierarchy pair a
   const record=(sourceId,stationId,value)=>({
     origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
     variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
-    observedAt:'2026-10-10T17:45:00Z',
+    observedAt:'2026-10-10T17:59:00Z',
     latitude:-22.9,longitude:-43.2,
     sourceUrl:'https://apitempo.inmet.gov.br/estacao/synthetic-test-fixture',
   });
@@ -92,7 +92,7 @@ test('Blaise Fusion exposes both discrepant official readings and INPE/Windy mod
   const measurement=(sourceId,stationId,value)=>({
     origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
     variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
-    observedAt:'2026-10-10T17:45:00Z',latitude:-22.9,longitude:-43.2,
+    observedAt:'2026-10-10T17:59:00Z',latitude:-22.9,longitude:-43.2,
     sourceUrl:'https://example.org/stations/test',
   });
   const forecast=(sourceId,modelFamilyId,value)=>({

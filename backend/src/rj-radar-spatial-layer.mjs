@@ -50,9 +50,9 @@ function normalizedFrame(frame,now,maxAgeMs){
   });
 }
 
-/** Keep only a bounded 30-minute replay window with measurements <=10 min old
+/** Keep only a bounded 30-minute replay window with measurements <=5 min old
  * for the currently displayed frame. Historic frames may be up to 30min old
- * only when a newest frame within 10min is also present. */
+ * only when a newest frame within 5min is also present. */
 export function prepareRjRadarTimeline({
   frames=[],now=Date.now(),displayLastMinutes=30,
 }={}) {
@@ -71,7 +71,7 @@ export function prepareRjRadarTimeline({
     return invalid('DUPLICATE_RADAR_FRAME_TIME');
   if(new Set(accepted.map(x=>`${x.provider}:${x.radarId}:${x.calibrationId}`)).size!==1)
     return invalid('INCOMPATIBLE_RADAR_OR_CALIBRATION');
-  if(now-Date.parse(accepted.at(-1).observedAt)>10*60_000)
+  if(now-Date.parse(accepted.at(-1).observedAt)>5*60_000)
     return invalid('CURRENT_RADAR_FRAME_NOT_FRESH');
   return Object.freeze({
     status:'AVAILABLE_VERIFIED_RADAR_GRID_FRAMES',

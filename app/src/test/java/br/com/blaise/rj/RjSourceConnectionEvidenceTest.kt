@@ -14,7 +14,7 @@ import org.junit.Test
 
 class RjSourceConnectionEvidenceTest {
     private val now=Instant.parse("2026-10-14T12:00:00Z")
-    private val recently=now.minusSeconds(600)
+    private val recently=now.minusSeconds(60)
 
     private fun station(ibge: Int, source: String)=CityWeatherObservation(
         municipalityIbge=ibge, station="Estação A652", source=source,

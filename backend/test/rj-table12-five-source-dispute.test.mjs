@@ -212,3 +212,35 @@ test('recent HTTP consultation cannot revive an old or future observation',()=>{
     assert.equal(r.state,'NO_VERIFIABLE_CONVERGENCE');
   }
 });
+
+test('a hung source is cancelled and cannot prevent immediate fallback',async()=>{
+  let signal;
+  const r=await consultRjTable12FiveSourceDispute(input({adapterTimeoutMs:10,
+    adapters:{
+      ALERTA_RIO:async()=>({observations:[O('ALERTA_RIO',28)]}),
+      DEFESA_CIVIL_RJ_REGIONAL:({signal:received})=>{signal=received;return new Promise(()=>{});},
+      INMET_STATION:async()=>({observations:[O('INMET_STATION',29)]}),
+    },
+  }));
+  assert.equal(signal.aborted,true);
+  assert.deepEqual(r.connectorFailures,['DEFESA_CIVIL_RJ_REGIONAL']);
+  assert.deepEqual(r.selectedSources,['ALERTA_RIO','INMET_STATION']);
+});
+test('a record expires during a slow query and cannot use the old request clock',async()=>{
+  let elapsed=0;
+  const r=await consultRjTable12FiveSourceDispute(input({elapsedClock:()=>elapsed,
+    adapters:{
+      ALERTA_RIO:async()=>({observations:[O('ALERTA_RIO',28,{observedAt:'2026-10-12T12:05:01Z'})]}),
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{elapsed=2000;return {observations:[O('DEFESA_CIVIL_RJ_REGIONAL',29)]};},
+    },
+  }));
+  assert.equal(r.estimatedValue,null);
+  assert.equal(r.state,'NO_VERIFIABLE_CONVERGENCE');
+});
+test('CEMADEN pluviometer cannot manufacture temperature or wind measurements',()=>{
+  const r=resolveRjTable12FiveSourceDispute(input({observations:[
+    O('ALERTA_RIO',28),O('CEMADEN_RJ',29),
+  ]}));
+  assert.equal(r.estimatedValue,null);
+  assert.equal(r.state,'NO_VERIFIABLE_CONVERGENCE');
+});

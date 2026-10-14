@@ -24,7 +24,7 @@ data class PublicRjRisk(
         level in 1..5 && label.length in 1..80 &&
         sourceUrl == "https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/municipio/?action=hidro" &&
         !observedAt.isAfter(now) &&
-        Duration.between(observedAt, now).seconds in 0..1800
+        Duration.between(observedAt, now).seconds in 0..300
 }
 
 data class PublicRjWarning(
@@ -73,7 +73,7 @@ data class PublicRjMarine(
 ) {
     fun current(now: Instant): Boolean =
         sourceUrl == "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo" &&
-        !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..1800
+        !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..300
 }
 
 /**

@@ -18,7 +18,7 @@ class CityWeatherObservationTest {
     }
 
     @Test fun `expired future and nonphysical readings are never rendered current`() {
-        assertFalse(measurement().copy(observedAt = now.minusSeconds(7201)).current(now))
+        assertFalse(measurement().copy(observedAt = now.minusSeconds(301)).current(now))
         assertFalse(measurement().copy(observedAt = now.plusSeconds(1)).current(now))
         assertFalse(measurement().copy(humidityPercent = 101.0).current(now))
         assertFalse(measurement().copy(temperatureC = Double.NaN).current(now))
@@ -45,4 +45,13 @@ class CityWeatherObservationTest {
         assertNull(report.currentObservation(now.plusSeconds(7200)))
         assertEquals(now.minusSeconds(60), sample.observedAt)
     }
+    @Test fun `source age overrides a longer provider cache and expires all consumers`() {
+        val delayed = measurement().copy(observedAt = now.minusSeconds(301))
+        assertFalse(delayed.current(now))
+        assertEquals("Medição indisponível ou desatualizada.", delayed.summary(now))
+        assertNull(CityWeatherResult(3303302, null, delayed).currentObservation(now))
+        assertTrue(measurement().copy(observedAt = now.minusSeconds(300)).current(now))
+        assertFalse(measurement().copy(observedAt = now.minusSeconds(300).minusNanos(1)).current(now))
+    }
+
 }

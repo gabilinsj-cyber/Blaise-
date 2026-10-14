@@ -12,7 +12,7 @@ const obs=(id,value,change={})=>({
   origin:'OFFICIAL_OBSERVATION',
   sourceId:id==='A652'?'INMET':'DEFESA_CIVIL',
   stationId:id, ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',value,
-  weight:1,observedAt:'2026-10-10T17:30:00Z',
+  weight:1,observedAt:'2026-10-10T17:59:00Z',
   latitude:-22.9,longitude:-43.2,
   sourceUrl:'https://apitempo.inmet.gov.br/estacao/simulated-test-only',
   ...change,
@@ -122,7 +122,7 @@ test('geographically distant or asynchronous official readings cannot be model-c
       ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
     });
     assert.equal(result.state,'SHOW_BOTH_OFFICIAL_MEASUREMENTS');
-    assert.equal(result.reason,'STATIONS_TOO_FAR_APART_OR_DIFFERENT_OBSERVATION_TIMES');
+    assert.equal(result.reason,change.observedAt?'TWO_DISTINCT_OFFICIAL_PROVIDER_RECORDS_REQUIRED':'STATIONS_TOO_FAR_APART_OR_DIFFERENT_OBSERVATION_TIMES');
   }
 });
 test('all 92 RJ municipalities can retain official provenance with no invented model preference',()=>{
