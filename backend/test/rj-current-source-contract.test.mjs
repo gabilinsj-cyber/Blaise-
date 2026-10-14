@@ -20,11 +20,11 @@ test('all 92 RJ municipalities reflect exact Alerta Rio geographic limit and fiv
     const table=buildRjMeteorologicalHomologationTables({ibge:city.ibge});
     assert.equal(table.table1.length,30);
     assert.deepEqual(table.primaryTable1Sources,
-      RJ_TABLE1_THREE.filter(id=>id!=='ALERTA_RIO'||city.ibge==='3304557'));
+      RJ_TABLE1_THREE.filter(id=>id!=='ALERTA_RIO'||String(city.ibge)==='3304557'));
     assert.deepEqual(table.disputeTable2Five,RJ_TABLE2_FIVE);
     const route=rjSourceRouting({ibge:city.ibge,phenomenon:'TEMPERATURA'});
     const ids=route.sources.map(x=>x.id);
-    assert.equal(ids.includes('ALERTA_RIO'),city.ibge==='3304557');
+    assert.equal(ids.includes('ALERTA_RIO'),String(city.ibge)==='3304557');
     assert.ok(ids.indexOf('DEFESA_CIVIL_RJ_REGIONAL')<ids.indexOf('INMET_STATION'));
     assert.ok(ids.indexOf('INMET_STATION')<ids.indexOf('INPE_CPTEC_FORECAST'));
     assert.ok(ids.indexOf('INPE_CPTEC_FORECAST')<ids.indexOf('WINDY_MODELO'));
