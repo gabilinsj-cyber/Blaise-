@@ -2,7 +2,6 @@ package br.com.blaise.rj
 
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -206,7 +205,7 @@ class MainActivityTest {
         rule.onNodeWithTag("nav-Mar e Ondas").performClick()
         rule.onNodeWithTag("rj-marine-screen-table").performScrollTo().assertIsDisplayed()
         for (tag in listOf("chm", "myocean", "copernicus-pro", "eumetsat", "noaa")) {
-            rule.onNodeWithTag("marine-official-viewer-$tag").assertExists()
+            rule.onNodeWithTag("marine-official-viewer-$tag").fetchSemanticsNode()
         }
     }
 
