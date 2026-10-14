@@ -227,7 +227,10 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     geographicCoverage:'92 RJ MUNICIPALITIES SELECTABLE; SOURCE COVERAGE BY PRODUCT',
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
     table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
-    primaryTable1Sources:RJ_TABLE1_THREE,
+    // Scope the exported primary list too (not just each row). The global
+    // catalog must never advertise Alerta Rio coverage in another RJ city.
+    primaryTable1Sources:Object.freeze(RJ_TABLE1_THREE.filter(
+      id=>id!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)),
     disputeTable2FiveSources:RJ_TABLE2_FIVE,
     marineTable:RJ_METEO_MARINE_TABLE,
     operatorVerified:false,automaticPublication:false,
