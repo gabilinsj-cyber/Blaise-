@@ -229,6 +229,7 @@ fun BlaiseApp(
     var city2 by remember { mutableStateOf(store.load(2)) }
     var pickerSlot by remember { mutableStateOf<Int?>(null) }
     var selectedSection by remember { mutableStateOf(FinalDashboardSpec.primaryNavigation.first()) }
+    var sourcesInitialTab by remember { mutableStateOf(1) }
     var powerOn by remember { mutableStateOf(uiPreferences.getBoolean("power_on", true)) }
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -368,6 +369,11 @@ fun BlaiseApp(
         powerOn = powerOn,
         silentMode = silentMode,
         onSelectSection = { selectedSection = it },
+        sourcesInitialTab = sourcesInitialTab,
+        onOpenSourcesTab = { tab ->
+            sourcesInitialTab = tab
+            selectedSection = "Mais"
+        },
         onPowerChange = {
             powerOn = it
             uiPreferences.edit().putBoolean("power_on", it).apply()
@@ -417,6 +423,8 @@ private fun BlaiseDashboard(
     onSubscribe: (SubscriptionOffer) -> Unit,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
+    sourcesInitialTab: Int = 1,
+    onOpenSourcesTab: (Int) -> Unit = {},
 ) {
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize().background(Navy).safeDrawingPadding(), color = Navy) {
@@ -455,7 +463,7 @@ private fun BlaiseDashboard(
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
 
                         when (selectedSection) {
-                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection, onOpenSourcesTab)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
                             "Mapa" -> MapScreen(city1, city2)
                             "Alertas" -> AlertsScreen(city1, city2)
@@ -466,12 +474,13 @@ private fun BlaiseDashboard(
                             "Histórico" -> HistoryScreen(city1, city2)
                             "Mais" -> MoreScreen(
                                 city = city1,
+                                sourcesInitialTab = sourcesInitialTab,
                                 powerOn = powerOn,
                                 silentMode = silentMode,
                                 onPowerChange = onPowerChange,
                                 onSilentModeChange = onSilentModeChange,
                             )
-                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection, onOpenSourcesTab)
                         }
 
                         if (selectedSection == "Mais") {
@@ -979,6 +988,7 @@ private fun HomeScreen(
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
     onNavigate: (String) -> Unit,
+    onOpenSourcesTab: (Int) -> Unit,
 ) {
     // The approved reference is a three-column CONTROL CENTER on landscape,
     // but remains a single vertically scrollable dashboard on phones.
@@ -1025,7 +1035,7 @@ private fun HomeScreen(
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
     Spacer(Modifier.height(10.dp))
-    RjRealtimeTablesShortcut(city1, onNavigate)
+    RjRealtimeTablesShortcut(city1, onOpenSourcesTab)
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
@@ -1036,7 +1046,7 @@ private fun HomeScreen(
  * separate from collection time: re-rendering never fabricates new data.
  */
 @Composable
-private fun RjRealtimeTablesShortcut(city: City, onNavigate: (String) -> Unit) {
+private fun RjRealtimeTablesShortcut(city: City, onOpenSourcesTab: (Int) -> Unit) {
     val now = LocalObservationClock.current
     val station = LocalCityWeather.current[city.ibgeCode]?.currentObservation(now)
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
@@ -1064,14 +1074,14 @@ private fun RjRealtimeTablesShortcut(city: City, onNavigate: (String) -> Unit) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             val shortcuts = listOf(
-                Triple("Tabela 1", stationText, "Mais"),
-                Triple("Tabela 2", "INPE → INMET → CEMADEN → Windy → NOAA • desempate por produto", "Mais"),
-                Triple("Mar", marineText, "Mar e Ondas"),
+                Triple("Tabela 1", stationText, 1),
+                Triple("Tabela 2", "INPE → INMET → CEMADEN → Windy → NOAA • desempate por produto", 2),
+                Triple("Mar", marineText, 3),
             )
-            shortcuts.forEachIndexed { index, (label, status, destination) ->
+            shortcuts.forEachIndexed { index, (label, status, tab) ->
                 Surface(
                     modifier = Modifier.width(204.dp).testTag("rj-home-table-shortcut-${index+1}")
-                        .clickable { onNavigate(destination) },
+                        .clickable { onOpenSourcesTab(tab) },
                     color = PanelSoft, shape = RoundedCornerShape(9.dp),
                     border = BorderStroke(1.dp, Divider),
                 ) {
@@ -2009,6 +2019,7 @@ private fun HistoryScreen(city1: City, city2: City) {
 @Composable
 private fun MoreScreen(
     city: City,
+    sourcesInitialTab: Int = 1,
     powerOn: Boolean,
     silentMode: Boolean,
     onPowerChange: (Boolean) -> Unit,
@@ -2052,20 +2063,20 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
-    RjMeteorologicalTablesPanel(city)
+    RjMeteorologicalTablesPanel(city, initialTab = sourcesInitialTab)
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
 
 /** Tables of registered source priorities; they make no live-data claims. */
 @Composable
-private fun RjMeteorologicalTablesPanel(city: City) {
+private fun RjMeteorologicalTablesPanel(city: City, initialTab: Int = 1) {
     val clock = LocalObservationClock.current
     val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock)
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
     val marine = public?.marine?.takeIf { it.current(clock) }
-    var selected by remember { mutableStateOf(1) }
+    var selected by remember(initialTab) { mutableStateOf(initialTab.coerceIn(1, 3)) }
     var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
     var showAllCriteria by remember { mutableStateOf(false) }
     DashboardSection(
