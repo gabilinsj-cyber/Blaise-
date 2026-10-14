@@ -196,6 +196,8 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
 private val LocalWeatherCities = compositionLocalOf<List<City>> { emptyList() }
 private val LocalWeatherAudits = compositionLocalOf<List<br.com.blaise.rj.data.MunicipalWeatherAudit>> { emptyList() }
+private val LocalNews = compositionLocalOf<br.com.blaise.rj.data.NewsSnapshot?> { null }
+private val LocalSeismic = compositionLocalOf<br.com.blaise.rj.data.SeismicSnapshot?> { null }
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
 // Backend radar grid remains absent until a licensed quantitative product is connected.
 private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
@@ -238,6 +240,9 @@ fun BlaiseApp(
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val weatherClient = remember { OfficialWeatherClient() }
+    val informationClient = remember { br.com.blaise.rj.data.LiveInformationClient() }
+    var liveNews by remember { mutableStateOf<br.com.blaise.rj.data.NewsSnapshot?>(null) }
+    var liveSeismic by remember { mutableStateOf<br.com.blaise.rj.data.SeismicSnapshot?>(null) }
     var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
     val snapshotStore = remember { br.com.blaise.rj.data.MunicipalWeatherSnapshotStore() }
     var citySnapshots by remember { mutableStateOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>>(emptyMap()) }
@@ -263,7 +268,26 @@ fun BlaiseApp(
             while (true) {
                 observationClock = Instant.now()
                 if (snapshotStore.auditHourly(observationClock)) weatherAudits = snapshotStore.audits()
-                delay(30_000)
+                val status = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
+                val expiries = status?.warnings.orEmpty().map { it.expires } +
+                    status?.marine?.warnings.orEmpty().map { it.validUntil }
+                delay(br.com.blaise.rj.core.AlertLifetimePolicy.nextRecheckMillis(expiries, observationClock))
+            }
+        }
+    }
+    LaunchedEffect(powerOn, lifecycle, informationClient) {
+        liveNews = null
+        liveSeismic = null
+        if (!powerOn) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                coroutineScope {
+                    val news = async { informationClient.news() }
+                    val seismic = async { informationClient.seismic() }
+                    liveNews = news.await()
+                    liveSeismic = seismic.await()
+                }
+                delay(60_000)
             }
         }
     }
@@ -368,6 +392,8 @@ fun BlaiseApp(
         LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
         LocalWeatherCities provides listOf(city1, city2),
         LocalWeatherAudits provides weatherAudits,
+        LocalNews provides if (powerOn) liveNews else null,
+        LocalSeismic provides if (powerOn) liveSeismic else null,
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
@@ -652,6 +678,9 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
+    val latestOfficial by rememberUpdatedState(publicOfficial)
+    val latestNews by rememberUpdatedState(LocalNews.current)
+    val latestSeismic by rememberUpdatedState(LocalSeismic.current)
     val currentWarnings = publicOfficial?.warningsFor(selectedCity.ibgeCode, clock).orEmpty()
     val municipalRisk = publicOfficial?.municipality(selectedCity.ibgeCode, clock)
         ?.risk?.takeIf { it.current(clock) }
@@ -669,9 +698,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
             " (Brasília)."
     }
+    val otherCities = LocalWeatherCities.current.filter { it.ibgeCode != selectedCity.ibgeCode }.distinctBy { it.ibgeCode }
+    val secondCityBulletin = otherCities.joinToString("\n\n") { city ->
+        val measurement = reports[city.ibgeCode]?.summary(clock) ?: "Sem medição atual validada."
+        val warnings = publicOfficial?.warningsFor(city.ibgeCode, clock).orEmpty()
+        "${city.name}: $measurement" + if (warnings.isEmpty()) "\nSem aviso vigente confirmado nesta consulta; não indica ausência de risco."
+        else "\n" + warnings.joinToString("\n") { "INMET: ${it.event}, válido até ${formatInformationTime(it.expires)}." }
+    }
     val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen" +
         "\n\n${officialRiskText}\n${officialWarningText}" +
-        "\n\nOutras variáveis sem leitura atual permanecem não confirmadas. Fonte e horário pertencem a cada produto."
+        if (secondCityBulletin.isNotEmpty()) "\n\n$secondCityBulletin\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
+        else "\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
     val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
         if (currentWarnings.isNotEmpty()) " INMET: ${currentWarnings.size} aviso(s) vigente(s) com atribuição municipal confirmada." else ""
@@ -722,15 +759,18 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 queryJob = scope.launch {
                     val result = try {
                         val request = action.request
+                        val information = br.com.blaise.rj.assistant.liveInformationAnswer(
+                            latestOfficial, latestNews, latestSeismic, request, Instant.now())
                         val regional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                         val weatherQuestion = br.com.blaise.rj.assistant.normalizedSpeech(request.question)
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
-                        if (regional != null && !needsWeather) regional
+                        if (information != null && !needsWeather) information
+                        else if (regional != null && !needsWeather) regional
                         else {
                             val measured = sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
                                 ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
-                            listOfNotNull(measured, freshRegional).joinToString("\n\n")
+                            listOfNotNull(measured, information ?: freshRegional).joinToString("\n\n")
                         }
                     } catch (error: CancellationException) {
                         if (error !is TimeoutCancellationException) throw error
@@ -1148,6 +1188,13 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
         Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        val seismic = LocalSeismic.current
+        val news = LocalNews.current
+        val now = LocalObservationClock.current
+        Text(if (seismic?.current(now) == true) "Blaise Seismo RJ • feed USGS verificado ${formatInformationTime(seismic.generatedAt)}"
+            else "Blaise Seismo RJ • aguardando feed USGS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text(if (news?.current(now) == true) "Noticiário • RSS Agência Brasil consultado ${formatInformationTime(news.fetchedAt)}"
+            else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
             Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
@@ -1591,8 +1638,14 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
             subtitle = "2 eventos recentes • USGS / autoridade competente",
             modifier = Modifier.fillMaxWidth().testTag("seismic-two-events"),
         ) {
-            StatusLine("Evento 1", "— magnitude • — km • fonte e horário pendentes")
-            StatusLine("Evento 2", "— magnitude • — km • fonte e horário pendentes")
+            val events = LocalSeismic.current?.largestRecent(LocalObservationClock.current).orEmpty()
+            if (events.isEmpty()) Text("Sem feed USGS atual validado nesta consulta.", color = Muted)
+            events.forEach { event ->
+                Text("M ${event.magnitude} • ${event.place} • profundidade ${event.depthKm} km • ${formatInformationTime(event.occurredAt)} • USGS", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall)
+                val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                TextButton(onClick = { uri.openUri(event.url) }) { Text("Saiba mais • USGS") }
+            }
             Text("Sem conclusão sobre tsunami ou impacto no RJ.",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { seismicDetails = true },
@@ -1623,12 +1676,7 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
                     }
                 }
             }
-            Text(
-                if (newsScope == "Internacional")
-                    "Internacional • aguardando notícia meteorológica recente com fonte e tradução."
-                else "${newsScope} • aguardando notícias verificadas, locais e horários das ocorrências.",
-                modifier = Modifier.testTag("news-scope-status"),
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+            LiveNewsHeadlines(newsScope, Modifier.testTag("news-scope-status"))
             TextButton(
                 onClick = { onNavigate("Notícias") },
                 modifier = Modifier.fillMaxWidth().testTag("news-more"),
@@ -1989,7 +2037,10 @@ private fun NewsScreen() {
         title = "NOTICIÁRIO LOCAL",
         subtitle = "3 principais notícias recentes com data/hora e fonte",
     ) {
-        FinalDashboardSpec.newsScopes.take(4).forEach { scope -> StatusLine(scope, "Aguardando notícia recente validada") }
+        Text("Rio de Janeiro", color = Gold)
+        LiveNewsHeadlines("RJ")
+        Text("Nacional", color = Gold)
+        LiveNewsHeadlines("Nacional")
         Text("Vídeo somente via incorporação/link oficial; sem hospedagem ou download do conteúdo do veículo.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
@@ -1997,9 +2048,30 @@ private fun NewsScreen() {
         title = "BOLETIM INTERNACIONAL",
         subtitle = "El Niño/La Niña • extremos • ciclones • terremoto/tsunami relevante",
     ) {
-        NewsPlaceholder("1", "Aguardando notícia internacional recente traduzida com fonte")
-        NewsPlaceholder("2", "Aguardando notícia internacional recente traduzida com fonte")
-        NewsPlaceholder("3", "Aguardando notícia internacional recente traduzida com fonte")
+        LiveNewsHeadlines("Internacional")
+    }
+}
+
+private fun formatInformationTime(value: Instant): String = value.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília)"
+
+@Composable
+private fun LiveNewsHeadlines(scope: String, modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val snapshot = LocalNews.current
+    val headlines = snapshot?.forScope(scope, now).orEmpty()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Column(modifier) {
+        if (headlines.isEmpty()) Text("Sem manchetes recentes validadas para $scope nesta consulta.", color = Muted)
+        headlines.forEach { item ->
+            Text(item.title, color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Agência Brasil • publicação ${formatInformationTime(item.publishedAt)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { uri.openUri(item.url) }) { Text("Saiba mais ›", color = Gold) }
+        }
+        if (headlines.isNotEmpty() && snapshot != null)
+            Text("Feed consultado ${formatInformationTime(snapshot.fetchedAt)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -2622,9 +2694,7 @@ private fun NewsPanel(modifier: Modifier) {
         subtitle = "Rio • Niterói • São Gonçalo • Sudeste",
         modifier = modifier,
     ) {
-        NewsPlaceholder("1", "Aguardando notícia recente com fonte oficial")
-        NewsPlaceholder("2", "Aguardando notícia recente com fonte oficial")
-        NewsPlaceholder("3", "Aguardando notícia recente com fonte oficial")
+        LiveNewsHeadlines("RJ")
     }
 }
 

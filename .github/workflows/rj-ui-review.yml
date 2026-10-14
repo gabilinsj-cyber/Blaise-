@@ -6,6 +6,7 @@ on:
       - 'app/**'
       - 'scripts/rj-interface-emulator-review.sh'
       - 'scripts/rj-inmet-live-probe.mjs'
+      - 'scripts/rj-live-information-probe.mjs'
       - '.github/workflows/rj-ui-review.yml'
   workflow_dispatch:
 
@@ -22,7 +23,7 @@ jobs:
     # No subscription or production store-release PR can consume emulator time.
     if: >-
       github.event_name == 'pull_request' &&
-      (github.event.pull_request.head.ref == 'codex/rj-unified-city-evidence-20261014' || github.event.pull_request.head.ref == 'codex/rj-live-integration-fix-20261014' ||
+      (github.event.pull_request.head.ref == 'fix/rj-freshness-seven-day-history' || github.event.pull_request.head.ref == 'codex/rj-unified-city-evidence-20261014' || github.event.pull_request.head.ref == 'codex/rj-live-integration-fix-20261014' ||
        github.event.pull_request.head.ref == 'codex/rj-current-weighted-sources-20261014' ||
        github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
        github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
@@ -57,6 +58,10 @@ jobs:
         run: |
           node --check scripts/rj-inmet-live-probe.mjs
           node scripts/rj-inmet-live-probe.mjs
+      - name: Verify live RSS, USGS, forecast readiness and public backend (read-only)
+        run: |
+          node --check scripts/rj-live-information-probe.mjs
+          node scripts/rj-live-information-probe.mjs
       - name: Run visual/functional emulator checks and capture evidence
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:

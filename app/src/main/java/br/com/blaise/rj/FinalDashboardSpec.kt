@@ -58,7 +58,7 @@ object FinalDashboardSpec {
     const val EXTRA_DISPUTE_CHECKS = 5
     const val SUPPLEMENTAL_SOURCE_STATUS = "Cadastrada • ingestão de dados ainda não validada"
 
-    val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
+    val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Nacional", "Internacional")
 
     fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
         alertCount > MAX_INLINE_ALERTS_PER_CITY
