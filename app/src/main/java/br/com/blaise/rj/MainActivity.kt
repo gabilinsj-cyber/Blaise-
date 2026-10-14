@@ -2147,14 +2147,17 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
-                "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
-                "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
-                color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
-                "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
-                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
+            Text("Tabela 1: Alerta Rio (somente município do Rio) → Defesa Civil → " +
+                "INMET por estação. Duas observações oficiais independentes, atuais e " +
+                "compatíveis bastam para cálculo. Em divergência, Tabela 2: " +
+                "INPE/CPTEC primeiro; Windy somente se INPE não resolver. " +
+                "CEMADEN/NOAA especializados por fenômeno.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-table-operational-hierarchy"))
+            Text("OpenWeatherMap • terceiro produto COMPLEMENTAR dos dez fenômenos, " +
+                "quando disponível e autorizado. INMET permanece a terceira fonte oficial. " +
+                "Dado republicado ou modelo não vira medição independente; " +
+                "avisos oficiais nunca são cancelados por média ponderada.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
             Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
