@@ -94,10 +94,18 @@ A compatibilidade exige: mesma variável/unidade/intervalo; município do RJ com
 
 Implementação: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/src/rj-agent-orchestration.mjs` e testes `backend/test/rj-hierarchical-weather-resolution.test.mjs`. A função `consultRjSourcesUntilTwo` **recebe adapters explicitamente configurados**; por si só, não é uma integração de rede ou uma coleta continuamente implantada. O código rejeita uma fonte tentando se passar por duas independentes.
 
+## Tabela 2 — critério de desempate atualizado em 14/10/2026
+
+**Prioridade exclusivamente para a conferência de divergências:** **1. INPE/CPTEC → 2. INMET → 3. CEMADEN → 4. Windy → 5. NOAA**.
+
+A ordem pertence à **Tabela 2**, e **não substitui a Tabela 1** das fontes primárias por localidade/fenômeno. A seleção só utiliza produto pertinente, atual, autorizado e com cobertura geográfica suficiente. Ex.: CEMADEN pode verificar chuva e riscos hidrológicos, mas não pode ser tratado como termômetro de todos os municípios. NOAA oferece modelos, satélites ou produtos oficiais conforme o caso, sem se tornar segunda estação de medição. Não combinar previsão e medição numa mesma média ponderada.
+
+Registro completo, classes de fonte, exceções de sismo/tsunami/rios e testes: [Tabela 2 — critério de desempate](RJ_TABELA_2_CRITERIO_DESEMPATE_20261014.md).
+
 ## Divergências entre as cinco fontes meteorológicas
 
 1. Uma leitura recente do **INMET**, Alerta Rio ou Defesa Civil (conforme estação e competência) permanece observação/aviso oficial; uma previsão do **INPE/CPTEC** ou modelo visualizado no **Windy** permanece previsão, mesmo que coincida numericamente com uma estação.
-2. Se duas medições oficiais discordarem, verificar município, coordenadas, distância entre estações, mesmo intervalo/unidade, carimbo de tempo, calibração e qualidade. Após tentar a terceira fonte oficial **INMET**, consultar **INPE/CPTEC primeiro**; só quando o INPE não permitir comparar adequadamente as leituras, recorrer ao **Windy**. São referências de previsão, não sensores, e nenhum modelo prevalece sobre aviso oficial.
+2. Se duas medições oficiais discordarem, verificar município, coordenadas, distância entre estações, mesmo intervalo/unidade, carimbo de tempo, calibração e qualidade. Para a **Tabela 2**, usar a ordem de verificação **INPE/CPTEC → INMET → CEMADEN → Windy → NOAA**, somente em produtos pertinentes e disponíveis. Isso **não altera** as prioridades da coleta inicial da Tabela 1. INPE/Windy/NOAA usados como previsão não são sensores, e nenhum modelo prevalece sobre aviso oficial.
 3. **Média ponderada de observações**: somente após validar variáveis, horários, distâncias, pesos tecnicamente justificados e uma divergência abaixo do limiar de investigação. Diferença relevante => destacar divergência e não calcular média destinada a ocultá-la.
 4. **Média ponderada de previsões**: grupo separado, nunca misturar previsões com observações. Exigir mesmo fenômeno, município/célula, prazo, unidade, modelos/produtos independentes e pesos derivados de verificação histórica documentada. Sem calibração, indisponível.
 5. O diagnóstico está em `backend/src/rj-weather-source-reconciliation.mjs` e `backend/test/rj-weather-source-reconciliation.test.mjs`. **É algoritmo local e roteamento, ainda não comprova acesso vivo ou licença de API do INPE.** Todos os resultados derivados permanecem não oficiais e não autorizam alertas automáticos.
