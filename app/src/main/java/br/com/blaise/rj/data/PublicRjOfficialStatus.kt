@@ -226,9 +226,18 @@ object PublicRjStatusParser {
                 val item = rows.getJSONObject(idx)
                 val product=if(item.isNull("connectedProduct")) null
                     else item.getString("connectedProduct")
+                val reportedState=item.getString("state")
+                // A newer backend may have added a worker status. Unknown
+                // states never elevate source evidence, and must not suppress
+                // otherwise valid public INMET/CHM warnings for the user.
+                val recognizedStates=setOf("CURRENT", "CURRENT_DEGRADED",
+                    "STALE", "UNAVAILABLE", "NOT_CONNECTED",
+                    "NOT_CONFIGURED", "AWAITING_SOURCE_REFRESH", "ERROR")
+                val safeState=if(reportedState in recognizedStates)
+                    reportedState else "NOT_CONNECTED"
                 PublicRjSourceProduct(
                     id=item.getString("id"), name=item.getString("name"),
-                    state=item.getString("state"),
+                    state=safeState,
                     connectedProduct=product, scope=item.getString("scope"),
                 )
             }
