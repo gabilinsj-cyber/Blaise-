@@ -10,6 +10,16 @@ import org.junit.Before
 import org.junit.Test
 
 class OfficialMarineWarningHistoryTest {
+    @Test fun sourceRemovalAtFifthHourStartsHistoricalDeadlineAndBlocksReappearance() {
+        val store = OfficialMarineWarningHistory(context)
+        val now = issued.plusSeconds(5 * 3600)
+        val closed = store.merge(listOf(warning), emptyList(), now,
+            PublicWarningInventory("chm", now, true, emptySet()))
+        assertEquals(now, closed.single().localClosedAt)
+        assertEquals(closed, store.merge(closed, listOf(warning), now.plusSeconds(1)))
+        store.write(closed)
+        assertTrue(store.read(issued.plusSeconds(17 * 3600)).isEmpty())
+    }
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val issued = Instant.parse("2026-10-14T12:00:00Z")
     private val warning = PublicRjMarineWarning("321/2026", "AVISO DE VENTO FORTE", issued,

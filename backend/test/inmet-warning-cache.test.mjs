@@ -15,6 +15,20 @@ import {
 } from '../src/inmet-source.mjs';
 
 const NOW = Date.parse('2026-09-11T12:00:00.000Z');
+test('CAP cancellation payload is removed after its own 12h historical period', () => {
+  let clock = NOW;
+  const cache = createInmetCapWarningsCache({ now: () => clock });
+  const source = { ...snapshot(), cancellations: [{
+    identifier: 'urn:oid:2.49.0.0.76.0.cancel', sender: 'info.aviso@inmet.gov.br',
+    msgType: 'Cancel', status: 'Actual', sent: new Date(NOW).toISOString(),
+    cancelledIdentifiers: ['urn:oid:2.49.0.0.76.0.old'],
+  }] };
+  cache.recordSuccess(source);
+  assert.equal(cache.read().snapshot.cancellations.length, 1);
+  clock += 12 * 60 * 60_000;
+  cache.recordSuccess(source);
+  assert.equal(cache.read().snapshot.cancellations.length, 0);
+});
 
 function snapshot() {
   const warning = Object.freeze({

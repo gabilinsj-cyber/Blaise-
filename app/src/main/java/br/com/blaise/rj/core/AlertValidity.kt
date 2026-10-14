@@ -30,8 +30,8 @@ object AlertValidityPolicy {
 
     fun updateLabel(age: AlertUpdateAge): String? = when (age) {
         AlertUpdateAge.CURRENT -> null
-        AlertUpdateAge.NO_UPDATE_3H -> "Dados do aviso sem atualização há pelo menos 3 horas. Não confirma fim do risco."
-        AlertUpdateAge.NO_UPDATE_4H -> "Ausência de dados novos há pelo menos 4 horas. Gravidade oficial preservada; risco atual sem confirmação."
+        AlertUpdateAge.NO_UPDATE_3H -> "Sem atualização nas últimas 3 horas • risco atual sem confirmação."
+        AlertUpdateAge.NO_UPDATE_4H -> "Sem atualização nas últimas 4 horas • risco atual sem confirmação."
         AlertUpdateAge.INVALID -> "Horário de atualização inválido; vigência sem confirmação."
     }
 

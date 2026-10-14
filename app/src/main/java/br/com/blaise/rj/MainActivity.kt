@@ -273,13 +273,15 @@ fun BlaiseApp(
         val paidWarnings = paid?.warnings.orEmpty().filter { it.attribution == "EXACT_IBGE" }
             .map { PublicRjWarning(it.id, it.event, it.severity, it.sent, it.onset, it.expires,
                 it.municipalityIbges, "https://apiprevmet3.inmet.gov.br/avisos/rss") }
-        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty() + paidWarnings, observationClock)
+        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty() + paidWarnings, observationClock,
+            current?.warningInventories?.firstOrNull { it.sourceId == "inmet" })
         if (next != warningHistory) {
             warningHistory = next
             warningHistoryStore.write(next)
         }
         val marine = current?.marine?.takeIf { it.current(observationClock) }
-        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock)
+        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock,
+            current?.warningInventories?.firstOrNull { it.sourceId == "chm" })
         if (nextMarine != marineHistory) {
             marineHistory = nextMarine
             marineHistoryStore.write(nextMarine)
@@ -419,8 +421,18 @@ fun BlaiseApp(
                 publicStatusRefreshRequest += 1
             }
         },
-        LocalPublicRjStatus provides if (powerOn) publicRjStatus else PublicRjStatusResult.Unavailable,
-        LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
+        LocalPublicRjStatus provides if (powerOn) ((publicRjStatus as? PublicRjStatusResult.Available)?.let {
+            PublicRjStatusResult.Available(it.snapshot.suppressWithdrawn(warningHistory, marineHistory))
+        } ?: publicRjStatus) else PublicRjStatusResult.Unavailable,
+        LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
+            ((statewideDashboard as? StatewideDataResult.Available)?.let { result ->
+                val visible = result.snapshot.warnings.filter { row -> warningHistory.none {
+                    it.id == row.id && it.sent == row.sent && it.localClosedAt != null
+                } }
+                val ids = visible.map { it.id }.toSet()
+                StatewideDataResult.Available(result.snapshot.copy(warnings = visible,
+                    municipalities = result.snapshot.municipalities.map { it.copy(warningIds = it.warningIds.filter(ids::contains)) }))
+            } ?: statewideDashboard) else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
         LocalCityWeather provides if (powerOn) citySnapshots.mapValues { it.value.currentReport(observationClock) } else emptyMap(),
         LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
@@ -1914,15 +1926,15 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
     val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
         ?.takeIf { it.current(now) && it.workerActive }
     val warnings = LocalOfficialWarningHistory.current.filter {
-        ibge in it.municipalityIbges && AlertValidityPolicy.retainHistory(it.sent, it.expires, now)
+        ibge in it.municipalityIbges && it.retainHistory(now)
     }
     if (warnings.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val activeRecords = warnings.filter { AlertValidityPolicy.activeUntil(it.sent, it.expires).isAfter(now) }
-        val historicalRecords = warnings.filterNot { AlertValidityPolicy.activeUntil(it.sent, it.expires).isAfter(now) }
+        val activeRecords = warnings.filter { it.localActiveUntil().isAfter(now) }
+        val historicalRecords = warnings.filterNot { it.localActiveUntil().isAfter(now) }
         (activeRecords + historicalRecords).forEach { warning ->
-            if (historicalRecords.firstOrNull()?.id == warning.id)
+            if (historicalRecords.firstOrNull() == warning)
                 Text("HISTÓRICO • encerrados no Blaise", color = Muted, fontWeight = FontWeight.Bold)
             val sourceCurrent = (snapshot?.current(now) == true && snapshot.warnings.any { it == warning }) ||
                 paid?.warnings?.any { it.id == warning.id && it.sent == warning.sent &&
@@ -1930,13 +1942,14 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
                     it.attribution == "EXACT_IBGE" && ibge in it.municipalityIbges } == true
             val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
                 warning.expires, now, sourceCurrent)
-            val historical = state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
+            val historical = warning.localClosedAt != null || state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
             Surface(color = Navy, shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, if (historical) Muted else WarningAmber)) {
                 Column(Modifier.fillMaxWidth().padding(8.dp)) {
                     Text("${if (historical) "HISTÓRICO" else "AVISO"} • INMET • ${warning.event} • gravidade da emissão: ${warning.severity}", color = if (historical) Muted else Color.White)
-                    Text(AlertValidityPolicy.label(state), color = if (historical) Muted else WarningAmber)
-                    AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                    Text(if (warning.localClosedAt != null) "Retirada confirmada na fonte • somente histórico" else AlertValidityPolicy.label(state),
+                        color = if (historical) Muted else WarningAmber)
+                    if (warning.localClosedAt == null) AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
                         Text(it, color = if (historical) Muted else WarningAmber, style = MaterialTheme.typography.labelSmall)
                     }
                     if (historical)
@@ -1947,7 +1960,7 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
                     Text("Emissão ${warning.sent.atZone(zone).format(format)} • início ${warning.onset.atZone(zone).format(format)} • fim ${warning.expires.atZone(zone).format(format)} (Brasília)",
                         color = Muted, style = MaterialTheme.typography.labelSmall)
                     Text(warning.sourceUrl, color = Muted, style = MaterialTheme.typography.labelSmall)
-                    if (state == AlertValidity.REVIEW_DUE)
+                    if (!historical && state == AlertValidity.REVIEW_DUE)
                         Text("Reavaliação meteorológica ainda não comprovada; o aviso oficial permanece vigente.",
                             color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
@@ -1960,8 +1973,7 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
 private fun MarineWarningHistoryPanel() {
     val now = LocalObservationClock.current
     val records = LocalOfficialMarineHistory.current.filter {
-        !AlertValidityPolicy.activeUntil(it.issuedAt, it.validUntil).isAfter(now) &&
-            AlertValidityPolicy.retainHistory(it.issuedAt, it.validUntil, now)
+        !it.localActiveUntil().isAfter(now) && it.retainHistory(now)
     }
     if (records.isEmpty()) return
     Spacer(Modifier.height(14.dp))
@@ -1969,10 +1981,11 @@ private fun MarineWarningHistoryPanel() {
         records.forEach { warning ->
             val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
             val zone = java.time.ZoneId.of("America/Sao_Paulo")
-            val closed = AlertValidityPolicy.activeUntil(warning.issuedAt, warning.validUntil)
+            val closed = warning.localActiveUntil()
             Text("${warning.id} • ${warning.warningType} • ${warning.areas.joinToString()}", color = Muted)
             Text("Emissão ${warning.issuedAt.atZone(zone).format(format)} • encerramento local ${closed.atZone(zone).format(format)} • histórico até ${closed.plusSeconds(AlertValidityPolicy.HISTORY_SECONDS).atZone(zone).format(format)} (Brasília)",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            if (warning.localClosedAt != null) Text("Retirada confirmada no feed da fonte.", color = Muted)
             Text("Fonte: Marinha / CHM • aviso regional METAREA V, sem atribuição automática a município.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", color = Muted,

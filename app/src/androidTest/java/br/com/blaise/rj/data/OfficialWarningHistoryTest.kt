@@ -10,6 +10,30 @@ import org.junit.Before
 import org.junit.Test
 
 class OfficialWarningHistoryTest {
+    @Test fun confirmedRemovalAtFifthHourClosesRecordAndCannotResurrectTheSameEmission() {
+        val store = OfficialWarningHistory(context)
+        val original = warning().copy(expires = issued.plusSeconds(2 * 86400))
+        val now = issued.plusSeconds(5 * 3600)
+        val inventory = PublicWarningInventory("inmet", now, true, emptySet())
+        val closed = store.merge(listOf(original), emptyList(), now, inventory)
+        assertEquals(now, closed.single().localClosedAt)
+        assertEquals(closed, store.merge(closed, listOf(original), now.plusSeconds(60)))
+        store.write(closed)
+        assertEquals(closed, store.read(issued.plusSeconds(17 * 3600 - 1)))
+        assertTrue(store.read(issued.plusSeconds(17 * 3600)).isEmpty())
+        assertTrue(store.merge(emptyList(), listOf(original), issued.plusSeconds(17 * 3600)).isEmpty())
+    }
+
+    @Test fun partialStaleOrOlderInventoriesCannotCloseAnExistingNotice() {
+        val store = OfficialWarningHistory(context)
+        val now = issued.plusSeconds(5 * 3600)
+        val original = warning()
+        for (inventory in listOf(PublicWarningInventory("inmet", now, false, emptySet()),
+            PublicWarningInventory("inmet", now.minusSeconds(301), true, emptySet()),
+            PublicWarningInventory("inmet", issued.minusSeconds(1), true, emptySet()))) {
+            assertEquals(listOf(original), store.merge(listOf(original), emptyList(), now, inventory))
+        }
+    }
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val issued = Instant.parse("2026-10-14T12:00:00Z")
     private val expires = issued.plusSeconds(6 * 3600)

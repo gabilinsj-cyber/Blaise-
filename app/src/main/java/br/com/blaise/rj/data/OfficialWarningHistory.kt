@@ -25,18 +25,24 @@ class OfficialWarningHistory(context: Context) {
             val warning = PublicRjWarning(row.getString("id"), row.getString("event"),
                 row.getString("severity"), Instant.parse(row.getString("sent")),
                 Instant.parse(row.getString("onset")), Instant.parse(row.getString("expires")),
-                municipalities, row.getString("sourceUrl"))
+                municipalities, row.getString("sourceUrl"),
+                if (row.isNull("closedAt")) null else Instant.parse(row.getString("closedAt")))
             require(valid(warning, now))
-            warning.takeIf { AlertValidityPolicy.retainHistory(it.sent, it.expires, now) }
+            warning.takeIf { it.retainHistory(now) }
         }.getOrNull() }
         if (retained.size != rows.length()) write(retained)
         retained
     }.getOrElse { preferences.edit().remove("warnings").apply(); emptyList() }
 
-    fun merge(previous: List<PublicRjWarning>, incoming: List<PublicRjWarning>, now: Instant): List<PublicRjWarning> =
-        (previous + incoming).filter { valid(it, now) && AlertValidityPolicy.retainHistory(it.sent, it.expires, now) }
-            .groupBy { it.id }.values.map { versions -> versions.maxBy { it.sent } }
+    fun merge(previous: List<PublicRjWarning>, incoming: List<PublicRjWarning>, now: Instant,
+        inventory: PublicWarningInventory? = null): List<PublicRjWarning> {
+        val fresh = incoming.filter { it.current(now) && !previous.any { old -> old.id == it.id && old.sent > it.sent } }
+        return (previous + fresh).distinctBy { "${it.id}|${it.sent}" }
+            .map { w -> if (w.localClosedAt == null && inventory?.sourceId == "inmet" &&
+                inventory.withdrawn(w.id, w.sent, now)) w.copy(localClosedAt = minOf(inventory.checkedAt, w.localActiveUntil())) else w }
+            .filter { valid(it, now) && it.retainHistory(now) }
             .sortedByDescending { it.sent }.take(64)
+    }
 
     fun write(warnings: List<PublicRjWarning>) {
         val rows = JSONArray()
@@ -44,6 +50,7 @@ class OfficialWarningHistory(context: Context) {
             .put("id", w.id).put("event", w.event).put("severity", w.severity)
             .put("sent", w.sent.toString()).put("onset", w.onset.toString())
             .put("expires", w.expires.toString()).put("sourceUrl", w.sourceUrl)
+            .put("closedAt", w.localClosedAt?.toString() ?: JSONObject.NULL)
             .put("municipalities", JSONArray(w.municipalityIbges))) }
         val encoded = rows.toString()
         if (encoded.length <= 80 * 1024) preferences.edit().putString("warnings", encoded).apply()
@@ -52,6 +59,7 @@ class OfficialWarningHistory(context: Context) {
     private fun valid(w: PublicRjWarning, now: Instant) =
         w.id.length in 1..256 && w.event.length in 1..512 && w.severity.length in 1..64 &&
         w.sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss" &&
+        (w.localClosedAt == null || !w.localClosedAt.isBefore(w.sent) && !w.localClosedAt.isAfter(now)) &&
         !w.sent.isAfter(now) && w.expires.isAfter(w.onset) && w.expires.isAfter(w.sent) &&
         w.municipalityIbges.isNotEmpty() && w.municipalityIbges.size <= 92 &&
         w.municipalityIbges.all { RioMunicipalities.byIbgeCode(it) != null }
