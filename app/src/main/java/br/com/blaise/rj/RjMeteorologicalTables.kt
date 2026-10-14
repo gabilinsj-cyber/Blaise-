@@ -44,6 +44,17 @@ object RjMeteorologicalTables {
     val disputeTable2FiveSources = listOf(
         "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
     )
+    val disputeTable2SourceRoles = listOf(
+        "1 • INPE/CPTEC — previsão e análise oficial, não medição de estação",
+        "2 • INMET — medição por estação ou aviso com cobertura comprovada",
+        "3 • CEMADEN — pluviômetros e risco hidrológico; apenas produtos pertinentes",
+        "4 • Windy — comparação de modelos, não medição oficial",
+        "5 • NOAA — satélite ou previsão compatível com variável, local e horário",
+    )
+    const val DISPUTE_DATA_SAFETY =
+        "Média apenas entre medições independentes comparáveis; previsão e observação não são combinadas. " +
+        "Sismos, tsunami, mar e avisos usam autoridades especializadas."
+
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
