@@ -104,6 +104,36 @@ class PublicRjOfficialStatusTest {
         assertTrue(runCatching { PublicRjStatusParser.parse(wrong) }.isFailure)
     }
 
+    @Test fun parsedWorkerSourceProductsDistinguishCurrentWarningsAndHydroRiskFromWholeAgencyCoverage() {
+        val sources=JSONArray()
+            .put(JSONObject().put("id","inmet").put("name","INMET")
+                .put("state","CURRENT").put("connectedProduct","avisos")
+                .put("scope","RJ_POR_COBERTURA_VALIDADA"))
+            .put(JSONObject().put("id","cemaden-rj")
+                .put("name","CEMADEN-RJ / Defesa Civil")
+                .put("state","NOT_CONNECTED")
+                .put("connectedProduct",JSONObject.NULL)
+                .put("scope","RJ_92_MUNICIPIOS"))
+        val parsed=PublicRjStatusParser.parse(fixture().put("sources",sources))
+        assertEquals(2,parsed.sourceProducts.size)
+        assertTrue(parsed.sourceProducts.first().currentlyConnected())
+        assertFalse(parsed.sourceProducts.last().currentlyConnected())
+        assertEquals("avisos",parsed.sourceProducts.first().connectedProduct)
+        val older=PublicRjStatusParser.parse(fixture())
+        assertTrue(older.sourceProducts.isEmpty())
+
+        val faked=fixture().put("sources",JSONArray().put(JSONObject()
+            .put("id","openweathermap").put("name","OpenWeatherMap")
+            .put("state","CURRENT").put("connectedProduct","temperatura")
+            .put("scope","RJ_92_MUNICIPIOS")))
+        assertTrue(runCatching { PublicRjStatusParser.parse(faked) }.isFailure)
+        val spoofed=fixture().put("sources",JSONArray().put(JSONObject()
+            .put("id","inmet").put("name","INMET")
+            .put("state","CURRENT").put("connectedProduct","temperatura")
+            .put("scope","RJ_92_MUNICIPIOS")))
+        assertTrue(runCatching { PublicRjStatusParser.parse(spoofed) }.isFailure)
+    }
+
     @Test fun publicStatusClientRejectsHttpAndNeverNeedsPurchaseId() {
         assertNull(PublicRjStatusHttpsClient.create(""))
         assertNull(PublicRjStatusHttpsClient.create("http://example.test"))
