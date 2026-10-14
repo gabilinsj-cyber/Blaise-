@@ -11,7 +11,7 @@ import org.junit.Test
 
 class RjLiveTableEvidenceTest {
     private val now=Instant.parse("2026-10-13T03:00:00Z")
-    private val stamp=Instant.parse("2026-10-13T02:50:00Z")
+    private val stamp=Instant.parse("2026-10-13T02:59:00Z")
 
     private fun station(ibge: Int=3304557,source: String="INMET")=
         CityWeatherObservation(
@@ -51,6 +51,15 @@ class RjLiveTableEvidenceTest {
             null,now.plusSeconds(7200)).state)
         assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(
             "TEMPERATURA",3303302,station(3303302,"Alerta Rio"),null,now).state)
+    }
+
+    @Test fun delayedStationIsUnavailableEvenWhenProviderCacheStillAcceptsIt() {
+        val delayed=station().copy(observedAt=now.minusSeconds(301))
+        assertTrue(delayed.current(now))
+        assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(
+            "TEMPERATURA",3304557,delayed,null,now).state)
+        assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(
+            "SENSACAO_TERMICA",3304557,delayed,null,now).state)
     }
 
     @Test fun heatIndexIsExplicitlyDerivedAndCannotIssueAlarm() {

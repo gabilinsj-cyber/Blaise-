@@ -10,6 +10,7 @@ const result = {
   checkedAt: checkedAt.toISOString(),
   state: 'UNAVAILABLE',
   liveReadings: 'NOT_CONFIRMED',
+  maximumObservationAgeMs: 300_000,
   radar: 'NOT_TESTED_NOT_IMPLEMENTED',
   personalData: 'NONE',
 };
@@ -85,7 +86,7 @@ try {
     const variables = Object.fromEntries(checks.map(([label, field, min, max]) => {
       const valid = recent.filter(row => number(row[field], min, max) !== null);
       const unique = new Set(valid.map(time));
-      const fresh = [...unique].some(ms => checkedAt.getTime() - ms <= 7_200_000);
+      const fresh = [...unique].some(ms => checkedAt.getTime() - ms <= 300_000);
       return [label, { available: fresh && unique.size >= 2,
         validPointCount: unique.size,
         newestObservedAt: unique.size ? new Date(Math.max(...unique)).toISOString() : null }];
