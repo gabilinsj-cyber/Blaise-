@@ -1998,10 +1998,11 @@ private fun MoreScreen(
         subtitle = "Prioridade local e origem preservada",
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
-        Text("Desempate Tabela 2 (cinco fontes): " +
+        Text("Hierarquia meteorológica por município e fenômeno: " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
-            ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
+            ". Se duas medições oficiais independentes concordarem, não é necessário desempate. " +
+            "Alerta Rio atua somente na cidade do Rio. INPE e Windy são previsões; " +
+            "CEMADEN, NOAA e fontes marítimas entram conforme o fenômeno.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
         Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
@@ -2150,11 +2151,13 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
                 "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
                 "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
+                "INMET é a terceira observação oficial; INPE é o primeiro modelo de desempate; " +
+                "Windy entra apenas se INPE não resolver. CEMADEN/NOAA por fenômeno.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
             Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
                 "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
-                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
+                "INMET é a 3ª consulta observacional; INPE e depois Windy são previsões " +
+                "de comparação, não leituras de estação. Avisos oficiais prevalecem.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
             Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
@@ -2204,15 +2207,17 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                 }
             }
         } else if (selected == 2) {
-            Text("TABELA 2 • Cinco fontes de desempate e cálculo científico", color = Gold,
+            Text("TABELA 2 • Hierarquia e critérios de desempate", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
             Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
-            Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
-                "Uma leitura primária pode ser comparada a uma fonte de desempate. " +
-                "Média numérica somente entre MEDIÇÕES compatíveis; previsão e medição são exibidas separadamente.",
+            Text("Primeiro: Alerta Rio (onde atua), Defesa Civil e INMET. " +
+                "Sem duas medições oficiais compatíveis, consultar INPE/CPTEC. " +
+                "Somente se INPE inconclusivo, comparar com Windy. " +
+                "Exibir separadamente a medição oficial e a previsão; " +
+                "a média ponderada só combina MEDIÇÕES comparáveis.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             val active = chosenPhenomenon?.let { code ->
                 RjMeteorologicalTables.table1.firstOrNull { it.code == code }
