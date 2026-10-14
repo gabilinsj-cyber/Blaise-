@@ -26,6 +26,10 @@ test('all 92 canonical municipalities have separate risks and exact warning assi
   assert.deepEqual(result.municipalities.find(city => city.ibge === '3303302').warningIds, []);
   assert.equal(result.municipalities.find(city => city.ibge === '3305802').seaFacing, false);
 });
+test('paid municipal risk expires at the same five-minute limit as the public panel', () => {
+  const result = buildStatewideDashboardSnapshot(worker({ observedAt: new Date(now - 300001).toISOString() }), { nowMillis: now });
+  assert.ok(result.municipalities.every(city => city.hydrologicalRisk.level === null));
+});
 test('recent download never renews expired observation; expired fetch blocks all payloads', () => {
   const old = new Date(now - 1800_001).toISOString();
   const observed = buildStatewideDashboardSnapshot(worker({ observedAt: old }), { nowMillis: now });

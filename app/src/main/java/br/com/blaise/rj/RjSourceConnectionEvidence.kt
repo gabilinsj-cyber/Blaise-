@@ -55,8 +55,9 @@ object RjSourceConnectionEvidence {
             }
         } else emptyList()
         val newestRio=validRio.maxByOrNull { it.observedAt }
+        val inmetInventory = freshStatus?.warningInventories?.firstOrNull { it.sourceId == "inmet" && it.current(now) }
         val inmetWorker = freshStatus?.sourceProducts
-            ?.firstOrNull { it.id == "inmet" && it.currentlyConnected() }
+            ?.firstOrNull { it.id == "inmet" && it.currentlyConnected() && inmetInventory != null }
         val hydroWorker = freshStatus?.sourceProducts
             ?.firstOrNull { it.id == "cemaden-rj" && it.currentlyConnected() }
         val marine = freshStatus?.marine?.takeIf { it.current(now) }
@@ -78,14 +79,14 @@ object RjSourceConnectionEvidence {
                 station?.observedAt,station != null),
             RjSourceConnectionRow("INMET", "Avisos CAP por município",
                 if(inmetWorker != null) "Produto de avisos oficial consultado; cobertura por IBGE"
-                else OFFLINE, freshStatus?.generatedAt,inmetWorker != null),
+                else OFFLINE, inmetInventory?.checkedAt,inmetWorker != null),
             RjSourceConnectionRow("CEMADEN-RJ / Defesa Civil", "Risco hidrológico e cheias",
                 if(localRisk != null && hydroWorker != null)
                     "Boletim municipal validado; não equivale a chuva pontual"
                 else if(hydroWorker != null)
                     "Produto do servidor consultado; sem boletim atual para esta cidade"
                 else OFFLINE,
-                localRisk?.observedAt ?: if(hydroWorker != null) freshStatus?.generatedAt else null,
+                localRisk?.observedAt,
                 localRisk != null && hydroWorker != null),
             RjSourceConnectionRow("Marinha do Brasil / CHM", "Avisos regionais de mau tempo • METAREA V",
                 if(marine != null) "Inventário de avisos consultado; não é previsão por praia"

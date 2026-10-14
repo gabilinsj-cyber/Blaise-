@@ -16,7 +16,7 @@ const val STATEWIDE_DATA_PATH = "/v1/data/municipalities"
 data class StatewideRisk(val state: String, val label: String?, val level: Int?, val observedAt: Instant?, val sourceUrl: String, val region: String?) {
     fun current(now: Instant): Boolean = state in setOf("CURRENT", "CURRENT_DEGRADED") &&
         level != null && level in 1..5 && label != null && observedAt != null &&
-        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= 1800
+        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= 300
 }
 data class StatewideWarning(val id: String, val event: String, val severity: String, val sent: Instant, val onset: Instant,
     val expires: Instant, val municipalityIbges: List<Int>, val attribution: String) {

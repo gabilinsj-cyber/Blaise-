@@ -18,7 +18,7 @@ class StatewideSnapshotTest {
         assertTrue(sample.current(now))
         assertFalse(sample.current(now.plusSeconds(121)))
         assertTrue(risk.current(now))
-        assertFalse(risk.copy(observedAt = now.minusSeconds(1801)).current(now))
+        assertFalse(risk.copy(observedAt = now.minusSeconds(301)).current(now))
         assertFalse(risk.copy(observedAt = now.plusSeconds(1)).current(now))
         assertFalse(risk.copy(state = "STALE").current(now))
     }

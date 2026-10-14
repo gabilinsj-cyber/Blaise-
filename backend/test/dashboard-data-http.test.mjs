@@ -119,6 +119,7 @@ function handlerWith({ gateway, sourceWorker = currentWorker(), metrics = create
       },
       sourceWorker,
       metrics,
+      clock: () => NOW,
     }),
   };
 }
@@ -160,6 +161,29 @@ test('paid dashboard snapshot projects only bounded current Alerta Rio rainfall 
   const counters = metrics.snapshot({ nowMillis: NOW }).counters;
   assert.equal(counters.dashboard_success_total, 1);
   assert.equal(counters.dashboard_denied_total, 0);
+});
+
+test('paid rainfall maxima exclude old stations and use the oldest contributing observation', () => {
+  const base = currentWorker();
+  const reading = structuredClone(base.readSource());
+  reading.snapshot.stations[3].observedAt = new Date(NOW - 300_001).toISOString();
+  reading.snapshot.stations[3].rain15mMm = 999;
+  reading.snapshot.stations[0].observedAt = new Date(NOW - 240_000).toISOString();
+  const worker = { ...base, readSource: () => reading };
+  const result = buildPaidDashboardSnapshot(worker, { nowMillis: NOW });
+  assert.equal(result.rainfall.max15mMm, 1.2);
+  assert.equal(result.rainfall.wetStationCount, 1);
+  assert.equal(result.rainfall.currentStationCount, 32);
+  assert.equal(result.rainfall.observedAt, new Date(NOW - 240_000).toISOString());
+});
+
+test('a renewed wrapper and fetch cannot make delayed rainfall observations current', () => {
+  const base = currentWorker();
+  const reading = structuredClone(base.readSource());
+  reading.snapshot.freshestObservedAt = new Date(NOW).toISOString();
+  reading.fetchedAt = new Date(NOW).toISOString();
+  reading.snapshot.stations.forEach(station => { station.observedAt = new Date(NOW - 300_001).toISOString(); });
+  assert.equal(buildPaidDashboardSnapshot({ ...base, readSource: () => reading }, { nowMillis: NOW }), null);
 });
 
 test('dashboard projection fails closed when official rainfall cache is stale', () => {

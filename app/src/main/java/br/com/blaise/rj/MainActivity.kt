@@ -1920,15 +1920,19 @@ private fun PulsingRiskLabel(text: String, level: Int) {
 
 /** Persisted provenance is historical; only a matching live snapshot confirms the source. */
 @Composable
-private fun MunicipalAlertValidityPanel(ibge: Int) {
+private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false) {
     val now = LocalObservationClock.current
     val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
     val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
         ?.takeIf { it.current(now) && it.workerActive }
     val warnings = LocalOfficialWarningHistory.current.filter {
-        ibge in it.municipalityIbges && it.retainHistory(now)
+        ibge in it.municipalityIbges && it.retainHistory(now) &&
+            (!historyOnly || !it.localActiveUntil().isAfter(now))
     }
-    if (warnings.isEmpty()) return
+    if (warnings.isEmpty()) {
+        if (historyOnly) Text("Sem registros históricos retidos para esta cidade.", color = Muted)
+        return
+    }
     Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val activeRecords = warnings.filter { it.localActiveUntil().isAfter(now) }
@@ -2241,14 +2245,15 @@ private fun LiveNewsHeadlines(scope: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun HistoryScreen(city1: City, city2: City) {
-    DashboardSection(
-        title = "HISTÓRICO E COMPARAÇÃO",
-        subtitle = "Comparação V6 por cidade, período e fonte",
-    ) {
-        StatusLine(city1.name, "Aguardando dados históricos elegíveis")
-        StatusLine(city2.name, "Aguardando dados históricos elegíveis")
-        Text("A comparação não cria valores sintéticos; usa somente snapshots/dados consolidados válidos.", color = Muted)
+    DailyChartPanel(city1)
+    Spacer(Modifier.height(14.dp))
+    DashboardSection("HISTÓRICO DE AVISOS • DUAS CIDADES", "Somente registros encerrados • retenção de 12 horas") {
+        listOf(city1, city2).distinctBy { it.ibgeCode }.forEach { city ->
+            Text(city.name, color = Gold, fontWeight = FontWeight.Bold)
+            MunicipalAlertValidityPanel(city.ibgeCode, historyOnly = true)
+        }
     }
+    MarineWarningHistoryPanel()
 }
 
 @Composable
@@ -2284,7 +2289,23 @@ private fun MoreScreen(
         title = "FONTES OFICIAIS",
         subtitle = "Prioridade local e origem preservada",
     ) {
-        FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
+        val clock = LocalObservationClock.current
+        val status = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+        RjSourceConnectionEvidence.rows(city.ibgeCode,
+            LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock),
+            LocalRioStations.current, status, clock).forEach { row ->
+            Text("${row.source} • ${row.product}", color = Gold, fontWeight = FontWeight.SemiBold)
+            Text(row.status, color = if (row.verifiedCurrentProduct) StableGreen else Muted,
+                style = MaterialTheme.typography.labelSmall)
+            row.updatedAt?.let { Text("Consulta/registro: ${formatInformationTime(it)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall) }
+        }
+        val seismic = LocalSeismic.current?.takeIf { it.current(clock) }
+        StatusLine("USGS • sismos globais", seismic?.let { "Feed validado • ${formatInformationTime(it.generatedAt)}" }
+            ?: "Sem feed atual confirmado")
+        val news = LocalNews.current?.takeIf { it.current(clock) }
+        StatusLine("Agência Brasil • RSS", news?.let { "RSS recebido • ${formatInformationTime(it.fetchedAt)}" }
+            ?: "Sem RSS atual confirmado")
         Text("Desempate Tabela 2 (cinco fontes): " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +

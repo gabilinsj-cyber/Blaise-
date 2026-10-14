@@ -46,7 +46,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const active = status?.enabled === true && status?.started === true;
   const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
-  const hydroReady = ready(hydro, nowMillis, 30 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
+  const hydroReady = ready(hydro, nowMillis, 5 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
   const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
   const records = hydroReady ? hydro.snapshot.records : [];
   const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
@@ -70,7 +70,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const unresolved = warnings.some(item => item.attribution === 'UNRESOLVED_RJ_AREA');
   const municipalities = RJ_MUNICIPALITIES.map(city => {
     const item = byIbge.get(city.ibge);
-    const validRisk = item && freshStamp(item.observedAt, nowMillis, 30 * 60_000)
+    const validRisk = item && freshStamp(item.observedAt, nowMillis, 5 * 60_000)
       && Number.isInteger(item.priority) && item.priority >= 1 && item.priority <= 5;
     return {
       ibge: city.ibge,

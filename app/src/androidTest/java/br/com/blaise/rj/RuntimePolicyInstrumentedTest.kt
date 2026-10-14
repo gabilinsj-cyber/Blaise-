@@ -54,8 +54,8 @@ class RuntimePolicyInstrumentedTest {
     }
 
     @Test fun operationalCadencesRunOnDevice() {
-        assertEquals(60L, RefreshCadencePolicy.intervalSeconds(Severity.RED))
-        assertEquals(900L, RefreshCadencePolicy.intervalSeconds(null))
+        assertEquals(30L, RefreshCadencePolicy.intervalSeconds(Severity.RED))
+        assertEquals(300L, RefreshCadencePolicy.intervalSeconds(null))
         assertTrue(BulletinPolicy.isScheduledHour(6))
         assertTrue(BulletinPolicy.isScheduledHour(12))
         assertTrue(BulletinPolicy.isScheduledHour(16))

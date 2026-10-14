@@ -43,10 +43,11 @@ class OperationalPolicyTest {
         assertEquals("network", (resolved as ResolvedData.Network<String>).value)
     }
 
-    @Test fun `severe cadence is one minute and normal cadence is fifteen minutes`() {
-        assertEquals(60L, RefreshCadencePolicy.intervalSeconds(Severity.P0))
-        assertEquals(60L, RefreshCadencePolicy.intervalSeconds(Severity.RED))
-        assertEquals(900L, RefreshCadencePolicy.intervalSeconds(Severity.GREEN))
+    @Test fun `levels four five use thirty seconds and other levels use five minutes`() {
+        assertEquals(30L, RefreshCadencePolicy.intervalSeconds(Severity.P0))
+        assertEquals(30L, RefreshCadencePolicy.intervalSeconds(Severity.RED))
+        assertEquals(300L, RefreshCadencePolicy.intervalSeconds(Severity.GREEN))
+        assertEquals(300L, RefreshCadencePolicy.intervalSeconds(Severity.FLASHING_YELLOW))
     }
 
     @Test fun `P0 notification delivers without entitlement and regular alert does not`() {
