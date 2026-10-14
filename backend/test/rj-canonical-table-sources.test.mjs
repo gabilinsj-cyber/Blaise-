@@ -47,6 +47,13 @@ test('marine routes remain specialist and independent of temperature-source hier
     assert.ok(route.includes('COPERNICUS_MARINE'));
     assert.ok(route.includes('NOAA'));
   }
+  const canonical=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
+  for(const code of ['RESSACA','ONDAS','SWELL','MARE','CORRENTES_MARINHAS',
+    'TEMPERATURA_MAR','TSUNAMI','SISMO','VAZAO_RIO','RISCO_HIDROLOGICO']){
+    const row=canonical.table1.find(x=>x.id===code);
+    assert.deepEqual(row.primaryTable1Three,[]);
+    assert.deepEqual(row.disputeTable2Five,[]);
+  }
   assert.deepEqual(RJ_SPECIALIST_MARINE_SOURCES,[
     'MARINHA_CHM','NOAA','COPERNICUS_MARINE','EUMETSAT_SATELLITE']);
   const cyclone=rjSourceRouting({region:'ATLANTICO',phenomenon:'CICLONE_EXTRATROPICAL'}).sources.map(x=>x.id);
