@@ -76,11 +76,39 @@ data class PublicRjMarine(
         !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..1800
 }
 
+/**
+ * Verified worker state for one SPECIFIC official product, never a claim that
+ * the complete provider has every weather variable for every RJ municipality.
+ * Backend allows only INMET (CAP warnings) and CEMADEN-RJ (hydro risk) here.
+ */
+data class PublicRjSourceProduct(
+    val id: String,
+    val name: String,
+    val state: String,
+    val connectedProduct: String?,
+    val scope: String,
+) {
+    init {
+        require(id in setOf("inmet", "cemaden-rj"))
+        require(name.isNotBlank() && name.length <= 90)
+        require(state in setOf("CURRENT", "CURRENT_DEGRADED", "STALE",
+            "UNAVAILABLE", "NOT_CONNECTED", "NOT_CONFIGURED",
+            "AWAITING_SOURCE_REFRESH", "ERROR"))
+        require(scope.length in 1..80)
+        require(connectedProduct == null || connectedProduct ==
+            if (id == "inmet") "avisos" else "risco-hidrologico")
+    }
+    fun currentlyConnected() =
+        state in setOf("CURRENT", "CURRENT_DEGRADED") &&
+        connectedProduct != null
+}
+
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
     val warnings: List<PublicRjWarning>,
     val marine: PublicRjMarine? = null,
+    val sourceProducts: List<PublicRjSourceProduct> = emptyList(),
 ) {
     init {
         require(municipalities.size == 92)
@@ -93,6 +121,8 @@ data class PublicRjStatus(
         } })
         require(marine == null || marine.warnings.size <= 16 &&
             marine.warnings.map { it.id }.distinct().size == marine.warnings.size)
+        require(sourceProducts.size <= 2 &&
+            sourceProducts.map { it.id }.distinct().size == sourceProducts.size)
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) &&
         Duration.between(generatedAt, now).seconds in 0..120
@@ -188,7 +218,23 @@ object PublicRjStatusParser {
                     "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
             }
         }
-        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),municipalities,warnings,marine)
+        // Older deployments omit "sources": never infer that a worker is
+        // connected just because the enclosing HTTP response is fresh.
+        val products = root.optJSONArray("sources")?.let { rows ->
+            require(rows.length() <= 2)
+            (0 until rows.length()).map { idx ->
+                val item = rows.getJSONObject(idx)
+                val product=if(item.isNull("connectedProduct")) null
+                    else item.getString("connectedProduct")
+                PublicRjSourceProduct(
+                    id=item.getString("id"), name=item.getString("name"),
+                    state=item.getString("state"),
+                    connectedProduct=product, scope=item.getString("scope"),
+                )
+            }
+        } ?: emptyList()
+        return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
+            municipalities,warnings,marine,products)
     }
 }
 
