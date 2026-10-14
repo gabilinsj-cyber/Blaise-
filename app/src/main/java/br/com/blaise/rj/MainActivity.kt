@@ -95,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -1889,6 +1890,7 @@ private fun MarineScreen() {
  */
 @Composable
 private fun RjMarineSourceMatrixPanel() {
+    val uriHandler = LocalUriHandler.current
     val clock = LocalObservationClock.current
     val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
@@ -1900,6 +1902,24 @@ private fun RjMarineSourceMatrixPanel() {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text("Consultar visores oficiais em páginas externas (não são medições integradas):",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        val officialViewerLinks = listOf(
+            Triple("Marinha/CHM", "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", "chm"),
+            Triple("Copernicus MyOcean", "https://marine.copernicus.eu/access-data/myocean-viewer", "myocean"),
+            Triple("Copernicus Pro", "https://data.marine.copernicus.eu/viewer/expert?view=viewer", "copernicus-pro"),
+            Triple("EUMETSAT", "https://view.eumetsat.int/", "eumetsat"),
+            Triple("NOAA", "https://www.noaa.gov/", "noaa"),
+        )
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            officialViewerLinks.forEach { (title, url, tag) ->
+                TextButton(
+                    onClick = { runCatching { uriHandler.openUri(url) } },
+                    modifier = Modifier.testTag("marine-official-viewer-${tag}"),
+                ) { Text("${title} ↗", color = Gold, style = MaterialTheme.typography.labelSmall) }
+            }
+        }
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
             Surface(
                 modifier = Modifier.fillMaxWidth()
