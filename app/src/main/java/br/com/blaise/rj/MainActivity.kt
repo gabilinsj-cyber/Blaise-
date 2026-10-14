@@ -1024,8 +1024,73 @@ private fun HomeScreen(
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
     Spacer(Modifier.height(10.dp))
+    RjRealtimeTablesShortcut(city1, onNavigate)
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
+
+/**
+ * Quick entry points to the already-integrated RJ matrices.
+ * Observe the SAME station/CHM snapshots as the full panels. The clock is
+ * separate from collection time: re-rendering never fabricates new data.
+ */
+@Composable
+private fun RjRealtimeTablesShortcut(city: City, onNavigate: (String) -> Unit) {
+    val now = LocalObservationClock.current
+    val station = LocalCityWeather.current[city.ibgeCode]?.currentObservation(now)
+    val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val marine = public?.marine?.takeIf { it.current(now) }
+    val liveStation = station != null &&
+        (station.source == "INMET" || station.source == "Alerta Rio") &&
+        (station.source != "Alerta Rio" || city.ibgeCode == 3304557)
+    val stationText = if (liveStation) {
+        "${station!!.source} • ${RjLiveTableEvidence.localTime(station.observedAt)}"
+    } else {
+        "Aguardando medição oficial válida nesta cidade"
+    }
+    val marineText = if (marine != null) {
+        val warnings = marine.warnings.count { it.current(now) }
+        "CHM • consulta ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • ${warnings} aviso(s) regionais"
+    } else {
+        "CHM • sem boletim marítimo atual validado"
+    }
+    DashboardSection(
+        title = "FONTES ATUAIS • TABELAS 1, 2 E MAR",
+        subtitle = "Acesse a matriz e confira fonte e horário; atualização da tela não é nova medição",
+        modifier = Modifier.fillMaxWidth().testTag("rj-home-sources-status"),
+    ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val shortcuts = listOf(
+                Triple("Tabela 1", stationText, "Mais"),
+                Triple("Tabela 2", "INPE → INMET → CEMADEN → Windy → NOAA • desempate por produto", "Mais"),
+                Triple("Mar", marineText, "Mar e Ondas"),
+            )
+            shortcuts.forEachIndexed { index, (label, status, destination) ->
+                Surface(
+                    modifier = Modifier.width(204.dp).testTag("rj-home-table-shortcut-${index+1}")
+                        .clickable { onNavigate(destination) },
+                    color = PanelSoft, shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(label, color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(status, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Consultar quadro ›", color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        Text("Alerta Rio e Defesa Civil P1 conjunta; OpenWeatherMap é complemento. " +
+            "Copernicus Marine e EUMETSAT aguardam produtos autorizados e integração.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-home-sources-limitations"))
+    }
+}
+
 @Composable
 private fun CompactServicesRow(onNavigate: (String) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
