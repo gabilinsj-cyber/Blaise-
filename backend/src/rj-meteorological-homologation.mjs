@@ -14,7 +14,7 @@ import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-
 import {RJ_TABLE1_THREE,RJ_TABLE2_FIVE} from './rj-table12-five-source-dispute.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-12.v2';
+export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-14.v3';
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -68,20 +68,20 @@ const scope=Object.freeze({
 
 export const RJ_METEO_TABLE2=Object.freeze([
   Object.freeze({step:1,code:'PRIMEIRAS_TRES',condition:'Três fontes da Tabela 1',
-    decision:'Alerta Rio (somente cidade Rio) + Defesa Civil competente (P1) + OpenWeatherMap (3ª consulta complementar). Duas medições independentes convergentes bastam; não usar desempate.',
-    method:'CONVERGENCIA_2_DE_3_VALIDAR_OBSERVACAO_INDEPENDENCIA_E_LICENCA'}),
+    decision:'Alerta Rio (somente município do Rio), Defesa Civil competente e INMET como três primeiras fontes oficiais por cobertura. OpenWeatherMap continua terceiro produto complementar (não autoridade oficial). Duas medições independentes convergentes bastam.',
+    method:'CONVERGENCIA_DUAS_DE_TRES_FONTES_OFICIAIS_FRESCOR_INDEPENDENCIA_E_LICENCA'}),
   Object.freeze({step:2,code:'DUAS_OFICIAIS',condition:'Duas medições oficiais independentes e comparáveis',
     decision:'Aceitar a primeira dupla hierárquica; média ponderada somente com pesos e variáveis compatíveis. Parar a consulta de desempate.',
     method:'SOMA_PESOS_VEZES_VALORES_DIVIDIDA_PELA_SOMA_DOS_PESOS'}),
-  Object.freeze({step:3,code:'OFICIAIS_DIVERGENTES',condition:'Não há duas leituras independentes convergentes entre as três fontes da Tabela 1',
-    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
+  Object.freeze({step:3,code:'OFICIAIS_DIVERGENTES',condition:'Não há duas leituras independentes convergentes entre Alerta Rio, Defesa Civil e INMET',
+    decision:'Consultar INPE/CPTEC primeiro e Windy apenas se INPE não ajudar; CEMADEN, NOAA e OpenWeatherMap permanecem complementos especializados ou de cobertura condicionada. Preservar dados oficiais originais.',
     method:'COMPARAR_UNIDADE_JANELA_TEMPO_DISTANCIA_QUALIDADE'}),
   Object.freeze({step:4,code:'INPE_PRIMEIRO',condition:'Divergência entre as três fontes da Tabela 1',
-    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. Windy vem depois e NOAA encerra a sequência quando o produto for aplicável.',
+    decision:'INPE/CPTEC é a primeira previsão comparativa após as três fontes oficiais. Windy é a segunda, somente se a comparação do INPE for inconclusiva. Nenhuma previsão substitui observação nem aviso oficial.',
     method:'PRIMEIRO_MATCH_COMPATIVEL_COM_UMA_DAS_TRES_PRIMARIAS'}),
-  Object.freeze({step:5,code:'WINDY_SUBSIDIARIO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
-    decision:'Windy é a quarta das cinco referências. Se inconclusivo, NOAA é a quinta/última consulta, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
-    method:'WINDY_4_NOAA_5_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
+  Object.freeze({step:5,code:'WINDY_SUBSIDIARIO',condition:'INPE/CPTEC inconclusivo depois de Alerta Rio/Defesa Civil/INMET',
+    decision:'Windy é a próxima referência de modelo. Depois, consultar especialistas CEMADEN/NOAA por fenômeno, e OpenWeatherMap somente como complemento autorizado. Previsão não vira sensor.',
+    method:'WINDY_APOS_INPE_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
   Object.freeze({step:6,code:'DUAS_FONTES_EXIBIDAS',condition:'Persistem valores discrepantes',
     decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico; nunca média mista de modelo e sensor. Não inventar empate ou concordância.',
     method:'EXIBICAO_COM_PROVENIENCIA_E_DIVERGENCIA_EXPLICITA'}),
@@ -95,7 +95,7 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'P1 conjunta; dados republicados não formam duas medições independentes.',
     method:'IDENTIDADE_DE_ORIGEM_E_COMPETENCIA'}),
   Object.freeze({step:10,code:'OPENWEATHER_COMPLEMENTAR',condition:'As dez variáveis meteorológicas de referência',
-    decision:'OpenWeatherMap como terceira consulta complementar, não autoridade oficial; atribuição e direitos por produto.',
+    decision:'OpenWeatherMap como terceiro produto complementar nas dez variáveis quando licenciado; NÃO é terceira fonte oficial antes do INMET e não conta republicação como observação independente.',
     method:'LICENCA_PRODUTO_E_NAO_DUPLICACAO'}),
   Object.freeze({step:11,code:'PONDERACAO_COMPATIVEL',condition:'Grandeza, unidade, tempo, local e pesos comparáveis',
     decision:'Sem compatibilidade ou evidência estatística, não criar média observacional ou aviso.',
