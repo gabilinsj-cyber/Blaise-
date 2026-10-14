@@ -1463,19 +1463,19 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("Hoje", "Ontem", "Últimos dias", "Próximos dias").forEach { option ->
-                OutlinedButton(onClick = { period = option }) { Text(option, style = MaterialTheme.typography.labelSmall) }
+                OutlinedButton(onClick = { period = option }, modifier = Modifier.testTag("chart-period-$option")) { Text(option, style = MaterialTheme.typography.labelSmall) }
             }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             choices.forEach { option ->
                 if (variable == option) {
-                    Button(onClick = { variable = option }, colors = ButtonDefaults.buttonColors(
+                    Button(onClick = { variable = option }, modifier = Modifier.testTag("chart-metric-$option"), colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
                         Text(option, style = MaterialTheme.typography.labelSmall)
                     }
                 } else {
-                    OutlinedButton(onClick = { variable = option }) { Text(option, style = MaterialTheme.typography.labelSmall) }
+                    OutlinedButton(onClick = { variable = option }, modifier = Modifier.testTag("chart-metric-$option")) { Text(option, style = MaterialTheme.typography.labelSmall) }
                 }
             }
         }
@@ -1544,6 +1544,10 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
             }.forEach { tick ->
                 Text(tick, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
+        }
+        readings.lastOrNull()?.let { point ->
+            Text("$variable: ${String.format(java.util.Locale("pt", "BR"), "%.1f", point.second)} $unit • ${point.first.observedAt.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}",
+                color = metricColor, style = MaterialTheme.typography.labelSmall)
         }
         if (readings.size >= 2 && stationSeries != null && last != null) {
             Text("Fonte: INMET • ${chartCity.name} • ${stationSeries.stationName} • $unit • última medição: ${last.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
