@@ -55,13 +55,16 @@ Prioridade: usar dados **oficiais, autorizados, atuais e com cobertura comprovad
 
 **Classificação obrigatória das saídas:** `MEDICAO_OFICIAL`, `CALCULO_EXPERIMENTAL_BLAISE` ou `INFORMACAO_INDISPONIVEL`. Cálculo jamais substitui fonte oficial e **não aciona alerta P0** por si só.
 
-## Cinco fontes meteorológicas situacionais e conferência por INPE/CPTEC
+## Duas tabelas normativas de consulta — revisão 14/10/2026
 
-**Cinco fontes principais por situação:** **Alerta Rio** (exclusivamente município do Rio), **Defesa Civil regional**, **INMET** (avisos e medições de estações), **Windy** (visualização/comparação de modelos) e **INPE/CPTEC** (produtos meteorológicos oficiais de previsão e satélite). As demais fontes especializadas ANA, CEMADEN, SGB/SACE, Marinha, NOAA e USGS permanecem conforme fenômeno e competência. INEA continua excluído.
+**Tabela 1, itens 1–10:** Alerta Rio e Defesa Civil RJ são P1 conjunta conforme competência; **OpenWeatherMap é a terceira consulta complementar**, sujeita a licença e prova de independência do produto. Alerta Rio vale somente para a cidade do Rio, não para os outros 91 municípios.
 
-O **Agente 3 — Blaise Fusion RJ** identifica divergências entre observações oficiais atuais, no mesmo local/período/unidade. Pode **consultar INPE/CPTEC como terceira referência de previsão**, sem substituir medição por modelo e sem pretender que o INPE seja uma estação INMET. **Média ponderada observada** é permitida apenas entre medições com pesos auditáveis e concordância razoável; divergência relevante mostra aviso de inconsistência, sem média ocultadora. **Média ponderada de previsões** é um produto separado e experimental, exigindo mesma validade/variável/local e pesos de habilidade histórica demonstrados; não autoriza alertas automáticos.
+**Tabela 2 de desempate:** **1. INPE/CPTEC → 2. INMET → 3. CEMADEN → 4. Windy → 5. NOAA**. Esta é uma **ordem de tentativa de consulta**, não uma escala que torna previsões superiores às observações e avisos oficiais. INMET é fonte de estação; CEMADEN possui produtos pluviométricos/hidrológicos especializados, não medições universais; INPE, Windy e produtos NOAA são classificados conforme modelo, satélite ou observação específica.
 
-O CPTEC/INPE documenta consultas por localidade em [serviço XML](https://servicos.cptec.inpe.br/XML/), mas sua [página oficial](https://www.cptec.inpe.br/) estabelece restrições de uso comercial de determinados produtos sem autorização expressa. A integração ao app com assinaturas exige verificar licença por produto antes de operar. Código: `backend/src/rj-weather-source-reconciliation.mjs`; testes: `backend/test/rj-weather-source-reconciliation.test.mjs`. **O serviço de ingestão CPTEC em produção ainda não está ativo.**
+O **Agente Fusion RJ** verifica primeiro se duas leituras realmente independentes da Tabela 1 convergem em local, hora, grandeza e unidade. Se sim, calcula média simples ou ponderada (pesos documentados) e encerra o desempate. Se não, consulta as cinco referências da Tabela 2 na ordem, **pulando fontes que não possuam produto aplicável ou autorizado**. Dado modelado pode orientar uma medição, mas **nunca compor a mesma média de medição oficial**. Em inconclusão, registrar as leituras reais existentes sem fabricar uma medição.
+
+A matriz marítima mantém **Marinha + NOAA + Copernicus Marine + EUMETSAT** por fenômeno. Avisos de tsunami, ressaca e ciclones dependem das autoridades brasileiras competentes; não se usa a ordem de desempate numérico para emitir alerta. As especificações e status verificáveis estão em `docs/rj-fontes-por-fenomeno-localidade.md` e `backend/src/rj-table12-five-source-dispute.mjs`. Todos os 92 municípios são elegíveis à seleção, não há garantia de estação ativa em cada um. INEA permanece excluído.
+
 
 ## Seleção de fontes e cobertura
 
@@ -74,15 +77,10 @@ Referência normativa: `docs/rj-fontes-por-fenomeno-localidade.md`, `backend/src
 - Segundo requisitos da fonte, validar domínio, política de acesso, horário, georreferenciamento, autoria, espécie de produto e segunda fonte independente para ocorrência crítica. Não utilizar raspagem sem autorização; eventos sem evidência ficam indisponíveis.
 - O monitoramento de mudança de domínio/URL deve produzir alerta de manutenção; mudança de origem nunca autorizada automaticamente sem validação humana e técnica.
 
-## Ordem de consulta das cinco fontes meteorológicas para os 92 municípios
+## Regra operacional de desempate
 
-**Especificação aprovada:** (1) Alerta Rio **somente no município do Rio**; (2) Defesa Civil por localidade; (3) INMET conforme estação/variável; (4) INPE/CPTEC como primeira consulta de desempate; (5) Windy **somente se o INPE não permitir decidir qual valor oficial está mais próximo da previsão**. Nos demais municípios fluminenses, os canais sem cobertura não são usados e não se atribuem medições da cidade do Rio a outras cidades.
+Usar a **Tabela 1 P1/3º complemento** e depois a **Tabela 2 INPE → INMET → CEMADEN → Windy → NOAA**, como descrito acima. Interromper a busca assim que houver uma dupla válida de medições independentes, ou apresentar uma leitura oficial e uma previsão **claramente identificadas como dois tipos diferentes**. Não converter modelos em sensores, não ponderar níveis de aviso, não inventar dados e não assumir que o cadastro representa integração ao vivo. Os agentes registram proveniência e incerteza antes de qualquer uso no painel.
 
-Para temperatura, vento e chuva, duas medições oficiais independentes, atuais, compatíveis e comparáveis bastam para uma **estimativa ponderada da Blaise**. Se as primeiras discordarem, procurar a terceira antes de usar previsão. Sem dupla concordante, INPE e, em seguida e somente quando necessário, Windy servem de referência para **destacar a medição oficial mais próxima do modelo**. O painel apresenta **duas entradas de tipos diferentes — uma leitura oficial pontual + uma previsão do INPE ou Windy — com fonte e horário**, mantendo acessíveis as demais leituras oficiais que divergiram. Não fazer média de medição com previsão.
-
-Se o modelo não permitir discriminação confiável, apresentar as duas entradas identificadas como **divergência não solucionada** (ou, na ausência de modelo válido, as medições reais que houver), sem inventar valor. Se uma fonte oficial não possuir leitura em determinado município, não fabricar cobertura. **Sensação térmica é cálculo físico a partir de dados de entrada válidos**; tempestade e risco são avisos/eventos, cujas categorias não podem ser ponderadas numericamente para emitir sirene.
-
-Módulos: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/src/rj-weather-source-reconciliation.mjs`, `backend/src/rj-agent-orchestration.mjs`. Código em PR Draft, sem conexão de rede independente automaticamente implantada nem alteração do APK instalado.
 
 ## Alertas, tempos e regras de segurança
 
