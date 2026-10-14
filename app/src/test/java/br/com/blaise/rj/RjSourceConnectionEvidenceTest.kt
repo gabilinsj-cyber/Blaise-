@@ -9,7 +9,6 @@ import br.com.blaise.rj.data.PublicRjStatus
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,7 +22,7 @@ class RjSourceConnectionEvidenceTest {
         observedAt=recently, temperatureC=27.0,
         humidityPercent=68.0,windKmh=15.0,maxAgeSeconds=3600,
     )
-    private fun public(status: String="CURRENT", stamp: Instant=recently): PublicRjStatus {
+    private fun public(status: String="CURRENT", stamp: Instant=now.minusSeconds(30)): PublicRjStatus {
         val towns=RioMunicipalities.all.map { city ->
             PublicRjMunicipality(city.ibgeCode,city.name,null,emptyList(),"UNAVAILABLE")
         }
@@ -79,14 +78,14 @@ class RjSourceConnectionEvidenceTest {
     }
 
     @Test fun expiredSnapshotsAndSourceStatesNeverAppearAsCurrent() {
-        for (snapshot in listOf(public(status="STALE"),public(stamp=now.minusSeconds(300)))) {
-            val rows=RjSourceConnectionEvidence.rows(
-                municipalityIbge=3304557,observation=null,status=snapshot,now=now)
-            assertFalse(rows.first { it.source=="INMET" && "CAP" in it.product }
-                .verifiedCurrentProduct)
-            assertFalse(rows.first { it.source=="Marinha do Brasil / CHM" }
-                .verifiedCurrentProduct.takeIf { snapshot.current(now) == false } == true)
-        }
+        val staleProducts=RjSourceConnectionEvidence.rows(
+            municipalityIbge=3304557,observation=null,
+            status=public(status="STALE"),now=now)
+        assertFalse(staleProducts.first { it.source=="INMET" && "CAP" in it.product }
+            .verifiedCurrentProduct)
+        // CHM inventory has its own freshness and is independent of INMET.
+        assertTrue(staleProducts.first { it.source=="Marinha do Brasil / CHM" }
+            .verifiedCurrentProduct)
         val stale=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,observation=null,
             status=public(stamp=now.minusSeconds(300)),now=now)
