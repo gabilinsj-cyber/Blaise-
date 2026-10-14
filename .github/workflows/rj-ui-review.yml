@@ -54,6 +54,13 @@ jobs:
           fi
       - name: Build debug app and instrumentation test runner
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Upload standalone debug APK for device validation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blaise-rj-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 5
       - name: Probe current public INMET RJ station readings (non-blocking)
         run: |
           node --check scripts/rj-inmet-live-probe.mjs
