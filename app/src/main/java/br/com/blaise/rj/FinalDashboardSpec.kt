@@ -36,10 +36,18 @@ object FinalDashboardSpec {
         "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
     )
 
-    // Five situational weather channels; Windy and INPE/CPTEC provide
-    // forecast context, not interchangeable measured station reports.
+    // Five situational weather sources in the user-approved hierarchy.
+    // The first two are P1 in Rio city, INMET is the third observational
+    // consultation, INPE the first forecast comparison, Windy only if needed.
+    // Alerta Rio cannot be assigned to any other RJ municipality.
     val fiveSituationalWeatherSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+        "Alerta Rio", "Defesa Civil RJ", "INMET", "INPE/CPTEC", "Windy"
+    )
+    // Specialized products do not displace competent authorities for each
+    // category and are not counted as five additional sensor readings.
+    val specializedRjSources = listOf(
+        "CEMADEN", "ANA/HidroWeb", "SGB/SACE",
+        "Marinha do Brasil/CHM", "NOAA", "Copernicus Marine", "EUMETSAT"
     )
 
     // Supplementary provider catalog: visible configuration, NOT live status.
