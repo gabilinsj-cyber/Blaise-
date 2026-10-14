@@ -18,6 +18,30 @@ export const RJ_TABLE1_THREE=Object.freeze([
 export const RJ_TABLE2_FIVE=Object.freeze([
   'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
 ]);
+
+// Source roles are tied to the actual PRODUCT, not the publisher alone.
+// CEMADEN pluviometers complement rainfall, not temperature or wind sensors
+// by assumption. NOAA products require forecast validation; marine/tsunami
+// warnings must still use the competent maritime authorities.
+export const RJ_TABLE2_PROVIDER_ROLES=Object.freeze([
+  Object.freeze({order:1,id:'INPE_CPTEC_FORECAST',
+    kind:'OFFICIAL_METEOROLOGICAL_MODEL',
+    coverage:'PRODUCT_AND_FORECAST_GRID_VALIDATION_REQUIRED'}),
+  Object.freeze({order:2,id:'INMET_STATION',
+    kind:'OFFICIAL_STATION_OBSERVATION',
+    coverage:'ONLY_EXISTING_CURRENT_MEASUREMENTS'}),
+  Object.freeze({order:3,id:'CEMADEN_RJ',
+    kind:'OFFICIAL_RAIN_GAUGE_OBSERVATION',
+    coverage:'PRECIPITATION_AND_SPECIALIZED_HYDROLOGICAL_PRODUCTS'}),
+  Object.freeze({order:4,id:'WINDY_MODELO',
+    kind:'THIRD_PARTY_MODEL_COMPARISON',
+    coverage:'SOURCE_MODEL_IDENTITY_AND_USAGE_PERMISSION_REQUIRED'}),
+  Object.freeze({order:5,id:'NOAA',
+    kind:'SATELLITE_AND_FORECAST_PRODUCT_AS_APPLICABLE',
+    coverage:'VARIABLE_LOCATION_TIME_AND_LICENSE_VALIDATION_REQUIRED'}),
+]);
+if(RJ_TABLE2_PROVIDER_ROLES.map(s=>s.id).join('|')!==RJ_TABLE2_FIVE.join('|'))
+  throw new Error('rj_table2_source_order_drift');
 export const RJ_TABLE12_CASCADE_VERSION='2026-10-12.v3';
 const RJ_CITIES=new Set(RJ_MUNICIPALITIES.map(row=>row.ibge));
 const VARIABLES=Object.freeze({
@@ -28,6 +52,14 @@ const VARIABLES=Object.freeze({
   CHUVA_MM_1H:Object.freeze({unit:'mm',min:0,max:400,threshold:8,window:60}),
   PRESSAO_HPA:Object.freeze({unit:'hPa',min:850,max:1100,threshold:3}),
 });
+export function rjTable2EligibleSources({variable}={}) {
+  if(!Object.hasOwn(VARIABLES,variable))
+    throw new TypeError('rj_table2_unsupported_numeric_variable');
+  // Never ask a rain-gauge provider for a station temperature, atmospheric
+  // pressure or wind reading unless a separate proven product is integrated.
+  return Object.freeze(RJ_TABLE2_FIVE.filter(id=>
+    id!=='CEMADEN_RJ'||variable==='CHUVA_MM_1H'));
+}
 const SOURCE_ORIGIN=Object.freeze({
   ALERTA_RIO:'ALERTA_RIO',
   DEFESA_CIVIL_RJ_REGIONAL:'DEFESA_CIVIL_RJ_REGIONAL',
@@ -219,7 +251,7 @@ export function resolveRjTable12FiveSourceDispute({
   const initial=[...validated];
   // Only after no compatible Table 1 pair: consult five suppliers in EXACT
   // order. Never treat a modeled product as a second measured observation.
-  for(const id of RJ_TABLE2_FIVE){
+  for(const id of rjTable2EligibleSources({variable})){
     checked.push(id);
     if(STATIONS.has(id)){
       const pair=gather(id);
@@ -262,7 +294,7 @@ export async function consultRjTable12FiveSourceDispute({
   resolveRjTable12FiveSourceDispute({ibge,variable,now});
   const consulted=[],observations=[],forecasts=[],connectorFailures=[];
   const order=[...RJ_TABLE1_THREE.filter(x=>x!=='ALERTA_RIO'||String(ibge)==='3304557'),
-    ...RJ_TABLE2_FIVE];
+    ...rjTable2EligibleSources({variable})];
   for(const id of order){
     const adapter=adapters[id];
     if(typeof adapter!=='function')continue;
