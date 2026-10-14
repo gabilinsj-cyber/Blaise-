@@ -2,11 +2,33 @@ package br.com.blaise.rj
 
 import br.com.blaise.rj.core.AlertValidity
 import br.com.blaise.rj.core.AlertValidityPolicy
+import br.com.blaise.rj.core.AlertUpdateAge
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AlertValidityTest {
+    @Test fun updateAgeUsesOfficialEmissionAndExactThreeFourHourBoundaries() {
+        assertEquals(AlertUpdateAge.CURRENT, AlertValidityPolicy.updateAge(issued, issued.plusSeconds(10799)))
+        assertEquals(AlertUpdateAge.NO_UPDATE_3H, AlertValidityPolicy.updateAge(issued, issued.plusSeconds(10800)))
+        assertEquals(AlertUpdateAge.NO_UPDATE_3H, AlertValidityPolicy.updateAge(issued, issued.plusSeconds(14399)))
+        assertEquals(AlertUpdateAge.NO_UPDATE_4H, AlertValidityPolicy.updateAge(issued, issued.plusSeconds(14400)))
+        assertEquals(AlertUpdateAge.INVALID, AlertValidityPolicy.updateAge(issued, issued.minusNanos(1)))
+    }
+
+    @Test fun lackOfUpdateNeverLowersAnUnexpiredOfficialWarning() {
+        val longExpiry = issued.plusSeconds(24 * 3600)
+        val now = issued.plusSeconds(4 * 3600)
+        assertEquals(AlertUpdateAge.NO_UPDATE_4H, AlertValidityPolicy.updateAge(issued, now))
+        assertEquals(AlertValidity.REVIEW_DUE,
+            AlertValidityPolicy.evaluate(issued, onset, longExpiry, now, true))
+    }
+
+    @Test fun historyEndsExactlyTwelveHoursAfterOfficialExpiry() {
+        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(expiry, expiry.plusSeconds(43199)))
+        org.junit.Assert.assertFalse(AlertValidityPolicy.retainHistory(expiry, expiry.plusSeconds(43200)))
+        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(expiry, issued))
+    }
     private val issued = Instant.parse("2026-10-14T12:00:00Z")
     private val onset = issued.plusSeconds(600)
     private val expiry = issued.plusSeconds(7200)

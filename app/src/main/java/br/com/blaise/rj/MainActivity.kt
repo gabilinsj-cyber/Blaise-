@@ -210,6 +210,7 @@ private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { nu
 // Backend radar grid remains absent until a licensed quantitative product is connected.
 private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
+private val LocalOfficialWarningHistory = compositionLocalOf { emptyList<PublicRjWarning>() }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
 private val LocalPublicStatusConfigured = compositionLocalOf { false }
@@ -259,6 +260,17 @@ fun BlaiseApp(
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
+    val warningHistoryStore = remember(context) { br.com.blaise.rj.data.OfficialWarningHistory(context) }
+    var warningHistory by remember(warningHistoryStore) { mutableStateOf(warningHistoryStore.read(Instant.now())) }
+    LaunchedEffect(publicRjStatus, observationClock) {
+        val current = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
+            ?.takeIf { it.current(observationClock) }
+        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty(), observationClock)
+        if (next != warningHistory) {
+            warningHistory = next
+            warningHistoryStore.write(next)
+        }
+    }
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
     var publicStatusLastAttempt by remember { mutableStateOf<Instant?>(null) }
@@ -404,6 +416,7 @@ fun BlaiseApp(
         LocalSeismic provides if (powerOn) liveSeismic else null,
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
+        LocalOfficialWarningHistory provides warningHistory,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -1736,9 +1749,11 @@ private fun PublicOfficialWarningRibbon(
         ) {
             Text("⚠ INMET", color = WarningAmber, fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.labelSmall)
-            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}",
+            val updateLabel = AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.second.sent, now))
+            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}" +
+                (updateLabel?.let { " • $it" } ?: ""),
                 color = Color.White, style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.weight(1f), maxLines = 2)
+                modifier = Modifier.weight(1f))
             TextButton(onClick = { onNavigate("Alertas") },
                 modifier = Modifier.testTag("public-warning-view-all")) {
                 Text("Ver avisos", color = Gold, style = MaterialTheme.typography.labelSmall)
@@ -1774,6 +1789,9 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
             Text("INMET: ${warning.event} • ${warning.severity} • até ${expiry}",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            }
         }
         if (warnings.isEmpty()) {
             Text("Avisos oficiais: sem confirmação de cobertura completa; não indica ausência de risco.",
@@ -1873,20 +1891,14 @@ private fun PulsingRiskLabel(text: String, level: Int) {
     Text(text, color = color.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
 }
 
-/** Retain received expiry metadata in this screen; stale records cannot imply safety. */
+/** Persisted provenance is historical; only a matching live snapshot confirms the source. */
 @Composable
 private fun MunicipalAlertValidityPanel(ibge: Int) {
     val now = LocalObservationClock.current
     val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
-    var received by remember(ibge) { mutableStateOf<List<PublicRjWarning>>(emptyList()) }
-    LaunchedEffect(ibge, snapshot) {
-        if (snapshot != null && snapshot.current(now)) {
-            val incoming = snapshot.warnings.filter { ibge in it.municipalityIbges && !it.sent.isAfter(now) }
-            received = (incoming + received).distinctBy { it.id }
-                .filter { it.expires.isAfter(now.minusSeconds(86400)) }.take(64)
-        }
+    val warnings = LocalOfficialWarningHistory.current.filter {
+        ibge in it.municipalityIbges && AlertValidityPolicy.retainHistory(it.expires, now)
     }
-    val warnings = received.filter { ibge in it.municipalityIbges }
     if (warnings.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1900,6 +1912,12 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
                 Column(Modifier.fillMaxWidth().padding(8.dp)) {
                     Text("INMET • ${warning.event} • ${warning.severity}", color = Color.White)
                     Text(AlertValidityPolicy.label(state), color = if (state == AlertValidity.EXPIRED) Muted else WarningAmber)
+                    AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                        Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (state == AlertValidity.EXPIRED)
+                        Text("Encerrado no vencimento oficial. Histórico disponível por 12 horas após esse horário.",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
                     val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
                     val zone = java.time.ZoneId.of("America/Sao_Paulo")
                     Text("Emissão ${warning.sent.atZone(zone).format(format)} • início ${warning.onset.atZone(zone).format(format)} • fim ${warning.expires.atZone(zone).format(format)} (Brasília)",
@@ -1959,7 +1977,8 @@ private fun AlertsScreen(city1: City, city2: City) {
         PublicMunicipalStatusLine(city2.ibgeCode)
         MunicipalAlertValidityPanel(city2.ibgeCode)
         Text("Todos os avisos recebidos aparecem abaixo da respectiva cidade, com fonte e validade.", color = Gold)
-        Text("Após uma hora, reavaliar evidências por município e fenômeno. Ausência de chuva ou falha de coleta não revoga aviso oficial. Avaliação interna não pode encerrar aviso da Defesa Civil.", color = Muted)
+        Text("Após 3 horas sem nova emissão, destacar falta de atualização; após 4 horas, informar ausência de dados novos e risco atual sem confirmação. Reconsultar o mesmo aviso não renova sua emissão. Gravidade e vigência oficiais permanecem preservadas.", color = Muted)
+        Text("Histórico local: até 12 horas após o vencimento oficial, inclusive ao reabrir o aplicativo. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
