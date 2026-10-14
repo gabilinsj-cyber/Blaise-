@@ -20,6 +20,19 @@ data class RjLiveEvidence(
 )
 
 object RjLiveTableEvidence {
+    /**
+     * A fetched CHM inventory with no applicable warning is NOT proof of
+     * calm seas or a measured phenomenon. Keep those states amber.
+     */
+    fun hasConfirmedPhenomenon(reading: RjLiveEvidence): Boolean =
+        reading.state in setOf(
+            "OBSERVACAO_PONTUAL",
+            "CALCULO_EXPERIMENTAL_BLAISE",
+            "AVISO_OFICIAL_ATRIBUIDO",
+            "BOLETIM_OFICIAL_MUNICIPAL",
+            "AVISO_CHM_REGIONAL",
+        )
+
     const val UNAVAILABLE = "Sem leitura atual validada para este município ou produto"
     private val brasilia = ZoneId.of("America/Sao_Paulo")
     private fun numeric(value: Double, unit: String) =
