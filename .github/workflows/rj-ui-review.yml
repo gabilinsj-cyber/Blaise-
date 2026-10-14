@@ -22,7 +22,8 @@ jobs:
     # No subscription or production store-release PR can consume emulator time.
     if: >-
       github.event_name == 'pull_request' &&
-      (github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
+      (github.event.pull_request.head.ref == 'codex/rj-current-weighted-sources-20261014' ||
+       github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
        github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
        github.event.pull_request.head.ref == 'codex/rj-meteo-homolog-20261011' ||
        github.event.pull_request.head.ref == 'codex/rj-linked-meteorological-marine-tables-20261012' ||
@@ -75,4 +76,37 @@ jobs:
           name: blaise-rj-ui-visual-functional-evidence
           path: evidence/rj-interface-review/
           if-no-files-found: warn
+          retention-days: 5
+
+  source-connections:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/rj-current-weighted-sources-20261014'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.20.0'
+      - name: Prepare official tide document extraction
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+      - name: Alerta Rio current source and original timestamp
+        if: always()
+        run: node backend/scripts/probe-official-sources.mjs
+      - name: Marinha CHM warnings and RJ tide products
+        if: always()
+        run: node backend/scripts/probe-chm.mjs
+      - name: INMET original observation freshness
+        if: always()
+        run: |
+          node scripts/rj-inmet-live-probe.mjs
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; const r=JSON.parse(readFileSync('evidence/rj-interface-review/inmet-live-source.json','utf8')); if(r.state!=='AVAILABLE')process.exit(1);"
+      - name: Preserve live source results including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blaise-rj-current-source-connections
+          path: |
+            evidence/official-sources/
+            evidence/rj-interface-review/inmet-live-source.json
+          if-no-files-found: error
           retention-days: 5
