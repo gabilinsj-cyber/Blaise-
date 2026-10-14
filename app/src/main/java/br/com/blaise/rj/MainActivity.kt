@@ -2096,10 +2096,19 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
+            RjMeteorologicalTables.disputeTable2SourceRoles.forEachIndexed { index, entry ->
+                Text(entry,
+                    color = if (index % 2 == 0) Color.White else Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-table2-provider-${index + 1}"))
+            }
             Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
                 "Uma leitura primária pode ser comparada a uma fonte de desempate. " +
                 "Média numérica somente entre MEDIÇÕES compatíveis; previsão e medição são exibidas separadamente.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text(RjMeteorologicalTables.DISPUTE_DATA_SAFETY,
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-table2-application-safety"))
             val active = chosenPhenomenon?.let { code ->
                 RjMeteorologicalTables.table1.firstOrNull { it.code == code }
             }
