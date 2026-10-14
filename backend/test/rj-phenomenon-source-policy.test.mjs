@@ -10,6 +10,21 @@ test('exactly 30 RJ phenomena, including marine extensions, and ten OpenWeatherM
   assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.copernicusMarine.ingestion,'NOT_CONNECTED');
   assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.eumetsat.ingestion,'NOT_CONNECTED');
 });
+test('Tabela 2 is preserved as INPE, INMET, CEMADEN, Windy, NOAA without permitting weighted warnings or forecasts',()=>{
+  assert.deepEqual(RJ_TABLE2_DISPUTE_SOURCES,[
+    'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
+  ]);
+  assert.deepEqual(RJ_TABLE2_OBSERVATION_ONLY,['INMET_STATION','CEMADEN_RJ']);
+  assert.equal(RJ_TABLE2_WEIGHTABLE_PHENOMENA.includes('CHUVA_ACUMULADA'),true);
+  for(const code of ['TEMPORAL','TEMPESTADE','TSUNAMI','SISMO','GRANIZO'])
+    assert.equal(RJ_TABLE2_WEIGHTABLE_PHENOMENA.includes(code),false);
+  const rain=rjSourceRouting({ibge:'3304557',phenomenon:'CHUVA_ACUMULADA'});
+  const ids=rain.sources.map(src=>src.id);
+  assert.ok(ids.indexOf('INPE_CPTEC_FORECAST')<ids.indexOf('CEMADEN_RJ'));
+  assert.ok(ids.indexOf('CEMADEN_RJ')<ids.indexOf('WINDY_MODELO'));
+  assert.equal(rain.sources.every(src=>src.automaticAlertAuthority===false),true);
+});
+
 test('OpenWeatherMap is third complementary consultation for first ten categories, not official alert authority',()=>{
   for(const {ibge} of RJ_MUNICIPALITIES){
     for(const phenomenon of RJ_TEN_WEATHER_COMPLEMENTS){
@@ -44,6 +59,8 @@ import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 import {
   RJ_MUNICIPALITY_COUNT, RJ_PHENOMENA, RJ_SOURCE_CLASS,
   RJ_SUPPLEMENTAL_PRODUCTS, RJ_TEN_WEATHER_COMPLEMENTS,
+  RJ_TABLE2_DISPUTE_SOURCES, RJ_TABLE2_OBSERVATION_ONLY,
+  RJ_TABLE2_WEIGHTABLE_PHENOMENA,
   rjSourceRouting,
 } from '../src/rj-phenomenon-source-policy.mjs';
 
