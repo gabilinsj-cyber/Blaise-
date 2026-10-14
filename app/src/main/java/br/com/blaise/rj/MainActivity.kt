@@ -1835,6 +1835,20 @@ private fun RjMarineSourceMatrixPanel() {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text(
+            if(marine == null)
+                "Marinha/CHM: sem inventário regional recente validado; não confirma mar seguro."
+            else "Marinha/CHM: inventário regional obtido em " +
+                RjLiveTableEvidence.localTime(marine.fetchedAt) +
+                " • ${marine.warnings.count { it.current(clock) }} avisos vigentes. " +
+                "Uma consulta atual não equivale a mar seguro nem a medição de cada praia.",
+            color = if(marine == null) WarningAmber else GoldSoft,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-marine-product-connection"))
+        Text("NOAA, Copernicus Marine e EUMETSAT: produtos cadastrados; " +
+            "sem ingestão contínua validada no painel.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-marine-unconnected-products"))
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
             Surface(
                 modifier = Modifier.fillMaxWidth()
@@ -1980,6 +1994,11 @@ private fun RjMeteorologicalTablesPanel(city: City) {
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
     val marine = public?.marine?.takeIf { it.current(clock) }
+    val sourceEvidence = RjSourceConnectionEvidence.rows(
+        municipalityIbge=city.ibgeCode, observation=observation,
+        rioStations=LocalRioStations.current, status=public, now=clock,
+    )
+    var showSourceEvidence by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(1) }
     var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
     var showAllCriteria by remember { mutableStateOf(false) }
@@ -1991,6 +2010,45 @@ private fun RjMeteorologicalTablesPanel(city: City) {
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
+        Text("ESTADO REAL DAS FONTES • ${sourceEvidence.count { it.verifiedCurrentProduct }} produto(s) " +
+            "com evidência recente; não representa cobertura integral dos 92 municípios.",
+            color = Gold, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-live-source-evidence-count"))
+        Text(RjSourceConnectionEvidence.SNAPSHOT_NOTICE,
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        TextButton(
+            onClick = { showSourceEvidence = !showSourceEvidence },
+            modifier = Modifier.testTag("rj-live-source-evidence-toggle"),
+        ) {
+            Text(if(showSourceEvidence) "Recolher estado das 13 fontes e produtos"
+                else "Ver estado das 13 fontes e produtos", color = Gold)
+        }
+        if(showSourceEvidence) {
+            sourceEvidence.forEachIndexed { index, line ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("rj-live-source-evidence-${index}"),
+                    color = if(index % 2 == 0) Panel else NavyRaised,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${line.source} • ${line.product}", color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(line.status,
+                            color = if(line.verifiedCurrentProduct) StableGreen else WarningAmber,
+                            style = MaterialTheme.typography.labelSmall)
+                        if(line.updatedAt != null) {
+                            Text("Horário da fonte/consulta: " +
+                                RjLiveTableEvidence.localTime(line.updatedAt),
+                                color = Muted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
         Text("Leituras atuais para ${city.name}: somente produtos realmente recebidos, " +
             "com horário da medição (não da atualização da tela).",
             color = Color.White, style = MaterialTheme.typography.labelSmall,
