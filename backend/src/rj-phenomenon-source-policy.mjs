@@ -1,4 +1,5 @@
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
+import { rjDisputeTable2, RJ_TABLE2_VERSION } from './rj-dispute-table2-policy.mjs';
 
 /**
  * Approved Blaise V6 RJ source routing policy.
@@ -128,10 +129,17 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
+  const table2 = rjDisputeTable2({phenomenon,region});
   return Object.freeze({
     locality: region === 'MUNICIPAL' ? String(ibge) : region,
     phenomenon,
     sources: Object.freeze(eligible),
+    // Tabela 1 remains the official collection/alert route above.
+    // Tabela 2 is a distinct source review order; no new live ingestion.
+    disputeTable2Version: RJ_TABLE2_VERSION,
+    disputeTable2Priority: table2.order,
+    disputeTable2Eligible: Object.freeze(table2.eligibleSources.map(source=>source.sourceId)),
+    disputeTable2NeverOverridesOfficialAlert: true,
     historicalGuarantee: 'NONE',
     municipalitySelectionCoverage: RJ_MUNICIPALITY_COUNT,
     phenomenonMatrixCount: RJ_PHENOMENA.length,
