@@ -2147,14 +2147,15 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
-                "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
-                "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
+            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1 conjunta) " +
+                "→ INMET (terceira fonte oficial). Se duas medições independentes forem compatíveis, " +
+                "calcular e encerrar; caso contrário, INPE/CPTEC é o primeiro desempate " +
+                "e Windy só entra se o INPE for inconclusivo.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
-                "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
-                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
+            Text("OpenWeatherMap: terceira consulta COMPLEMENTAR dos dez fenômenos, " +
+                "se o produto estiver disponível e autorizado. Não substitui INMET " +
+                "nem constitui uma segunda medição independente quando republica dados. " +
+                "CEMADEN, ANA, SGB e Marinha mantêm prioridades especializadas.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
             Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
@@ -2204,15 +2205,15 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                 }
             }
         } else if (selected == 2) {
-            Text("TABELA 2 • Cinco fontes de desempate e cálculo científico", color = Gold,
+            Text("TABELA 2 • Cinco fontes na ordem de consulta e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
             Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
-            Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
-                "Uma leitura primária pode ser comparada a uma fonte de desempate. " +
-                "Média numérica somente entre MEDIÇÕES compatíveis; previsão e medição são exibidas separadamente.",
+            Text("Alerta Rio (Rio) e Defesa Civil formam P1; INMET é a terceira fonte observacional. " +
+                "Se não houver dupla de medições compatíveis, consultar INPE e depois Windy se necessário. " +
+                "Nunca misturar previsão com medição numa média ou tratar ausência de dado como tempo seguro.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             val active = chosenPhenomenon?.let { code ->
                 RjMeteorologicalTables.table1.firstOrNull { it.code == code }
