@@ -2161,7 +2161,8 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                             else RjLiveTableEvidence.municipality(item.code,
                                 city.ibgeCode,observation,public,clock)
                         Text("Dado consultado: ${live.description}",
-                            color = if(live.source != null) StableGreen else WarningAmber,
+                            color = if(RjLiveTableEvidence.hasConfirmedPhenomenon(live))
+                                StableGreen else WarningAmber,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.testTag("rj-meteo-live-${item.code}"))
                         if(live.source!=null) {
