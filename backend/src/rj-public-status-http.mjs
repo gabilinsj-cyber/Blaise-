@@ -81,7 +81,13 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
       id:s.id,name:s.name,state:s.state,
       connectedProduct:s.connectedProduct,scope:s.scope,
     }));
-  const active=sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state));
+  // CHM's regional marine inventory can be the only live official product.
+  // Do not hide a current permitted maritime bulletin merely because
+  // INMET CAP and CEMADEN hydrological risk are momentarily unavailable.
+  // A CHM inventory never becomes a municipal warning or a safe-sea claim.
+  const marine=projectRjPublicMarineWarnings(worker,nowMillis);
+  const active=sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
+    || marine!==null;
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
     risk:row.hydrologicalRisk?.level!=null&&
@@ -114,7 +120,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     usableOfficialProducts:active,
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
-    marine:projectRjPublicMarineWarnings(worker,nowMillis),
+    marine,
     sources:Object.freeze(sourceSummaries),
     thirdPartyImagesIncluded:false,
     subscriberDataIncluded:false,
