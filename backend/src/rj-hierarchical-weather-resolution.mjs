@@ -222,6 +222,17 @@ export function resolveRjCompatibleSources({
           // A *source* must be independent, not merely a second station from
           // the same provider.
           if(earlier.canonicalSourceId===id)continue;
+          // A second government portal can republish the SAME underlying
+          // station record. When provenance explicitly identifies the common
+          // measurement, it must not count as two independent confirmations.
+          if(earlier.originalMeasurementId && row.originalMeasurementId
+             && earlier.originalMeasurementId===row.originalMeasurementId) {
+            conflicts.push(Object.freeze({
+              sourceA:earlier.canonicalSourceId,sourceB:id,
+              resolution:'DUPLICATE_ORIGINATING_MEASUREMENT_TABLE2',
+            }));
+            continue;
+          }
           const spread=Math.abs(earlier.value-row.value);
           if(spread>entry.tolerance) {
             conflicts.push(Object.freeze({
@@ -461,10 +472,19 @@ export async function consultRjSourcesUntilTwo({
     }
     if(observations.length>100||forecasts.length>100)break;
     const provisional=resolveRjCompatibleSources({ibge,variable,observations,forecasts,now});
+    const inpeResolved=provisional.state==='OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
+      &&provisional.modelTieBreak?.sourceId==='INPE_CPTEC_FORECAST';
+    // For measured hourly rain, the approved Tabela 2 includes a possible
+    // *independent CEMADEN observation*. Consult it after INPE but before
+    // accepting model-based proximity or consulting Windy. This gives the
+    // scientific weighted mean the first opportunity to use TWO REAL sensors.
+    const awaitingCemadenRain=source.id==='INPE_CPTEC_FORECAST'
+      && variable==='CHUVA_MM_1H'
+      && typeof adapters.CEMADEN_RJ==='function'
+      && route.sources.some(item=>item.id==='CEMADEN_RJ');
     if(provisional.state==='TWO_COMPATIBLE_OFFICIAL_SOURCES'
-      ||(source.id==='INPE_CPTEC_FORECAST'
-        &&provisional.state==='OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY'
-        &&provisional.modelTieBreak?.sourceId==='INPE_CPTEC_FORECAST')) {
+      ||(inpeResolved && !awaitingCemadenRain
+        &&(source.id==='INPE_CPTEC_FORECAST'||source.id==='CEMADEN_RJ'))) {
       return Object.freeze({...provisional,
         consultedSourceIds:Object.freeze([...consulted]),
         connectorFailures:Object.freeze(failures)});
