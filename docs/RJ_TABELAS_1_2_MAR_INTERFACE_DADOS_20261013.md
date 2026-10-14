@@ -71,6 +71,41 @@ temperatura do oceano, previsões de ciclone, imagens de nuvens e séries de mar
 existe contrato de entrega CHM condicionado à assinatura e a ingestão
 contínua de PDFs oficiais não está implantada: a interface marca indisponível.
 
+## Atualização visual em 14/10/2026 — atalhos e status na tela inicial
+
+A versão de desenvolvimento acrescenta ao fim do painel **Início** o quadro
+**FONTES ATUAIS • TABELAS 1, 2 E MAR**, com três áreas clicáveis:
+
+- **Tabela 1:** abre `Mais → Matriz Meteorológica`; quando a estação oficial da cidade selecionada tiver leitura atual verificada por `CityWeatherResult.currentObservation(now)`, mostra a origem e o horário *da medição*. Se não tiver, informa que ainda não há leitura atual. A simples consulta ou repintura da tela nunca substitui um horário oficial.
+- **Tabela 2:** abre a mesma matriz e a hierarquia **INPE/CPTEC → INMET → CEMADEN (apenas produto aplicável, como chuva horária) → Windy → NOAA**. Exibir uma prioridade **não** significa cinco feeds ligados: a média ponderada continua dependente de pelo menos duas observações independentes comparáveis.
+- **Mar:** abre `Mar e Ondas`; exibe a última consulta CHM **somente** se o snapshot público estiver atual e validado, com contagem de avisos marítimos **regionais** e horário da fonte. Do contrário, não inventa aviso nem ausência de risco.
+
+A tela **Mar e Ondas → Fontes e Dados Marítimos** oferece links externos oficiais para
+[Marinha/CHM](https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo),
+[Copernicus MyOcean](https://marine.copernicus.eu/access-data/myocean-viewer),
+[Copernicus Pro](https://data.marine.copernicus.eu/viewer/expert?view=viewer),
+[EUMETSAT](https://view.eumetsat.int/) e [NOAA](https://www.noaa.gov/).
+**Abrir o visor público no navegador não significa ingerir nem licenciar o produto na API do aplicativo.**
+As fontes adicionais permanecem cadastradas, não simuladas.
+
+Os três atalhos usam os **mesmos contratos atuais** dos painéis detalhados,
+`LocalCityWeather`, `LocalPublicRjStatus` e `LocalObservationClock`,
+sem criar novo polling, baixar imagens de terceiros ou expor dados de assinantes.
+O acesso não depende de Google Play Billing.
+
+**Estado real:** INMET municipal no Android depende de estação existente e resposta
+recente válida. CHM no backend exige source worker ativo, flags operacionais,
+autorização dos termos públicos e metadados METAREA V vigentes. A coleta
+OpenWeatherMap, Copernicus Marine, EUMETSAT e a reconciliação completa entre
+cinco provedores **ainda não comprovam operação contínua em produção**.
+Antes de prometer "tempo real" para todos: configurar acesso autorizado, auditar
+licenças, estabelecer georreferenciamento e validade, validar 24 horas de
+telemetria e provar atualização para as cidades realmente cobertas.
+
+O CI Node/Android e a instrumentação Compose validam código e navegação,
+**não substituem demonstração física** de áudio/voz, Play Billing ou fontes
+remotas em produção.
+
 ## Segurança e estado de publicação
 
 - Sem dados fictícios, sem imagens meteorológicas de terceiros no mapa próprio.
