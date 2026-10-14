@@ -123,6 +123,56 @@ test('fresh CHM warnings expose regional facts and waves, never municipal P0',()
   assert.equal(buildRjPublicStatusSnapshot(staleWorker,{nowMillis:now}).marine,null);
 });
 
+test('fresh licensed CHM bulletin remains available when INMET CAP and CEMADEN are stale',async()=>{
+  const baseline=worker({stale:true});
+  const maritime={
+    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+    snapshot:{
+      sourceId:'chm-marine',
+      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
+      warnings:[{
+        id:'432/2026',warningType:'AVISO DE RESSACA',
+        issuedAt:stamp,validUntil:until,
+        rjRouting:{
+          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
+          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
+          marineSignal:{
+            explicitWaveHeight:true,waveMinMeters:3.0,waveMaxMeters:4.0,
+            waveDirection:'SE',officialRessacaLabel:true,
+            waveHeightThresholdExceeded:true,
+          },
+        },
+      }],
+    },
+  };
+  const onlyChm={
+    status:()=>baseline.status(),
+    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
+  };
+  const snapshot=buildRjPublicStatusSnapshot(onlyChm,{nowMillis:now});
+  assert.equal(snapshot.usableOfficialProducts,true);
+  assert.equal(snapshot.marine.warningCount,1);
+  assert.equal(snapshot.marine.warnings[0].warningType,'AVISO DE RESSACA');
+  assert.equal(snapshot.warnings.length,0);
+  assert.ok(snapshot.municipalities.every(c=>c.risk===null&&c.warningIds.length===0));
+  assert.ok(snapshot.marine.warnings.every(x=>x.mayIssueMunicipalP0===false));
+  const handler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:onlyChm,
+  });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.marine.warningCount,1);
+
+  const denied=createRjPublicStatusHandler(
+    (req,response)=>{response.statusCode=404},{
+      enabled:true,licensingApproved:false,clock:()=>now,sourceWorker:onlyChm,
+    });
+  const blocked=fakeResponse();
+  await denied({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},blocked);
+  assert.equal(blocked.statusCode,404);
+});
+
 test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{
   const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
   assert.equal(result.marine,null);

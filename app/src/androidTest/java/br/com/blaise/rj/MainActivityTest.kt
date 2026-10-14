@@ -164,6 +164,43 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun sourceConnectionStatesAreVisibleWithoutInventingThirdPartyLiveFeeds() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-public-status-connection")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-public-status-last-attempt")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-public-status-refresh")
+            .performScrollTo().assertIsDisplayed()
+        if (BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL.isBlank()) {
+            rule.onNodeWithTag("rj-public-status-refresh")
+                .assertIsNotEnabled()
+        }
+        rule.onNodeWithTag("rj-live-source-evidence-count")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-live-source-evidence-toggle")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("rj-live-source-evidence-6")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-live-source-evidence-10")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-live-source-evidence-toggle")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-public-connection")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-manual-refresh")
+            .performScrollTo().assertIsDisplayed()
+        if (BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL.isBlank()) {
+            rule.onNodeWithTag("rj-marine-manual-refresh")
+                .assertIsNotEnabled()
+        }
+        rule.onNodeWithTag("rj-marine-product-connection")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-unconnected-products")
+            .performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun tappingTableOneLinksDirectlyToMatchingTableTwoWeightedCalculationRules() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-source-TEMPERATURA")

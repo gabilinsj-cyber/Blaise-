@@ -71,6 +71,29 @@ temperatura do oceano, previsões de ciclone, imagens de nuvens e séries de mar
 existe contrato de entrega CHM condicionado à assinatura e a ingestão
 contínua de PDFs oficiais não está implantada: a interface marca indisponível.
 
+## Reconsulta controlada e estado da conexão (14/10/2026)
+
+A tela **Mais → Matriz Meteorológica** mantém as Tabelas 1 e 2 e agora mostra:
+
+- **13 produtos/canais** com indicador específico por fonte, não o rótulo enganoso “13 fontes conectadas”.
+- Resultado da verificação do canal HTTPS público: *não configurado*, *configurado sem resposta vigente*, ou *resposta pública vigente*. Um JSON com relógio recente não torna atual o dado original de cada fornecedor.
+- **Última tentativa de consulta**, que é distinta do horário observado da estação e da emissão do aviso.
+- Botão **Atualizar avisos públicos e fontes marítimas**. O botão só habilita quando `BLAISE_RJ_PUBLIC_STATUS_BASE_URL` contém um URL HTTPS válido nesta build e o app está ligado; requisições manuais têm espaçamento mínimo de 30 segundos.
+- Na tela **Mar e Ondas → Fontes e dados marítimos**, botão **Reconsultar boletins marítimos** usando o mesmo contrato público e as mesmas regras, sem exigir assinatura.
+
+O cliente consulta o produto público a cada **60 segundos enquanto a atividade está iniciada**. A obtenção independente de leituras pontuais de estação INMET pode ocorrer em intervalo de cerca de 60 segundos, e séries horárias INMET em cerca de 5 minutos. **Intervalos de consulta não garantem atualização de origem em tempo real.** Na perda de rede, dados não vigentes ficam indisponíveis ou são explicitamente datados. O botão de atualização não habilita novas fontes por si só e não faz nova compra, registro ou deploy.
+
+**Para habilitar o caminho público no binário e no backend**, os operadores devem verificar, com testes de produção e termos de redistribuição de dados:
+
+- Android (no momento de compilar): `BLAISE_RJ_PUBLIC_STATUS_BASE_URL=https://ENDERECO_REAL_VALIDADO`; se vazia, o cliente público permanece desabilitado por segurança. Não presumir um URL do Cloud Run.
+- Cloud Run: `BLAISE_RJ_PUBLIC_STATUS_ENABLED=true` e `BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED=true`, **apenas** após os termos concretos do produto serem avaliados.
+- O `official-source-worker` e seus *adapters* de INMET/CEMADEN/CHM devem estar realmente configurados, executando, respondendo com horários vigentes e escopo RJ apropriado. O endpoint pode retornar `503` se não houver produto oficial utilizável.
+- Verificar no dispositivo **GET /v1/public/rj-status** sem identidade de assinante e sem localização pessoal; verificar a validade das leituras, as licenças, o horário Brasília, limites IBGE e falhas sem alertas fictícios.
+- Alerta Rio cobre o município do Rio. Os **92 municípios** são selecionáveis, mas **não** necessariamente dispõem de medição pontual ou cobertura de cada fonte.
+- **OpenWeatherMap, INPE/CPTEC, Windy, NOAA, Copernicus Marine e EUMETSAT** continuam na matriz como fornecedores complementares por fenômeno. Não há comprovação de ingestão contínua autorizada de todos; não rotular sua previsão como uma estação real.
+
+**Aprovação de CI ou emulador verifica comportamento do software com fixtures, não comprova que Cloud Run esteja com essas chaves ativas ou que os provedores respondam em produção.** PR em rascunho até a validação de runtime e da distribuição. Nenhum APK precisa ser baixado no celular para cada alteração.
+
 ## Segurança e estado de publicação
 
 - Sem dados fictícios, sem imagens meteorológicas de terceiros no mapa próprio.
