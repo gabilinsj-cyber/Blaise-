@@ -2041,7 +2041,7 @@ private fun MoreScreen(
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
         Text("Desempate Tabela 2 (cinco fontes): " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
+            RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
             "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
