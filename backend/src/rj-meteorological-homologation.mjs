@@ -135,7 +135,10 @@ const BASE_CODES=Object.freeze(['PRIMEIRAS_TRES','SEM_DADO_NOVO','P1_CONJUNTA','
 const BY_CODE=new Map(RJ_METEO_TABLE2.map(x=>[x.code,x]));
 export function linkedRjDisputeSteps(phenomenon) {
   if(!RJ_PHENOMENA.includes(phenomenon))throw TypeError('rj_unknown_linked_phenomenon');
-  const chosen=new Set(BASE_CODES);
+  const isGeneralWeather=FIVE_CHANNEL_WEATHER.has(phenomenon);
+  const chosen=new Set(isGeneralWeather
+    ?BASE_CODES
+    :['SEM_DADO_NOVO','AUTORIZACAO_E_FRESCOR']);
   if(WEIGHTABLE.has(phenomenon)) {
     for(const key of ['DUAS_OFICIAIS','OFICIAIS_DIVERGENTES','INPE_PRIMEIRO',
       'WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
