@@ -57,6 +57,14 @@ const meta=Object.freeze({
   TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','Marinha/CHM, Copernicus Marine e NOAA'],
 
 });
+// Only weather observation/forecast products follow the five-channel
+// hierarchy. Hydrology, maritime, seismic and tsunami products must keep
+// their own competent authorities, never inherit Alerta Rio / INMET.
+const FIVE_CHANNEL_WEATHER=new Set([
+  'TEMPERATURA','SENSACAO_TERMICA','UMIDADE','VENTO','RAJADA',
+  'CHUVA_ACUMULADA','CHUVA_ATUAL','TEMPORAL','TEMPESTADE',
+  'PRESSAO_ATMOSFERICA','GRANIZO',
+]);
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
   CHUVA_ATLANTICO:'ATLANTICO',
@@ -205,9 +213,12 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
       supplementaryThirdSource:route.complementaryThirdSource,
-      primaryTable1Three:Object.freeze(RJ_TABLE1_THREE.filter(
-        s=>s!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)),
-      disputeTable2Five:Object.freeze(RJ_TABLE2_FIVE.filter(id => id !== 'ALERTA_RIO' || String(ibge) === RJ_CITY_IBGE)),
+      primaryTable1Three:Object.freeze(FIVE_CHANNEL_WEATHER.has(phenomenon)
+        ?RJ_TABLE1_THREE.filter(s=>s!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)
+        :[]),
+      disputeTable2Five:Object.freeze(FIVE_CHANNEL_WEATHER.has(phenomenon)
+        ?RJ_TABLE2_FIVE.filter(id=>id!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)
+        :[]),
       tenPhenomenaComplement:route.complementaryThirdSource ? RJ_TABLE1_TEN_COMPLEMENT : null,
       table2TriggeredOnlyIfNoPrimaryPair:true,
       disputeStepCodes:Object.freeze(linkedRjDisputeSteps(phenomenon).map(x=>x.code)),
