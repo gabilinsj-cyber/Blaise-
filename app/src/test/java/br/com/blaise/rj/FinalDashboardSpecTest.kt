@@ -16,6 +16,21 @@ class FinalDashboardSpecTest {
     }
 
     @Test
+    fun `five meteorological hierarchy sources exclude third complementary API and specialized maritime inputs`() {
+        assertEquals(
+            listOf("Alerta Rio", "Defesa Civil RJ", "INMET", "INPE/CPTEC", "Windy"),
+            FinalDashboardSpec.fiveSituationalWeatherSources,
+        )
+        assertEquals(10, FinalDashboardSpec.tenVariableOpenWeatherMap.size)
+        assertEquals(10, FinalDashboardSpec.tenVariableOpenWeatherMap.distinct().size)
+        assertTrue(FinalDashboardSpec.oceanSatelliteSources.contains("Copernicus Marine"))
+        assertTrue(FinalDashboardSpec.oceanSatelliteSources.contains("EUMETSAT"))
+        assertTrue(FinalDashboardSpec.specializedRjSources.contains("CEMADEN"))
+        assertTrue(FinalDashboardSpec.specializedRjSources.contains("Marinha do Brasil/CHM"))
+        assertFalse(FinalDashboardSpec.fiveSituationalWeatherSources.contains("OpenWeatherMap"))
+    }
+
+    @Test
     fun `store channels have explicit display names`() {
         assertEquals("Google Play", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_GOOGLE_PLAY))
         assertEquals("Samsung Galaxy Store", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_SAMSUNG))
