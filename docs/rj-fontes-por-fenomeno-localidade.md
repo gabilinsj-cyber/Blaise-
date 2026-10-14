@@ -50,6 +50,16 @@ O [Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-
 
 **Contrato técnico auditável:** `backend/src/rj-phenomenon-source-policy.mjs` (`RJ_PHENOMENA` com 30 categorias e `RJ_SUPPLEMENTAL_PRODUCTS`), `app/src/main/java/br/com/blaise/rj/RjMeteorologicalTables.kt` (tabelas visíveis) e testes respectivos. O mapa RJ permanece desenhado pela Blaise; imagens externas só são reproduzidas dentro dos termos do produto e com aprovação técnica.
 
+## Conferência das duas capturas recebidas — 14/10/2026
+
+A **Tabela 1** mantém os dez fenômenos e as fontes tal como apresentados nas imagens: Alerta Rio + Defesa Civil RJ como P1 conjunta, e OpenWeatherMap como **3ª consulta complementar** quando o produto realmente tiver dados comparáveis e estiver autorizado. O OpenWeatherMap **não se torna terceira estação oficial nem autoridade emissora de alertas**.
+
+A hierarquia meteorológica oficial e comparativa, aprovada depois daquela tabela, é uma **outra dimensão** da decisão: **Alerta Rio (somente cidade do Rio) → Defesa Civil competente → INMET (terceira fonte observacional) → INPE/CPTEC (primeira previsão de desempate) → Windy (se INPE inconclusivo)**. CEMADEN, ANA, SGB/SACE, Marinha e NOAA seguem por categoria especializada. Esta hierarquia agora também é exibida na **Tabela 2 do Android** e foi protegida por testes unitários. **Nunca misturar uma previsão de modelo com uma medição pontual para produzir média oficial**.
+
+O **complemento marítimo** da imagem já está registrado no Android com **cinco linhas**: ciclones oceânicos; tempestades no Atlântico; ondas e swell; ressaca no litoral RJ; tsunami/maremoto. Fontes por fenômeno: Marinha/CHM, NOAA, EUMETSAT, Copernicus Marine, boias oficiais e autoridades brasileiras, como apropriado. A tabela é uma **matriz de consulta**, não evidência de previsão em tempo real de NOAA/Copernicus/EUMETSAT. Apenas produtos georreferenciados atuais, licenciados e de origem validada podem ser representados no mapa próprio do Blaise. Tsunami e ressaca não são descartados com médias ponderadas de previsão de ondas; aviso de autoridade competente prevalece.
+
+**Situação operacional:** as entradas da matriz podem aparecer como *cadastro técnico / conexão não validada*. Não informar “sem alertas”, “risco baixo”, “mar seguro” ou inventar uma temperatura, onda ou aviso para completar o desenho.
+
 ## Classes de origem
 - **Medição/aviso oficial:** só quando for do órgão competente, identificando produto, coordenada ou município coberto, valor e unidade, observação/emissão em data válida e URL de origem. NOAA é agência oficial para seus produtos, mas previsões numéricas não são medições locais.
 - **Contexto de modelo e comparação:** INPE/CPTEC (produtos oficiais de previsão meteorológica e satélite) e Windy (visualização/consulta de modelos); registrar tipo de produto, execução, validade, resolução espacial e autoria. Windy e as previsões do INPE não são automaticamente estações de observação. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.

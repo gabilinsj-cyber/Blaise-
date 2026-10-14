@@ -164,6 +164,21 @@ class MainActivityTest {
         rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun tableOneOpenWeatherAndMarineScreenshotHaveCorrectFiveSourceHierarchy() {
+        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-openweather-complement").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-ocean-eumetsat-complement").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
+        rule.onNodeWithText("Alerta Rio → Defesa Civil RJ → INMET → INPE/CPTEC → Windy")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-3-tab").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-source-CICLONES_OCEANICOS")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-source-TSUNAMI")
+            .performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun sourceConnectionStatesAreVisibleWithoutInventingThirdPartyLiveFeeds() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
         rule.onNodeWithTag("rj-public-status-connection")
