@@ -205,6 +205,73 @@ test('if INPE and Windy are both unusable, keep two source types visible without
   assert.equal(r.sourcePairForDisplay[1].dataType,'MODEL_FORECAST_NOT_A_MEASURED_STATION');
   assert.equal(r.officialReadings.length,2);
 });
+const rainfall=(sourceId,stationId,value,extra={})=>measurement(sourceId,stationId,value,{
+  variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60,...extra,
+});
+const rainForecast=(sourceId,value,extra={})=>tieModel(sourceId,value,{
+  variable:'CHUVA_MM_1H',unit:'mm',forecastWindowMinutes:60,...extra,
+});
+test('Tabela 2: when all three primary rainfall readings diverge, CEMADEN supplies independent compatible observation for weighted mean',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'CHUVA_MM_1H',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[rainfall('ALERTA_RIO','AR',1)]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {observations:[rainfall('DEFESA_CIVIL','DC',16)]};},
+      INMET_STATION:async()=>{called.push('INMET');return {observations:[rainfall('INMET','A652',30)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {forecasts:[rainForecast('INPE_CPTEC_FORECAST',2)]};},
+      CEMADEN_RJ:async()=>{called.push('CEMADEN');return {observations:[rainfall('CEMADEN','CEMADEN-RJ',2)]};},
+      WINDY_MODELO:async()=>{called.push('WINDY');return {forecasts:[rainForecast('WINDY_MODELO',2)]};},
+    },
+  });
+  assert.equal(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
+  assert.equal(r.value,1.5);
+  assert.deepEqual(r.selectedSourceIds,['ALERTA_RIO','CEMADEN_RJ']);
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INMET','INPE','CEMADEN']);
+  assert.equal(r.officialMeasurement,false);
+  assert.equal(r.automaticAlertAuthorized,false);
+  assert.equal(r.audibleAlertAuthorized,false);
+});
+test('Tabela 2: a republished CEMADEN rainfall observation cannot be counted as independent',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'CHUVA_MM_1H',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {
+        observations:[rainfall('ALERTA_RIO','AR',1,{originalMeasurementId:'shared-sensor-17'})]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {
+        observations:[rainfall('DEFESA_CIVIL','DC',16)]};},
+      INMET_STATION:async()=>{called.push('INMET');return {
+        observations:[rainfall('INMET','A652',30)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {
+        forecasts:[rainForecast('INPE_CPTEC_FORECAST',2)]};},
+      CEMADEN_RJ:async()=>{called.push('CEMADEN');return {
+        observations:[rainfall('CEMADEN','CAM-1',2,{originalMeasurementId:'shared-sensor-17'})]};},
+      WINDY_MODELO:async()=>{called.push('WINDY');return {
+        forecasts:[rainForecast('WINDY_MODELO',2)]};},
+    },
+  });
+  assert.notEqual(r.state,'TWO_COMPATIBLE_OFFICIAL_SOURCES');
+  assert.equal(r.modelTieBreak.sourceId,'INPE_CPTEC_FORECAST');
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INMET','INPE','CEMADEN']);
+  assert.equal(r.automaticAlertAuthorized,false);
+  assert.equal(r.weightedMeanApplied,false);
+});
+test('Tabela 2: when CEMADEN is not available, an INPE-supported individual reading is not a weighted measured average',async()=>{
+  const called=[];
+  const r=await consultRjSourcesUntilTwo({ibge:'3304557',variable:'CHUVA_MM_1H',now:NOW,
+    adapters:{
+      ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[rainfall('ALERTA_RIO','AR',1)]};},
+      DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {observations:[rainfall('DEFESA_CIVIL','DC',16)]};},
+      INMET_STATION:async()=>{called.push('INMET');return {observations:[rainfall('INMET','A652',30)]};},
+      INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {forecasts:[rainForecast('INPE_CPTEC_FORECAST',2)]};},
+      WINDY_MODELO:async()=>{called.push('WINDY');return {forecasts:[rainForecast('WINDY_MODELO',2)]};},
+    },
+  });
+  assert.equal(r.state,'OFFICIAL_DISAGREEMENT_WITH_MODEL_GUIDED_DISPLAY_PRIORITY');
+  assert.equal(r.modelTieBreak.sourceId,'INPE_CPTEC_FORECAST');
+  assert.equal(r.weightedMeanApplied,false);
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INMET','INPE']);
+  assert.equal(r.sourcePairForDisplay.length,2);
+});
 test('if no station exists, INPE and Windy independent models can provide separate calibrated forecast estimate',()=>{
   const r=resolveRjCompatibleSources({
     ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,
