@@ -154,8 +154,9 @@ object RjMeteorologicalTables {
 
     init {
         require(primaryTable1Sources.size == 3 && disputeTable2FiveSources.size == 5)
-        require(disputeTable2FiveSources.take(2) == listOf("INPE/CPTEC", "INMET"))
-        require(disputeTable2FiveSources.last() == "NOAA")
+        require(disputeTable2FiveSources.take(3) == listOf(
+            "Alerta Rio (Rio)", "Defesa Civil RJ", "INMET"))
+        require(disputeTable2FiveSources.takeLast(2) == listOf("INPE/CPTEC", "Windy"))
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
         require(marineTable.size == 5 && marineTable.map { it.code }.distinct().size == 5)
