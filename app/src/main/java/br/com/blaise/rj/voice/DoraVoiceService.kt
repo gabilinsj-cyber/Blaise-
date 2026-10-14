@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import br.com.blaise.rj.data.VoiceService
+import br.com.blaise.rj.BuildConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Offline Kokoro v1.0, Brazilian Portuguese Dora (speaker 42). No public demo/API calls. */
 class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
@@ -34,8 +36,10 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
     private val playbackLock = Any()
     private val playing = AtomicReference<AudioTrack?>(null)
     private var engine: OfflineTts? = null // accessed only while holding mutex
+    private val systemTestVoice by lazy { AndroidTextToSpeechVoiceService(context) }
 
     fun stop() {
+        if (BuildConfig.BLAISE_LITE_VOICE) systemTestVoice.stop()
         synchronized(playbackLock) {
             generation.incrementAndGet()
             playing.get()?.let { track -> runCatching { track.pause(); track.flush() } }
@@ -46,6 +50,13 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
         if (text.isBlank()) return Result.failure(IllegalArgumentException("Texto vazio"))
         if (text.length > 4000) return Result.failure(IllegalArgumentException("Resposta muito longa para leitura"))
         if (closed.get()) return Result.failure(IllegalStateException("Voz encerrada"))
+        if (BuildConfig.BLAISE_LITE_VOICE) {
+            // The test APK does NOT include the offline Dora model. Android
+            // built-in pt-BR TTS availability and selected voice depend on
+            // the device, and must be checked in the final physical QA.
+            return withTimeoutOrNull(12_000L) { systemTestVoice.speak(text) }
+                ?: Result.failure(IllegalStateException("Voz Android indisponível após 12 s"))
+        }
         val ticket = synchronized(playbackLock) {
             val next = generation.incrementAndGet()
             playing.get()?.let { track -> runCatching { track.pause(); track.flush() } }
@@ -148,6 +159,10 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         stop()
+        if (BuildConfig.BLAISE_LITE_VOICE) {
+            systemTestVoice.close()
+            return
+        }
         CoroutineScope(Dispatchers.IO).launch {
             mutex.withLock { engine?.release(); engine = null }
         }

@@ -126,7 +126,9 @@ class OfficialWeatherClient {
                     it.temperatureC, it.humidityPercent, it.windKmh, 1800)
             })
         }
-        val today = LocalDate.now(zone)
+        // INMET automatic-station hourly endpoint labels DT_MEDICAO in UTC.
+        // Query both UTC days even at the Rio/UTC midnight boundary.
+        val today = LocalDate.now(ZoneOffset.UTC)
         val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
         val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
             it.optString("SG_ESTADO") == "RJ" && it.optString("CD_SITUACAO") == "Operante" &&

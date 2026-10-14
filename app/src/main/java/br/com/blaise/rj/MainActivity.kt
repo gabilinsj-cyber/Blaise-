@@ -284,7 +284,10 @@ fun BlaiseApp(
                     cities.map { city -> async {
                         city.ibgeCode to weatherClient.currentCity(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
-                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                            // Do not request a fictitious "Centro do Rio" Alerta Rio station.
+                            // The Rio card may show a verified local INMET station with its
+                            // own real station name and timestamp, never as "Centro".
+                            null,
                         ))
                     } }.map { it.await() }.toMap()
                 }
@@ -619,7 +622,9 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         speechJob = scope.launch {
             try {
                 voice.speak(text).onFailure {
-                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz Dora. Tente novamente."
+                    if (request == speechRequest) voiceError = if (BuildConfig.BLAISE_LITE_VOICE)
+                        "Voz Android de teste indisponível. Verifique o idioma português no aparelho."
+                    else "Não foi possível reproduzir a voz Dora. Tente novamente."
                 }
             } finally {
                 if (request == speechRequest) speaking = false
@@ -650,7 +655,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
-    val centre = reports[3304557]?.summary(clock) ?: "Consultando medição oficial do Centro do Rio."
+    val centre = reports[3304557]?.summary(clock) ?: "Sem leitura local recente confirmada para o município do Rio."
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
@@ -671,11 +676,11 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
             " (Brasília)."
     }
-    val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen" +
+    val bulletinText = "Rio de Janeiro (estação identificada na fonte): $centre\n\n${selectedCity.name}: $chosen" +
         "\n\n${officialRiskText}\n${officialWarningText}" +
         "\n\nOutras variáveis sem leitura atual permanecem não confirmadas. Fonte e horário pertencem a cada produto."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
-    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
+    val bulletinSummary = "Rio de Janeiro: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
         if (currentWarnings.isNotEmpty()) " INMET: ${currentWarnings.size} aviso(s) vigente(s) com atribuição municipal confirmada." else ""
     if (showQuickHelp) {
         AlertDialog(
@@ -927,7 +932,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     TextButton(
                         onClick = { readAloud("Olá! Eu sou a Blaise, sua assistente de clima e tempo do Rio de Janeiro. Como posso ajudar?") },
                         enabled = voiceEnabled, modifier = Modifier.testTag("assistant-test-dora"),
-                    ) { Text("Testar voz feminina") }
+                    ) { Text(if (BuildConfig.BLAISE_LITE_VOICE) "Testar voz Android (APK leve)" else "Testar voz feminina") }
                 }
                 Text("Informações atuais somente com fonte oficial e horário.", color = Muted, style = MaterialTheme.typography.labelSmall)
             }

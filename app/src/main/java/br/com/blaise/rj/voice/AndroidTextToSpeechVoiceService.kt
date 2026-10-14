@@ -60,6 +60,13 @@ class AndroidTextToSpeechVoiceService(context: Context) : VoiceService, AutoClos
         }
     }
 
+    /** Stop speech immediately without closing the Android TTS engine. */
+    fun stop() {
+        synchronized(lock) {
+            if (state == InitState.READY) tts.stop()
+        }
+    }
+
     override fun close() {
         val continuations: List<Continuation<Boolean>>
         synchronized(lock) {
