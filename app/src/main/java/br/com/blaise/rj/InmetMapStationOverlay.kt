@@ -45,7 +45,7 @@ internal fun InmetMapStationOverlay(
         if (position.x !in 10f..(size.width - 10f) || position.y !in 10f..(size.height - 10f)) return@Canvas
         val color = when (metric) {
             InmetMetric.HOURLY_RAINFALL -> Color(0xFF58B9FF)
-            InmetMetric.TEMPERATURE -> Color(0xFFFFC857)
+            InmetMetric.TEMPERATURE, InmetMetric.THERMAL_SENSATION -> Color(0xFFFFC857)
             InmetMetric.WIND -> Color(0xFF57E389)
         }
         drawCircle(Color(0xCC091D31), 13.dp.toPx(), position)
@@ -53,11 +53,12 @@ internal fun InmetMapStationOverlay(
         drawCircle(Color.White, 8.dp.toPx(), position, style = Stroke(width = 1.dp.toPx()))
 
         val suffix = when (metric) {
-            InmetMetric.TEMPERATURE -> "°C"
+            InmetMetric.TEMPERATURE, InmetMetric.THERMAL_SENSATION -> "°C"
             InmetMetric.HOURLY_RAINFALL -> "mm (1h)"
             InmetMetric.WIND -> "km/h"
         }
-        val value = String.format(java.util.Locale("pt", "BR"), "%.1f %s", current.second, suffix)
+        val cityName = series.municipalityIbge?.let { br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(it)?.name }.orEmpty()
+        val value = cityName + ": " + String.format(java.util.Locale("pt", "BR"), "%.1f %s", current.second, suffix)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = android.graphics.Color.WHITE
             this.textSize = 10.dp.toPx()

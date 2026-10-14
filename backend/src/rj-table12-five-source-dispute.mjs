@@ -108,12 +108,13 @@ function forecastAllowed(row,{sourceId,ibge,variable,spec,now}){
     &&typeof row.skillEvidenceId==='string'&&row.skillEvidenceId.length>=4;
 }
 const observedSummary=o=>Object.freeze({
-  sourceId:SOURCE_ORIGIN[o.sourceId],stationId:o.stationId,
+  sourceId:SOURCE_ORIGIN[o.sourceId],stationId:o.stationId,ibge:String(o.ibge),variable:o.variable,
   value:o.value,unit:o.unit,observedAt:o.observedAt,
   sourceUrl:o.sourceUrl,type:'OBSERVED_STATION',
+  qualityWeight:o.qualityWeight??null,qualityEvidenceId:o.qualityEvidenceId??null,
 });
 const modelSummary=m=>Object.freeze({
-  sourceId:m.sourceId,productId:m.productId,
+  sourceId:m.sourceId,productId:m.productId,ibge:String(m.ibge),variable:m.variable,
   value:m.value,unit:m.unit,validAt:m.validAt,
   sourceUrl:m.sourceUrl,type:'MODEL_FORECAST_NOT_A_SENSOR',
 });
@@ -174,7 +175,7 @@ const bestModelPair=(observed,model,spec,{consultedSources,allPrimary,stage})=>{
 
 /** Deterministic pure resolution from source-attributed, already validated batches. */
 export function resolveRjTable12FiveSourceDispute({
-  ibge,variable,observations=[],forecasts=[],now=Date.now(),
+  ibge,variable,observations=[],forecasts=[],now=Date.now(),observationsOnly=false,
 }={}){
   if(!RJ_CITIES.has(String(ibge)))throw new TypeError('rj_table12_municipality_invalid');
   const spec=VARIABLES[variable];
@@ -219,6 +220,7 @@ export function resolveRjTable12FiveSourceDispute({
     });
   }
   const initial=[...validated];
+  let firstModelContext=null;
   // Only after no compatible Table 1 pair: consult five suppliers in EXACT
   // order. Never treat a modeled product as a second measured observation.
   for(const id of RJ_TABLE2_FIVE){
@@ -238,10 +240,14 @@ export function resolveRjTable12FiveSourceDispute({
         const match=bestModelPair(initial,product,spec,{
           consultedSources:checked,allPrimary:initial,stage:'TABLE_2_MODEL_COMPARISON',
         });
-        if(match)return match;
+        if(match){
+          if(!observationsOnly)return match;
+          firstModelContext??=match;
+        }
       }
     }
   }
+  if(firstModelContext)return firstModelContext;
   return safe('NO_VERIFIABLE_CONVERGENCE',{
     stage:'ALL_ELIGIBLE_SOURCES_EXAMINED',
     originalPrimaryReadings:Object.freeze(initial.map(observedSummary)),
@@ -257,14 +263,14 @@ export function resolveRjTable12FiveSourceDispute({
 /** Authorized adapter contract. Does not connect external services itself. */
 export async function consultRjTable12FiveSourceDispute({
   ibge,variable,adapters={},now=Date.now(),adapterTimeoutMs=8000,
-  elapsedClock=()=>performance.now(),
+  elapsedClock=()=>performance.now(),observationsOnly=false,
 }={}){
   if(!adapters||typeof adapters!=='object'||Array.isArray(adapters)
     ||!Number.isInteger(adapterTimeoutMs)||adapterTimeoutMs<10||adapterTimeoutMs>8000
     ||typeof elapsedClock!=='function')
     throw new TypeError('rj_table12_invalid_adapters');
   // Input check before any connector is called.
-  resolveRjTable12FiveSourceDispute({ibge,variable,now});
+  resolveRjTable12FiveSourceDispute({ibge,variable,now,observationsOnly});
   const started=elapsedClock();
   if(!Number.isFinite(started))throw new TypeError('rj_table12_invalid_clock');
   const decisionNow=()=>{
@@ -296,17 +302,17 @@ export async function consultRjTable12FiveSourceDispute({
     }catch(_){connectorFailures.push(id);}
     finally{clearTimeout(timer);}
     const decision=resolveRjTable12FiveSourceDispute({
-      ibge,variable,observations,forecasts,now:decisionNow(),
+      ibge,variable,observations,forecasts,now:decisionNow(),observationsOnly,
     });
     if(decision.state==='TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS'
-      ||decision.state==='OFFICIAL_OR_VETTED_READING_WITH_MODEL_REFERENCE')
+      ||(!observationsOnly&&decision.state==='OFFICIAL_OR_VETTED_READING_WITH_MODEL_REFERENCE'))
       return Object.freeze({...decision,
         actuallyContactedSources:Object.freeze([...consulted]),
         connectorFailures:Object.freeze([...connectorFailures]),
       });
   }
   const final=resolveRjTable12FiveSourceDispute({
-    ibge,variable,observations,forecasts,now:decisionNow(),
+    ibge,variable,observations,forecasts,now:decisionNow(),observationsOnly,
   });
   return Object.freeze({...final,
     actuallyContactedSources:Object.freeze(consulted),

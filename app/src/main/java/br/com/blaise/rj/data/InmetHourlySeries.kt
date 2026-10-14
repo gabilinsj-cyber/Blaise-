@@ -7,15 +7,18 @@ import java.time.Instant
  * Public INMET automatic-station readings, not a city mean, forecast or radar.
  * Automatic-station raw values require local range, timestamp and age checks.
  */
-enum class InmetMetric { TEMPERATURE, HOURLY_RAINFALL, WIND }
+enum class InmetMetric { TEMPERATURE, THERMAL_SENSATION, HOURLY_RAINFALL, WIND }
 
 data class InmetHourlyPoint(
     val observedAt: Instant,
     val temperatureC: Double?,
     val rainfallMm: Double?,
     val windKmh: Double?,
+    val humidityPercent: Double? = null,
+    val windGustKmh: Double? = null,
 ) {
     fun reading(metric: InmetMetric): Double? = when (metric) {
+        InmetMetric.THERMAL_SENSATION -> br.com.blaise.rj.ScientificDashboardPolicy.thermalCelsius(temperatureC, humidityPercent, windKmh)
         InmetMetric.TEMPERATURE -> temperatureC?.takeIf { it.isFinite() && it in -30.0..60.0 }
         InmetMetric.HOURLY_RAINFALL -> rainfallMm?.takeIf { it.isFinite() && it in 0.0..400.0 }
         InmetMetric.WIND -> windKmh?.takeIf { it.isFinite() && it in 0.0..360.0 }
@@ -29,8 +32,9 @@ data class InmetHourlySeries(
     val latitude: Double,
     val longitude: Double,
     val points: List<InmetHourlyPoint>,
+    val municipalityIbge: Int? = null,
 ) {
-    private fun trustedMetadata(): Boolean =
+    fun trustedMetadata(): Boolean =
         Regex("[A-Z][0-9]{3}").matches(stationCode) &&
             stationName.isNotBlank() && stationName.length <= 100 &&
             sourceUrl.startsWith("https://apitempo.inmet.gov.br/estacao/") &&
@@ -45,10 +49,19 @@ data class InmetHourlySeries(
 
     fun currentPoint(metric: InmetMetric, now: Instant): Pair<InmetHourlyPoint, Double>? {
         if (!trustedMetadata()) return null
-        return points.asSequence()
-            .filter { !it.observedAt.isAfter(now) && !it.observedAt.isBefore(now.minusSeconds(300)) }
-            .mapNotNull { point -> point.reading(metric)?.let { point to it } }
-            .maxByOrNull { it.first.observedAt }
+        val latest = points.filter {
+            !it.observedAt.isAfter(now) && !it.observedAt.isBefore(now.minusSeconds(300))
+        }.maxByOrNull { it.observedAt } ?: return null
+        // Missing at the canonical current timestamp stays missing everywhere.
+        return latest.reading(metric)?.let { latest to it }
+
+    }
+
+    fun historyPoints(metric: InmetMetric, start: Instant, end: Instant, now: Instant): List<Pair<InmetHourlyPoint, Double>> {
+        if (!trustedMetadata() || !start.isBefore(end)) return emptyList()
+        return points.filter { !it.observedAt.isBefore(start) && it.observedAt.isBefore(end) &&
+            !it.observedAt.isAfter(now) }.mapNotNull { row -> row.reading(metric)?.let { row to it } }
+            .sortedBy { it.first.observedAt }
     }
 
     /** Only real hourly readings within the last 24h. A line needs >=2 points

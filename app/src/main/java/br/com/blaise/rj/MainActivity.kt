@@ -193,6 +193,9 @@ private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
+private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
+private val LocalWeatherCities = compositionLocalOf<List<City>> { emptyList() }
+private val LocalWeatherAudits = compositionLocalOf<List<br.com.blaise.rj.data.MunicipalWeatherAudit>> { emptyList() }
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
 // Backend radar grid remains absent until a licensed quantitative product is connected.
 private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
@@ -236,12 +239,9 @@ fun BlaiseApp(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val weatherClient = remember { OfficialWeatherClient() }
     var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
-    var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
-    // Associate the fetched station with the selected municipality to prevent
-    // showing Rio's readings when the user switches cities mid-request.
-    var selectedInmetHourlySeries by remember {
-        mutableStateOf<Pair<Int, InmetHourlySeries?>?>(null)
-    }
+    val snapshotStore = remember { br.com.blaise.rj.data.MunicipalWeatherSnapshotStore() }
+    var citySnapshots by remember { mutableStateOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>>(emptyMap()) }
+    var weatherAudits by remember { mutableStateOf<List<br.com.blaise.rj.data.MunicipalWeatherAudit>>(emptyList()) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
@@ -260,7 +260,11 @@ fun BlaiseApp(
     }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) { observationClock = Instant.now(); delay(30_000) }
+            while (true) {
+                observationClock = Instant.now()
+                if (snapshotStore.auditHourly(observationClock)) weatherAudits = snapshotStore.audits()
+                delay(30_000)
+            }
         }
     }
     LaunchedEffect(powerOn, lifecycle) {
@@ -274,36 +278,29 @@ fun BlaiseApp(
         }
     }
     LaunchedEffect(powerOn, city1.ibgeCode, city2.ibgeCode, lifecycle) {
-        cityWeather = emptyMap()
+        citySnapshots = emptyMap()
+        val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
+        val cities = listOf(rio, city1, city2).distinctBy { it.ibgeCode }
+        val ticket = snapshotStore.begin(cities.map { it.ibgeCode }.toSet())
         if (!powerOn) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
-                val cities = listOf(rio, city1, city2).distinctBy { it.ibgeCode }
-                cityWeather = coroutineScope {
+                val batch = coroutineScope {
                     cities.map { city -> async {
-                        city.ibgeCode to weatherClient.currentCity(br.com.blaise.rj.assistant.WeatherRequest(
+                        city.ibgeCode to weatherClient.citySnapshot(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
                             if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
                         ))
                     } }.map { it.await() }.toMap()
                 }
-                observationClock = Instant.now()
+                val now = Instant.now()
+                if (snapshotStore.publish(ticket, batch, now)) {
+                    snapshotStore.auditHourly(now)
+                    citySnapshots = snapshotStore.snapshot()
+                    weatherAudits = snapshotStore.audits()
+                    observationClock = now
+                }
                 delay(60_000)
-            }
-        }
-    }
-    // Public INMET station data is free for every user, independent of store billing.
-    // Rate-limit polling; no fake cache extension when a source becomes stale.
-    LaunchedEffect(powerOn, city1.ibgeCode, lifecycle) {
-        selectedInmetHourlySeries = null
-        if (!powerOn) return@LaunchedEffect
-        val selectedCity = city1
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                val verified = weatherClient.recentMunicipalityHourlySeries(selectedCity)
-                selectedInmetHourlySeries = selectedCity.ibgeCode to verified
-                delay(300_000)
             }
         }
     }
@@ -367,10 +364,11 @@ fun BlaiseApp(
         LocalPublicRjStatus provides if (powerOn) publicRjStatus else PublicRjStatusResult.Unavailable,
         LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
-        LocalCityWeather provides if (powerOn) cityWeather else emptyMap(),
-        LocalInmetHourlySeries provides if (powerOn &&
-            selectedInmetHourlySeries?.first == city1.ibgeCode)
-            selectedInmetHourlySeries?.second else null,
+        LocalCityWeather provides if (powerOn) citySnapshots.mapValues { it.value.currentReport(observationClock) } else emptyMap(),
+        LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
+        LocalWeatherCities provides listOf(city1, city2),
+        LocalWeatherAudits provides weatherAudits,
+        LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
@@ -639,7 +637,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         }
     }
     val conversation = remember { WeatherConversation() }
-    val weather = remember { OfficialWeatherClient() }
+    val sharedSnapshots by rememberUpdatedState(LocalMunicipalSnapshots.current)
     var queryJob by remember { mutableStateOf<Job?>(null) }
     var queryVersion by remember { mutableStateOf(0) }
     var listening by remember { mutableStateOf(false) }
@@ -729,7 +727,8 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
                         if (regional != null && !needsWeather) regional
                         else {
-                            val measured = withTimeout(12_000L) { weather.answer(request) }
+                            val measured = sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
+                                ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                             listOfNotNull(measured, freshRegional).joinToString("\n\n")
                         }
@@ -1141,6 +1140,12 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
         subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
         modifier = modifier.testTag("ten-agents-panel"),
     ) {
+        val latestHourly = LocalWeatherAudits.current.lastOrNull { it.reason.startsWith("HOURLY_CHECK") }
+        Text(latestHourly?.let { "Checagem de consistência em ${RjLiveTableEvidence.localTime(it.checkedAt)} • ativa enquanto o app está aberto" }
+            ?: "Checagem de consistência aguardando o primeiro snapshot", color = Muted, style = MaterialTheme.typography.labelSmall)
+        val latestFailure = LocalWeatherAudits.current.lastOrNull { "UNAVAILABLE" in it.reason || "MISMATCH" in it.reason || it.reason.startsWith("SOURCE_FAILURE") }
+        latestFailure?.let { Text("Auditoria de fonte • IBGE ${it.municipalityIbge} • ${it.reason}",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
         Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
@@ -1162,16 +1167,20 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit = {}) {
-    val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
+    val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Sensação térmica", "Vento", "Nuvens")
     var selectedLayer by remember { mutableStateOf("Radar") }
-    val stationSeries = LocalInmetHourlySeries.current
     val snapshotTime = LocalObservationClock.current
+    val displayedSeries = LocalWeatherCities.current.distinctBy { it.ibgeCode }.mapNotNull {
+        LocalMunicipalSnapshots.current[it.ibgeCode]?.currentSeries(snapshotTime)
+    }
     val stationMetric = when (selectedLayer) {
         "Temperatura" -> InmetMetric.TEMPERATURE
+        "Sensação térmica" -> InmetMetric.THERMAL_SENSATION
         "Chuva" -> InmetMetric.HOURLY_RAINFALL
         "Vento" -> InmetMetric.WIND
         else -> null
     }
+    val stationSeries = stationMetric?.let { metric -> displayedSeries.firstOrNull { it.currentPoint(metric, snapshotTime) != null } }
     val stationSample = stationMetric?.let { stationSeries?.currentPoint(it, snapshotTime) }
     var enlarged by remember { mutableStateOf(false) }
     var showStations by remember { mutableStateOf(false) }
@@ -1221,7 +1230,10 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     )
                 }
                 if (stationMetric != null) {
-                    InmetMapStationOverlay(stationMetric, stationSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
+                    LocalWeatherCities.current.distinctBy { it.ibgeCode }.forEach { city ->
+                        val sharedSeries = LocalMunicipalSnapshots.current[city.ibgeCode]?.currentSeries(snapshotTime)
+                        InmetMapStationOverlay(stationMetric, sharedSeries, snapshotTime, Modifier.fillMaxSize(), mapZoom)
+                    }
                 }
                 Surface(
                     modifier = Modifier.align(Alignment.TopStart).padding(9.dp),
@@ -1404,44 +1416,75 @@ private fun ForecastPanel(modifier: Modifier = Modifier) {
 
 @Composable
 private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
-    val choices = listOf("Temperatura", "Chuva", "Vento")
+    val choices = listOf("Temperatura", "Sensação térmica", "Chuva", "Vento")
     var variable by remember { mutableStateOf("Temperatura") }
     var showRainfall by remember { mutableStateOf(false) }
-    val stationSeries = LocalInmetHourlySeries.current
+    val graphCities = LocalWeatherCities.current.distinctBy { it.ibgeCode }
+    var graphCityIbge by remember(city.ibgeCode) { mutableStateOf(city.ibgeCode) }
+    val chartCity = graphCities.firstOrNull { it.ibgeCode == graphCityIbge } ?: city
+    var period by remember { mutableStateOf("Hoje") }
+    val stationSeries = LocalMunicipalSnapshots.current[chartCity.ibgeCode]?.historySeries()
     val now = LocalObservationClock.current
     val metric = when (variable) {
         "Temperatura" -> InmetMetric.TEMPERATURE
+        "Sensação térmica" -> InmetMetric.THERMAL_SENSATION
         "Chuva" -> InmetMetric.HOURLY_RAINFALL
         else -> InmetMetric.WIND
     }
-    val readings = stationSeries?.recentPoints(metric, now).orEmpty()
-    val last = readings.lastOrNull()?.first?.observedAt
     val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    val midnight = now.atZone(zone).toLocalDate().atStartOfDay(zone)
+    val start = when(period) { "Ontem" -> midnight.minusDays(1); "Últimos dias" -> midnight.minusDays(1); else -> midnight }
+    val end = if(period == "Ontem") midnight else midnight.plusDays(1)
+    val readings = if(period == "Próximos dias") emptyList() else
+        stationSeries?.historyPoints(metric, start.toInstant(), end.toInstant(), now).orEmpty()
+    val last = readings.lastOrNull()?.first?.observedAt
     val metricColor = when (metric) {
-        InmetMetric.TEMPERATURE -> WarningAmber
+        InmetMetric.TEMPERATURE, InmetMetric.THERMAL_SENSATION -> WarningAmber
         InmetMetric.HOURLY_RAINFALL -> Color(0xFF58B9FF)
         InmetMetric.WIND -> StableGreen
     }
     val unit = when (metric) {
-        InmetMetric.TEMPERATURE -> "°C"
+        InmetMetric.TEMPERATURE, InmetMetric.THERMAL_SENSATION -> "°C"
         InmetMetric.HOURLY_RAINFALL -> "mm na hora"
         InmetMetric.WIND -> "km/h"
     }
     DashboardSection(
-        title = "GRÁFICOS DO DIA • ${city.name.uppercase(java.util.Locale("pt", "BR"))}",
-        subtitle = "INMET • estação local validada • últimas 24 horas",
+        title = "GRÁFICOS DO DIA • ${chartCity.name.uppercase(java.util.Locale("pt", "BR"))}",
+        subtitle = "Snapshot compartilhado • $period • histórico separado de previsão",
         modifier = modifier,
     ) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            choices.forEach { option ->
-                if (variable == option) {
-                    Button(onClick = { variable = option }, colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            graphCities.forEachIndexed { index, item ->
+                OutlinedButton(onClick = { graphCityIbge = item.ibgeCode },
+                    modifier = Modifier.fillMaxWidth().testTag("chart-city-${item.ibgeCode}")) {
+                    Text("Cidade ${index + 1}: ${item.name}" + if (chartCity.ibgeCode == item.ibgeCode) " • selecionada" else "",
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        listOf("Hoje", "Ontem", "Últimos dias", "Próximos dias").chunked(2).forEach { options ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { option ->
+                    OutlinedButton(onClick = { period = option },
+                        modifier = Modifier.weight(1f).testTag("chart-period-$option")) {
                         Text(option, style = MaterialTheme.typography.labelSmall)
                     }
-                } else {
-                    OutlinedButton(onClick = { variable = option }) { Text(option, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+        }
+        choices.chunked(2).forEach { options ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { option ->
+                    if (variable == option) {
+                        Button(onClick = { variable = option }, modifier = Modifier.weight(1f).testTag("chart-metric-$option"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+                            Text(option, style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        OutlinedButton(onClick = { variable = option }, modifier = Modifier.weight(1f).testTag("chart-metric-$option")) {
+                            Text(option, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
                 }
             }
         }
@@ -1467,11 +1510,12 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
                             strokeWidth = 1.dp.toPx())
                     }
                     if (readings.size >= 2) {
-                        val minValue = if (metric == InmetMetric.TEMPERATURE) readings.minOf { it.second } - 1.0 else 0.0
+                        val minValue = if (metric in setOf(InmetMetric.TEMPERATURE, InmetMetric.THERMAL_SENSATION)) readings.minOf { it.second } - 1.0 else 0.0
                         val maxValue = maxOf(minValue + 1.0, readings.maxOf { it.second } + 1.0)
                         fun place(point: Pair<br.com.blaise.rj.data.InmetHourlyPoint, Double>): androidx.compose.ui.geometry.Offset {
-                            val age = java.time.Duration.between(point.first.observedAt, now).seconds
-                            val x = size.width * (1f - age.toFloat() / 86_400f).coerceIn(0f, 1f)
+                            val elapsed = java.time.Duration.between(start.toInstant(), point.first.observedAt).seconds
+                            val window = java.time.Duration.between(start.toInstant(), end.toInstant()).seconds.coerceAtLeast(1)
+                            val x = size.width * (elapsed.toFloat() / window).coerceIn(0f, 1f)
                             val y = size.height * (1f - ((point.second - minValue) / (maxValue - minValue)).toFloat()).coerceIn(0f, 1f)
                             return androidx.compose.ui.geometry.Offset(x, y)
                         }
@@ -1494,7 +1538,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
                 if (readings.size < 2) {
                     Surface(color = Color(0xEF07192F), shape = RoundedCornerShape(9.dp),
                         border = BorderStroke(1.dp, WarningAmber)) {
-                        Text("$variable: série oficial recente indisponível",
+                        Text(if(period == "Próximos dias") "Previsão sem produto validado; nenhuma curva inventada" else "$variable: histórico validado indisponível",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                             color = WarningAmber, style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center)
@@ -1503,17 +1547,24 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("−24h", "−18h", "−12h", "−6h", "Agora").forEach { tick ->
+            (0..4).map { index ->
+                start.plusSeconds(java.time.Duration.between(start.toInstant(), end.toInstant()).seconds * index / 4)
+                    .format(java.time.format.DateTimeFormatter.ofPattern(if (period == "Últimos dias") "dd/MM HH:mm" else "HH:mm"))
+            }.forEach { tick ->
                 Text(tick, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
+        readings.lastOrNull()?.let { point ->
+            Text("$variable: ${String.format(java.util.Locale("pt", "BR"), "%.1f", point.second)} $unit • ${point.first.observedAt.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}",
+                color = metricColor, style = MaterialTheme.typography.labelSmall)
+        }
         if (readings.size >= 2 && stationSeries != null && last != null) {
-            Text("Fonte: INMET • ${stationSeries.stationName} • $unit • última medição: ${last.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
+            Text("Fonte: INMET • ${chartCity.name} • ${stationSeries.stationName} • $unit • última medição: ${last.atZone(zone).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("Dado bruto de estação, não média municipal. Lacunas não são preenchidas; série some se a última leitura vencer.",
+            Text("Mesma aquisição dos cartões e mapa. Histórico mantém o horário original; térmica é calculada com as mesmas entradas. Lacunas não são preenchidas.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         } else {
-            Text("Não há série INMET recente de estação local confirmada para ${city.name}; nenhum valor foi estimado.",
+            Text((if (readings.isEmpty()) "Não há dados validados" else "Histórico insuficiente para desenhar uma curva") + " para ${chartCity.name} neste período. Valores atuais, históricos e previsões permanecem identificados separadamente.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         TextButton(onClick = { showRainfall = !showRainfall }) {

@@ -244,3 +244,15 @@ test('CEMADEN pluviometer cannot manufacture temperature or wind measurements',(
   assert.equal(r.estimatedValue,null);
   assert.equal(r.state,'NO_VERIFIABLE_CONVERGENCE');
 });
+test('measurement selection continues past INPE model and stops after first compatible Table 2 sensor',async()=>{
+ const calls=[]; const adapter=(id,payload)=>async()=>{calls.push(id);return payload;};
+ const r=await consultRjTable12FiveSourceDispute(input({observationsOnly:true,adapters:{
+ ALERTA_RIO:adapter('ALERTA_RIO',{observations:[O('ALERTA_RIO',22)]}),
+ DEFESA_CIVIL_RJ_REGIONAL:adapter('DEFESA_CIVIL',{observations:[O('DEFESA_CIVIL_RJ_REGIONAL',31)]}),
+ INPE_CPTEC_FORECAST:adapter('INPE',{forecasts:[M('INPE_CPTEC_FORECAST',23)]}),
+ INMET_STATION:adapter('INMET',{observations:[O('INMET_STATION',23)]}),
+ CEMADEN_RJ:adapter('CEMADEN',{observations:[]}),WINDY_MODELO:adapter('WINDY',{forecasts:[]}),NOAA:adapter('NOAA',{forecasts:[]})}}));
+ assert.deepEqual(calls,['ALERTA_RIO','DEFESA_CIVIL','INPE','INMET']);
+ assert.deepEqual(r.selectedSources,['ALERTA_RIO','INMET_STATION']); assert.equal(r.estimatedValue,22.5);assert.equal(r.weighted,true);
+ assert.ok(r.measurementPair.every(o=>o.ibge==='3304557'&&o.variable==='TEMPERATURA_C'));
+});

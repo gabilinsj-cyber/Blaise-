@@ -14,6 +14,8 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private class OfficialWeatherSourceFailure(val code: String) : java.io.IOException(code)
+
 /** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
@@ -21,6 +23,26 @@ class OfficialWeatherClient {
         runCatching { currentCityBlocking(request) }.getOrElse {
             CityWeatherResult(request.city.ibgeCode, request.localScope,
                 unavailableReason = "Não foi possível confirmar uma medição oficial recente para ${request.localScope ?: request.city.name}.")
+        }
+    }
+
+    /** One acquisition feeds cards, charts, map and assistant for this municipality. */
+    suspend fun citySnapshot(request: WeatherRequest): MunicipalWeatherSnapshot = withContext(Dispatchers.IO) {
+        try {
+            if (request.localScope != null) {
+                MunicipalWeatherSnapshot(currentCityBlocking(request), null, Instant.now())
+            } else {
+                val failures = mutableListOf<String>()
+                val series = recentMunicipalityHourlySeriesBlocking(request.city) { failures.add(it) }
+                val snapshot = MunicipalWeatherSnapshot.fromSeries(request.city.ibgeCode, series, Instant.now())
+                snapshot.copy(sourceFailures = failures.toList(), failureCode = if(snapshot.report.observation == null)
+                    failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT" else null)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            MunicipalWeatherSnapshot(CityWeatherResult(request.city.ibgeCode, request.localScope,
+                unavailableReason = "Fonte indisponível para este município; nenhum dado foi inventado."), null, Instant.now(), sourceFailureCode(error))
         }
     }
 
@@ -59,7 +81,7 @@ class OfficialWeatherClient {
     suspend fun recentRioHourlySeries(): InmetHourlySeries? =
         recentMunicipalityHourlySeries(City("Rio de Janeiro", 3304557))
 
-    private fun recentMunicipalityHourlySeriesBlocking(city: City): InmetHourlySeries? {
+    private fun recentMunicipalityHourlySeriesBlocking(city: City, onFailure: (String) -> Unit = {}): InmetHourlySeries? {
         if (br.com.blaise.rj.cities.RioMunicipalities.byIbgeCode(city.ibgeCode)?.name != city.name)
             return null
         val catalogJson = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
@@ -80,6 +102,7 @@ class OfficialWeatherClient {
         }
         val stations = InmetMunicipalityStationPolicy.select(city, entries)
         val utcToday = LocalDate.now(ZoneOffset.UTC)
+        var historicalFallback: InmetHourlySeries? = null
         for (station in stations) {
             val code = station.code
             val name = station.name
@@ -98,18 +121,25 @@ class OfficialWeatherClient {
                         temperatureC = OfficialWeatherParser.number(item, "TEM_INS", -30.0, 60.0),
                         rainfallMm = OfficialWeatherParser.number(item, "CHUVA", 0.0, 400.0),
                         windKmh = OfficialWeatherParser.number(item, "VEN_VEL", 0.0, 100.0)?.times(3.6),
+                        humidityPercent = OfficialWeatherParser.number(item, "UMD_INS", 0.0, 100.0),
+                        windGustKmh = OfficialWeatherParser.number(item, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
                     )
                 }.sortedByDescending { it.observedAt }.take(48)
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                onFailure(sourceFailureCode(error))
                 continue
             }
-            val series = InmetHourlySeries(code, "$name ($code)", url, latitude, longitude, readings)
+            val series = InmetHourlySeries(code, "$name ($code)", url, latitude, longitude, readings, city.ibgeCode)
             val now = Instant.now()
-            if (InmetMetric.entries.any { series.recentPoints(it, now).isNotEmpty() }) return series
+            if (series.trustedMetadata()) {
+                if (MunicipalWeatherSnapshot.fromSeries(city.ibgeCode, series, now).report.currentObservation(now) != null) return series
+                onFailure("SOURCE_DELAYED_OR_EMPTY")
+                if (historicalFallback == null && series.points.any { !it.observedAt.isAfter(now) }) historicalFallback = series
+            }
         }
-        return null
+        return historicalFallback
     }
 
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
@@ -162,12 +192,20 @@ class OfficialWeatherClient {
         }
         result
     }
+    private fun sourceFailureCode(error: Exception): String = when(error) {
+        is OfficialWeatherSourceFailure -> error.code
+        is java.net.SocketTimeoutException -> "SOURCE_TIMEOUT"
+        is org.json.JSONException -> "INVALID_SOURCE_RESPONSE"
+        is java.io.IOException -> "SOURCE_NETWORK_ERROR"
+        else -> "SOURCE_VALIDATION_FAILED"
+    }
+
     private fun get(url: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
         conn.setRequestProperty("Accept", "application/json")
         try {
-            check(conn.responseCode == 200)
+            if (conn.responseCode != 200) throw OfficialWeatherSourceFailure("HTTP_${conn.responseCode}")
             return conn.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)

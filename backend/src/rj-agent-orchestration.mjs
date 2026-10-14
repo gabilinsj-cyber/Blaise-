@@ -3,6 +3,7 @@
  * No external fetches, no unattended PR merges, no purchases and NO warning
  * publishing. Actual executor must be enabled only with proven infrastructure.
  */
+import { canonicalRjWeatherSnapshot, createRjCanonicalWeatherLedger } from './rj-canonical-weather-snapshot.mjs';
 import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
@@ -170,7 +171,7 @@ export async function reconcileRjTable12Case({
     ibge,phenomenon:variablePhenomena[variable],level,
   });
   const reconciliation=await consultRjTable12FiveSourceDispute({
-    ibge,variable,adapters,now,
+    ibge,variable,adapters,now,observationsOnly:true,
   });
   return Object.freeze({
     ...plan,
@@ -179,6 +180,7 @@ export async function reconcileRjTable12Case({
     fallbackFiveSources:RJ_TABLE2_FIVE,
     table2ActuallyRequired:reconciliation.stage!=='TABLE_1_TWO_OF_THREE_CONVERGED',
     arbitration:reconciliation,
+    canonicalSnapshot:canonicalRjWeatherSnapshot(reconciliation,{ibge,variable,now}),
     resultKind:reconciliation.state,
     observedOrEstimatedValue:reconciliation.estimatedValue,
     estimatedValueIsNotOfficialMunicipalMeasurement:true,
@@ -201,6 +203,14 @@ export function createRjTable12SourceExecutor({
     ||typeof clock!=='function')throw TypeError('rj_table12_executor_invalid');
   const inmet=createRjInmetLiveAdapters(inmetLive);
   const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
-  return ({ibge,variable,level=1,now=clock()}={})=>
-    reconcileRjTable12Case({ibge,variable,level,adapters,now});
+  const ledger=createRjCanonicalWeatherLedger();
+  const execute=async ({ibge,variable,level=1,now=clock()}={})=> {
+    const result=await reconcileRjTable12Case({ibge,variable,level,adapters,now});
+    ledger.publish(result.canonicalSnapshot,clock());
+    ledger.auditHourly(clock());
+    return result;
+  };
+  execute.readSnapshot=ledger.read;
+  execute.audits=ledger.audits;
+  return Object.freeze(execute);
 }

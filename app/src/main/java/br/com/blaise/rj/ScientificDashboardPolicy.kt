@@ -27,43 +27,45 @@ object ScientificDashboardPolicy {
     const val STATUS = "CÁLCULO BLAISE • NÃO É MEDIÇÃO OFICIAL"
     private fun format(value: Double) = String.format(Locale("pt", "BR"), "%.1f °C", value)
 
+    fun thermalCelsius(temperatureC: Double?, humidityPercent: Double?, windKmh: Double?): Double? {
+        val t = temperatureC?.takeIf { it.isFinite() && it in -30.0..60.0 } ?: return null
+        if (t <= 10.0) {
+            val wind = windKmh?.takeIf { it.isFinite() && it in 4.8..250.0 } ?: return null
+            val factor = wind.pow(0.16)
+            return (13.12 + 0.6215 * t - 11.37 * factor + 0.3965 * t * factor).takeIf { it.isFinite() }
+        }
+        val rh = humidityPercent?.takeIf { it.isFinite() && it in 40.0..100.0 } ?: return null
+        if (t < 27.0) return null
+        val f = t * 1.8 + 32.0
+        var heat = -42.379 + 2.04901523 * f + 10.14333127 * rh -
+            0.22475541 * f * rh - 0.00683783 * f.pow(2.0) -
+            0.05481717 * rh.pow(2.0) + 0.00122874 * f.pow(2.0) * rh +
+            0.00085282 * f * rh.pow(2.0) - 0.00000199 * f.pow(2.0) * rh.pow(2.0)
+        if (rh > 85.0 && f in 80.0..87.0) heat += (rh - 85.0) / 10.0 * ((87.0 - f) / 5.0)
+        return ((heat - 32.0) / 1.8).takeIf { it.isFinite() && it in -30.0..80.0 }
+    }
+
     fun derive(observation: CityWeatherObservation?, now: Instant): List<ScientificReading> {
         if (observation == null || !observation.current(now)) return emptyList()
         val t = observation.temperatureC ?: return emptyList()
-        val rh = observation.humidityPercent ?: return emptyList()
-        if (!t.isFinite() || !rh.isFinite() || t !in -30.0..60.0 || rh !in 1.0..100.0) return emptyList()
+        if (!t.isFinite() || t !in -30.0..60.0) return emptyList()
+        val rh = observation.humidityPercent?.takeIf { it.isFinite() && it in 1.0..100.0 }
         val base = { title: String, value: Double, method: String ->
             ScientificReading(title, format(value), method, observation.observedAt,
                 observation.station, observation.source)
         }
-        val a = 17.625
-        val b = 243.04
-        val gamma = ln(rh / 100.0) + a * t / (b + t)
-        val dew = b * gamma / (a - gamma)
-        if (!dew.isFinite() || dew !in -65.0..60.0) return emptyList()
-        val readings = mutableListOf(base("Ponto de orvalho", dew, "Magnus • T/UR"))
-        if (t >= 27.0 && rh >= 40.0) {
-            val f = t * 1.8 + 32.0
-            var heat = -42.379 + 2.04901523 * f + 10.14333127 * rh -
-                0.22475541 * f * rh - 0.00683783 * f.pow(2.0) -
-                0.05481717 * rh.pow(2.0) + 0.00122874 * f.pow(2.0) * rh +
-                0.00085282 * f * rh.pow(2.0) - 0.00000199 * f.pow(2.0) * rh.pow(2.0)
-            if (rh > 85.0 && f in 80.0..87.0) {
-                heat += (rh - 85.0) / 10.0 * ((87.0 - f) / 5.0)
-            }
-            val sensation = (heat - 32.0) / 1.8
-            if (sensation.isFinite() && sensation in -30.0..80.0) {
-                readings.add(base("Sensação térmica", sensation, "Rothfusz • calor"))
-            }
-        } else if (t <= 10.0) {
-            val wind = observation.windKmh
-            if (wind != null && wind.isFinite() && wind in 4.8..250.0) {
-                val windFactor = wind.pow(0.16)
-                val sensation = 13.12 + 0.6215 * t - 11.37 * windFactor + 0.3965 * t * windFactor
-                if (sensation.isFinite()) {
-                    readings.add(base("Sensação térmica", sensation, "Vento-frio"))
-                }
-            }
+        val readings = mutableListOf<ScientificReading>()
+        if (rh != null) {
+            val a = 17.625
+            val b = 243.04
+            val gamma = ln(rh / 100.0) + a * t / (b + t)
+            val dew = b * gamma / (a - gamma)
+            if (dew.isFinite() && dew in -65.0..60.0)
+                readings.add(base("Ponto de orvalho", dew, "Magnus • T/UR"))
+        }
+        thermalCelsius(t, rh, observation.windKmh)?.let { value ->
+            readings.add(base("Sensação térmica", value,
+                if (t >= 27.0) "Rothfusz • calor" else "Vento-frio"))
         }
         return readings
     }

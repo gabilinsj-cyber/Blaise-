@@ -99,8 +99,21 @@ class MainActivityTest {
         rule.onNodeWithTag("city-option-3300100").performClick()
         rule.waitForIdle()
         assertTextDisplayed("GRÁFICOS DO DIA • ANGRA DOS REIS")
-        assertTextDisplayed("INMET • estação local validada • últimas 24 horas")
+        assertTextDisplayed("Snapshot compartilhado • Hoje • histórico separado de previsão")
         rule.onNodeWithTag("expanded-daily-chart").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Escolher cidade 2").performScrollTo().performClick()
+        rule.onNodeWithTag("city-search").performTextInput("niteroi")
+        rule.onNodeWithTag("city-option-3303302").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("chart-city-3303302").performScrollTo().assertIsDisplayed().performClick()
+        rule.waitForIdle()
+        assertTextDisplayed("GRÁFICOS DO DIA • NITERÓI")
+        rule.onNodeWithTag("chart-metric-Sensação térmica").performScrollTo().performClick()
+        rule.onNodeWithTag("chart-period-Próximos dias").performScrollTo().performClick()
+        assertTextDisplayed("Previsão sem produto validado; nenhuma curva inventada")
+        rule.onNodeWithTag("chart-city-3300100").performScrollTo().assertIsDisplayed().performClick()
+        rule.waitForIdle()
+        assertTextDisplayed("GRÁFICOS DO DIA • ANGRA DOS REIS")
     }
 
     @Test fun assistantRoutesQuestionsWithoutInventingLiveConditions() {
