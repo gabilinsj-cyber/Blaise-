@@ -1844,6 +1844,8 @@ private fun RjMarineSourceMatrixPanel() {
     val clock = LocalObservationClock.current
     val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val canRefresh = LocalPublicStatusConfigured.current
+    val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
         subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
@@ -1852,6 +1854,16 @@ private fun RjMarineSourceMatrixPanel() {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text(
+            if (!canRefresh) "Canal público marítimo não configurado ou aplicativo desligado."
+            else "Consulta pública ao CHM: somente inventário regional autenticado e vigente.",
+            color = if(canRefresh) GoldSoft else WarningAmber,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-marine-public-connection"))
+        TextButton(
+            onClick = refreshPublic, enabled = canRefresh,
+            modifier = Modifier.testTag("rj-marine-manual-refresh"),
+        ) { Text("Reconsultar boletins marítimos") }
         Text(
             if(marine == null)
                 "Marinha/CHM: sem inventário regional recente validado; não confirma mar seguro."
