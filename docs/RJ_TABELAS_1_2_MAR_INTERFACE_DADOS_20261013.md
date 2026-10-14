@@ -1,6 +1,6 @@
 # Blaise V6 RJ — Tabelas 1, 2 e Mar na interface
 
-Data de implementação: 13/10/2026. Projeto exclusivo **Blaise V6 RJ**, sem INEA.
+Base de implementação: 13/10/2026; revisão de hierarquia: 14/10/2026. Projeto exclusivo **Blaise V6 RJ**, sem INEA.
 
 ## Integração executada
 
@@ -30,21 +30,21 @@ apresenta regras; isto não implica que exista hoje um par de observações que
 possa gerar média real para cada um dos 92 municípios. O desempate efetivo
 depende de adaptadores de produção e trilha de evidência.
 
-## Regras cadastradas na versão principal e compatibilidade
+## Hierarquia consolidada em 14/10/2026 — versão vigente, sem matriz concorrente
 
-A versão canônica `RjMeteorologicalTables.kt` em `main`, em
-13/10/2026, traz como **Tabela 1** Alerta Rio + Defesa Civil RJ P1,
-OpenWeatherMap como terceiro produto complementar das 10 variáveis.
-O complemento pode ser modelo ou republicação: **nunca** se torna automaticamente
-terceira observação oficial. Como **Tabela 2**, a versão principal registra
-INPE/CPTEC → INMET → CEMADEN → Windy → NOAA para produtos aplicáveis.
+A regra meteorológica principal homologável para **temperatura, sensação térmica, vento, rajadas, chuva e temporal** segue:
 
-Outro contrato do mesmo repositório (`rj-hierarchical-weather-resolution.mjs`)
-prioriza a busca por **Alerta Rio → Defesa Civil → INMET → INPE → Windy**.
-Esse conflito de especificações **não foi ocultado nem unificado por suposição**.
-Esta entrega preserva a matriz consolidada em `main`, sem mudar a
-política de desempate de fontes já implantada; a harmonização do algoritmo
-entre matrizes precisa ser homologada antes da fusão operacional.
+1. **Alerta Rio**, somente se a cidade selecionada for o município do Rio de Janeiro e o produto existir.
+2. **Defesa Civil regional ou municipal competente**, conforme dado próprio e cobertura.
+3. **INMET**, quando possuir medição/aviso referente à área e variável.
+4. **INPE/CPTEC** como primeira referência de previsão na comparação de discrepâncias.
+5. **Windy** somente se o INPE não fornecer comparação adequada.
+
+Se duas leituras oficiais independentes e comparáveis concordarem entre as três primeiras, o Blaise encerra a procura e aplica cálculo ponderado apenas com pesos e qualidade adequados. Se divergirem, as previsões INPE e depois Windy podem orientar a apresentação de uma leitura pontual oficial, **sem transformar previsão em medição nem ocultar as leituras divergentes**.
+
+**OpenWeatherMap continua a terceira consulta complementar dos dez primeiros fenômenos**, conforme produto e autorização, mas **não é a terceira medição oficial nem altera a ordem acima**. CEMADEN, ANA e SGB/SACE para hidrologia e outras fontes especializadas seguem com precedência técnica segundo a categoria. Avisos oficiais de tempestade, ressaca e tsunami **não são ponderados**.
+
+Uma antiga rotina concorrente (`backend/src/rj-table12-five-source-dispute.mjs`) foi retirada: o roteiro único agora é `backend/src/rj-hierarchical-weather-resolution.mjs` e as duas tabelas extraem a mesma política de `backend/src/rj-canonical-table-sources.mjs`. Registro técnico: `backend/src/rj-meteorological-homologation.mjs`; índice visível no Android: `RjMeteorologicalTables.kt`. **A alteração de código não prova cinco APIs conectadas em produção.**
 
 ## Mar e oceano em tempo de consulta
 
