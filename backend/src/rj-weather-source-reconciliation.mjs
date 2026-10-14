@@ -46,7 +46,7 @@ function validatedObserved(observations,{ibge,variable,now}) {
     &&OFFICIAL_OBSERVERS.has(o.sourceId)
     &&String(o.ibge)===String(ibge)&&o.variable===variable&&o.unit===threshold.unit
     &&numeric(o.value,threshold.minimum,threshold.maximum)
-    &&fresh(o.observedAt,now,7_200_000)
+    &&fresh(o.observedAt,now,300_000)
     &&typeof o.stationId==='string'&&o.stationId.length>0
     &&typeof o.sourceUrl==='string'&&o.sourceUrl.startsWith('https://')
     &&numeric(o.latitude,-23.7,-20.4)&&numeric(o.longitude,-45.5,-40.4)
@@ -156,7 +156,7 @@ export function compareInpeWindyToDiscrepantObservations({
   if(Math.abs(a.value-b.value)<=spec.maxDifference)
     return tieBreakUnavailable(official,'OFFICIAL_MEASUREMENTS_WITHIN_COMPATIBILITY_THRESHOLD');
   const ta=Date.parse(a.observedAt),tb=Date.parse(b.observedAt);
-  if(Math.abs(ta-tb)>900_000 || kmBetween(a,b)>25)
+  if(Math.abs(ta-tb)>300_000 || kmBetween(a,b)>25)
     return tieBreakUnavailable(official,'STATIONS_TOO_FAR_APART_OR_DIFFERENT_OBSERVATION_TIMES');
   if(variable==='CHUVA_MM_1H'
       && (a.measurementWindowMinutes!==60||b.measurementWindowMinutes!==60))
@@ -294,7 +294,7 @@ export function assessRjMeteorologicalDisagreement({
   // Validate station separation, time matching, weights etc. in the existing
   // provenanced calculator; no model forecast is sent to this function.
   const mean=weightedOfficialMean({
-    observations:obs,now,maxAgeMs:7_200_000,maxSkewMs:900_000,maxSeparationKm:25,
+    observations:obs,now,maxAgeMs:300_000,maxSkewMs:300_000,maxSeparationKm:25,
   });
   if(mean.state!=='CALCULO_EXPERIMENTAL_BLAISE')
     return result('OBSERVATIONS_NOT_COMPARABLE',{...common,

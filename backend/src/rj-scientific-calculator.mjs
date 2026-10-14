@@ -29,8 +29,8 @@ function haversineKm(a, b) {
  * return stays EXPERIMENTAL even if every input is from official stations.
  */
 export function weightedOfficialMean({
-  observations, now = Date.now(), maxAgeMs = 7_200_000,
-  maxSkewMs = 900_000, maxSeparationKm = 25,
+  observations, now = Date.now(), maxAgeMs = 300_000,
+  maxSkewMs = 300_000, maxSeparationKm = 25,
 } = {}) {
   if (!Number.isFinite(now) || !validNumber(maxAgeMs, 1, 86_400_000)
       || !validNumber(maxSkewMs, 0, 3_600_000)
@@ -55,7 +55,7 @@ export function weightedOfficialMean({
     && validNumber(o.weight, 0.01, 5)
     && Number.isFinite(Date.parse(o.observedAt))
     && now - Date.parse(o.observedAt) >= 0
-    && now - Date.parse(o.observedAt) <= maxAgeMs
+    && now - Date.parse(o.observedAt) <= Math.min(maxAgeMs,300_000)
     && validNumber(o.latitude, -23.7, -20.4)
     && validNumber(o.longitude, -45.5, -40.4)
     && typeof o.sourceUrl === 'string' && o.sourceUrl.startsWith('https://'));
@@ -64,7 +64,7 @@ export function weightedOfficialMean({
     return insufficient('DUPLICATE_STATION');
   }
   const times = observations.map(o => Date.parse(o.observedAt));
-  if (Math.max(...times) - Math.min(...times) > maxSkewMs) {
+  if (Math.max(...times) - Math.min(...times) > Math.min(maxSkewMs,300_000)) {
     return insufficient('OBSERVATION_TIMES_NOT_COMPARABLE');
   }
   if (observations.some(o => observations.some(p => haversineKm(o, p) > maxSeparationKm))) {
@@ -92,7 +92,7 @@ export function dewPointCelsius({ temperatureC, humidityPercent, ibge, observedA
     return insufficient('VALID_TEMPERATURE_AND_RELATIVE_HUMIDITY_REQUIRED');
   }
   const ms = Date.parse(observedAt);
-  if (!Number.isFinite(ms) || !Number.isFinite(now) || now - ms < 0 || now - ms > 7_200_000) {
+  if (!Number.isFinite(ms) || !Number.isFinite(now) || now - ms < 0 || now - ms > 300_000) {
     return insufficient('EXPIRED_OR_FUTURE_OBSERVATION');
   }
   const a = 17.625, b = 243.04;
@@ -117,7 +117,7 @@ export function thermalSensationCelsius({
 } = {}) {
   if (!RJ_CODES.has(String(ibge))) return insufficient('MUNICIPALITY_NOT_CONFIRMED');
   const t = Date.parse(observedAt);
-  if (!Number.isFinite(t) || !Number.isFinite(now) || now - t < 0 || now - t > 7_200_000) {
+  if (!Number.isFinite(t) || !Number.isFinite(now) || now - t < 0 || now - t > 300_000) {
     return insufficient('EXPIRED_OR_FUTURE_OBSERVATION');
   }
   if (!validNumber(temperatureC, -30, 60)) return insufficient('TEMPERATURE_INVALID');

@@ -38,7 +38,7 @@ export function createBlaiseVectorRjAgent({fetchImpl=globalThis.fetch,now=Date.n
  const scheduler=createOfficialSourceScheduler({now,cadenceMode:'fixed_start',refreshIntervalsMs:{normal:30000,severe:30000},tasks:[{id:'blaise-vector-rj',run:async()=>{
   try{
    const html=await fetchTextContract(ALERTA_RIO_LIVE_URL,{allowedHosts:[ALERTA_RIO_LIVE_HOST],fetchImpl,timeoutMs:7000,maxBytes:1048576});
-   const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now())});
+   const data=validateAlertaRioMeteorologyHtml(html,{now:new Date(now()),maxAgeMs:300_000});
    result={agent:VECTOR_RJ.name,status:'PARTIAL',calculatedAt:new Date(now()).toISOString(),sourceUrl:data.sourceUrl,stations:data.stations.filter(s=>s.freshness==='recent').map(s=>({...s,windVector:s.windSpeedKmh!==null&&s.windDirectionDegrees!==null?windComponents(s.windSpeedKmh,s.windDirectionDegrees):null})),unavailable:['calibrated_fusion','feels_like','CAPE_CIN_SRH','radar_nowcast','cyclone_trajectory','tsunami','regional_coverage'],officialAlert:false};
   }catch{result={agent:VECTOR_RJ.name,status:'UNAVAILABLE',calculatedAt:new Date(now()).toISOString(),stations:[],officialAlert:false};}
   let scientificCalculations=[];
