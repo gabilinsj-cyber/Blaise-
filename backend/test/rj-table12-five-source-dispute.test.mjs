@@ -82,7 +82,7 @@ test('rain-specific CEMADEN can corroborate existing P1 rain window after INPE a
     ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[rain('ALERTA_RIO',2)]};},
     DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {observations:[rain('DEFESA_CIVIL_RJ_REGIONAL',20)]};},
     INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {forecasts:[model('INPE_CPTEC_FORECAST',11)]};},
-    INMET_STATION:async()=>{called.push('INMET');return {observations:[rain('INMET_STATION',28)]};},
+    INMET_STATION:async()=>{called.push('INMET');return {observations:[rain('INMET_STATION',32)]};},
     CEMADEN_RJ:async()=>{called.push('CEMADEN');return {observations:[rain('CEMADEN_RJ',21)]};},
     WINDY_MODELO:async()=>{called.push('WINDY');throw Error('stop after CEMADEN');},
   };
