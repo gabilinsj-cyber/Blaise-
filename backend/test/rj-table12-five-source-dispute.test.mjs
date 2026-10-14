@@ -173,7 +173,10 @@ test('NOAA last: if prior four comparators do not match a Table 1 reading, NOAA 
     NOAA:async()=>{calls.push('NOAA');return {forecasts:[M('NOAA',31)]};},
   };
   const r=await consultRjTable12FiveSourceDispute(input({adapters}));
-  assert.deepEqual(calls,['INPE','INMET','CEMADEN','Windy','NOAA']);
+  // Temperature is not a verified CEMADEN pluviometer variable:
+  // the canonical Table 2 still has five sources, but this product-specific
+  // consultation correctly skips CEMADEN (rainfall-only).
+  assert.deepEqual(calls,['INPE','INMET','Windy','NOAA']);
   assert.equal(r.state,'OFFICIAL_OR_VETTED_READING_WITH_MODEL_REFERENCE');
   assert.deepEqual(r.selectedSources,['DEFESA_CIVIL_RJ_REGIONAL','NOAA']);
   assert.equal(r.estimatedValue,null);
