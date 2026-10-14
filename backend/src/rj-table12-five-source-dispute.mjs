@@ -18,7 +18,7 @@ export const RJ_TABLE1_THREE=Object.freeze([
 export const RJ_TABLE2_FIVE=Object.freeze([
   'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
 ]);
-export const RJ_TABLE12_CASCADE_VERSION='2026-10-12.v3';
+export const RJ_TABLE12_CASCADE_VERSION='2026-10-14.v4';
 const RJ_CITIES=new Set(RJ_MUNICIPALITIES.map(row=>row.ibge));
 const VARIABLES=Object.freeze({
   TEMPERATURA_C:Object.freeze({unit:'°C',min:-30,max:60,threshold:2}),
@@ -69,7 +69,7 @@ function provenanceValid(row,{sourceId,ibge,variable,spec,now}) {
     &&valid(row.latitude,-23.7,-20.4)&&valid(row.longitude,-45.5,-40.4)
     &&row.usagePermissionStatus==='VERIFIED_FOR_APP_DATA_DISPLAY'
     &&(spec.window===undefined||row.measurementWindowMinutes===spec.window)
-    &&withinTime(time(row.observedAt),now,7_200_000);
+    &&withinTime(time(row.observedAt),now,300_000);
 }
 function readingAllowed(row,opts){
   if(!provenanceValid(row,opts))return false;
@@ -124,7 +124,7 @@ function independent(a,b){
 function comparable(a,b,spec){
   return a.unit===b.unit && (spec.window===undefined
     ||a.measurementWindowMinutes===b.measurementWindowMinutes)
-    &&Math.abs(time(a.observedAt)-time(b.observedAt))<=900_000
+    &&Math.abs(time(a.observedAt)-time(b.observedAt))<=300_000
     &&approx(a,b)<=25;
 }
 function observedPair(pair,spec,{stage,step,consultedSources,allPrimary}){
@@ -132,13 +132,13 @@ function observedPair(pair,spec,{stage,step,consultedSources,allPrimary}){
   const weighted=pair.every(x=>valid(x.qualityWeight,0.01,5)
     &&x.qualityWeightBasis==='VERIFIED_STATION_QC_AND_LOCAL_SKILL'
     &&typeof x.qualityEvidenceId==='string'&&x.qualityEvidenceId.length>=4);
-  const total=weighted?(a.qualityWeight+b.qualityWeight):2;
   const estimate=weighted
-    ?(a.value*a.qualityWeight+b.value*b.qualityWeight)/total
-    :(a.value+b.value)/2;
+    ?(a.value*a.qualityWeight+b.value*b.qualityWeight)/(a.qualityWeight+b.qualityWeight)
+    :null;
   return safe('TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS',{
-    stage,decisionStep:step,estimatedValue:Math.round(estimate*100)/100,
-    formula:weighted?'SUM(weight*value)/SUM(weights)':'(value_a+value_b)/2',
+    stage,decisionStep:step,estimatedValue:weighted?Math.round(estimate*100)/100:null,
+    formula:weighted?'SUM(weight*value)/SUM(weights)':null,
+    calculationStatus:weighted?'VERIFIED_WEIGHTED_MEAN':'WEIGHT_EVIDENCE_MISSING_SHOW_READINGS',
     weighted,measurementPair:Object.freeze(pair.map(observedSummary)),
     selectedSources:Object.freeze(pair.map(x=>SOURCE_ORIGIN[x.sourceId])),
     originalPrimaryReadings:Object.freeze(allPrimary.map(observedSummary)),
