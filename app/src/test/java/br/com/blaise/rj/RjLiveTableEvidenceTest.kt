@@ -86,6 +86,26 @@ class RjLiveTableEvidenceTest {
         assertEquals("SEM_AVISO_MARITIMO_VALIDADO",expired.state)
     }
 
+    @Test fun marineCatalogueConsultedWithoutApplicableWarningIsNotAConfirmedGreenPhenomenon() {
+        val unrelated=PublicRjMarineWarning(
+            id="444/2026",warningType="VENTO FORTE",
+            issuedAt=stamp,validUntil=now.plusSeconds(3600),
+            areas=listOf("CHARLIE"),
+        )
+        val inventory=PublicRjMarine(stamp,
+            "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo",
+            listOf(unrelated))
+        val checked=RjLiveTableEvidence.marine("RESSACA",inventory,now)
+        assertEquals("SEM_AVISO_APLICAVEL_CONFIRMADO",checked.state)
+        assertEquals("Marinha / CHM",checked.source)
+        assertFalse(RjLiveTableEvidence.hasConfirmedPhenomenon(checked))
+        assertFalse(RjLiveTableEvidence.hasConfirmedPhenomenon(
+            RjLiveTableEvidence.marine("ONDAS",null,now)))
+        assertTrue(RjLiveTableEvidence.hasConfirmedPhenomenon(
+            RjLiveTableEvidence.municipality("TEMPERATURA",3304557,station(),null,now)))
+        assertFalse(checked.mayPublishAlert)
+    }
+
     @Test fun marineWithoutSpecificProductIsUnavailableWithoutZeroOrSafetyClaim() {
         val noMarine=RjLiveTableEvidence.marine("ONDAS",null,now)
         assertEquals("SEM_AVISO_MARITIMO_VALIDADO",noMarine.state)
