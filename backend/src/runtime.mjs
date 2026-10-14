@@ -8,6 +8,7 @@ import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
+import { createRjModelPointProbeHandler } from './rj-model-point-probe-http.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -219,7 +220,12 @@ async function main() {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
-  const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
+  // Operator-only model consultation. A PRO licensed key is required;
+  // this route is NOT a public or subscription forecast endpoint.
+  const modelProbeHandler = createRjModelPointProbeHandler(sourceReadinessHandler, {
+    verifyOperatorOidc: metricsOidcVerifier,
+  });
+  const server = http.createServer(createDrainingHandler(modelProbeHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;

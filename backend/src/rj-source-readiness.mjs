@@ -74,6 +74,49 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
       lastFinishedAt:parseAt(t.lastFinishedAt)===null?null:t.lastFinishedAt,
       lastErrorCode:typeof t.lastErrorCode==='string'?t.lastErrorCode.slice(0,70):null,
     }))),
+    // Five-source policy is a hierarchy of different PRODUCT TYPES.
+    // A CAP warning is not an hourly station reading; a Defesa Civil asset
+    // inventory is not a second independent temperature observation.
+    fiveSourceVerification:Object.freeze([
+      Object.freeze({
+        source:'ALERTA_RIO',order:1,scope:'RIO_CITY_ONLY',
+        knownProduct:'STATION_RAINFALL',
+        productFresh:sourceFresh.some(x=>x.sourceId==='alerta-rio-rainfall-live'),
+        temperatureAcross92Municipalities:false,
+        measurementOrModel:'OFFICIAL_OBSERVATION_WHEN_PRESENT',
+      }),
+      Object.freeze({
+        source:'DEFESA_CIVIL',order:2,scope:'REGIONAL_BY_JURISDICTION',
+        knownProduct:'MAP_ASSET_INVENTORY_NOT_STATION_MEASUREMENT',
+        productFresh:sourceFresh.some(x=>x.sourceId==='defesa-civil-rio-map-assets'),
+        temperatureAcross92Municipalities:false,
+        measurementOrModel:'OFFICIAL_WARNINGS_OR_ASSETS_DEPENDING_ON_PRODUCT',
+      }),
+      Object.freeze({
+        source:'INMET',order:3,scope:'RJ_STATIONS_ONLY',
+        knownProduct:'CAP_WARNINGS_NOT_HOURLY_STATION_FEED',
+        productFresh:sourceFresh.some(x=>x.sourceId==='inmet-cap-warnings'),
+        temperatureAcross92Municipalities:false,
+        measurementOrModel:'OFFICIAL_WARNING_WHEN_PRESENT',
+      }),
+      Object.freeze({
+        source:'INPE_CPTEC',order:4,scope:'FORECAST_BY_PRODUCT',
+        knownProduct:'NO_LICENSED_CONNECTED_RECONCILIATION_FEED',
+        productFresh:false,
+        temperatureAcross92Municipalities:false,
+        measurementOrModel:'MODEL_FORECAST_NOT_STATION',
+      }),
+      Object.freeze({
+        source:'WINDY',order:5,scope:'LICENSED_MODEL_ONLY',
+        knownProduct:'PROFESSIONAL_OPERATOR_SMOKE_ONLY',
+        productFresh:false,
+        temperatureAcross92Municipalities:false,
+        measurementOrModel:'MODEL_FORECAST_NOT_STATION',
+      }),
+    ]),
+    allFiveMeteorologicalSourcesValidated:false,
+    stationObservationsAcrossAll92Proven:false,
+    independentTwoSourceDisputeReconciliationLive:false,
     radarSpatialFrameReady:false,
     inpeApiReady:false,
     windyLicensedModelApiReady:false,
