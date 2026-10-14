@@ -11,9 +11,11 @@ const O=(sourceId,value,change={})=>({
   sourceId,origin:'OFFICIAL_OBSERVATION',
   stationId:sourceId+'-STATION',
   ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',value,
-  observedAt:'2026-10-12T12:00:00Z',latitude:-22.9,longitude:-43.2,
+  observedAt:'2026-10-12T12:09:00Z',latitude:-22.9,longitude:-43.2,
   sourceUrl:'https://valid.example/stations/'+sourceId,
-  usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',...change,
+  usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+  qualityWeight:1,qualityWeightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',
+  qualityEvidenceId:'fixture-verified-qc',...change,
 });
 const M=(sourceId,value,change={})=>({
   sourceId,kind:'MODEL_FORECAST',ibge:'3304557',
@@ -34,7 +36,7 @@ test('Table 1 has three; dispute Table 2 has FIVE in priority order INPE INMET C
   assert.deepEqual(RJ_TABLE2_FIVE,[
     'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA']);
 });
-test('two compatible independent Table 1 readings immediately calculate arithmetic mean without ANY dispute queries',async()=>{
+test('two compatible independent Table 1 readings immediately calculate verified weighted mean without ANY dispute queries',async()=>{
   const calls=[];
   const output=await consultRjTable12FiveSourceDispute(input({
     adapters:{
@@ -49,7 +51,7 @@ test('two compatible independent Table 1 readings immediately calculate arithmet
   assert.equal(output.state,'TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS');
   assert.equal(output.stage,'TABLE_1_TWO_OF_THREE_CONVERGED');
   assert.equal(output.estimatedValue,28.5);
-  assert.equal(output.formula,'(value_a+value_b)/2');
+  assert.equal(output.formula,'SUM(weight*value)/SUM(weights)');
   assert.deepEqual(calls,['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL']);
   assert.equal(output.selectedSources.length,2);
   assert.equal(output.originalPrimaryReadings.length,2);
@@ -176,5 +178,37 @@ test('alerts, granizo, tsunami and qualitative storms are never numerically aver
   for(const variable of ['TEMPORAL','GRANIZO','TSUNAMI','SENSACAO_TERMICA']){
     assert.throws(()=>resolveRjTable12FiveSourceDispute(input({variable})),
       /rj_table12_variable_not_numeric_or_not_supported/);
+  }
+});
+
+test('missing weight evidence displays two real readings without inventing weights or a mean',()=>{
+  const r=resolveRjTable12FiveSourceDispute(input({observations:[
+    O('ALERTA_RIO',28,{qualityWeight:undefined}),
+    O('DEFESA_CIVIL_RJ_REGIONAL',29),
+  ]}));
+  assert.equal(r.estimatedValue,null);
+  assert.equal(r.weighted,false);
+  assert.equal(r.measurementPair.length,2);
+  assert.equal(r.calculationStatus,'WEIGHT_EVIDENCE_MISSING_SHOW_READINGS');
+});
+test('a stale primary is skipped and a current independent INMET reading replaces it',async()=>{
+  const calls=[];
+  const r=await consultRjTable12FiveSourceDispute(input({adapters:{
+    ALERTA_RIO:async()=>({observations:[O('ALERTA_RIO',28)]}),
+    DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[
+      O('DEFESA_CIVIL_RJ_REGIONAL',29,{observedAt:'2026-10-12T12:04:00Z'})]}),
+    INMET_STATION:async()=>{calls.push('INMET');return {observations:[O('INMET_STATION',29)]};},
+  }}));
+  assert.deepEqual(calls,['INMET']);
+  assert.deepEqual(r.selectedSources,['ALERTA_RIO','INMET_STATION']);
+  assert.equal(r.weighted,true);
+});
+test('recent HTTP consultation cannot revive an old or future observation',()=>{
+  for(const observedAt of ['2026-10-12T12:04:59Z','2026-10-12T12:10:01Z']){
+    const r=resolveRjTable12FiveSourceDispute(input({observations:[
+      O('ALERTA_RIO',28),O('DEFESA_CIVIL_RJ_REGIONAL',29,{observedAt,fetchedAt:'2026-10-12T12:10:00Z'}),
+    ]}));
+    assert.equal(r.estimatedValue,null);
+    assert.equal(r.state,'NO_VERIFIABLE_CONVERGENCE');
   }
 });
