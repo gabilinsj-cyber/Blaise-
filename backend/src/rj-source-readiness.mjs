@@ -24,15 +24,28 @@ function normalizeSource(entry,nowMillis) {
   const collectedAt=parseAt(entry?.fetchedAt);
   const observedAt=parseAt(entry?.observedAt);
   const ageMs=collectedAt===null ? null : nowMillis-collectedAt;
+  const observationAgeMs=observedAt===null ? null : nowMillis-observedAt;
+  // An HTTP fetch just now is NOT proof that a sensor or authority published
+  // new information. A source-type-appropriate observation/bulletin time is
+  // required in addition to the current cache status. Conservative limits
+  // can create an unavailable status, never a synthetic live measurement.
+  const sourceId=String(entry?.sourceId||'unknown').slice(0,70);
+  const maxObservationAgeMs=/chm|marine|warning|cap|defesa-civil|hydrological/i.test(sourceId)
+    ?24*60*60_000 : 2*60*60_000;
+  const observationFresh=observationAgeMs!==null&&observationAgeMs>=0
+    &&observationAgeMs<=maxObservationAgeMs;
   const sourceFresh=collectedAt!==null && ageMs>=0 && ageMs<=15*60_000
-    && STATES.has(entry.state);
+    && observationFresh && STATES.has(entry.state);
   return Object.freeze({
-    sourceId:String(entry?.sourceId||'unknown').slice(0,70),
+    sourceId,
     state:typeof entry?.state==='string'?entry.state:'UNAVAILABLE',
     fresh:sourceFresh,
+    fetchedRecently:ageMs!==null&&ageMs>=0&&ageMs<=15*60_000,
+    observationFresh,
     lastFetchAt:collectedAt===null?null:new Date(collectedAt).toISOString(),
     lastObservationAt:observedAt===null?null:new Date(observedAt).toISOString(),
     cacheAgeSeconds:ageMs===null?null:Math.round(ageMs/1000),
+    observationAgeSeconds:observationAgeMs===null?null:Math.round(observationAgeMs/1000),
     lastErrorCode:typeof entry?.lastErrorCode==='string'
       ?entry.lastErrorCode.slice(0,70):null,
     dataPayloadIncluded:false,
