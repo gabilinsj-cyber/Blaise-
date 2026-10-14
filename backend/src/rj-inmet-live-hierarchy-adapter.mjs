@@ -80,6 +80,9 @@ function parseStationReadings(raw,station,variable,ibge,now,sourceUrl) {
     const value=Math.round(measured*spec.factor*1000)/1000;
     if(!best||t>Date.parse(best.observedAt))best=Object.freeze({
       origin:'OFFICIAL_OBSERVATION',sourceId:'INMET_STATION',
+      // Set only AFTER the adapter's explicit enabled + usageApproved
+      // gates and successful station-specific INMET source validation.
+      usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
       stationId:station.code,ibge:String(ibge),variable,
       value,unit:spec.unit,weight:1,
       observedAt:stamp,latitude:station.latitude,longitude:station.longitude,

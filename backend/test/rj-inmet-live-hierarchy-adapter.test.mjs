@@ -6,7 +6,7 @@ import {
   projectRjInmetOnOwnMap,
 } from '../src/rj-inmet-live-hierarchy-adapter.mjs';
 import {consultRjSourcesUntilTwo} from '../src/rj-hierarchical-weather-resolution.mjs';
-import {createRjWeatherSourceExecutor} from '../src/rj-agent-orchestration.mjs';
+import {createRjWeatherSourceExecutor,createRjTable12SourceExecutor} from '../src/rj-agent-orchestration.mjs';
 
 const NOW=Date.parse('2026-10-12T12:00:00.000Z');
 const station=(changes={})=>({
@@ -207,6 +207,42 @@ test('Blaise executor defaults never activate real network or pretend active sou
   assert.equal(report.sourceStatus,'NO_VERIFIABLE_SOURCE_VALUE');
   assert.equal(report.observedOrEstimatedValue,null);
   assert.equal(report.publishersTriggered,false);
+  assert.equal(api.visited.length,0);
+});
+
+test('gated live INMET observation crosses Table 1/2 executor permission contract and can reconcile official pair',async()=>{
+  const api=fakeApi({hourly:[reading({TEM_INS:'29'})]});
+  const run=createRjTable12SourceExecutor({
+    inmetLive:{enabled:true,usageApproved:true,fetchImpl:api.fetchImpl},
+    clock:()=>NOW,
+    sourceAdapters:{
+      ALERTA_RIO:async()=>({observations:[{
+        origin:'OFFICIAL_OBSERVATION',sourceId:'ALERTA_RIO',
+        stationId:'AR-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
+        value:28,unit:'°C',observedAt:'2026-10-12T11:00:00.000Z',
+        latitude:-22.905,longitude:-43.205,
+        sourceUrl:'https://websempre.rio.rj.gov.br/estacoes/',
+        usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+      }]}),
+    },
+  });
+  const result=await run({ibge:'3304557',variable:'TEMPERATURA_C'});
+  assert.equal(result.resultKind,'TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS');
+  assert.equal(result.arbitration.stage,'TABLE_2_OBSERVED_DISPUTE_RESOLVED');
+  assert.equal(result.observedOrEstimatedValue,28.5);
+  assert.deepEqual(result.arbitration.selectedSources,['ALERTA_RIO','INMET_STATION']);
+  assert.equal(result.audibleAlert,false);
+  assert.equal(result.publishersTriggered,false);
+  assert.equal(api.visited.length,2);
+});
+test('rights-disabled live INMET adapter cannot accidentally provide a usable second observation in either calculator',async()=>{
+  const api=fakeApi();
+  for(const config of [{enabled:false,usageApproved:true},{enabled:true,usageApproved:false}]) {
+    const source=createRjInmetLiveAdapters({...config,fetchImpl:api.fetchImpl}).INMET_STATION;
+    const result=await source(input);
+    assert.equal(result.observations.length,0);
+    assert.equal(result.automaticAlertAuthorized,false);
+  }
   assert.equal(api.visited.length,0);
 });
 

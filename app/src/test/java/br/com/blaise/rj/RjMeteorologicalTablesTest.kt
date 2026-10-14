@@ -6,6 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RjMeteorologicalTablesTest {
+    @Test fun operationalMunicipalSequenceIsDistinctFromOptionalSupplementalSourceProducts() {
+        assertEquals(5, RjMeteorologicalTables.operationalMunicipalSources.size)
+        assertEquals("INMET", RjMeteorologicalTables.operationalMunicipalSources[2])
+        assertTrue(RjMeteorologicalTables.operationalMunicipalSources[3].startsWith("INPE/CPTEC"))
+        assertTrue(RjMeteorologicalTables.operationalMunicipalSources[4].startsWith("Windy"))
+        assertTrue(RjMeteorologicalTables.primaryTable1Sources[2].contains("OpenWeatherMap"))
+        assertTrue(RjMeteorologicalTables.OPERATIONAL_CONSISTENCY.contains("complementares"))
+        assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
+    }
+
     @Test fun firstTenReproduceApprovedReferenceOrder() {
         val expected = listOf(
             "TEMPERATURA", "SENSACAO_TERMICA", "CHUVA_ATUAL",

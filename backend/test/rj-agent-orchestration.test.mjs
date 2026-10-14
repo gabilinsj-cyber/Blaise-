@@ -9,6 +9,15 @@ test('all 92 municipalities receive policy routing, never fabricated live data',
     for(const phenomenon of ['TEMPERATURA','RAJADA','CHUVA_ACUMULADA','TEMPORAL','GRANIZO','DESLIZAMENTO','ALAGAMENTO']) {
       const plan=planRjPhenomenonCase({ibge,phenomenon,level:4});
       assert.equal(plan.sourceStatus,'NOT_CONFIRMED_LIVE');
+      assert.equal(plan.operationalPriority.contract,'RJ_PRIMARY_THREE_THEN_MODEL_TWO_20261013');
+      if (!plan.operationalPriority.specializedRouting) {
+        assert.deepEqual(plan.operationalPriority.modelTieBreakSources,
+          ['INPE_CPTEC_FORECAST','WINDY_MODELO']);
+        assert.equal(plan.operationalPriority.primaryOfficialSources.includes('ALERTA_RIO'),
+          String(ibge)==='3304557');
+      } else {
+        assert.deepEqual(plan.operationalPriority.modelTieBreakSources, []);
+      }
       assert.equal(plan.autoSourcePolling,false);
       assert.equal(plan.publishersTriggered,false);
       assert.equal(plan.audibleAlert,false);
