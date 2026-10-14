@@ -13,6 +13,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RjSourceConnectionEvidenceTest {
+    @Test fun aRenewedBackendWrapperCannotProveLiveCapCollectionWithoutSourceInventory() {
+        val rows = RjSourceConnectionEvidence.rows(3304557, null,
+            status = public().copy(warningInventories = emptyList()), now = now)
+        assertFalse(rows.first { it.source == "INMET" && "CAP" in it.product }.verifiedCurrentProduct)
+    }
     private val now=Instant.parse("2026-10-14T12:00:00Z")
     private val recently=now.minusSeconds(60)
 
@@ -33,6 +38,7 @@ class RjSourceConnectionEvidenceTest {
             marine=PublicRjMarine(recently,
                 "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo",
                 emptyList()),
+            warningInventories = listOf(br.com.blaise.rj.data.PublicWarningInventory("inmet", recently, true, emptySet())),
             sourceProducts=listOf(
                 PublicRjSourceProduct("inmet","INMET",status,"avisos",
                     "RJ_POR_COBERTURA_VALIDADA"),

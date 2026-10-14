@@ -19,6 +19,23 @@ import {
 } from '../src/inmet-source.mjs';
 
 const NOW = Date.parse('2026-09-11T12:00:00.000Z');
+test('valid severe CAP automatically accelerates collection and expires without an all-clear claim', async () => {
+  let clock = NOW;
+  const worker = createOfficialSourceWorker({
+    config: { enabled: true, initialMode: 'normal', inmetWarningsEnabled: true },
+    now: () => clock, autoSchedule: false,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    probeInmetWarningsLive: async () => inmetSnapshot(),
+  });
+  worker.start();
+  await worker.tick();
+  assert.equal(worker.status().mode, 'severe');
+  assert.equal(worker.status().scheduler.refreshIntervalMs, 30_000);
+  clock = Date.parse(inmetSnapshot().rjWarnings[0].expires);
+  assert.equal(worker.status().mode, 'normal');
+  assert.equal(worker.status().scheduler.refreshIntervalMs, 300_000);
+  worker.stop();
+});
 
 function alertaRioSnapshot() {
   const observedAt = new Date(NOW).toISOString();
@@ -137,7 +154,7 @@ test('optional INMET CAP task caches source and continuously stages redacted P0 
   const status = worker.status();
   assert.equal(status.inmetWarningsConfigured, true);
   assert.equal(status.mode, 'severe');
-  assert.equal(status.scheduler.refreshIntervalMs, 60_000);
+  assert.equal(status.scheduler.refreshIntervalMs, 30_000);
   const inmetStatus = status.sources.find((source) => source.sourceId === INMET_SOURCE_ID);
   assert.equal(inmetStatus.semanticValidity, INMET_WARNINGS_SEMANTIC_VALIDITY);
   assert.equal(inmetStatus.payloadExposed, false);

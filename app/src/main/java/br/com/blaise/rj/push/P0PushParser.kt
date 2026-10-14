@@ -33,6 +33,7 @@ object P0PushParser {
         val expiresAt = data["expiresAt"]?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
         if (issuedAt.isAfter(now.plusSeconds(FUTURE_SKEW_SECONDS))) return null
         if (!expiresAt.isAfter(now) || !expiresAt.isAfter(issuedAt)) return null
+        if (!br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(issuedAt, expiresAt).isAfter(now)) return null
 
         val validitySeconds = Duration.between(issuedAt, expiresAt).seconds
         if (validitySeconds !in 1..RetentionPolicy.SEVERE_EVENT_MAX_SECONDS) return null

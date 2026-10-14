@@ -27,3 +27,21 @@ test('ledger isolates cities expires readings and performs hourly audit',()=>{
 test('unweighted context never invents an estimated measurement',()=>{
  const s=canonicalRjWeatherSnapshot({...decision,weighted:false,estimatedValue:99},input);assert.equal(s.value,null);assert.equal(s.formula,null);
 });
+test('combined freshness uses oldest contributor and never renews stale timestamps',()=>{
+ const mixed={...decision,measurementPair:decision.measurementPair.map((r,i)=>({...r,
+  observedAt:new Date(now-(i===0?299000:1000)).toISOString()}))};
+ const s=canonicalRjWeatherSnapshot(mixed,input);
+ assert.equal(s.observedAt,new Date(now-299000).toISOString());
+ assert.equal(s.value,28.5);
+ assert.equal(canonicalRjWeatherSnapshot(mixed,{...input,now:now+2000}).value,null);
+});
+test('invalid, future and expired measurements cannot produce a current mean',()=>{
+ for(const observedAt of ['invalid',new Date(now+1).toISOString(),new Date(now-300001).toISOString()]){
+  assert.equal(canonicalRjWeatherSnapshot({...decision,measurementPair:decision.measurementPair.map(r=>({...r,observedAt}))},input).value,null);
+ }
+ for(const estimatedValue of [NaN,Infinity,-Infinity])
+  assert.equal(canonicalRjWeatherSnapshot({...decision,estimatedValue},input).value,null);
+ const ledger=createRjCanonicalWeatherLedger();
+ assert.throws(()=>ledger.read('3304557','TEMPERATURA_C',NaN),/clock_invalid/);
+ assert.throws(()=>ledger.auditHourly(NaN),/clock_invalid/);
+});

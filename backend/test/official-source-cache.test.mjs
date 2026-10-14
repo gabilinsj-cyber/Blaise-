@@ -63,7 +63,7 @@ test('fresh snapshot is current and uses separate normal/severe refresh cadences
   const cache = createAlertaRioRainfallCache({ now: () => nowMs });
   cache.recordSuccess(snapshot());
 
-  nowMs += 30_000;
+  nowMs += OFFICIAL_SOURCE_SEVERE_REFRESH_MS - 1;
   const normal = cache.read({ mode: 'normal' });
   const severe = cache.read({ mode: 'severe' });
 
@@ -75,7 +75,7 @@ test('fresh snapshot is current and uses separate normal/severe refresh cadences
   assert.equal(severe.refreshDue, false);
 });
 
-test('severe mode requests a one-minute recheck without expiring valid data early', () => {
+test('severe mode requests a thirty-second recheck without expiring valid data early', () => {
   let nowMs = BASE_MS;
   const cache = createAlertaRioRainfallCache({ now: () => nowMs });
   cache.recordSuccess(snapshot());

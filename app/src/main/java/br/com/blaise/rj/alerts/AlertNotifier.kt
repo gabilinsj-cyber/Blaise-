@@ -11,6 +11,8 @@ import br.com.blaise.rj.core.AlertNotificationPolicy
 import br.com.blaise.rj.core.Entitlement
 import br.com.blaise.rj.core.OfficialAlert
 import br.com.blaise.rj.core.Severity
+import br.com.blaise.rj.core.AlertLifetimePolicy
+import java.time.Instant
 
 class AlertNotifier(private val context: Context) {
     companion object {
@@ -20,6 +22,7 @@ class AlertNotifier(private val context: Context) {
     }
 
     fun notify(alert: OfficialAlert, entitlement: Entitlement, automaticAudioAllowed: Boolean = false): Boolean {
+        val lifetime = AlertLifetimePolicy.remainingMillis(alert, Instant.now()) ?: return false
         val decision = AlertNotificationPolicy.decide(alert, entitlement)
         if (!decision.deliver) return false
         if (
@@ -51,6 +54,7 @@ class AlertNotifier(private val context: Context) {
             .setCategory(if (audible) Notification.CATEGORY_ALARM else Notification.CATEGORY_EVENT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setTimeoutAfter(lifetime)
             .build()
 
         manager.notify(alert.id.hashCode(), notification)

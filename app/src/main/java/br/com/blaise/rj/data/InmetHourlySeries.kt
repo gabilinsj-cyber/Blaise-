@@ -41,7 +41,7 @@ data class InmetHourlySeries(
             sourceUrl.endsWith("/$stationCode") &&
             latitude.isFinite() && latitude in -23.6..-20.4 &&
             longitude.isFinite() && longitude in -45.3..-40.6 &&
-            points.size in 1..48 &&
+            points.size in 1..192 &&
             points.map { it.observedAt }.distinct().size == points.size
 
     private fun elapsedSeconds(point: InmetHourlyPoint, now: Instant): Long =

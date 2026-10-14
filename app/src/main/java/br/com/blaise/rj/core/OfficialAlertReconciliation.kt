@@ -28,7 +28,7 @@ object OfficialAlertReconciliationPolicy {
             snapshot.alerts.filter { alert ->
                 alert.severity == Severity.P0 &&
                     !alert.issuedAt.isAfter(now) &&
-                    alert.expiresAt.isAfter(now)
+                    AlertValidityPolicy.activeUntil(alert.issuedAt, alert.expiresAt).isAfter(now)
             }.map { snapshot to it }
         }
 
@@ -36,6 +36,12 @@ object OfficialAlertReconciliationPolicy {
             val sources = activeP0.map { it.first }.distinctBy { it.source }
             return evidence(sources, activeP0.map { it.second.id }.distinct().size, now)
         }
+
+        // Locally expired but still officially valid is unknown, never a clear signal.
+        if (current.any { snapshot -> snapshot.alerts.any { alert ->
+            alert.severity == Severity.P0 && !alert.issuedAt.isAfter(now) &&
+                alert.expiresAt.isAfter(now)
+        } }) return null
 
         val required = requiredSources.map(String::trim).filter(String::isNotEmpty).toSet()
         if (required.isEmpty()) return null

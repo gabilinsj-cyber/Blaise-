@@ -108,7 +108,7 @@ class OfficialWeatherClient {
             val name = station.name
             val latitude = station.latitude ?: continue
             val longitude = station.longitude ?: continue
-            val url = "https://apitempo.inmet.gov.br/estacao/${utcToday.minusDays(1)}/$utcToday/$code"
+            val url = "https://apitempo.inmet.gov.br/estacao/${utcToday.minusDays(7)}/$utcToday/$code"
             val readings = try {
                 val response = JSONArray(get(url))
                 if (response.length() !in 1..500) continue
@@ -124,7 +124,9 @@ class OfficialWeatherClient {
                         humidityPercent = OfficialWeatherParser.number(item, "UMD_INS", 0.0, 100.0),
                         windGustKmh = OfficialWeatherParser.number(item, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
                     )
-                }.sortedByDescending { it.observedAt }.take(48)
+                }.filter { !it.observedAt.isAfter(Instant.now()) }
+                    .distinctBy { it.observedAt }
+                    .sortedByDescending { it.observedAt }.take(192)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

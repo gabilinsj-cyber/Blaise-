@@ -1,6 +1,14 @@
 package br.com.blaise.rj
 
 import br.com.blaise.rj.bulletin.BulletinPolicy
+import br.com.blaise.rj.core.AlertValidity
+import br.com.blaise.rj.core.AlertValidityPolicy
+import br.com.blaise.rj.data.PublicRjWarning
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -196,10 +204,14 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
 private val LocalWeatherCities = compositionLocalOf<List<City>> { emptyList() }
 private val LocalWeatherAudits = compositionLocalOf<List<br.com.blaise.rj.data.MunicipalWeatherAudit>> { emptyList() }
+private val LocalNews = compositionLocalOf<br.com.blaise.rj.data.NewsSnapshot?> { null }
+private val LocalSeismic = compositionLocalOf<br.com.blaise.rj.data.SeismicSnapshot?> { null }
 private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { null }
 // Backend radar grid remains absent until a licensed quantitative product is connected.
 private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
+private val LocalOfficialWarningHistory = compositionLocalOf { emptyList<PublicRjWarning>() }
+private val LocalOfficialMarineHistory = compositionLocalOf { emptyList<br.com.blaise.rj.data.PublicRjMarineWarning>() }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
 private val LocalPublicStatusConfigured = compositionLocalOf { false }
@@ -238,6 +250,9 @@ fun BlaiseApp(
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val weatherClient = remember { OfficialWeatherClient() }
+    val informationClient = remember { br.com.blaise.rj.data.LiveInformationClient() }
+    var liveNews by remember { mutableStateOf<br.com.blaise.rj.data.NewsSnapshot?>(null) }
+    var liveSeismic by remember { mutableStateOf<br.com.blaise.rj.data.SeismicSnapshot?>(null) }
     var rioStations by remember { mutableStateOf<List<br.com.blaise.rj.data.CityWeatherObservation>>(emptyList()) }
     val snapshotStore = remember { br.com.blaise.rj.data.MunicipalWeatherSnapshotStore() }
     var citySnapshots by remember { mutableStateOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>>(emptyMap()) }
@@ -246,6 +261,32 @@ fun BlaiseApp(
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
+    val warningHistoryStore = remember(context) { br.com.blaise.rj.data.OfficialWarningHistory(context) }
+    var warningHistory by remember(warningHistoryStore) { mutableStateOf(warningHistoryStore.read(Instant.now())) }
+    val marineHistoryStore = remember(context) { br.com.blaise.rj.data.OfficialMarineWarningHistory(context) }
+    var marineHistory by remember(marineHistoryStore) { mutableStateOf(marineHistoryStore.read(Instant.now())) }
+    LaunchedEffect(publicRjStatus, statewideDashboard, observationClock) {
+        val current = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
+            ?.takeIf { it.current(observationClock) }
+        val paid = (statewideDashboard as? StatewideDataResult.Available)?.snapshot
+            ?.takeIf { it.current(observationClock) && it.workerActive }
+        val paidWarnings = paid?.warnings.orEmpty().filter { it.attribution == "EXACT_IBGE" }
+            .map { PublicRjWarning(it.id, it.event, it.severity, it.sent, it.onset, it.expires,
+                it.municipalityIbges, "https://apiprevmet3.inmet.gov.br/avisos/rss") }
+        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty() + paidWarnings, observationClock,
+            current?.warningInventories?.firstOrNull { it.sourceId == "inmet" })
+        if (next != warningHistory) {
+            warningHistory = next
+            warningHistoryStore.write(next)
+        }
+        val marine = current?.marine?.takeIf { it.current(observationClock) }
+        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock,
+            current?.warningInventories?.firstOrNull { it.sourceId == "chm" })
+        if (nextMarine != marineHistory) {
+            marineHistory = nextMarine
+            marineHistoryStore.write(nextMarine)
+        }
+    }
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
     var publicStatusLastAttempt by remember { mutableStateOf<Instant?>(null) }
@@ -263,7 +304,26 @@ fun BlaiseApp(
             while (true) {
                 observationClock = Instant.now()
                 if (snapshotStore.auditHourly(observationClock)) weatherAudits = snapshotStore.audits()
-                delay(30_000)
+                val status = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
+                val expiries = status?.warnings.orEmpty().map { AlertValidityPolicy.activeUntil(it.sent, it.expires) } +
+                    status?.marine?.warnings.orEmpty().map { AlertValidityPolicy.activeUntil(it.issuedAt, it.validUntil) }
+                delay(br.com.blaise.rj.core.AlertLifetimePolicy.nextRecheckMillis(expiries, observationClock))
+            }
+        }
+    }
+    LaunchedEffect(powerOn, lifecycle, informationClient) {
+        liveNews = null
+        liveSeismic = null
+        if (!powerOn) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                coroutineScope {
+                    val news = async { informationClient.news() }
+                    val seismic = async { informationClient.seismic() }
+                    liveNews = news.await()
+                    liveSeismic = seismic.await()
+                }
+                delay(60_000)
             }
         }
     }
@@ -361,15 +421,29 @@ fun BlaiseApp(
                 publicStatusRefreshRequest += 1
             }
         },
-        LocalPublicRjStatus provides if (powerOn) publicRjStatus else PublicRjStatusResult.Unavailable,
-        LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
+        LocalPublicRjStatus provides if (powerOn) ((publicRjStatus as? PublicRjStatusResult.Available)?.let {
+            PublicRjStatusResult.Available(it.snapshot.suppressWithdrawn(warningHistory, marineHistory))
+        } ?: publicRjStatus) else PublicRjStatusResult.Unavailable,
+        LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
+            ((statewideDashboard as? StatewideDataResult.Available)?.let { result ->
+                val visible = result.snapshot.warnings.filter { row -> warningHistory.none {
+                    it.id == row.id && it.sent == row.sent && it.localClosedAt != null
+                } }
+                val ids = visible.map { it.id }.toSet()
+                StatewideDataResult.Available(result.snapshot.copy(warnings = visible,
+                    municipalities = result.snapshot.municipalities.map { it.copy(warningIds = it.warningIds.filter(ids::contains)) }))
+            } ?: statewideDashboard) else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
         LocalCityWeather provides if (powerOn) citySnapshots.mapValues { it.value.currentReport(observationClock) } else emptyMap(),
         LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
         LocalWeatherCities provides listOf(city1, city2),
         LocalWeatherAudits provides weatherAudits,
+        LocalNews provides if (powerOn) liveNews else null,
+        LocalSeismic provides if (powerOn) liveSeismic else null,
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
+        LocalOfficialWarningHistory provides warningHistory,
+        LocalOfficialMarineHistory provides marineHistory,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -652,6 +726,9 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
+    val latestOfficial by rememberUpdatedState(publicOfficial)
+    val latestNews by rememberUpdatedState(LocalNews.current)
+    val latestSeismic by rememberUpdatedState(LocalSeismic.current)
     val currentWarnings = publicOfficial?.warningsFor(selectedCity.ibgeCode, clock).orEmpty()
     val municipalRisk = publicOfficial?.municipality(selectedCity.ibgeCode, clock)
         ?.risk?.takeIf { it.current(clock) }
@@ -669,9 +746,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
             " (Brasília)."
     }
+    val otherCities = LocalWeatherCities.current.filter { it.ibgeCode != selectedCity.ibgeCode }.distinctBy { it.ibgeCode }
+    val secondCityBulletin = otherCities.joinToString("\n\n") { city ->
+        val measurement = reports[city.ibgeCode]?.summary(clock) ?: "Sem medição atual validada."
+        val warnings = publicOfficial?.warningsFor(city.ibgeCode, clock).orEmpty()
+        "${city.name}: $measurement" + if (warnings.isEmpty()) "\nSem aviso vigente confirmado nesta consulta; não indica ausência de risco."
+        else "\n" + warnings.joinToString("\n") { "INMET: ${it.event}, válido até ${formatInformationTime(it.expires)}." }
+    }
     val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen" +
         "\n\n${officialRiskText}\n${officialWarningText}" +
-        "\n\nOutras variáveis sem leitura atual permanecem não confirmadas. Fonte e horário pertencem a cada produto."
+        if (secondCityBulletin.isNotEmpty()) "\n\n$secondCityBulletin\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
+        else "\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
     val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
         if (currentWarnings.isNotEmpty()) " INMET: ${currentWarnings.size} aviso(s) vigente(s) com atribuição municipal confirmada." else ""
@@ -722,15 +807,18 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 queryJob = scope.launch {
                     val result = try {
                         val request = action.request
+                        val information = br.com.blaise.rj.assistant.liveInformationAnswer(
+                            latestOfficial, latestNews, latestSeismic, request, Instant.now())
                         val regional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                         val weatherQuestion = br.com.blaise.rj.assistant.normalizedSpeech(request.question)
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
-                        if (regional != null && !needsWeather) regional
+                        if (information != null && !needsWeather) information
+                        else if (regional != null && !needsWeather) regional
                         else {
                             val measured = sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
                                 ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
-                            listOfNotNull(measured, freshRegional).joinToString("\n\n")
+                            listOfNotNull(measured, information ?: freshRegional).joinToString("\n\n")
                         }
                     } catch (error: CancellationException) {
                         if (error !is TimeoutCancellationException) throw error
@@ -1148,16 +1236,33 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
         Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        val seismic = LocalSeismic.current
+        val news = LocalNews.current
+        val now = LocalObservationClock.current
+        Text(if (seismic?.current(now) == true) "Blaise Seismo RJ • feed USGS verificado ${formatInformationTime(seismic.generatedAt)}"
+            else "Blaise Seismo RJ • aguardando feed USGS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text(if (news?.current(now) == true) "Noticiário • RSS Agência Brasil consultado ${formatInformationTime(news.fetchedAt)}"
+            else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
             Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
         }
         if (details) {
-            BlaiseAgentDashboard.tenAgents.forEach { agent ->
-                Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelSmall)
-                Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
-            }
+            AlertDialog(
+                onDismissRequest = { details = false },
+                title = { Text("Funções dos 10 agentes") },
+                text = {
+                    Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        BlaiseAgentDashboard.tenAgents.forEach { agent ->
+                            Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelSmall)
+                            Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { details = false }) { Text("Voltar") } },
+            )
         }
         Text("Dados e recálculos: somente se a origem e o horário forem válidos. " +
             "Alertas sonoros apenas mediante autorização do nível 5.",
@@ -1433,7 +1538,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     }
     val zone = java.time.ZoneId.of("America/Sao_Paulo")
     val midnight = now.atZone(zone).toLocalDate().atStartOfDay(zone)
-    val start = when(period) { "Ontem" -> midnight.minusDays(1); "Últimos dias" -> midnight.minusDays(1); else -> midnight }
+    val start = when(period) { "Ontem" -> midnight.minusDays(1); "Últimos dias" -> midnight.minusDays(7); else -> midnight }
     val end = if(period == "Ontem") midnight else midnight.plusDays(1)
     val readings = if(period == "Próximos dias") emptyList() else
         stationSeries?.historyPoints(metric, start.toInstant(), end.toInstant(), now).orEmpty()
@@ -1591,8 +1696,14 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
             subtitle = "2 eventos recentes • USGS / autoridade competente",
             modifier = Modifier.fillMaxWidth().testTag("seismic-two-events"),
         ) {
-            StatusLine("Evento 1", "— magnitude • — km • fonte e horário pendentes")
-            StatusLine("Evento 2", "— magnitude • — km • fonte e horário pendentes")
+            val events = LocalSeismic.current?.largestRecent(LocalObservationClock.current).orEmpty()
+            if (events.isEmpty()) Text("Sem feed USGS atual validado nesta consulta.", color = Muted)
+            events.forEach { event ->
+                Text("M ${event.magnitude} • ${event.place} • profundidade ${event.depthKm} km • ${formatInformationTime(event.occurredAt)} • USGS", color = Color.White,
+                    style = MaterialTheme.typography.labelSmall)
+                val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                TextButton(onClick = { uri.openUri(event.url) }) { Text("Saiba mais • USGS") }
+            }
             Text("Sem conclusão sobre tsunami ou impacto no RJ.",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { seismicDetails = true },
@@ -1623,12 +1734,7 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
                     }
                 }
             }
-            Text(
-                if (newsScope == "Internacional")
-                    "Internacional • aguardando notícia meteorológica recente com fonte e tradução."
-                else "${newsScope} • aguardando notícias verificadas, locais e horários das ocorrências.",
-                modifier = Modifier.testTag("news-scope-status"),
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+            LiveNewsHeadlines(newsScope, Modifier.testTag("news-scope-status"))
             TextButton(
                 onClick = { onNavigate("Notícias") },
                 modifier = Modifier.fillMaxWidth().testTag("news-more"),
@@ -1670,9 +1776,11 @@ private fun PublicOfficialWarningRibbon(
         ) {
             Text("⚠ INMET", color = WarningAmber, fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.labelSmall)
-            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}",
+            val updateLabel = AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.second.sent, now))
+            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}" +
+                (updateLabel?.let { " • $it" } ?: ""),
                 color = Color.White, style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.weight(1f), maxLines = 2)
+                modifier = Modifier.weight(1f))
             TextButton(onClick = { onNavigate("Alertas") },
                 modifier = Modifier.testTag("public-warning-view-all")) {
                 Text("Ver avisos", color = Gold, style = MaterialTheme.typography.labelSmall)
@@ -1694,9 +1802,7 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (risk != null) {
-            Text("Risco hidrológico: ${risk.label} (nível ${risk.level})",
-                color = if (risk.level >= 4) WarningAmber else Gold,
-                style = MaterialTheme.typography.labelSmall)
+            PulsingRiskLabel("Risco hidrológico: ${risk.label} (nível ${risk.level})", risk.level)
             Text("CEMADEN-RJ / Defesa Civil • " +
                 risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                     .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")),
@@ -1710,6 +1816,9 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
             Text("INMET: ${warning.event} • ${warning.severity} • até ${expiry}",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            }
         }
         if (warnings.isEmpty()) {
             Text("Avisos oficiais: sem confirmação de cobertura completa; não indica ausência de risco.",
@@ -1787,6 +1896,108 @@ private fun StatewideMunicipalitiesPanel() {
     }
 }
 
+/** Animate the verified 1–5 bulletin level, never derive it from a CAP word. */
+@Composable
+private fun PulsingRiskLabel(text: String, level: Int) {
+    val color = when (level) {
+        1 -> StableGreen
+        2, 3 -> WarningAmber
+        4 -> Color(0xFFFF8A50)
+        5 -> Color(0xFFE576FF)
+        else -> Muted
+    }
+    val alpha = if (level in 3..5) {
+        val transition = rememberInfiniteTransition(label = "risk-level-pulse")
+        val value by transition.animateFloat(
+            initialValue = 1f, targetValue = 0.55f,
+            animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
+            label = "risk-level-alpha",
+        )
+        value
+    } else 1f
+    Text(text, color = color.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
+}
+
+/** Persisted provenance is historical; only a matching live snapshot confirms the source. */
+@Composable
+private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false) {
+    val now = LocalObservationClock.current
+    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+    val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
+        ?.takeIf { it.current(now) && it.workerActive }
+    val warnings = LocalOfficialWarningHistory.current.filter {
+        ibge in it.municipalityIbges && it.retainHistory(now) &&
+            (!historyOnly || !it.localActiveUntil().isAfter(now))
+    }
+    if (warnings.isEmpty()) {
+        if (historyOnly) Text("Sem registros históricos retidos para esta cidade.", color = Muted)
+        return
+    }
+    Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val activeRecords = warnings.filter { it.localActiveUntil().isAfter(now) }
+        val historicalRecords = warnings.filterNot { it.localActiveUntil().isAfter(now) }
+        (activeRecords + historicalRecords).forEach { warning ->
+            if (historicalRecords.firstOrNull() == warning)
+                Text("HISTÓRICO • encerrados no Blaise", color = Muted, fontWeight = FontWeight.Bold)
+            val sourceCurrent = (snapshot?.current(now) == true && snapshot.warnings.any { it == warning }) ||
+                paid?.warnings?.any { it.id == warning.id && it.sent == warning.sent &&
+                    it.expires == warning.expires && it.event == warning.event && it.severity == warning.severity &&
+                    it.attribution == "EXACT_IBGE" && ibge in it.municipalityIbges } == true
+            val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
+                warning.expires, now, sourceCurrent)
+            val historical = warning.localClosedAt != null || state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
+            Surface(color = Navy, shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, if (historical) Muted else WarningAmber)) {
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    Text("${if (historical) "HISTÓRICO" else "AVISO"} • INMET • ${warning.event} • gravidade da emissão: ${warning.severity}", color = if (historical) Muted else Color.White)
+                    Text(if (warning.localClosedAt != null) "Retirada confirmada na fonte • somente histórico" else AlertValidityPolicy.label(state),
+                        color = if (historical) Muted else WarningAmber)
+                    if (warning.localClosedAt == null) AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                        Text(it, color = if (historical) Muted else WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (historical)
+                        Text("Retirado da lista ativa do Blaise. Registro histórico por mais 12 horas após o encerramento local; não representa risco atual nem cancelamento pelo emissor.",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
+                    val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+                    val zone = java.time.ZoneId.of("America/Sao_Paulo")
+                    Text("Emissão ${warning.sent.atZone(zone).format(format)} • início ${warning.onset.atZone(zone).format(format)} • fim ${warning.expires.atZone(zone).format(format)} (Brasília)",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text(warning.sourceUrl, color = Muted, style = MaterialTheme.typography.labelSmall)
+                    if (!historical && state == AlertValidity.REVIEW_DUE)
+                        Text("Reavaliação meteorológica ainda não comprovada; o aviso oficial permanece vigente.",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarineWarningHistoryPanel() {
+    val now = LocalObservationClock.current
+    val records = LocalOfficialMarineHistory.current.filter {
+        !it.localActiveUntil().isAfter(now) && it.retainHistory(now)
+    }
+    if (records.isEmpty()) return
+    Spacer(Modifier.height(14.dp))
+    DashboardSection("HISTÓRICO MARÍTIMO • MARINHA / CHM", "Registros encerrados no Blaise • não representam risco atual") {
+        records.forEach { warning ->
+            val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+            val zone = java.time.ZoneId.of("America/Sao_Paulo")
+            val closed = warning.localActiveUntil()
+            Text("${warning.id} • ${warning.warningType} • ${warning.areas.joinToString()}", color = Muted)
+            Text("Emissão ${warning.issuedAt.atZone(zone).format(format)} • encerramento local ${closed.atZone(zone).format(format)} • histórico até ${closed.plusSeconds(AlertValidityPolicy.HISTORY_SECONDS).atZone(zone).format(format)} (Brasília)",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            if (warning.localClosedAt != null) Text("Retirada confirmada no feed da fonte.", color = Muted)
+            Text("Fonte: Marinha / CHM • aviso regional METAREA V, sem atribuição automática a município.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
@@ -1822,17 +2033,22 @@ private fun MapScreen(city1: City, city2: City) {
 private fun AlertsScreen(city1: City, city2: City) {
     DashboardSection(
         title = "ALERTAS POR MUNICÍPIO",
-        subtitle = "Verde • Amarelo • Amarelo piscando • Vermelho • COR.Rio 1–5",
+        subtitle = "Escala 1–5 • níveis 3, 4 e 5 pulsantes quando comprovados",
     ) {
         Text(city1.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city1.ibgeCode)
+        MunicipalAlertValidityPanel(city1.ibgeCode)
         Spacer(Modifier.height(5.dp))
         Text(city2.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city2.ibgeCode)
-        Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
+        MunicipalAlertValidityPanel(city2.ibgeCode)
+        Text("Todos os avisos recebidos aparecem abaixo da respectiva cidade, com fonte e validade.", color = Gold)
+        Text("Após 3 horas sem nova emissão, destacar falta de atualização; após 4 horas, informar ausência de dados novos e risco atual sem confirmação. Reconsultar o mesmo aviso não renova sua emissão. Gravidade e vigência oficiais permanecem preservadas.", color = Muted)
+        Text("Sem nova emissão: sair da lista ativa em 12 horas ou no vencimento oficial anterior. Histórico por mais 12 horas após esse encerramento, com exclusão local na próxima checagem ou abertura. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    MarineWarningHistoryPanel()
     DashboardSection(
         title = "ABALO SÍSMICO",
         subtitle = "Regra de notificação do Blaise V6 RJ",
@@ -1989,7 +2205,10 @@ private fun NewsScreen() {
         title = "NOTICIÁRIO LOCAL",
         subtitle = "3 principais notícias recentes com data/hora e fonte",
     ) {
-        FinalDashboardSpec.newsScopes.take(4).forEach { scope -> StatusLine(scope, "Aguardando notícia recente validada") }
+        Text("Rio de Janeiro", color = Gold)
+        LiveNewsHeadlines("RJ")
+        Text("Nacional", color = Gold)
+        LiveNewsHeadlines("Nacional")
         Text("Vídeo somente via incorporação/link oficial; sem hospedagem ou download do conteúdo do veículo.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
@@ -1997,22 +2216,44 @@ private fun NewsScreen() {
         title = "BOLETIM INTERNACIONAL",
         subtitle = "El Niño/La Niña • extremos • ciclones • terremoto/tsunami relevante",
     ) {
-        NewsPlaceholder("1", "Aguardando notícia internacional recente traduzida com fonte")
-        NewsPlaceholder("2", "Aguardando notícia internacional recente traduzida com fonte")
-        NewsPlaceholder("3", "Aguardando notícia internacional recente traduzida com fonte")
+        LiveNewsHeadlines("Internacional")
+    }
+}
+
+private fun formatInformationTime(value: Instant): String = value.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília)"
+
+@Composable
+private fun LiveNewsHeadlines(scope: String, modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val snapshot = LocalNews.current
+    val headlines = snapshot?.forScope(scope, now).orEmpty()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Column(modifier) {
+        if (headlines.isEmpty()) Text("Sem manchetes recentes validadas para $scope nesta consulta.", color = Muted)
+        headlines.forEach { item ->
+            Text(item.title, color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Agência Brasil • publicação ${formatInformationTime(item.publishedAt)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { uri.openUri(item.url) }) { Text("Saiba mais ›", color = Gold) }
+        }
+        if (headlines.isNotEmpty() && snapshot != null)
+            Text("Feed consultado ${formatInformationTime(snapshot.fetchedAt)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
     }
 }
 
 @Composable
 private fun HistoryScreen(city1: City, city2: City) {
-    DashboardSection(
-        title = "HISTÓRICO E COMPARAÇÃO",
-        subtitle = "Comparação V6 por cidade, período e fonte",
-    ) {
-        StatusLine(city1.name, "Aguardando dados históricos elegíveis")
-        StatusLine(city2.name, "Aguardando dados históricos elegíveis")
-        Text("A comparação não cria valores sintéticos; usa somente snapshots/dados consolidados válidos.", color = Muted)
+    DailyChartPanel(city1)
+    Spacer(Modifier.height(14.dp))
+    DashboardSection("HISTÓRICO DE AVISOS • DUAS CIDADES", "Somente registros encerrados • retenção de 12 horas") {
+        listOf(city1, city2).distinctBy { it.ibgeCode }.forEach { city ->
+            Text(city.name, color = Gold, fontWeight = FontWeight.Bold)
+            MunicipalAlertValidityPanel(city.ibgeCode, historyOnly = true)
+        }
     }
+    MarineWarningHistoryPanel()
 }
 
 @Composable
@@ -2048,7 +2289,23 @@ private fun MoreScreen(
         title = "FONTES OFICIAIS",
         subtitle = "Prioridade local e origem preservada",
     ) {
-        FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
+        val clock = LocalObservationClock.current
+        val status = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+        RjSourceConnectionEvidence.rows(city.ibgeCode,
+            LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock),
+            LocalRioStations.current, status, clock).forEach { row ->
+            Text("${row.source} • ${row.product}", color = Gold, fontWeight = FontWeight.SemiBold)
+            Text(row.status, color = if (row.verifiedCurrentProduct) StableGreen else Muted,
+                style = MaterialTheme.typography.labelSmall)
+            row.updatedAt?.let { Text("Consulta/registro: ${formatInformationTime(it)}", color = Muted,
+                style = MaterialTheme.typography.labelSmall) }
+        }
+        val seismic = LocalSeismic.current?.takeIf { it.current(clock) }
+        StatusLine("USGS • sismos globais", seismic?.let { "Feed validado • ${formatInformationTime(it.generatedAt)}" }
+            ?: "Sem feed atual confirmado")
+        val news = LocalNews.current?.takeIf { it.current(clock) }
+        StatusLine("Agência Brasil • RSS", news?.let { "RSS recebido • ${formatInformationTime(it.fetchedAt)}" }
+            ?: "Sem RSS atual confirmado")
         Text("Desempate Tabela 2 (cinco fontes): " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
@@ -2622,9 +2879,7 @@ private fun NewsPanel(modifier: Modifier) {
         subtitle = "Rio • Niterói • São Gonçalo • Sudeste",
         modifier = modifier,
     ) {
-        NewsPlaceholder("1", "Aguardando notícia recente com fonte oficial")
-        NewsPlaceholder("2", "Aguardando notícia recente com fonte oficial")
-        NewsPlaceholder("3", "Aguardando notícia recente com fonte oficial")
+        LiveNewsHeadlines("RJ")
     }
 }
 

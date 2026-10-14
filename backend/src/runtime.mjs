@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
 import { createChmTideValuesCache } from './chm-tide-cache.mjs';
 import { createChmTideHttpHandler } from './chm-tide-http.mjs';
+import { createRjLiveSourceAudit } from './rj-live-source-audit.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
@@ -225,12 +226,17 @@ async function main() {
   server.keepAliveTimeout = 5_000;
 
   const vectorAgent = createBlaiseVectorRjAgent();
+  const sourceAudit = createRjLiveSourceAudit({
+    worker: sourceWorker,
+    onReport: report => console.log('blaise_rj_source_audit:' + JSON.stringify(report)),
+  });
   if (sourceWorkerConfig.enabled) {
     vectorAgent.setSeverity(sourceWorkerConfig.initialMode === 'severe' ? 5 : 1);
     vectorAgent.start();
   }
 
   if (sourceWorker.start()) {
+    sourceAudit.start();
     console.log(`blaise_official_source_worker_enabled:${sourceWorkerConfig.initialMode}`);
   } else {
     console.log('blaise_official_source_worker_disabled');
@@ -242,7 +248,7 @@ async function main() {
       if (outcome !== 'graceful') process.exitCode = 1;
     },
   });
-  const shutdown = createCoordinatedShutdown(serverShutdown, { stop() { vectorAgent.stop(); sourceWorker.stop(); } });
+  const shutdown = createCoordinatedShutdown(serverShutdown, { stop() { sourceAudit.stop(); vectorAgent.stop(); sourceWorker.stop(); } });
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 

@@ -1,3 +1,4 @@
+import { rjAlertActiveUntil } from './rj-alert-retention.mjs';
 import { category5DeliveryGate } from './blaise-source-review.mjs';
 import { ClientInputError } from './core.mjs';
 import { retryTransient } from './resilience.mjs';
@@ -16,7 +17,7 @@ export function buildP0TopicMessage(alert, config, nowMillis = Date.now(), conve
 
   const ttlSeconds = Math.max(
     1,
-    Math.min(MAX_EVENT_SECONDS, Math.ceil((normalized.expiresMillis - nowMillis) / 1000)),
+    Math.min(MAX_EVENT_SECONDS, Math.ceil((rjAlertActiveUntil(normalized.issuedAt, normalized.expiresAt) - nowMillis) / 1000)),
   );
   const expectedScope = normalized.cityIbge ? `municipality:${normalized.cityIbge}` : 'state:RJ';
   const evidenceMatches = convergenceEvidence?.scopeId === expectedScope && convergenceEvidence?.officialAlerts?.some(item => item.alertId === normalized.id);
@@ -101,6 +102,7 @@ export function validateP0Alert(alert, nowMillis = Date.now()) {
   }
   if (issuedMillis > nowMillis + FUTURE_SKEW_MILLIS) throw new ClientInputError('p0_future_issued_at');
   if (expiresMillis <= nowMillis || expiresMillis <= issuedMillis) throw new ClientInputError('p0_expired');
+  if (nowMillis >= rjAlertActiveUntil(issuedAt, expiresAt)) throw new ClientInputError('p0_local_update_age_expired');
   if (expiresMillis - issuedMillis > MAX_EVENT_SECONDS * 1000) throw new ClientInputError('p0_validity_too_long');
 
   let cityName = '';

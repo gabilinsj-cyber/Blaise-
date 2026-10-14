@@ -1,3 +1,4 @@
+import { rjAlertActiveUntil, rjAlertIsActive } from './rj-alert-retention.mjs';
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
 import { createCemadenRjHydrologicalRiskCache } from './cemaden-rj-cache.mjs';
 import { probeCemadenRjHydrologicalRisk } from './cemaden-rj-source.mjs';
@@ -316,14 +317,18 @@ export function createOfficialSourceWorker({
     automaticPublication: inmetAutomaticPublication,
   });
 
+  let heldCriticalUntil = 0;
+  let manualMode = null;
   const tasks = [{
     id: ALERTA_RIO_RAINFALL_TASK_ID,
     run: async ({ startedAt }) => {
       try {
         const snapshot = await probeAlertaRio({ fetchImpl });
         alertaRioCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
       } catch (error) {
         alertaRioCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
         throw error;
       }
     },
@@ -336,8 +341,10 @@ export function createOfficialSourceWorker({
         try {
           const snapshot = await probeCemadenRj({ fetchImpl });
           cemadenRjCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
         } catch (error) {
           cemadenRjCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
           throw error;
         }
       },
@@ -351,8 +358,10 @@ export function createOfficialSourceWorker({
         try {
           const snapshot = await probeChmWarningsLive({ fetchImpl });
           chmWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
         } catch (error) {
           chmWarningsCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
           throw error;
         }
       },
@@ -367,9 +376,11 @@ export function createOfficialSourceWorker({
         try {
           snapshot = await probeInmetWarningsLive({ fetchImpl });
           inmetWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
         } catch (error) {
           const errorCode = safeSourceErrorCode(error);
           inmetWarningsCache.recordFailure(errorCode, { attemptedAt: startedAt });
+        reconcileCadence();
           inmetP0Evaluation = inmetP0Status({
             configured: true,
             status: 'BLOCKED_SOURCE_UNAVAILABLE',
@@ -434,8 +445,10 @@ export function createOfficialSourceWorker({
         try {
           const snapshot = await probeDefesaCivilRioAssetsLive({ fetchImpl });
           defesaCivilRioAssetsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
         } catch (error) {
           defesaCivilRioAssetsCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
           throw error;
         }
       },
@@ -453,6 +466,26 @@ export function createOfficialSourceWorker({
   });
   if (config.initialMode === 'severe') scheduler.setMode('severe');
 
+  function reconcileCadence() {
+    if (manualMode !== null) return scheduler.setMode(manualMode);
+    if (config.initialMode === 'severe') return scheduler.setMode('severe');
+    const at = Number(now());
+    const cap = inmetWarningsCache?.read();
+    if (cap?.snapshot && ['CURRENT', 'CURRENT_DEGRADED'].includes(cap.state)) {
+      const critical = cap.snapshot.rjWarnings.filter(w => ['Severe', 'Extreme'].includes(w.severity)
+        && rjAlertIsActive(w.sent, w.expires, at));
+      if (critical.length) heldCriticalUntil = Math.max(...critical.map(w => rjAlertActiveUntil(w.sent, w.expires)));
+      else if (cap.state === 'CURRENT' && cap.snapshot.feedShape === 'RSS_INDEX_RESOLVED_CAP') heldCriticalUntil = 0;
+    }
+    const hydro = cemadenRjCache?.read();
+    const highHydro = hydro?.snapshot?.records?.some(row => {
+      const observed = Date.parse(row.observedAt);
+      return ['CURRENT', 'CURRENT_DEGRADED'].includes(hydro.state) && [4, 5].includes(row.priority)
+        && observed <= at && at - observed <= 300_000;
+    }) === true;
+    return scheduler.setMode(highHydro || at < heldCriticalUntil ? 'severe' : 'normal');
+  }
+
   function start() {
     if (!config.enabled) return false;
     return scheduler.start({ immediate: true });
@@ -463,10 +496,13 @@ export function createOfficialSourceWorker({
   }
 
   function setMode(mode) {
-    return scheduler.setMode(mode);
+    const changed = scheduler.setMode(mode);
+    manualMode = mode;
+    return changed;
   }
 
   function readSource(taskId) {
+    reconcileCadence();
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
     }
@@ -486,6 +522,7 @@ export function createOfficialSourceWorker({
   }
 
   function status() {
+    reconcileCadence();
     const schedulerStatus = scheduler.snapshot();
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),

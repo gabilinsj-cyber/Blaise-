@@ -111,7 +111,7 @@ test('CHM tide cache tracks refresh cadence for normal and severe modes', () => 
   const normal = cache.read({
     stationNumber: 1,
     calendarYear: 2026,
-    at: fetchedAt + 14 * 60 * 1000,
+    at: fetchedAt + 4 * 60 * 1000,
     mode: 'normal',
   });
   const severe = cache.read({

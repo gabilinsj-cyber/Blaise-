@@ -84,15 +84,18 @@ function maxNullable(values) {
   return finite.length === 0 ? null : Math.max(...finite);
 }
 
-function projectSourceState(source) {
+function projectSourceState(source, nowMillis) {
   if (!source || typeof source !== 'object') return null;
   if (typeof source.sourceId !== 'string' || typeof source.state !== 'string' || typeof source.reason !== 'string') {
     return null;
   }
+  const fetched = Date.parse(source.fetchedAt);
+  const fresh = Number.isFinite(fetched) && fetched <= nowMillis && nowMillis - fetched <= 300_000;
+  const staleCurrent = CURRENT_STATES.has(source.state) && !fresh;
   return Object.freeze({
     sourceId: source.sourceId,
-    state: source.state,
-    reason: source.reason,
+    state: staleCurrent ? 'STALE' : source.state,
+    reason: staleCurrent ? 'collection_age_exceeded' : source.reason,
     fetchedAt: typeof source.fetchedAt === 'string' ? source.fetchedAt : null,
     observedAt: typeof source.observedAt === 'string' ? source.observedAt : null,
     dataAgeMs: safeFiniteNonNegative(source.dataAgeMs),
@@ -101,7 +104,7 @@ function projectSourceState(source) {
   });
 }
 
-function summarizeAlertaRioRainfall(reading) {
+function summarizeAlertaRioRainfall(reading, nowMillis) {
   if (!reading || !CURRENT_STATES.has(reading.state) || !reading.snapshot) return null;
   const snapshot = reading.snapshot;
   if (snapshot.sourceId !== ALERTA_RIO_LIVE_SOURCE_ID
@@ -113,7 +116,13 @@ function summarizeAlertaRioRainfall(reading) {
     return null;
   }
 
-  const stations = snapshot.stations;
+  const fetched = Date.parse(reading.fetchedAt);
+  if (!Number.isFinite(fetched) || fetched > nowMillis || nowMillis - fetched > 300_000) return null;
+  const stations = snapshot.stations.filter(station => {
+    const observed = Date.parse(station?.observedAt);
+    return Number.isFinite(observed) && observed <= nowMillis && nowMillis - observed <= 300_000;
+  });
+  if (!stations.length) return null;
   const max15mMm = maxNullable(stations.map((station) => station?.rain15mMm));
   const max1hMm = maxNullable(stations.map((station) => station?.rain1hMm));
   const max24hMm = maxNullable(stations.map((station) => station?.rain24hMm));
@@ -127,7 +136,8 @@ function summarizeAlertaRioRainfall(reading) {
     coverage: DASHBOARD_RAINFALL_COVERAGE,
     state: reading.state,
     reason: reading.reason,
-    observedAt: snapshot.freshestObservedAt,
+    observedAt: new Date(Math.min(...stations.map(station => Date.parse(station.observedAt)))).toISOString(),
+    currentStationCount: stations.length,
     fetchedAt: reading.fetchedAt,
     stationCount: snapshot.stationCount,
     wetStationCount,
@@ -153,11 +163,11 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
   } catch {
     return null;
   }
-  const rainfall = summarizeAlertaRioRainfall(rainfallReading);
+  const rainfall = summarizeAlertaRioRainfall(rainfallReading, nowMillis);
   if (!rainfall) return null;
 
   const sources = Array.isArray(status.sources)
-    ? status.sources.map(projectSourceState).filter(Boolean)
+    ? status.sources.map(source => projectSourceState(source, nowMillis)).filter(Boolean)
     : [];
   const currentSourceCount = sources.filter((source) => CURRENT_STATES.has(source.state)).length;
 
@@ -186,9 +196,11 @@ export function createPaidDashboardDataHttpHandler(
     sourceWorker,
     metrics = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
+    clock = () => Date.now(),
   } = {},
 ) {
   if (typeof delegate !== 'function') throw new Error('dashboard_http_delegate_invalid');
+  if (typeof clock !== 'function') throw new Error('dashboard_http_clock_invalid');
   if (!config || typeof config !== 'object') throw new Error('dashboard_http_config_invalid');
   if (!gateway || typeof gateway.getSubscription !== 'function') throw new Error('dashboard_http_gateway_invalid');
   if (!sourceWorker || typeof sourceWorker.status !== 'function' || typeof sourceWorker.readSource !== 'function') {
@@ -221,8 +233,8 @@ export function createPaidDashboardDataHttpHandler(
         const entitlement = await verifyPurchasePayload(payload, { config, gateway });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
         const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
-          ? buildStatewideDashboardSnapshot(sourceWorker)
-          : buildPaidDashboardSnapshot(sourceWorker);
+          ? buildStatewideDashboardSnapshot(sourceWorker, { nowMillis: clock() })
+          : buildPaidDashboardSnapshot(sourceWorker, { nowMillis: clock() });
         return snapshot
           ? Object.freeze({ kind: 'snapshot', snapshot })
           : Object.freeze({ kind: 'unavailable' });

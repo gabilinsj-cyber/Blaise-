@@ -27,11 +27,11 @@ object OfflineRecoveryPolicy {
 }
 
 object RefreshCadencePolicy {
-    const val NORMAL_SECONDS = 15L * 60L
-    const val SEVERE_SECONDS = 60L
+    const val NORMAL_SECONDS = 5L * 60L
+    const val SEVERE_SECONDS = 30L
 
     fun intervalSeconds(severity: Severity?): Long = when (severity) {
-        Severity.FLASHING_YELLOW, Severity.RED, Severity.P0 -> SEVERE_SECONDS
+        Severity.RED, Severity.P0 -> SEVERE_SECONDS
         else -> NORMAL_SECONDS
     }
 }

@@ -5,6 +5,7 @@ import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from '../src/inmet-source.mjs';
 import {
   RJ_PUBLIC_STATUS_PATH,RJ_PUBLIC_STATUS_CONTRACT,
   buildRjPublicStatusSnapshot,createRjPublicStatusHandler,
+  projectWarningInventories,
 } from '../src/rj-public-status-http.mjs';
 
 const now=Date.parse('2026-10-10T18:00:00Z');
@@ -35,6 +36,34 @@ function fakeResponse(){
     setHeader(k,v){headers[k]=v;},end(v){this.body=JSON.parse(v);},
   };
 }
+test('withdrawal evidence requires a complete recent successful source collection', () => {
+  const w = worker();
+  const cap = w.readSource(INMET_SOURCE_ID);
+  cap.snapshot.warnings = [];
+  cap.snapshot.feedShape = 'RSS_INDEX_RESOLVED_CAP';
+  cap.snapshot.identityValidation = 'INMET_SENDER_DOMAIN+OFFICIAL_OID_PREFIX';
+  cap.snapshot.temporalValidityValidation = 'BOUNDED_CAP_ONSET_EXPIRES_MAX_7D';
+  cap.snapshot.activeWarningCount = 0;
+  let evidence = projectWarningInventories(w, now);
+  assert.equal(evidence.find(item => item.sourceId === 'inmet').complete, true);
+  cap.state = 'CURRENT_DEGRADED';
+  assert.equal(projectWarningInventories(w, now).length, 0);
+  cap.state = 'CURRENT';
+  cap.fetchedAt = new Date(now - 300001).toISOString();
+  assert.equal(projectWarningInventories(w, now).length, 0);
+  cap.fetchedAt = stamp;
+  cap.snapshot.feedShape = 'CAP_ALERT';
+  assert.equal(projectWarningInventories(w, now).find(item => item.sourceId === 'inmet').complete, false);
+});
+test('a fresh HTTP snapshot cannot revive a warning whose official emission is 12h old', () => {
+  const w = worker();
+  const warning = w.readSource(INMET_SOURCE_ID).snapshot.rjWarnings[0];
+  warning.sent = new Date(now - 43_200_000).toISOString();
+  warning.onset = warning.sent;
+  const result = buildRjPublicStatusSnapshot(w, { nowMillis: now });
+  assert.equal(result.warnings.length, 0);
+  assert.ok(result.municipalities.every(city => city.warningIds.length === 0));
+});
 test('public endpoint projects exactly 92 RJ official risk entries without credentials or premium fields',()=>{
   const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
   assert.equal(result.contract,RJ_PUBLIC_STATUS_CONTRACT);

@@ -32,10 +32,23 @@ data class PublicRjWarning(
     val sent: Instant, val onset: Instant, val expires: Instant,
     val municipalityIbges: List<Int>,
     val sourceUrl: String,
+    val localClosedAt: Instant? = null,
 ) {
-    fun current(now: Instant) = id.isNotBlank() && event.isNotBlank() &&
+    fun current(now: Instant) = localClosedAt == null && id.isNotBlank() && event.isNotBlank() &&
         !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
-        sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss"
+        sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss" &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
+    fun localActiveUntil() = minOf(br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires), localClosedAt ?: expires)
+    fun retainHistory(now: Instant) = now.isBefore(localActiveUntil().plusSeconds(br.com.blaise.rj.core.AlertValidityPolicy.HISTORY_SECONDS))
+}
+
+data class PublicWarningInventory(
+    val sourceId: String, val checkedAt: Instant, val complete: Boolean,
+    val recordKeys: Set<String>, val cancelledIds: Set<String> = emptySet(),
+) {
+    fun current(now: Instant) = !checkedAt.isAfter(now) && Duration.between(checkedAt, now).seconds in 0..300
+    fun withdrawn(id: String, issued: Instant, now: Instant) = current(now) && !checkedAt.isBefore(issued) &&
+        (id in cancelledIds || complete && "$id|${issued.toEpochMilli()}" !in recordKeys)
 }
 data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
@@ -55,15 +68,19 @@ data class PublicRjMarineWarning(
     val waveMaxMeters: Double?,
     val waveDirection: String?,
     val officialRessacaLabel: Boolean,
+    val localClosedAt: Instant? = null,
 ) {
     fun current(now: Instant): Boolean =
-        id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
+        localClosedAt == null && id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
         !issuedAt.isAfter(now) && validUntil.isAfter(now) &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(issuedAt, validUntil).isAfter(now) &&
         areas.isNotEmpty() && areas.all { it.isNotBlank() } &&
         (waveMinMeters == null && waveMaxMeters == null ||
             waveMinMeters != null && waveMaxMeters != null &&
             waveMinMeters.isFinite() && waveMaxMeters.isFinite() &&
             waveMinMeters > 0.0 && waveMinMeters <= waveMaxMeters && waveMaxMeters <= 30.0)
+    fun localActiveUntil() = minOf(br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(issuedAt, validUntil), localClosedAt ?: validUntil)
+    fun retainHistory(now: Instant) = now.isBefore(localActiveUntil().plusSeconds(br.com.blaise.rj.core.AlertValidityPolicy.HISTORY_SECONDS))
 }
 
 data class PublicRjMarine(
@@ -109,6 +126,7 @@ data class PublicRjStatus(
     val warnings: List<PublicRjWarning>,
     val marine: PublicRjMarine? = null,
     val sourceProducts: List<PublicRjSourceProduct> = emptyList(),
+    val warningInventories: List<PublicWarningInventory> = emptyList(),
 ) {
     init {
         require(municipalities.size == 92)
@@ -132,6 +150,15 @@ data class PublicRjStatus(
         municipality(ibge, now)?.let { row -> warnings.filter {
             it.id in row.warningIds && ibge in it.municipalityIbges && it.current(now)
         } } ?: emptyList()
+
+    fun suppressWithdrawn(history: List<PublicRjWarning>, marineHistory: List<PublicRjMarineWarning>): PublicRjStatus {
+        val visible = warnings.filter { row -> history.none { it.id == row.id && it.sent == row.sent && it.localClosedAt != null } }
+        val ids = visible.map { it.id }.toSet()
+        return copy(warnings = visible, municipalities = municipalities.map { it.copy(warningIds = it.warningIds.filter(ids::contains)) },
+            marine = marine?.let { current -> current.copy(warnings = current.warnings.filter { row -> marineHistory.none {
+                it.id == row.id && it.issuedAt == row.issuedAt && it.localClosedAt != null
+            } }) })
+    }
 }
 sealed interface PublicRjStatusResult {
     data class Available(val snapshot: PublicRjStatus) : PublicRjStatusResult
@@ -242,8 +269,26 @@ object PublicRjStatusParser {
                 )
             }
         } ?: emptyList()
+        val inventories = root.optJSONArray("warningInventories")?.let { rows ->
+            if (rows.length() > 2) emptyList() else (0 until rows.length()).mapNotNull { index -> runCatching {
+                val row = rows.getJSONObject(index)
+                val source = row.getString("sourceId")
+                require(source in setOf("inmet", "chm"))
+                require(row.getString("sourceUrl") == if (source == "inmet")
+                    "https://apiprevmet3.inmet.gov.br/avisos/rss" else
+                    "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
+                val keys = row.getJSONArray("recordKeys")
+                val cancellations = row.getJSONArray("cancelledIds")
+                require(keys.length() <= 64 && cancellations.length() <= 64)
+                val recordKeys = (0 until keys.length()).map(keys::getString)
+                val cancelled = (0 until cancellations.length()).map(cancellations::getString)
+                require(recordKeys.all { it.length in 1..330 } && cancelled.all { it.length in 1..256 })
+                PublicWarningInventory(source, Instant.parse(row.getString("checkedAt")),
+                    row.getBoolean("complete"), recordKeys.toSet(), cancelled.toSet())
+            }.getOrNull() }
+        } ?: emptyList()
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products)
+            municipalities,warnings,marine,products,inventories)
     }
 }
 

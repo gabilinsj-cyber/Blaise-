@@ -18,6 +18,14 @@ function alert() {
     expiresAt: '2026-09-06T04:00:00Z',
   };
 }
+test('FCM transport TTL cannot extend a warning beyond 12h without renewal', () => {
+  const a = { ...alert(), issuedAt: '2026-09-06T00:00:00Z', expiresAt: '2026-09-07T00:00:00Z' };
+  const body = buildP0TopicMessage(a, config, nowMillis);
+  assert.equal(body.message.android.ttl, '32400s');
+  assert.equal(body.message.data.expiresAt, a.expiresAt);
+  assert.throws(() => buildP0TopicMessage(a, config, Date.parse('2026-09-06T12:00:00Z')),
+    /p0_local_update_age_expired/);
+});
 
 test('builds high-priority data-only P0 topic message with bounded TTL', () => {
   const body = buildP0TopicMessage(alert(), config, nowMillis);

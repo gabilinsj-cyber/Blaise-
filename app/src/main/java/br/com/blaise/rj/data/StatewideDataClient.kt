@@ -16,11 +16,12 @@ const val STATEWIDE_DATA_PATH = "/v1/data/municipalities"
 data class StatewideRisk(val state: String, val label: String?, val level: Int?, val observedAt: Instant?, val sourceUrl: String, val region: String?) {
     fun current(now: Instant): Boolean = state in setOf("CURRENT", "CURRENT_DEGRADED") &&
         level != null && level in 1..5 && label != null && observedAt != null &&
-        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= 1800
+        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= 300
 }
 data class StatewideWarning(val id: String, val event: String, val severity: String, val sent: Instant, val onset: Instant,
     val expires: Instant, val municipalityIbges: List<Int>, val attribution: String) {
-    fun current(now: Instant) = !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now)
+    fun current(now: Instant) = !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
 }
 data class StatewideMunicipality(val ibge: Int, val name: String, val seaFacing: Boolean, val risk: StatewideRisk,
     val warningIds: List<String>, val warningCoverage: String)

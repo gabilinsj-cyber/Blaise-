@@ -13,8 +13,13 @@ export function canonicalRjWeatherSnapshot(decision,{ibge,variable,now=Date.now(
     throw TypeError('canonical_requires_table1_and_at_most_one_table2');
   const weighted=decision?.weighted===true&&decision.state==='TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS';
   const observations=readings.filter(r=>r.type==='OBSERVED_STATION');
-  const observedAt=observations.length?observations.map(r=>r.observedAt).sort().at(-1):null;
-  const value=weighted&&observations.length===2?decision.estimatedValue:null;
+  // A combined measurement is only as current as its oldest contributor.
+  const times=observations.map(r=>Date.parse(r.observedAt));
+  const current=times.length>0&&times.every(t=>Number.isFinite(t)&&now-t>=0&&now-t<=300_000);
+  const observedAt=times.length&&times.every(Number.isFinite)
+    ?new Date(Math.min(...times)).toISOString():null;
+  const value=weighted&&observations.length===2&&current&&Number.isFinite(decision.estimatedValue)
+    ?decision.estimatedValue:null;
   const provenance=observations.map(r=>Object.freeze({...r}));
   const identity={ibge:String(ibge),variable,value,observedAt,sourceIds:[...ids],provenance};
   return Object.freeze({
@@ -41,6 +46,7 @@ export function createRjCanonicalWeatherLedger() {
     if(audit.length>256)audit.shift();
   }
   function publish(snapshot,now) {
+    if(!Number.isFinite(now))throw TypeError('canonical_clock_invalid');
     if(snapshot?.contract!=='BLAISE_RJ_CANONICAL_WEATHER_SNAPSHOT_V1')throw TypeError('canonical_contract_invalid');
     records.set(key(snapshot.ibge,snapshot.variable),snapshot);
     if(records.size>92*6)records.delete(records.keys().next().value);
@@ -49,6 +55,7 @@ export function createRjCanonicalWeatherLedger() {
     return snapshot;
   }
   function read(ibge,variable,now) {
+    if(!Number.isFinite(now))throw TypeError('canonical_clock_invalid');
     const snapshot=records.get(key(ibge,variable));
     if(!snapshot)return null;
     const times=snapshot.provenance.map(r=>Date.parse(r.observedAt));
@@ -56,6 +63,7 @@ export function createRjCanonicalWeatherLedger() {
     return snapshot;
   }
   function auditHourly(now) {
+    if(!Number.isFinite(now))throw TypeError('canonical_clock_invalid');
     if(now-lastAudit<3_600_000)return false;
     lastAudit=now;
     for(const snapshot of records.values())record(snapshot.ibge,snapshot.variable,

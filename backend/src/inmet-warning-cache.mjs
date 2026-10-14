@@ -1,3 +1,4 @@
+import { rjAlertRetainHistory, RJ_ALERT_HISTORY_MS } from './rj-alert-retention.mjs';
 import { createHash } from 'node:crypto';
 
 import { findRjMunicipality } from './rio-municipalities.mjs';
@@ -221,6 +222,21 @@ function validateSnapshot(snapshot) {
 
   const seenIdentifiers = new Set();
   for (const warning of snapshot.warnings) validateWarning(warning, seenIdentifiers);
+  if (snapshot.cancellations != null) {
+    if (!Array.isArray(snapshot.cancellations) || snapshot.cancellations.length > INMET_MAX_WARNING_RECORDS)
+      throw new InmetWarningsCacheError('inmet_warnings_cache_cancellations_invalid');
+    for (const cancellation of snapshot.cancellations) {
+      if (cancellation?.msgType !== 'Cancel' || cancellation.status !== 'Actual' ||
+          typeof cancellation.identifier !== 'string' || cancellation.identifier.length > 256 ||
+          !cancellation.identifier.startsWith('urn:oid:2.49.0.0.76.0.') ||
+          !/@inmet\.gov\.br$/i.test(cancellation.sender ?? '') ||
+          !Number.isFinite(Date.parse(cancellation.sent)) ||
+          !Array.isArray(cancellation.cancelledIdentifiers) || cancellation.cancelledIdentifiers.length > 64 ||
+          cancellation.cancelledIdentifiers.some(id => typeof id !== 'string' || id.length > 256 ||
+            !id.startsWith('urn:oid:2.49.0.0.76.0.')))
+        throw new InmetWarningsCacheError('inmet_warnings_cache_cancellations_invalid');
+    }
+  }
 
   const expectedRjIdentifiers = snapshot.warnings
     .filter((warning) => warning.affectsRioDeJaneiro)
@@ -255,6 +271,7 @@ export function createInmetCapWarningsCache({ now = () => Date.now() } = {}) {
       snapshot: immutableClone(snapshot),
       fetchedAtMs,
     };
+    pruneHistory(currentMs);
     lastAttemptAtMs = fetchedAtMs;
     lastErrorCode = null;
   }
@@ -269,8 +286,27 @@ export function createInmetCapWarningsCache({ now = () => Date.now() } = {}) {
     lastErrorCode = validateErrorCode(code);
   }
 
+  function pruneHistory(atMs) {
+    if (!entry) return;
+    const warnings = entry.snapshot.warnings.filter(w => rjAlertRetainHistory(w.sent,w.expires,atMs));
+    const cancellations = entry.snapshot.cancellations?.filter(c => atMs < Date.parse(c.sent) + RJ_ALERT_HISTORY_MS);
+    if (warnings.length === entry.snapshot.warnings.length &&
+        (cancellations?.length ?? 0) === (entry.snapshot.cancellations?.length ?? 0)) return;
+    const originalDigest = entry.snapshot.sourceInventorySha256 ?? entry.snapshot.warningInventorySha256;
+    entry = { ...entry, snapshot: immutableClone({ ...entry.snapshot,
+      warnings, activeWarningCount: warnings.length,
+      ...(cancellations ? { cancellations } : {}),
+      sourceInventorySha256: originalDigest,
+      warningInventorySha256: digestWarnings(warnings),
+      rjWarnings: warnings.filter(w => w.affectsRioDeJaneiro),
+      rjWarningCount: warnings.filter(w => w.affectsRioDeJaneiro).length,
+      localRetentionPruned: entry.snapshot.localRetentionPruned || warnings.length !== entry.snapshot.warnings.length,
+    }) };
+  }
+
   function read({ at = now(), mode = 'normal' } = {}) {
     const atMs = epochMs(at, 'inmet_warnings_cache_read_at_invalid');
+    pruneHistory(atMs);
     const refreshIntervalMs = refreshIntervalFor(mode);
     const nextRefreshDueAtMs = lastAttemptAtMs === null ? null : lastAttemptAtMs + refreshIntervalMs;
     const refreshDue = nextRefreshDueAtMs === null || atMs >= nextRefreshDueAtMs;

@@ -1,3 +1,4 @@
+import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
 import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
@@ -45,7 +46,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const active = status?.enabled === true && status?.started === true;
   const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
-  const hydroReady = ready(hydro, nowMillis, 30 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
+  const hydroReady = ready(hydro, nowMillis, 5 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
   const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
   const records = hydroReady ? hydro.snapshot.records : [];
   const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
@@ -53,7 +54,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   // A CAP naming RJ without municipality codes cannot be attributed to every city.
   const currentWarnings = inventory.filter(item => item.msgType !== 'Cancel' && item.status === 'Actual'
     && Number.isFinite(Date.parse(item.sent)) && Date.parse(item.sent) <= nowMillis
-    && Date.parse(item.onset) <= nowMillis && Date.parse(item.expires) > nowMillis);
+    && Date.parse(item.onset) <= nowMillis && rjAlertIsActive(item.sent, item.expires, nowMillis));
   const boundedInventory = currentWarnings.length <= 64;
   const warnings = boundedInventory ? currentWarnings.map(item => ({
     id: item.identifier,
@@ -69,7 +70,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const unresolved = warnings.some(item => item.attribution === 'UNRESOLVED_RJ_AREA');
   const municipalities = RJ_MUNICIPALITIES.map(city => {
     const item = byIbge.get(city.ibge);
-    const validRisk = item && freshStamp(item.observedAt, nowMillis, 30 * 60_000)
+    const validRisk = item && freshStamp(item.observedAt, nowMillis, 5 * 60_000)
       && Number.isInteger(item.priority) && item.priority >= 1 && item.priority <= 5;
     return {
       ibge: city.ibge,
