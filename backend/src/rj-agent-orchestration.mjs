@@ -150,8 +150,8 @@ export function createRjWeatherSourceExecutor({
 
 /**
  * Opt-in Table 1 -> Table 2 operational calculator entrypoint.
- * It follows the new two-of-three first, five-source conditional arbitration
- * without replacing the pre-existing legacy executor or silently deploying a
+ * It follows the canonical three official sources, then INPE then Windy
+ * without maintaining a contradictory second resolver or deploying a
  * polling service. All external adapters must be independently authorized.
  */
 export async function reconcileRjTable12Case({
@@ -170,21 +170,28 @@ export async function reconcileRjTable12Case({
   const plan=planRjPhenomenonCase({
     ibge,phenomenon:variablePhenomena[variable],level,
   });
-  const reconciliation=await consultRjTable12FiveSourceDispute({
-    ibge,variable,adapters,now,
+  // The obsolete, parallel 2026-10-12 cascade was deleted: both
+  // entrypoints now call the SAME five-channel, locale-aware resolver.
+  const outcome=await reconcileRjWeatherCase({
+    ibge,variable,level,adapters,now,
   });
+  const resolution=outcome.latestVerifiedResult;
+  const arithmeticMean=resolution.resultKind==='CALCULO_BLAISE_SOBRE_DUAS_MEDICOES_OFICIAIS';
+  const pair=resolution.sourcePairForDisplay ?? resolution.officialReadings ?? null;
   return Object.freeze({
-    ...plan,
-    sourcePolicy:'THREE_TABLE1_THEN_FIVE_TABLE2_CONDITIONAL',
-    firstThreeSources:RJ_TABLE1_THREE,
-    fallbackFiveSources:RJ_TABLE2_FIVE,
-    table2ActuallyRequired:reconciliation.stage!=='TABLE_1_TWO_OF_THREE_CONVERGED',
-    arbitration:reconciliation,
-    resultKind:reconciliation.state,
-    observedOrEstimatedValue:reconciliation.estimatedValue,
+    ...outcome,
+    sourcePolicy:'THREE_OFFICIAL_THEN_INPE_THEN_WINDY',
+    firstThreeSources:Object.freeze(RJ_TABLE1_THREE.filter(
+      s=>s!=='ALERTA_RIO'||String(ibge)==='3304557')),
+    priorityFiveSources:RJ_TABLE2_FIVE,
+    supplementaryOpenWeather:'OPENWEATHERMAP_API_PRODUCT_ONLY',
+    table2ActuallyRequired:!arithmeticMean,
+    arbitration:resolution,
+    resultKind:resolution.state,
+    observedOrEstimatedValue:resolution.value,
     estimatedValueIsNotOfficialMunicipalMeasurement:true,
-    resultHasSourcePair:reconciliation.selectedSources.length===2,
-    mathIsWeighted:reconciliation.weighted,
+    resultHasSourcePair:Array.isArray(pair)&&pair.length>=2,
+    mathIsWeighted:arithmeticMean && resolution.provenance?.formula?.includes('weight'),
     noWarningOnCalculations:true,
     audibleAlert:false,
     publishersTriggered:false,
