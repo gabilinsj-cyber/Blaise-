@@ -94,6 +94,24 @@ object RjMeteorologicalTables {
         RjMeteoDisputeRow("12", "Mar e Atlântico", "Marinha/CHM para avisos e marés; NOAA + Copernicus para ondas, swell, correntes e temperatura do mar; EUMETSAT para satélite. Tsunami requer autoridade."),
         RjMeteoDisputeRow("13", "Licença, data e origem", "Verificar autoria, produto, licença/uso comercial, data de observação, validade do aviso, município, autonomia de fontes e atualização antes de apresentar."),
     )
+    // The five general channels apply only to meteorological measures /
+    // warnings. Marine, seismic, hydrology and lightning retain specialized
+    // authority instead of incorrectly showing Alerta Rio as priority.
+    private val fiveSourceWeatherCodes = setOf(
+        "TEMPERATURA", "SENSACAO_TERMICA", "UMIDADE", "VENTO",
+        "RAJADA", "CHUVA_ATUAL", "CHUVA_ACUMULADA", "PRESSAO_ATMOSFERICA",
+        "TEMPORAL", "TEMPESTADE", "GRANIZO",
+    )
+    fun usesFiveSourceWeatherHierarchy(code: String): Boolean {
+        require(table1.any { it.code == code })
+        return code in fiveSourceWeatherCodes
+    }
+    fun currentSourceOrderFor(code: String?): String {
+        if (code == null || code in fiveSourceWeatherCodes)
+            return disputeTable2FiveSources.joinToString(" → ")
+        return requireNotNull(table1.firstOrNull { it.code == code }).priority
+    }
+
     // Map one selected Table 1 item to ONLY the Table 2 checks that
     // apply. Distinct checks for measurements, formulas, warning categories
     // and maritime events prevent unsafe weighted averages.
