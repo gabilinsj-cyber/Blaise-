@@ -199,6 +199,9 @@ private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
+private val LocalPublicStatusConfigured = compositionLocalOf { false }
+private val LocalPublicStatusLastAttempt = compositionLocalOf<Instant?> { null }
+private val LocalPublicStatusRefresh = compositionLocalOf<() -> Unit> { {} }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 
 private val BlaiseScheme = darkColorScheme(
@@ -243,6 +246,9 @@ fun BlaiseApp(
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
+    var publicStatusRefreshRequest by remember { mutableStateOf(0) }
+    var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
+    var publicStatusLastAttempt by remember { mutableStateOf<Instant?>(null) }
     val publicRjClient = remember {
         PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
     }
@@ -304,11 +310,12 @@ fun BlaiseApp(
     // Public official RJ risk and accurately attributed INMET warnings.
     // This data path is independent of Play Billing and remains fail-closed
     // unless the deployment and source-product licenses explicitly allow it.
-    LaunchedEffect(powerOn, lifecycle, publicRjClient) {
+    LaunchedEffect(powerOn, lifecycle, publicRjClient, publicStatusRefreshRequest) {
         publicRjStatus = PublicRjStatusResult.Unavailable
         if (!powerOn || publicRjClient == null) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
+                publicStatusLastAttempt = Instant.now()
                 publicRjStatus = publicRjClient.fetch()
                 delay(60_000)
             }
@@ -347,6 +354,16 @@ fun BlaiseApp(
     }
 
     CompositionLocalProvider(
+        LocalPublicStatusConfigured provides (powerOn && publicRjClient != null),
+        LocalPublicStatusLastAttempt provides if (powerOn) publicStatusLastAttempt else null,
+        LocalPublicStatusRefresh provides {
+            val now = Instant.now()
+            if (powerOn && publicRjClient != null &&
+                java.time.Duration.between(publicStatusLastManualRefresh, now).seconds >= 30) {
+                publicStatusLastManualRefresh = now
+                publicStatusRefreshRequest += 1
+            }
+        },
         LocalPublicRjStatus provides if (powerOn) publicRjStatus else PublicRjStatusResult.Unavailable,
         LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
@@ -1998,6 +2015,9 @@ private fun RjMeteorologicalTablesPanel(city: City) {
         municipalityIbge=city.ibgeCode, observation=observation,
         rioStations=LocalRioStations.current, status=public, now=clock,
     )
+    val canRefreshPublic = LocalPublicStatusConfigured.current
+    val refreshPublic = LocalPublicStatusRefresh.current
+    val publicLastAttempt = LocalPublicStatusLastAttempt.current
     var showSourceEvidence by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(1) }
     var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
@@ -2010,6 +2030,30 @@ private fun RjMeteorologicalTablesPanel(city: City) {
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
+        Text(
+            if (!canRefreshPublic)
+                "Canal público de avisos RJ/Marinha não configurado ou aplicativo desligado. " +
+                    "Acesso às estações INMET é independente."
+            else if(public == null)
+                "Canal público configurado; sem resposta válida e vigente. " +
+                    "Verifique o servidor e as permissões das fontes."
+            else "Canal público respondeu com dados vigentes. " +
+                "Cada produto ainda precisa de fonte, validade e cobertura próprias.",
+            color = if(public != null) GoldSoft else WarningAmber,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-public-status-connection"))
+        Text(
+            if (publicLastAttempt == null) "Consulta pública: ainda não executada nesta sessão."
+            else "Última tentativa de consulta: " +
+                RjLiveTableEvidence.localTime(publicLastAttempt) +
+                " • reconsulta automática a cada 60 segundos, conforme ciclo de vida.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-public-status-last-attempt"))
+        TextButton(
+            onClick = refreshPublic,
+            enabled = canRefreshPublic,
+            modifier = Modifier.testTag("rj-public-status-refresh"),
+        ) { Text("Atualizar avisos públicos e fontes marítimas") }
         Text("ESTADO REAL DAS FONTES • ${sourceEvidence.count { it.verifiedCurrentProduct }} produto(s) " +
             "com evidência recente; não representa cobertura integral dos 92 municípios.",
             color = Gold, style = MaterialTheme.typography.labelSmall,
