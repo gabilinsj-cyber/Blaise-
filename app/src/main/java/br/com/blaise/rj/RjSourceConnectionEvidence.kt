@@ -4,6 +4,7 @@ import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.data.CityWeatherObservation
 import br.com.blaise.rj.data.PublicRjStatus
 import java.time.Instant
+import java.net.URI
 
 /**
  * Read-only display of WHICH actual data product arrived for the RJ dashboard.
@@ -25,6 +26,13 @@ object RjSourceConnectionEvidence {
     private val inmetSource = "INMET"
     private val rioSource = "Alerta Rio"
 
+    private fun verifiedEndpoint(url: String, expectedHost: String): Boolean =
+        runCatching {
+            val uri=URI(url)
+            uri.scheme=="https" && uri.host==expectedHost &&
+                uri.userInfo==null && uri.port==-1
+        }.getOrDefault(false)
+
     fun rows(
         municipalityIbge: Int,
         observation: CityWeatherObservation?,
@@ -36,12 +44,14 @@ object RjSourceConnectionEvidence {
         val freshStatus = status?.takeIf { it.current(now) }
         val station = observation?.takeIf {
             it.municipalityIbge == municipalityIbge &&
-                it.source == inmetSource && it.current(now)
+                it.source == inmetSource && it.current(now) &&
+                verifiedEndpoint(it.sourceUrl,"apitempo.inmet.gov.br")
         }
         val validRio = if (municipalityIbge == 3304557) {
             (rioStations + listOfNotNull(observation)).filter {
                 it.municipalityIbge == 3304557 &&
-                    it.source == rioSource && it.current(now)
+                    it.source == rioSource && it.current(now) &&
+                    verifiedEndpoint(it.sourceUrl,"websempre.rio.rj.gov.br")
             }
         } else emptyList()
         val newestRio=validRio.maxByOrNull { it.observedAt }
