@@ -1,3 +1,4 @@
+import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
 import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
@@ -53,7 +54,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   // A CAP naming RJ without municipality codes cannot be attributed to every city.
   const currentWarnings = inventory.filter(item => item.msgType !== 'Cancel' && item.status === 'Actual'
     && Number.isFinite(Date.parse(item.sent)) && Date.parse(item.sent) <= nowMillis
-    && Date.parse(item.onset) <= nowMillis && Date.parse(item.expires) > nowMillis);
+    && Date.parse(item.onset) <= nowMillis && rjAlertIsActive(item.sent, item.expires, nowMillis));
   const boundedInventory = currentWarnings.length <= 64;
   const warnings = boundedInventory ? currentWarnings.map(item => ({
     id: item.identifier,

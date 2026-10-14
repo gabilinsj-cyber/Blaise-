@@ -289,8 +289,8 @@ fun BlaiseApp(
                 observationClock = Instant.now()
                 if (snapshotStore.auditHourly(observationClock)) weatherAudits = snapshotStore.audits()
                 val status = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
-                val expiries = status?.warnings.orEmpty().map { it.expires } +
-                    status?.marine?.warnings.orEmpty().map { it.validUntil }
+                val expiries = status?.warnings.orEmpty().map { AlertValidityPolicy.activeUntil(it.sent, it.expires) } +
+                    status?.marine?.warnings.orEmpty().map { AlertValidityPolicy.activeUntil(it.issuedAt, it.validUntil) }
                 delay(br.com.blaise.rj.core.AlertLifetimePolicy.nextRecheckMillis(expiries, observationClock))
             }
         }
@@ -1897,26 +1897,31 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
     val now = LocalObservationClock.current
     val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
     val warnings = LocalOfficialWarningHistory.current.filter {
-        ibge in it.municipalityIbges && AlertValidityPolicy.retainHistory(it.expires, now)
+        ibge in it.municipalityIbges && AlertValidityPolicy.retainHistory(it.sent, it.expires, now)
     }
     if (warnings.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        warnings.forEach { warning ->
+        val activeRecords = warnings.filter { AlertValidityPolicy.activeUntil(it.sent, it.expires).isAfter(now) }
+        val historicalRecords = warnings.filterNot { AlertValidityPolicy.activeUntil(it.sent, it.expires).isAfter(now) }
+        (activeRecords + historicalRecords).forEach { warning ->
+            if (historicalRecords.firstOrNull()?.id == warning.id)
+                Text("HISTÓRICO • encerrados no Blaise", color = Muted, fontWeight = FontWeight.Bold)
             val sourceCurrent = snapshot?.current(now) == true &&
                 snapshot.warnings.any { it == warning }
             val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
                 warning.expires, now, sourceCurrent)
+            val historical = state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
             Surface(color = Navy, shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, if (state == AlertValidity.EXPIRED) Muted else WarningAmber)) {
+                border = BorderStroke(1.dp, if (historical) Muted else WarningAmber)) {
                 Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                    Text("INMET • ${warning.event} • ${warning.severity}", color = Color.White)
-                    Text(AlertValidityPolicy.label(state), color = if (state == AlertValidity.EXPIRED) Muted else WarningAmber)
+                    Text("${if (historical) "HISTÓRICO" else "AVISO"} • INMET • ${warning.event} • gravidade da emissão: ${warning.severity}", color = if (historical) Muted else Color.White)
+                    Text(AlertValidityPolicy.label(state), color = if (historical) Muted else WarningAmber)
                     AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
-                        Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                        Text(it, color = if (historical) Muted else WarningAmber, style = MaterialTheme.typography.labelSmall)
                     }
-                    if (state == AlertValidity.EXPIRED)
-                        Text("Encerrado no vencimento oficial. Histórico disponível por 12 horas após esse horário.",
+                    if (historical)
+                        Text("Retirado da lista ativa do Blaise. Registro histórico por mais 12 horas após o encerramento local; não representa risco atual nem cancelamento pelo emissor.",
                             color = Muted, style = MaterialTheme.typography.labelSmall)
                     val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
                     val zone = java.time.ZoneId.of("America/Sao_Paulo")
@@ -1978,7 +1983,7 @@ private fun AlertsScreen(city1: City, city2: City) {
         MunicipalAlertValidityPanel(city2.ibgeCode)
         Text("Todos os avisos recebidos aparecem abaixo da respectiva cidade, com fonte e validade.", color = Gold)
         Text("Após 3 horas sem nova emissão, destacar falta de atualização; após 4 horas, informar ausência de dados novos e risco atual sem confirmação. Reconsultar o mesmo aviso não renova sua emissão. Gravidade e vigência oficiais permanecem preservadas.", color = Muted)
-        Text("Histórico local: até 12 horas após o vencimento oficial, inclusive ao reabrir o aplicativo. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
+        Text("Sem nova emissão: sair da lista ativa em 12 horas ou no vencimento oficial anterior. Histórico por mais 12 horas após esse encerramento, com exclusão local na próxima checagem ou abertura. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))

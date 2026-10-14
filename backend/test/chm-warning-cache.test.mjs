@@ -45,9 +45,9 @@ function warningSnapshot() {
     areas: Object.freeze(['ALFA', 'CHARLIE']),
     warningType: 'AVISO DE VENTO FORTE',
     issuedZuluClock: '1200Z',
-    issuedAt: '2026-09-10T12:00:00.000Z',
+    issuedAt: '2026-09-11T12:00:00.000Z',
     validUntil: '2026-09-12T12:00:00.000Z',
-    validityDurationMs: 48 * 60 * 60 * 1000,
+    validityDurationMs: 24 * 60 * 60 * 1000,
   };
   const warnings = Object.freeze([
     Object.freeze({
@@ -92,7 +92,7 @@ test('CHM warnings cache keeps bounded regional RJ routing without claiming muni
   assert.equal(reading.cacheAgeMs, 0);
   assert.equal(reading.snapshot.activeWarningCount, 1);
   assert.deepEqual(reading.snapshot.warnings[0].areas, ['ALFA', 'CHARLIE']);
-  assert.equal(reading.snapshot.warnings[0].issuedAt, '2026-09-10T12:00:00.000Z');
+  assert.equal(reading.snapshot.warnings[0].issuedAt, '2026-09-11T12:00:00.000Z');
   assert.equal(reading.snapshot.warnings[0].validUntil, '2026-09-12T12:00:00.000Z');
   assert.equal(reading.snapshot.warnings[0].rjRouting.route, 'RJ_MARINE_REGIONAL');
   assert.deepEqual(reading.snapshot.warnings[0].rjRouting.directRjAreas, ['CHARLIE']);
@@ -193,4 +193,18 @@ test('CHM warnings cache rejects digest, area, temporal, routing and semantic dr
     (error) => error instanceof ChmWarningsCacheError
       && error.code === 'chm_warnings_cache_semantic_contract_drift',
   );
+});
+
+// Repeat downloads do not revive a locally expired historical record.
+test('CHM cache purges warning payload after 12h active plus 12h history', () => {
+  let clock = NOW;
+  const cache = createChmWarningsInventoryCache({ now: () => clock });
+  const source = warningSnapshot();
+  cache.recordSuccess(source);
+  clock += 24 * 60 * 60_000;
+  cache.recordSuccess(source);
+  const reading = cache.read();
+  assert.equal(reading.snapshot.warnings.length, 0);
+  assert.equal(reading.snapshot.activeWarningCount, 0);
+  assert.equal(reading.snapshot.sourceInventorySha256, source.warningInventorySha256);
 });

@@ -146,3 +146,18 @@ test('validated cancellation can leave an empty active inventory without cache f
   assert.equal(cache.read().state, 'CURRENT');
   assert.equal(cache.read().snapshot.activeWarningCount, 0);
 });
+
+test('INMET cache purges historical CAP payload even if the source repeats it', () => {
+  let clock = NOW;
+  const cache = createInmetCapWarningsCache({ now: () => clock });
+  const source = snapshot();
+  cache.recordSuccess(source);
+  clock += 24 * 60 * 60_000;
+  cache.recordSuccess(source);
+  const reading = cache.read();
+  assert.equal(reading.snapshot.warnings.length, 0);
+  assert.equal(reading.snapshot.rjWarnings.length, 0);
+  assert.equal(reading.snapshot.activeWarningCount, 0);
+  assert.equal(reading.snapshot.rjWarningCount, 0);
+  assert.equal(reading.snapshot.sourceInventorySha256, source.warningInventorySha256);
+});

@@ -1,3 +1,4 @@
+import { rjAlertRetainHistory } from './rj-alert-retention.mjs';
 import { createHash } from 'node:crypto';
 
 import { findRjMunicipality } from './rio-municipalities.mjs';
@@ -255,6 +256,7 @@ export function createInmetCapWarningsCache({ now = () => Date.now() } = {}) {
       snapshot: immutableClone(snapshot),
       fetchedAtMs,
     };
+    pruneHistory(currentMs);
     lastAttemptAtMs = fetchedAtMs;
     lastErrorCode = null;
   }
@@ -269,8 +271,24 @@ export function createInmetCapWarningsCache({ now = () => Date.now() } = {}) {
     lastErrorCode = validateErrorCode(code);
   }
 
+  function pruneHistory(atMs) {
+    if (!entry) return;
+    const warnings = entry.snapshot.warnings.filter(w => rjAlertRetainHistory(w.sent,w.expires,atMs));
+    if (warnings.length === entry.snapshot.warnings.length) return;
+    const originalDigest = entry.snapshot.sourceInventorySha256 ?? entry.snapshot.warningInventorySha256;
+    entry = { ...entry, snapshot: immutableClone({ ...entry.snapshot,
+      warnings, activeWarningCount: warnings.length,
+      sourceInventorySha256: originalDigest,
+      warningInventorySha256: digestWarnings(warnings),
+      rjWarnings: warnings.filter(w => w.affectsRioDeJaneiro),
+      rjWarningCount: warnings.filter(w => w.affectsRioDeJaneiro).length,
+      localRetentionPruned: true,
+    }) };
+  }
+
   function read({ at = now(), mode = 'normal' } = {}) {
     const atMs = epochMs(at, 'inmet_warnings_cache_read_at_invalid');
+    pruneHistory(atMs);
     const refreshIntervalMs = refreshIntervalFor(mode);
     const nextRefreshDueAtMs = lastAttemptAtMs === null ? null : lastAttemptAtMs + refreshIntervalMs;
     const refreshDue = nextRefreshDueAtMs === null || atMs >= nextRefreshDueAtMs;

@@ -35,7 +35,8 @@ data class PublicRjWarning(
 ) {
     fun current(now: Instant) = id.isNotBlank() && event.isNotBlank() &&
         !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
-        sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss"
+        sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss" &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
 }
 data class PublicRjMunicipality(
     val ibge: Int, val name: String, val risk: PublicRjRisk?,
@@ -59,6 +60,7 @@ data class PublicRjMarineWarning(
     fun current(now: Instant): Boolean =
         id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
         !issuedAt.isAfter(now) && validUntil.isAfter(now) &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(issuedAt, validUntil).isAfter(now) &&
         areas.isNotEmpty() && areas.all { it.isNotBlank() } &&
         (waveMinMeters == null && waveMaxMeters == null ||
             waveMinMeters != null && waveMaxMeters != null &&

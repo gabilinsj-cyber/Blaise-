@@ -25,10 +25,22 @@ class AlertValidityTest {
     }
 
     @Test fun historyEndsExactlyTwelveHoursAfterOfficialExpiry() {
-        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(expiry, expiry.plusSeconds(43199)))
-        org.junit.Assert.assertFalse(AlertValidityPolicy.retainHistory(expiry, expiry.plusSeconds(43200)))
-        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(expiry, issued))
+        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(issued, expiry, expiry.plusSeconds(43199)))
+        org.junit.Assert.assertFalse(AlertValidityPolicy.retainHistory(issued, expiry, expiry.plusSeconds(43200)))
+        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(issued, expiry, issued))
     }
+    @Test fun noNewEmissionExpiresLocallyAtTwelveHoursEvenWithLongOfficialValidity() {
+        val longExpiry = issued.plusSeconds(7 * 86400)
+        assertEquals(AlertValidity.REVIEW_DUE,
+            AlertValidityPolicy.evaluate(issued, onset, longExpiry, issued.plusSeconds(43199), true))
+        assertEquals(AlertValidity.LOCAL_EXPIRED,
+            AlertValidityPolicy.evaluate(issued, onset, longExpiry, issued.plusSeconds(43200), true))
+        assertEquals(AlertValidity.LOCAL_EXPIRED,
+            AlertValidityPolicy.evaluate(issued, onset, longExpiry, issued.plusSeconds(43200), false))
+        org.junit.Assert.assertTrue(AlertValidityPolicy.retainHistory(issued, longExpiry, issued.plusSeconds(86399)))
+        org.junit.Assert.assertFalse(AlertValidityPolicy.retainHistory(issued, longExpiry, issued.plusSeconds(86400)))
+    }
+
     private val issued = Instant.parse("2026-10-14T12:00:00Z")
     private val onset = issued.plusSeconds(600)
     private val expiry = issued.plusSeconds(7200)

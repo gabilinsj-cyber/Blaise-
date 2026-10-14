@@ -1,3 +1,4 @@
+import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { CHM_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CHM_SOURCE_ID, CHM_WARNINGS_URL } from './chm-source.mjs';
@@ -27,7 +28,7 @@ export function projectRjPublicMarineWarnings(worker, nowMillis) {
       && w.rjRouting.canExposeRjMarineWarning===true
       && w.rjRouting.canPromoteMunicipalityP0===false
       && Number.isFinite(issued)&&issued<=nowMillis
-      && Number.isFinite(validUntil)&&validUntil>nowMillis
+      && Number.isFinite(validUntil)&&rjAlertIsActive(w.issuedAt,w.validUntil,nowMillis)
       && typeof w.id==='string'&&/^\d{1,4}\/\d{4}$/.test(w.id)
       && typeof w.warningType==='string'&&w.warningType.length<=96
       && Array.isArray(w.rjRouting.directRjAreas);

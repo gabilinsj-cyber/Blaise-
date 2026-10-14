@@ -5,6 +5,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AlertLifetimePolicyTest {
+    @Test fun `12h cutoff terminates notification even when official expiry is later`() {
+        val long = alert.copy(issuedAt = now.minusSeconds(43199), expiresAt = now.plusSeconds(86400))
+        assertEquals(1000L, AlertLifetimePolicy.remainingMillis(long, now))
+        assertNull(AlertLifetimePolicy.remainingMillis(long, now.plusSeconds(1)))
+    }
     private val now = Instant.parse("2026-10-14T16:00:00Z")
     private val alert = OfficialAlert("test", null, "Aviso", "INMET", Severity.P0, now.minusSeconds(10), now.plusSeconds(20))
     @Test fun `timeout closes notification at original expiry even when offline`() {

@@ -35,6 +35,15 @@ function fakeResponse(){
     setHeader(k,v){headers[k]=v;},end(v){this.body=JSON.parse(v);},
   };
 }
+test('a fresh HTTP snapshot cannot revive a warning whose official emission is 12h old', () => {
+  const w = worker();
+  const warning = w.readSource(INMET_SOURCE_ID).snapshot.rjWarnings[0];
+  warning.sent = new Date(now - 43_200_000).toISOString();
+  warning.onset = warning.sent;
+  const result = buildRjPublicStatusSnapshot(w, { nowMillis: now });
+  assert.equal(result.warnings.length, 0);
+  assert.ok(result.municipalities.every(city => city.warningIds.length === 0));
+});
 test('public endpoint projects exactly 92 RJ official risk entries without credentials or premium fields',()=>{
   const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
   assert.equal(result.contract,RJ_PUBLIC_STATUS_CONTRACT);

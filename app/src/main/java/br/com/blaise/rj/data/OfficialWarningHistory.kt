@@ -16,7 +16,7 @@ class OfficialWarningHistory(context: Context) {
         require(encoded.length <= 80 * 1024)
         val rows = JSONArray(encoded)
         require(rows.length() <= 64)
-        (0 until rows.length()).mapNotNull { index -> runCatching {
+        val retained = (0 until rows.length()).mapNotNull { index -> runCatching {
             val row = rows.getJSONObject(index)
             val codes = row.getJSONArray("municipalities")
             require(codes.length() in 1..92)
@@ -27,12 +27,14 @@ class OfficialWarningHistory(context: Context) {
                 Instant.parse(row.getString("onset")), Instant.parse(row.getString("expires")),
                 municipalities, row.getString("sourceUrl"))
             require(valid(warning, now))
-            warning.takeIf { AlertValidityPolicy.retainHistory(it.expires, now) }
+            warning.takeIf { AlertValidityPolicy.retainHistory(it.sent, it.expires, now) }
         }.getOrNull() }
-    }.getOrDefault(emptyList())
+        if (retained.size != rows.length()) write(retained)
+        retained
+    }.getOrElse { preferences.edit().remove("warnings").apply(); emptyList() }
 
     fun merge(previous: List<PublicRjWarning>, incoming: List<PublicRjWarning>, now: Instant): List<PublicRjWarning> =
-        (previous + incoming).filter { valid(it, now) && AlertValidityPolicy.retainHistory(it.expires, now) }
+        (previous + incoming).filter { valid(it, now) && AlertValidityPolicy.retainHistory(it.sent, it.expires, now) }
             .groupBy { it.id }.values.map { versions -> versions.maxBy { it.sent } }
             .sortedByDescending { it.sent }.take(64)
 

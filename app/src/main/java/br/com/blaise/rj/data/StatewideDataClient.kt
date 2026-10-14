@@ -20,7 +20,8 @@ data class StatewideRisk(val state: String, val label: String?, val level: Int?,
 }
 data class StatewideWarning(val id: String, val event: String, val severity: String, val sent: Instant, val onset: Instant,
     val expires: Instant, val municipalityIbges: List<Int>, val attribution: String) {
-    fun current(now: Instant) = !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now)
+    fun current(now: Instant) = !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
+        br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
 }
 data class StatewideMunicipality(val ibge: Int, val name: String, val seaFacing: Boolean, val risk: StatewideRisk,
     val warningIds: List<String>, val warningCoverage: String)

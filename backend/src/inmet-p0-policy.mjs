@@ -1,3 +1,4 @@
+import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { createHash } from 'node:crypto';
 
 import { ClientInputError } from './core.mjs';
@@ -103,6 +104,10 @@ export function evaluateInmetP0Policy(snapshot, nowMillis = Date.now()) {
     }
     if (expiresMillis <= nowMillis) {
       blocked.push(frozenDecision(warning.identifier, 'expired'));
+      continue;
+    }
+    if (!rjAlertIsActive(warning.sent, warning.expires, nowMillis)) {
+      blocked.push(frozenDecision(warning.identifier, 'local_update_age_expired'));
       continue;
     }
     if (expiresMillis <= sentMillis || expiresMillis - sentMillis > MAX_P0_VALIDITY_MILLIS) {

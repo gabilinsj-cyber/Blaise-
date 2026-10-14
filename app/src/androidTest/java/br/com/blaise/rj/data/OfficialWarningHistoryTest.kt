@@ -35,6 +35,17 @@ class OfficialWarningHistoryTest {
         store.write(listOf(warning()))
         assertEquals(1, store.read(expires.plusSeconds(43199)).size)
         assertTrue(store.read(expires.plusSeconds(43200)).isEmpty())
+        assertEquals("[]", context.getSharedPreferences("rj_official_warning_history_v1", Context.MODE_PRIVATE)
+            .getString("warnings", null))
+    }
+
+    @Test fun longOfficialValidityCannotKeepOldWarningBeyondLocalTwelvePlusTwelveHours() {
+        val store = OfficialWarningHistory(context)
+        val long = warning().copy(expires = issued.plusSeconds(7 * 86400))
+        store.write(listOf(long))
+        assertEquals(listOf(long), store.read(issued.plusSeconds(86399)))
+        assertTrue(store.read(issued.plusSeconds(86400)).isEmpty())
+        assertTrue(store.merge(emptyList(), listOf(long), issued.plusSeconds(86400)).isEmpty())
     }
 
     @Test fun olderSourceResponsesCannotOverwriteNewOfficialEmission() {

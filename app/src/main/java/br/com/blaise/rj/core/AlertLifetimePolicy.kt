@@ -12,6 +12,8 @@ object AlertLifetimePolicy {
     fun remainingMillis(alert: OfficialAlert, now: Instant): Long? {
         if (alert.issuedAt.isAfter(now) || !alert.expiresAt.isAfter(now) ||
             !alert.expiresAt.isAfter(alert.issuedAt)) return null
-        return runCatching { Duration.between(now, alert.expiresAt).toMillis().coerceAtLeast(1) }.getOrNull()
+        val until = AlertValidityPolicy.activeUntil(alert.issuedAt, alert.expiresAt)
+        if (!until.isAfter(now)) return null
+        return runCatching { Duration.between(now, until).toMillis().coerceAtLeast(1) }.getOrNull()
     }
 }

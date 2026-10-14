@@ -6,6 +6,11 @@ import org.junit.Test
 import java.time.Instant
 
 class P0PushParserTest {
+    @Test fun delayedPushCannotReviveAnAlertAfterTwelveHours() {
+        val payload = validPayload() + mapOf("issuedAt" to "2026-09-05T15:00:00Z",
+            "expiresAt" to "2026-09-06T15:00:00Z")
+        assertNull(P0PushParser.parse(payload, now))
+    }
     private val now = Instant.parse("2026-09-06T03:00:00Z")
 
     private fun validPayload(): Map<String, String> = mapOf(

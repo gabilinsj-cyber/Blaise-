@@ -45,6 +45,12 @@ class OfficialAlertReconciliationTest {
         coverageComplete = coverageComplete,
     )
 
+    @Test fun `local age expiration never creates a false official all clear`() {
+        val old = alert("old", "INMET").copy(issuedAt = now.minusSeconds(43200), expiresAt = now.plusSeconds(86400))
+        assertNull(OfficialAlertReconciliationPolicy.reconcile(setOf("INMET"),
+            listOf(snapshot("INMET", listOf(old))), now))
+    }
+
     @Test fun `clear is never asserted when a required official source is missing`() {
         val evidence = OfficialAlertReconciliationPolicy.reconcile(
             requiredSources = setOf("Defesa Civil RJ", "COR.Rio"),
