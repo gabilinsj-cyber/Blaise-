@@ -55,6 +55,7 @@ object RjLiveTableEvidence {
         require(RjMeteorologicalTables.table1.any { it.code == phenomenon })
         val valid = observation?.takeIf {
             it.municipalityIbge == municipalityIbge && it.current(now) &&
+                !it.observedAt.isBefore(now.minusSeconds(300)) &&
                 (it.source == "INMET" || it.source == "Alerta Rio") &&
                 (it.source != "Alerta Rio" || municipalityIbge == 3304557)
         }
