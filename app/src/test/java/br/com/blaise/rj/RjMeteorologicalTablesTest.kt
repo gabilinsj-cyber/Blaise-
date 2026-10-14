@@ -18,6 +18,38 @@ class RjMeteorologicalTablesTest {
         })
     }
 
+    @Test fun currentHierarchyMatchesLatestApprovedSourcePriorityNotPreviousFiveDisputeOrder() {
+        assertEquals("2026-10-14.v1", RjMeteorologicalTables.VERSION)
+        assertEquals(listOf("Alerta Rio (somente cidade do Rio)", "Defesa Civil RJ", "INMET"),
+            RjMeteorologicalTables.primaryTable1Sources)
+        assertEquals(listOf("Alerta Rio (Rio)", "Defesa Civil RJ", "INMET", "INPE/CPTEC", "Windy"),
+            RjMeteorologicalTables.disputeTable2FiveSources)
+        assertTrue(RjMeteorologicalTables.METHOD.contains("INPE/CPTEC → Windy"))
+        assertTrue(RjMeteorologicalTables.table2.first { it.code == "03" }.decision
+            .contains("INMET"))
+        assertTrue(RjMeteorologicalTables.table2.first { it.code == "10" }.decision
+            .contains("OpenWeatherMap"))
+        assertFalse(RjMeteorologicalTables.table2.any {
+            it.decision.contains("INPE/CPTEC → INMET") ||
+                it.decision.contains("Windy é a quarta")
+        })
+    }
+    @Test fun maritimeAndOtherSpecialistPhenomenaKeepIndependentSourcesInTableTwo() {
+        assertTrue(RjMeteorologicalTables.usesFiveSourceWeatherHierarchy("TEMPERATURA"))
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("TEMPERATURA")
+            .startsWith("Alerta Rio"))
+        for (code in listOf("ONDAS", "RESSACA", "SWELL", "MARE", "TSUNAMI",
+            "RISCO_HIDROLOGICO", "VAZAO_RIO", "SISMO")) {
+            assertFalse(RjMeteorologicalTables.usesFiveSourceWeatherHierarchy(code))
+            assertFalse(RjMeteorologicalTables.currentSourceOrderFor(code)
+                .startsWith("Alerta Rio"))
+        }
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("ONDAS")
+            .contains("Marinha"))
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("TEMPERATURA_MAR")
+            .contains("Copernicus Marine"))
+    }
+
     @Test fun expandedTablesMatchThirtyDistinctCategoriesAndFiveExtraDisputeChecks() {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)

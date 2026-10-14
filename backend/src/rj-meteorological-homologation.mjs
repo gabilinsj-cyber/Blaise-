@@ -11,10 +11,10 @@
  * product/contract/operator evidence outside this module.
  */
 import {RJ_PHENOMENA,rjSourceRouting,RJ_CITY_IBGE} from './rj-phenomenon-source-policy.mjs';
-import {RJ_TABLE1_THREE,RJ_TABLE2_FIVE} from './rj-table12-five-source-dispute.mjs';
+import {RJ_TABLE1_THREE,RJ_TABLE2_FIVE,RJ_TABLE1_TEN_COMPLEMENT,RJ_TABLES_VERSION} from './rj-canonical-table-sources.mjs';
 
 export const RJ_METEO_HOMOLOGATION_ID='BLAISE-RJ-METEO-HOMOLOG-01';
-export const RJ_METEO_HOMOLOGATION_VERSION='2026-10-12.v2';
+export const RJ_METEO_HOMOLOGATION_VERSION=RJ_TABLES_VERSION;
 export const RJ_METEO_SOURCE_STATUS=Object.freeze({
   NOT_HOMOLOGATED:'NAO_HOMOLOGADA',
   PRODUCT_UNDER_REVIEW:'PRODUTO_EM_REVISAO',
@@ -57,6 +57,14 @@ const meta=Object.freeze({
   TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','Marinha/CHM, Copernicus Marine e NOAA'],
 
 });
+// Only weather observation/forecast products follow the five-channel
+// hierarchy. Hydrology, maritime, seismic and tsunami products must keep
+// their own competent authorities, never inherit Alerta Rio / INMET.
+const FIVE_CHANNEL_WEATHER=new Set([
+  'TEMPERATURA','SENSACAO_TERMICA','UMIDADE','VENTO','RAJADA',
+  'CHUVA_ACUMULADA','CHUVA_ATUAL','TEMPORAL','TEMPESTADE',
+  'PRESSAO_ATMOSFERICA','GRANIZO',
+]);
 const scope=Object.freeze({
   RESSACA:'LITORAL',ONDAS:'LITORAL',CICLONE_EXTRATROPICAL:'ATLANTICO',
   CHUVA_ATLANTICO:'ATLANTICO',
@@ -68,19 +76,19 @@ const scope=Object.freeze({
 
 export const RJ_METEO_TABLE2=Object.freeze([
   Object.freeze({step:1,code:'PRIMEIRAS_TRES',condition:'Três fontes da Tabela 1',
-    decision:'Alerta Rio (somente cidade Rio) + Defesa Civil competente (P1) + OpenWeatherMap (3ª consulta complementar). Duas medições independentes convergentes bastam; não usar desempate.',
+    decision:'Alerta Rio (somente cidade Rio) + Defesa Civil competente (P1 conjunta) + INMET (terceira medição oficial). OpenWeatherMap continua consulta complementar das 10 variáveis, sem virar sensor independente. Duas medições independentes convergentes bastam.',
     method:'CONVERGENCIA_2_DE_3_VALIDAR_OBSERVACAO_INDEPENDENCIA_E_LICENCA'}),
   Object.freeze({step:2,code:'DUAS_OFICIAIS',condition:'Duas medições oficiais independentes e comparáveis',
     decision:'Aceitar a primeira dupla hierárquica; média ponderada somente com pesos e variáveis compatíveis. Parar a consulta de desempate.',
     method:'SOMA_PESOS_VEZES_VALORES_DIVIDIDA_PELA_SOMA_DOS_PESOS'}),
   Object.freeze({step:3,code:'OFICIAIS_DIVERGENTES',condition:'Não há duas leituras independentes convergentes entre as três fontes da Tabela 1',
-    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
+    decision:'Verificar primeiro Alerta Rio, Defesa Civil e INMET por localidade e tipo de dado; se não houver dupla compatível, comparar com previsão INPE/CPTEC e somente se esta for inconclusiva consultar Windy. Fontes especializadas continuam por fenômeno.',
     method:'COMPARAR_UNIDADE_JANELA_TEMPO_DISTANCIA_QUALIDADE'}),
   Object.freeze({step:4,code:'INPE_PRIMEIRO',condition:'Divergência entre as três fontes da Tabela 1',
-    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. Windy vem depois e NOAA encerra a sequência quando o produto for aplicável.',
+    decision:'INPE/CPTEC é a primeira previsão de desempate APÓS consultar as medições oficiais Alerta Rio/Defesa Civil/INMET. Se aproximar de uma delas, apresentar medição e previsão rotuladas separadamente, sem misturar valores.',
     method:'PRIMEIRO_MATCH_COMPATIVEL_COM_UMA_DAS_TRES_PRIMARIAS'}),
   Object.freeze({step:5,code:'WINDY_SUBSIDIARIO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
-    decision:'Windy é a quarta das cinco referências. Se inconclusivo, NOAA é a quinta/última consulta, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
+    decision:'Windy é a segunda previsão de desempate, somente quando INPE for inconclusivo ou indisponível. NOAA e CEMADEN permanecem especializados por fenômeno; previsão não vira sensor nem anula avisos oficiais.',
     method:'WINDY_4_NOAA_5_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
   Object.freeze({step:6,code:'DUAS_FONTES_EXIBIDAS',condition:'Persistem valores discrepantes',
     decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico; nunca média mista de modelo e sensor. Não inventar empate ou concordância.',
@@ -95,7 +103,7 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'P1 conjunta; dados republicados não formam duas medições independentes.',
     method:'IDENTIDADE_DE_ORIGEM_E_COMPETENCIA'}),
   Object.freeze({step:10,code:'OPENWEATHER_COMPLEMENTAR',condition:'As dez variáveis meteorológicas de referência',
-    decision:'OpenWeatherMap como terceira consulta complementar, não autoridade oficial; atribuição e direitos por produto.',
+    decision:'OpenWeatherMap é complemento separado para as 10 variáveis meteorológicas, sem prioridade sobre INMET, sem suposta independência, com licença e atribuição por produto.',
     method:'LICENCA_PRODUTO_E_NAO_DUPLICACAO'}),
   Object.freeze({step:11,code:'PONDERACAO_COMPATIVEL',condition:'Grandeza, unidade, tempo, local e pesos comparáveis',
     decision:'Sem compatibilidade ou evidência estatística, não criar média observacional ou aviso.',
@@ -127,7 +135,10 @@ const BASE_CODES=Object.freeze(['PRIMEIRAS_TRES','SEM_DADO_NOVO','P1_CONJUNTA','
 const BY_CODE=new Map(RJ_METEO_TABLE2.map(x=>[x.code,x]));
 export function linkedRjDisputeSteps(phenomenon) {
   if(!RJ_PHENOMENA.includes(phenomenon))throw TypeError('rj_unknown_linked_phenomenon');
-  const chosen=new Set(BASE_CODES);
+  const isGeneralWeather=FIVE_CHANNEL_WEATHER.has(phenomenon);
+  const chosen=new Set(isGeneralWeather
+    ?BASE_CODES
+    :['SEM_DADO_NOVO','AUTORIZACAO_E_FRESCOR']);
   if(WEIGHTABLE.has(phenomenon)) {
     for(const key of ['DUAS_OFICIAIS','OFICIAIS_DIVERGENTES','INPE_PRIMEIRO',
       'WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
@@ -205,9 +216,13 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       sourceIds:Object.freeze(route.sources.map(x=>x.id)),
       sourceClasses:Object.freeze(route.sources.map(x=>x.role)),
       supplementaryThirdSource:route.complementaryThirdSource,
-      primaryTable1Three:Object.freeze(RJ_TABLE1_THREE.filter(
-        s=>s!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)),
-      disputeTable2Five:RJ_TABLE2_FIVE,
+      primaryTable1Three:Object.freeze(FIVE_CHANNEL_WEATHER.has(phenomenon)
+        ?RJ_TABLE1_THREE.filter(s=>s!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)
+        :[]),
+      disputeTable2Five:Object.freeze(FIVE_CHANNEL_WEATHER.has(phenomenon)
+        ?RJ_TABLE2_FIVE.filter(id=>id!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)
+        :[]),
+      tenPhenomenaComplement:route.complementaryThirdSource ? RJ_TABLE1_TEN_COMPLEMENT : null,
       table2TriggeredOnlyIfNoPrimaryPair:true,
       disputeStepCodes:Object.freeze(linkedRjDisputeSteps(phenomenon).map(x=>x.code)),
       applicableToWeightedObservation:WEIGHTABLE.has(phenomenon),
@@ -228,6 +243,7 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
     status:'CATALOGO_A_HOMOLOGAR_NAO_E_MONITORAMENTO_AO_VIVO',
     table1:Object.freeze(t1),table2:RJ_METEO_TABLE2,
     primaryTable1Sources:RJ_TABLE1_THREE,
+    tenPhenomenaComplement:RJ_TABLE1_TEN_COMPLEMENT,
     disputeTable2FiveSources:RJ_TABLE2_FIVE,
     marineTable:RJ_METEO_MARINE_TABLE,
     operatorVerified:false,automaticPublication:false,

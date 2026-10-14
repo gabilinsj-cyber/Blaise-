@@ -44,6 +44,7 @@ const MEASURES = Object.freeze({
   RAJADA_KMH: { phenomenon:'RAJADA', unit:'km/h', range:[0,400], tolerance:16 },
   CHUVA_MM_1H: { phenomenon:'CHUVA_ACUMULADA', unit:'mm', range:[0,400], tolerance:8 },
   UMIDADE_PERCENTUAL: { phenomenon:'UMIDADE', unit:'%', range:[0,100], tolerance:10 },
+  PRESSAO_HPA: { phenomenon:'PRESSAO_ATMOSFERICA', unit:'hPa', range:[850,1100], tolerance:3 },
 });
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const within = (v,lo,hi) => finite(v) && v>=lo && v<=hi;
