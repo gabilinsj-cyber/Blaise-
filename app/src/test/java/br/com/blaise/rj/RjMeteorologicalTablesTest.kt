@@ -28,6 +28,22 @@ class RjMeteorologicalTablesTest {
             RjMeteorologicalTables.table2.map { it.code })
     }
 
+    @Test fun tableTwoSourceRolesRespectFiveSourcePriorityAndLimitCemadenToItsProducts() {
+        assertEquals(
+            listOf("INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"),
+            RjMeteorologicalTables.disputeTable2FiveSources,
+        )
+        assertEquals(5, RjMeteorologicalTables.disputeTable2SourceRoles.size)
+        val roleTexts = RjMeteorologicalTables.disputeTable2SourceRoles
+        assertTrue(roleTexts[0].contains("previsão"))
+        assertTrue(roleTexts[1].contains("estação"))
+        assertTrue(roleTexts[2].contains("pluviômetros"))
+        assertTrue(roleTexts[3].contains("modelos"))
+        assertTrue(roleTexts[4].contains("satélite"))
+        assertTrue(RjMeteorologicalTables.DISPUTE_DATA_SAFETY.contains("Média apenas entre medições"))
+        assertTrue(RjMeteorologicalTables.DISPUTE_DATA_SAFETY.contains("tsunami"))
+    }
+
     @Test fun marineProductsAreRegisteredWithoutClaimingLiveConnectionsOrInea() {
         val byKey = RjMeteorologicalTables.table1.associateBy { it.code }
         listOf("ONDAS","SWELL","RESSACA","MARE","CORRENTES_MARINHAS",
