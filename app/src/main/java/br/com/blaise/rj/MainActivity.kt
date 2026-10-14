@@ -2208,16 +2208,22 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 2 • Cinco fontes na ordem de consulta e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
-            Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
-                color = GoldSoft, style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag("rj-five-dispute-source-priority"))
-            Text("Alerta Rio (Rio) e Defesa Civil formam P1; INMET é a terceira fonte observacional. " +
-                "Se não houver dupla de medições compatíveis, consultar INPE e depois Windy se necessário. " +
-                "Nunca misturar previsão com medição numa média ou tratar ausência de dado como tempo seguro.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
             val active = chosenPhenomenon?.let { code ->
                 RjMeteorologicalTables.table1.firstOrNull { it.code == code }
             }
+            val generalWeather = active == null ||
+                RjMeteorologicalTables.usesFiveSourceWeatherHierarchy(active.code)
+            Text(RjMeteorologicalTables.currentSourceOrderFor(active?.code),
+                color = GoldSoft, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("rj-five-dispute-source-priority"))
+            Text(if (generalWeather)
+                "Alerta Rio (Rio) e Defesa Civil formam P1; INMET é a terceira fonte observacional. " +
+                    "Se não houver dupla compatível, consultar INPE e depois Windy se necessário. " +
+                    "Nunca misturar previsão e medição numa média."
+                else "Fonte especializada por fenômeno: Marinha, NOAA, Copernicus e EUMETSAT para " +
+                    "produtos marítimos quando aplicáveis; rios, sismos, raios e tsunami obedecem " +
+                    "às autoridades competentes. Não transformar avisos em média numérica.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
             if (active != null) {
                 Text("Fenômeno selecionado: ${active.phenomenon}",
                     color = Color.White, fontWeight = FontWeight.Bold,
