@@ -1,6 +1,14 @@
 package br.com.blaise.rj
 
 import br.com.blaise.rj.bulletin.BulletinPolicy
+import br.com.blaise.rj.core.AlertValidity
+import br.com.blaise.rj.core.AlertValidityPolicy
+import br.com.blaise.rj.data.PublicRjWarning
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -1752,9 +1760,7 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (risk != null) {
-            Text("Risco hidrológico: ${risk.label} (nível ${risk.level})",
-                color = if (risk.level >= 4) WarningAmber else Gold,
-                style = MaterialTheme.typography.labelSmall)
+            PulsingRiskLabel("Risco hidrológico: ${risk.label} (nível ${risk.level})", risk.level)
             Text("CEMADEN-RJ / Defesa Civil • " +
                 risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                     .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")),
@@ -1845,6 +1851,69 @@ private fun StatewideMunicipalitiesPanel() {
     }
 }
 
+/** Animate the verified 1–5 bulletin level, never derive it from a CAP word. */
+@Composable
+private fun PulsingRiskLabel(text: String, level: Int) {
+    val color = when (level) {
+        1 -> StableGreen
+        2, 3 -> WarningAmber
+        4 -> Color(0xFFFF8A50)
+        5 -> Color(0xFFE576FF)
+        else -> Muted
+    }
+    val alpha = if (level in 3..5) {
+        val transition = rememberInfiniteTransition(label = "risk-level-pulse")
+        val value by transition.animateFloat(
+            initialValue = 1f, targetValue = 0.55f,
+            animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
+            label = "risk-level-alpha",
+        )
+        value
+    } else 1f
+    Text(text, color = color.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
+}
+
+/** Retain received expiry metadata in this screen; stale records cannot imply safety. */
+@Composable
+private fun MunicipalAlertValidityPanel(ibge: Int) {
+    val now = LocalObservationClock.current
+    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+    var received by remember(ibge) { mutableStateOf<List<PublicRjWarning>>(emptyList()) }
+    LaunchedEffect(ibge, snapshot) {
+        if (snapshot != null && snapshot.current(now)) {
+            val incoming = snapshot.warnings.filter { ibge in it.municipalityIbges && !it.sent.isAfter(now) }
+            received = (incoming + received).distinctBy { it.id }
+                .filter { it.expires.isAfter(now.minusSeconds(86400)) }.take(64)
+        }
+    }
+    val warnings = received.filter { ibge in it.municipalityIbges }
+    if (warnings.isEmpty()) return
+    Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        warnings.forEach { warning ->
+            val sourceCurrent = snapshot?.current(now) == true &&
+                snapshot.warnings.any { it == warning }
+            val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
+                warning.expires, now, sourceCurrent)
+            Surface(color = Navy, shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, if (state == AlertValidity.EXPIRED) Muted else WarningAmber)) {
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    Text("INMET • ${warning.event} • ${warning.severity}", color = Color.White)
+                    Text(AlertValidityPolicy.label(state), color = if (state == AlertValidity.EXPIRED) Muted else WarningAmber)
+                    val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+                    val zone = java.time.ZoneId.of("America/Sao_Paulo")
+                    Text("Emissão ${warning.sent.atZone(zone).format(format)} • início ${warning.onset.atZone(zone).format(format)} • fim ${warning.expires.atZone(zone).format(format)} (Brasília)",
+                        color = Muted, style = MaterialTheme.typography.labelSmall)
+                    Text(warning.sourceUrl, color = Muted, style = MaterialTheme.typography.labelSmall)
+                    if (state == AlertValidity.REVIEW_DUE)
+                        Text("Reavaliação meteorológica ainda não comprovada; o aviso oficial permanece vigente.",
+                            color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
@@ -1880,14 +1949,17 @@ private fun MapScreen(city1: City, city2: City) {
 private fun AlertsScreen(city1: City, city2: City) {
     DashboardSection(
         title = "ALERTAS POR MUNICÍPIO",
-        subtitle = "Verde • Amarelo • Amarelo piscando • Vermelho • COR.Rio 1–5",
+        subtitle = "Escala 1–5 • níveis 3, 4 e 5 pulsantes quando comprovados",
     ) {
         Text(city1.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city1.ibgeCode)
+        MunicipalAlertValidityPanel(city1.ibgeCode)
         Spacer(Modifier.height(5.dp))
         Text(city2.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city2.ibgeCode)
-        Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
+        MunicipalAlertValidityPanel(city2.ibgeCode)
+        Text("Todos os avisos recebidos aparecem abaixo da respectiva cidade, com fonte e validade.", color = Gold)
+        Text("Após uma hora, reavaliar evidências por município e fenômeno. Ausência de chuva ou falha de coleta não revoga aviso oficial. Avaliação interna não pode encerrar aviso da Defesa Civil.", color = Muted)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
