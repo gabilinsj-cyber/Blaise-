@@ -126,7 +126,8 @@ object RjMeteorologicalTables {
     private val baseChecks = setOf("01", "07", "09", "13")
     fun table2ForPhenomenon(phenomenonCode: String): List<RjMeteoDisputeRow> {
         require(table1.any { it.code == phenomenonCode }) { "RJ phenomenon not registered" }
-        val checks = baseChecks.toMutableSet()
+        val checks = if (phenomenonCode in fiveSourceWeatherCodes)
+            baseChecks.toMutableSet() else mutableSetOf("07", "13")
         when {
             phenomenonCode in weightableCodes ->
                 checks.addAll(listOf("02", "03", "04", "05", "06", "10", "11"))
