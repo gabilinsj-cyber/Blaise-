@@ -34,6 +34,22 @@ class RjMeteorologicalTablesTest {
                 it.decision.contains("Windy é a quarta")
         })
     }
+    @Test fun maritimeAndOtherSpecialistPhenomenaKeepIndependentSourcesInTableTwo() {
+        assertTrue(RjMeteorologicalTables.usesFiveSourceWeatherHierarchy("TEMPERATURA"))
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("TEMPERATURA")
+            .startsWith("Alerta Rio"))
+        for (code in listOf("ONDAS", "RESSACA", "SWELL", "MARE", "TSUNAMI",
+            "RISCO_HIDROLOGICO", "VAZAO_RIO", "SISMO")) {
+            assertFalse(RjMeteorologicalTables.usesFiveSourceWeatherHierarchy(code))
+            assertFalse(RjMeteorologicalTables.currentSourceOrderFor(code)
+                .startsWith("Alerta Rio"))
+        }
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("ONDAS")
+            .contains("Marinha"))
+        assertTrue(RjMeteorologicalTables.currentSourceOrderFor("TEMPERATURA_MAR")
+            .contains("Copernicus Marine"))
+    }
+
     @Test fun expandedTablesMatchThirtyDistinctCategoriesAndFiveExtraDisputeChecks() {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)
