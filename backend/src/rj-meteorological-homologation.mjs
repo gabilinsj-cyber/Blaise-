@@ -207,7 +207,7 @@ export function buildRjMeteorologicalHomologationTables({ibge=RJ_CITY_IBGE}={}) 
       supplementaryThirdSource:route.complementaryThirdSource,
       primaryTable1Three:Object.freeze(RJ_TABLE1_THREE.filter(
         s=>s!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)),
-      disputeTable2Five:RJ_TABLE2_FIVE,
+      disputeTable2Five:Object.freeze(RJ_TABLE2_FIVE.filter(id => id !== 'ALERTA_RIO' || String(ibge) === RJ_CITY_IBGE)),
       tenPhenomenaComplement:route.complementaryThirdSource ? RJ_TABLE1_TEN_COMPLEMENT : null,
       table2TriggeredOnlyIfNoPrimaryPair:true,
       disputeStepCodes:Object.freeze(linkedRjDisputeSteps(phenomenon).map(x=>x.code)),
