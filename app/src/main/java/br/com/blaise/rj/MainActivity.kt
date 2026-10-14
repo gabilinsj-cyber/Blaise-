@@ -1453,29 +1453,38 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
         subtitle = "Snapshot compartilhado • $period • histórico separado de previsão",
         modifier = modifier,
     ) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             graphCities.forEachIndexed { index, item ->
                 OutlinedButton(onClick = { graphCityIbge = item.ibgeCode },
-                    modifier = Modifier.testTag("chart-city-${item.ibgeCode}")) {
-                    Text("Cidade ${index + 1}: ${item.name}", style = MaterialTheme.typography.labelSmall)
+                    modifier = Modifier.fillMaxWidth().testTag("chart-city-${item.ibgeCode}")) {
+                    Text("Cidade ${index + 1}: ${item.name}" + if (chartCity.ibgeCode == item.ibgeCode) " • selecionada" else "",
+                        style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("Hoje", "Ontem", "Últimos dias", "Próximos dias").forEach { option ->
-                OutlinedButton(onClick = { period = option }, modifier = Modifier.testTag("chart-period-$option")) { Text(option, style = MaterialTheme.typography.labelSmall) }
-            }
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            choices.forEach { option ->
-                if (variable == option) {
-                    Button(onClick = { variable = option }, modifier = Modifier.testTag("chart-metric-$option"), colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+        listOf("Hoje", "Ontem", "Últimos dias", "Próximos dias").chunked(2).forEach { options ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { option ->
+                    OutlinedButton(onClick = { period = option },
+                        modifier = Modifier.weight(1f).testTag("chart-period-$option")) {
                         Text(option, style = MaterialTheme.typography.labelSmall)
                     }
-                } else {
-                    OutlinedButton(onClick = { variable = option }, modifier = Modifier.testTag("chart-metric-$option")) { Text(option, style = MaterialTheme.typography.labelSmall) }
+                }
+            }
+        }
+        choices.chunked(2).forEach { options ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                options.forEach { option ->
+                    if (variable == option) {
+                        Button(onClick = { variable = option }, modifier = Modifier.weight(1f).testTag("chart-metric-$option"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1265CB), contentColor = Color.White)) {
+                            Text(option, style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        OutlinedButton(onClick = { variable = option }, modifier = Modifier.weight(1f).testTag("chart-metric-$option")) {
+                            Text(option, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
                 }
             }
         }
@@ -1555,7 +1564,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
             Text("Mesma aquisição dos cartões e mapa. Histórico mantém o horário original; térmica é calculada com as mesmas entradas. Lacunas não são preenchidas.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         } else {
-            Text("Não há dados validados para ${chartCity.name} neste período. Valores atuais, históricos e previsões permanecem identificados separadamente.",
+            Text((if (readings.isEmpty()) "Não há dados validados" else "Histórico insuficiente para desenhar uma curva") + " para ${chartCity.name} neste período. Valores atuais, históricos e previsões permanecem identificados separadamente.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         TextButton(onClick = { showRainfall = !showRainfall }) {
