@@ -1200,11 +1200,21 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
         }
         if (details) {
-            BlaiseAgentDashboard.tenAgents.forEach { agent ->
-                Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelSmall)
-                Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
-            }
+            AlertDialog(
+                onDismissRequest = { details = false },
+                title = { Text("Funções dos 10 agentes") },
+                text = {
+                    Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        BlaiseAgentDashboard.tenAgents.forEach { agent ->
+                            Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelSmall)
+                            Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { details = false }) { Text("Voltar") } },
+            )
         }
         Text("Dados e recálculos: somente se a origem e o horário forem válidos. " +
             "Alertas sonoros apenas mediante autorização do nível 5.",
