@@ -91,6 +91,8 @@ class RjLiveTableEvidenceTest {
             id="444/2026",warningType="VENTO FORTE",
             issuedAt=stamp,validUntil=now.plusSeconds(3600),
             areas=listOf("CHARLIE"),
+            waveMinMeters=null,waveMaxMeters=null,
+            waveDirection=null,officialRessacaLabel=false,
         )
         val inventory=PublicRjMarine(stamp,
             "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo",
