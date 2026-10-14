@@ -224,14 +224,18 @@ export function resolveRjTable12FiveSourceDispute({
   // order. Never treat a modeled product as a second measured observation.
   for(const id of RJ_TABLE2_FIVE){
     checked.push(id);
-    if(STATIONS.has(id)){
+    if(STATIONS.has(id)||id==='OPENWEATHERMAP_API'){
+      // OWM may only participate as an independent observation when
+      // explicit upstream station independence is proven; ordinary OWM
+      // model data is always handled by the forecast branch below.
       const pair=gather(id);
       if(pair)return observedPair(pair,spec,{
         stage:'TABLE_2_OBSERVED_DISPUTE_RESOLVED',
         step:'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY',
         consultedSources:checked,allPrimary:initial,
       });
-    } else {
+    }
+    if(!STATIONS.has(id)){
       const products=forecasts.filter(f=>forecastAllowed(f,{
         sourceId:id,ibge,variable,spec,now,
       })).sort((a,b)=>time(b.issuedAt)-time(a.issuedAt));
