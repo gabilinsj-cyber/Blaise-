@@ -28,6 +28,33 @@ class RjMeteorologicalTablesTest {
             RjMeteorologicalTables.table2.map { it.code })
     }
 
+    @Test fun sourceHierarchyKeepsOpenWeatherMapSeparateFromINMETAndUsesINPEBeforeWindy() {
+        assertEquals("2026-10-14.v5", RjMeteorologicalTables.VERSION)
+        assertEquals(
+            listOf("Alerta Rio","Defesa Civil RJ","INMET","INPE/CPTEC","Windy"),
+            RjMeteorologicalTables.disputeTable2FiveSources,
+        )
+        assertEquals(
+            listOf("Alerta Rio","Defesa Civil RJ","INMET"),
+            RjMeteorologicalTables.primaryObservationalHierarchy,
+        )
+        assertEquals(
+            listOf("INPE/CPTEC","Windy"),
+            RjMeteorologicalTables.modelTieBreakHierarchy,
+        )
+        assertEquals(
+            listOf("Alerta Rio","Defesa Civil RJ","OpenWeatherMap (3ª consulta complementar)"),
+            RjMeteorologicalTables.primaryTable1Sources,
+        )
+        val byCode = RjMeteorologicalTables.table2.associateBy { it.code }
+        assertTrue(byCode.getValue("03").decision.contains("verificar INMET"))
+        assertTrue(byCode.getValue("03").decision.contains("INPE/CPTEC"))
+        assertTrue(byCode.getValue("03").decision.contains("Windy"))
+        assertTrue(byCode.getValue("06").decision.contains("previsão"))
+        assertFalse(byCode.getValue("03").decision.contains("INPE/CPTEC → INMET"))
+        assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
+    }
+
     @Test fun marineProductsAreRegisteredWithoutClaimingLiveConnectionsOrInea() {
         val byKey = RjMeteorologicalTables.table1.associateBy { it.code }
         listOf("ONDAS","SWELL","RESSACA","MARE","CORRENTES_MARINHAS",
