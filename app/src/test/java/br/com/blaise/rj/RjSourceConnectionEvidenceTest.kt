@@ -18,7 +18,9 @@ class RjSourceConnectionEvidenceTest {
 
     private fun station(ibge: Int, source: String)=CityWeatherObservation(
         municipalityIbge=ibge, station="Estação A652", source=source,
-        sourceUrl="https://apitempo.inmet.gov.br/estacao/A652",
+        sourceUrl=if(source=="Alerta Rio")
+            "https://websempre.rio.rj.gov.br/estacoes/"
+            else "https://apitempo.inmet.gov.br/estacao/A652",
         observedAt=recently, temperatureC=27.0,
         humidityPercent=68.0,windKmh=15.0,maxAgeSeconds=3600,
     )
@@ -61,6 +63,20 @@ class RjSourceConnectionEvidenceTest {
         assertFalse(rows.first { it.source=="Copernicus Marine" }.verifiedCurrentProduct)
         assertFalse(rows.first { it.source=="EUMETSAT" }.verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="Defesa Civil RJ" }.status.contains("não é segunda medição"))
+    }
+
+    @Test fun aProviderNameCannotSpoofItsActualOfficialEndpoint() {
+        val falseRio=station(3304557,"Alerta Rio")
+            .copy(sourceUrl="https://websempre.rio.rj.gov.br.evil.test/estacoes/")
+        val falseInmet=station(3304557,"INMET")
+            .copy(sourceUrl="https://apitempo.inmet.gov.br.evil.test/estacao/A652")
+        val rows=RjSourceConnectionEvidence.rows(
+            municipalityIbge=3304557,observation=falseInmet,
+            rioStations=listOf(falseRio),status=null,now=now,
+        )
+        assertFalse(rows.first { it.source=="Alerta Rio" }.verifiedCurrentProduct)
+        assertFalse(rows.first { it.source=="INMET" && "Medição" in it.product }
+            .verifiedCurrentProduct)
     }
 
     @Test fun stationFromRioMustNotBeAttributedToNiteroiOrAnyOtherMunicipality() {
