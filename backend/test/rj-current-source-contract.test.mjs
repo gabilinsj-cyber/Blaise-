@@ -21,7 +21,7 @@ test('all 92 RJ municipalities reflect exact Alerta Rio geographic limit and fiv
     assert.equal(table.table1.length,30);
     assert.deepEqual(table.primaryTable1Sources,
       RJ_TABLE1_THREE.filter(id=>id!=='ALERTA_RIO'||String(city.ibge)==='3304557'));
-    assert.deepEqual(table.disputeTable2Five,RJ_TABLE2_FIVE);
+    assert.deepEqual(table.disputeTable2FiveSources,RJ_TABLE2_FIVE);
     const route=rjSourceRouting({ibge:city.ibge,phenomenon:'TEMPERATURA'});
     const ids=route.sources.map(x=>x.id);
     assert.equal(ids.includes('ALERTA_RIO'),String(city.ibge)==='3304557');
