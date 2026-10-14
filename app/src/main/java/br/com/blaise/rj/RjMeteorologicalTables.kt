@@ -79,6 +79,36 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA por produto"),
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA; medição e modelo identificados"),
     )
+    /**
+     * These five rows preserve the separate ocean panel supplied with the
+     * original reference. A meteorological provider is NOT proof of a live
+     * ingest, and tsunami guidance requires competent authorities.
+     */
+    val marineComplement = listOf(
+        RjMeteoSourceRow("CICLONES_MAR", "Ciclones oceânicos",
+            "Atlântico com possível impacto no RJ",
+            "Marinha/CHM + NOAA + EUMETSAT + Copernicus Marine • evolução atmosférica e efeitos no mar"),
+        RjMeteoSourceRow("TEMPESTADE_ATLANTICO", "Tempestades no Atlântico",
+            "Áreas oceânicas que podem afetar o RJ",
+            "Marinha/CHM + NOAA + EUMETSAT • nuvens, sistemas intensos e deslocamento"),
+        RjMeteoSourceRow("ONDAS_SWELL", "Ondas e swell",
+            "Litoral RJ e Atlântico adjacente",
+            "Marinha/CHM + NOAA + Copernicus Marine • altura, período, direção e propagação"),
+        RjMeteoSourceRow("RESSACA_LITORAL", "Ressaca no litoral RJ",
+            "Costa fluminense",
+            "Marinha/CHM + boias competentes + Copernicus Marine + NOAA • risco costeiro e aviso oficial"),
+        RjMeteoSourceRow("TSUNAMI_MAREMOTO", "Tsunami e maremoto",
+            "Costa RJ e Atlântico relevante",
+            "NOAA + Marinha/CHM + autoridades brasileiras • alerta somente da autoridade competente"),
+    )
+    val originalTenPhenomena = table1.take(10)
+    val openWeatherMapThirdComplement = originalTenPhenomena.associate { row ->
+        row.code to when (row.code) {
+            "CHUVA_ACUMULADA", "GRANIZO" ->
+                "OpenWeatherMap* • apenas se houver produto/intervalo correspondente"
+            else -> "OpenWeatherMap • terceira consulta complementar"
+        }
+    }
     val table2 = listOf(
         RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média simples ou ponderada."),
         RjMeteoDisputeRow("02", "Convergência 2 de 3", "Duas observações independentes e comparáveis entre as três primeiras bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
@@ -164,5 +194,8 @@ object RjMeteorologicalTables {
             !canWeightOfficialObservations(it)
         })
         require(table1.none { it.code.contains("INEA") || it.priority.contains("INEA") })
+        require(originalTenPhenomena.size == 10)
+        require(openWeatherMapThirdComplement.size == 10)
+        require(marineComplement.size == 5 && marineComplement.map { it.code }.distinct().size == 5)
     }
 }

@@ -18,6 +18,34 @@ class RjMeteorologicalTablesTest {
         })
     }
 
+    @Test fun explicitlyLabeledOpenWeatherMapThirdConsultationCoversAllTenOriginalPhenomena() {
+        val firstTen = RjMeteorologicalTables.originalTenPhenomena
+        assertEquals(10, firstTen.size)
+        assertEquals(firstTen.map { it.code }.toSet(),
+            RjMeteorologicalTables.openWeatherMapThirdComplement.keys)
+        assertTrue(firstTen.all {
+            RjMeteorologicalTables.openWeatherMapThirdComplement.getValue(it.code)
+                .contains("OpenWeatherMap")
+        })
+        for (code in listOf("CHUVA_ACUMULADA", "GRANIZO")) {
+            assertTrue(RjMeteorologicalTables.openWeatherMapThirdComplement.getValue(code)
+                .contains("apenas se"))
+        }
+    }
+
+    @Test fun maritimeSourceComplementPreservesOriginalFiveScreenshotCategories() {
+        assertEquals(listOf(
+            "CICLONES_MAR", "TEMPESTADE_ATLANTICO", "ONDAS_SWELL",
+            "RESSACA_LITORAL", "TSUNAMI_MAREMOTO",
+        ), RjMeteorologicalTables.marineComplement.map { it.code })
+        val marine = RjMeteorologicalTables.marineComplement.associateBy { it.code }
+        assertTrue(marine.getValue("CICLONES_MAR").priority.contains("EUMETSAT"))
+        assertTrue(marine.getValue("ONDAS_SWELL").priority.contains("Copernicus Marine"))
+        assertTrue(marine.getValue("RESSACA_LITORAL").priority.contains("Marinha"))
+        assertTrue(marine.getValue("TSUNAMI_MAREMOTO").priority.contains("autoridades brasileiras"))
+        assertTrue(RjMeteorologicalTables.marineComplement.none { it.priority.contains("INEA") })
+    }
+
     @Test fun expandedTablesMatchThirtyDistinctCategoriesAndFiveExtraDisputeChecks() {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)

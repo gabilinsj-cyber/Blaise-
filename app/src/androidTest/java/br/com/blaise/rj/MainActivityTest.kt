@@ -148,6 +148,28 @@ class MainActivityTest {
         assertTextDisplayed("10. Auditoria Profunda RJ")
     }
 
+    @Test fun tableOneIsAccessibleFromHomeAndStandaloneSourcesNavigation() {
+        rule.onNodeWithTag("home-open-meteorological-table-1")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("nav-Fontes").assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-ten-primary-source-rows").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-openweather-row-TEMPERATURA")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-openweather-row-GRANIZO")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-maritime-supplement-table")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-TSUNAMI_MAREMOTO")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-CICLONES_MAR")
+            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-2-tab")
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content")
+            .performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun officialMeteorologicalTablesAreNamedAndAvailableInsideExistingMoreScreen() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
