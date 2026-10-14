@@ -60,4 +60,14 @@ class InmetHourlySeriesTest {
         assertTrue(series(row(500)).recentPoints(InmetMetric.TEMPERATURE, now).isEmpty())
         assertNull(series(row(500, temp = null)).currentPoint(InmetMetric.TEMPERATURE, now))
     }
+
+    @Test fun `seven days history retains dated observations without making them current`() {
+        val s = series(*(0 until 192).map { row(it * 3600L + 60) }.toTypedArray())
+        assertTrue(s.trustedMetadata())
+        val history = s.historyPoints(InmetMetric.TEMPERATURE, now.minusSeconds(7 * 86400), now, now)
+        assertEquals(168, history.size)
+        assertEquals(now.minusSeconds(60), history.last().first.observedAt)
+        assertNull(s.currentPoint(InmetMetric.TEMPERATURE, now.plusSeconds(301)))
+        assertFalse(s.copy(points = s.points + row(192 * 3600L + 60)).trustedMetadata())
+    }
 }

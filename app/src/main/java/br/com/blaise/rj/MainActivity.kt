@@ -1433,7 +1433,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     }
     val zone = java.time.ZoneId.of("America/Sao_Paulo")
     val midnight = now.atZone(zone).toLocalDate().atStartOfDay(zone)
-    val start = when(period) { "Ontem" -> midnight.minusDays(1); "Últimos dias" -> midnight.minusDays(1); else -> midnight }
+    val start = when(period) { "Ontem" -> midnight.minusDays(1); "Últimos dias" -> midnight.minusDays(7); else -> midnight }
     val end = if(period == "Ontem") midnight else midnight.plusDays(1)
     val readings = if(period == "Próximos dias") emptyList() else
         stationSeries?.historyPoints(metric, start.toInstant(), end.toInstant(), now).orEmpty()
