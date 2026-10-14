@@ -8,6 +8,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 class BlaiseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        br.com.blaise.rj.data.AlertHistoryCleanupService.schedule(this)
         if (FirebaseBootstrap.initialize(this)) {
             runCatching {
                 FirebaseMessaging.getInstance().subscribeToTopic(BlaiseMessagingService.P0_TOPIC)

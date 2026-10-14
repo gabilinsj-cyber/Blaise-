@@ -1776,8 +1776,10 @@ private fun PublicOfficialWarningRibbon(
         ) {
             Text("⚠ INMET", color = WarningAmber, fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.labelSmall)
-            val updateLabel = AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.second.sent, now))
+            val updateLabel = AlertValidityPolicy.updateLabel(warning.second.sent, now)
+            val localLevel = AlertValidityPolicy.localLevelForSeverity(warning.second.severity, warning.second.sent, now)
             Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}" +
+                (localLevel?.let { " • nível local Blaise $it/5" } ?: "") +
                 (updateLabel?.let { " • $it" } ?: ""),
                 color = Color.White, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.weight(1f))
@@ -1814,9 +1816,12 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
         warnings.take(3).forEach { warning ->
             val expiry = warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+            AlertValidityPolicy.localLevelForSeverity(warning.severity, warning.sent, now)?.let { level ->
+                PulsingRiskLabel("Nível local Blaise: $level/5 • gravidade oficial preservada", level)
+            }
             Text("INMET: ${warning.event} • ${warning.severity} • até ${expiry}",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-            AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+            AlertValidityPolicy.updateLabel(warning.sent, now)?.let {
                 Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -1953,8 +1958,11 @@ private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false)
                     Text("${if (historical) "HISTÓRICO" else "AVISO"} • INMET • ${warning.event} • gravidade da emissão: ${warning.severity}", color = if (historical) Muted else Color.White)
                     Text(if (warning.localClosedAt != null) "Retirada confirmada na fonte • somente histórico" else AlertValidityPolicy.label(state),
                         color = if (historical) Muted else WarningAmber)
-                    if (warning.localClosedAt == null) AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
+                    if (warning.localClosedAt == null) AlertValidityPolicy.updateLabel(warning.sent, now)?.let {
                         Text(it, color = if (historical) Muted else WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (!historical) AlertValidityPolicy.localLevelForSeverity(warning.severity, warning.sent, now)?.let { level ->
+                        PulsingRiskLabel("Nível local Blaise: $level/5 • gravidade oficial preservada", level)
                     }
                     if (historical)
                         Text("Retirado da lista ativa do Blaise. Registro histórico por mais 12 horas após o encerramento local; não representa risco atual nem cancelamento pelo emissor.",

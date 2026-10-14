@@ -35,6 +35,34 @@ object AlertValidityPolicy {
         AlertUpdateAge.INVALID -> "Horário de atualização inválido; vigência sem confirmação."
     }
 
+    /** Downloading the same emission never resets this clock. */
+    fun updateLabel(lastOfficialUpdate: Instant, now: Instant): String? {
+        if (lastOfficialUpdate.isAfter(now)) return updateLabel(AlertUpdateAge.INVALID)
+        val hours = Duration.between(lastOfficialUpdate, now).seconds / 3600
+        val stamp = lastOfficialUpdate.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+        val lastUpdate = "Última atualização oficial: $stamp (Brasília)."
+        return if (hours >= 3) "$lastUpdate Sem atualização nas últimas $hours horas • risco atual sem confirmação."
+            else lastUpdate
+    }
+
+    /** Local presentation only: preserve the severity declared by the issuer. */
+    fun localLevel(originalLevel: Int, lastOfficialUpdate: Instant, now: Instant): Int {
+        require(originalLevel in 1..5)
+        if (lastOfficialUpdate.isAfter(now)) return originalLevel
+        return if (Duration.between(lastOfficialUpdate, now).seconds >= 4 * 3600) {
+            when (originalLevel) { 4 -> 2; 5 -> 3; else -> originalLevel }
+        } else originalLevel
+    }
+
+    fun localLevelForSeverity(severity: String, lastOfficialUpdate: Instant, now: Instant): Int? {
+        val original = when (severity) {
+            "Extreme" -> 5; "Severe" -> 4; "Moderate" -> 3; "Minor" -> 2
+            else -> return null
+        }
+        return localLevel(original, lastOfficialUpdate, now)
+    }
+
     fun evaluate(
         issuedAt: Instant,
         onset: Instant,
