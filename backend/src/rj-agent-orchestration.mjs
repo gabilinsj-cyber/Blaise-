@@ -8,7 +8,7 @@ import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
 import { linkedRjDisputeSteps, RJ_METEO_MARINE_TABLE } from './rj-meteorological-homologation.mjs';
-import { consultRjTable12FiveSourceDispute, RJ_TABLE1_THREE, RJ_TABLE2_FIVE } from './rj-table12-five-source-dispute.mjs';
+import { RJ_TABLE1_THREE, RJ_TABLE2_FIVE } from './rj-canonical-table-sources.mjs';
 
 const ALL = Object.freeze(BLAISE_RJ_AGENTS.map(a=>a.number));
 const HYDRO = new Set(['CHUVA_ACUMULADA','RISCO_HIDROLOGICO','VAZAO_RIO','DESLIZAMENTO','ALAGAMENTO']);
@@ -87,6 +87,7 @@ export async function reconcileRjWeatherCase({
     RAJADA_KMH:'RAJADA',
     CHUVA_MM_1H:'CHUVA_ACUMULADA',
     UMIDADE_PERCENTUAL:'UMIDADE',
+    PRESSAO_HPA:'PRESSAO_ATMOSFERICA',
   });
   if(!Object.hasOwn(phenomenonByVariable,variable))
     throw new TypeError('rj_unsupported_weather_variable');
