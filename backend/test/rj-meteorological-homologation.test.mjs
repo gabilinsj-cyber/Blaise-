@@ -45,7 +45,7 @@ test('Table 2 is the independent, thirteen-step data provenance and dispute crit
   assert.equal(RJ_METEO_TABLE2[4].step,5);
   assert.match(RJ_METEO_TABLE2[3].decision,/INPE/);
   assert.match(RJ_METEO_TABLE2[4].decision,/Windy/);
-  assert.equal(RJ_METEO_TABLE2.some(x=>/média mista de modelo e sensor/i.test(x.decision)),true);
+  assert.equal(RJ_METEO_TABLE2.some(x=>/sem misturar|não misturar/i.test(x.decision)),true);
 });
 test('Table 1 is linked to the applicable Table 2 steps for every phenomenon',()=>{
   const t=buildRjMeteorologicalHomologationTables();
