@@ -50,6 +50,46 @@ O [Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-
 
 **Contrato técnico auditável:** `backend/src/rj-phenomenon-source-policy.mjs` (`RJ_PHENOMENA` com 30 categorias e `RJ_SUPPLEMENTAL_PRODUCTS`), `app/src/main/java/br/com/blaise/rj/RjMeteorologicalTables.kt` (tabelas visíveis) e testes respectivos. O mapa RJ permanece desenhado pela Blaise; imagens externas só são reproduzidas dentro dos termos do produto e com aprovação técnica.
 
+## Tabela 2 — ponderação com a fonte adicional, quando possível (revisão 14/10)
+
+Preservar **sem criar uma regra nova** a Tabela 2 já especificada e exposta na interface:
+**INPE/CPTEC → INMET → CEMADEN → Windy → NOAA**, aplicada por variável, produto e competência.
+A prioridade P1 do município do Rio continua com Alerta Rio + Defesa Civil; INMET é
+observação oficial complementar e não pode ser contado de novo se já tiver
+participado da conferência inicial.
+
+Quando **as três fontes primárias divergem**, a Blaise continua a consulta
+por fontes da Tabela 2. **Somente uma medição real independente, recente e
+compatível** (por exemplo, acumulado horário de um pluviômetro CEMADEN)
+pode ser combinada com uma medição primária por média ponderada. A divergência
+não será artificialmente apagada: preservar fontes, estações, horários, janelas,
+diferenças e justificativa dos pesos. O mesmo registro original republicado
+em dois órgãos **não equivale a duas medições independentes**.
+
+**Ordem de execução para chuva horária:** Alerta Rio (cobertura municipal),
+Defesa Civil, INMET; em conflito consultar INPE/CPTEC como primeiro produto
+comparativo da Tabela 2; antes de aceitar sua mera proximidade como solução,
+tentar **CEMADEN** como possível medição independente, se houver adaptador e
+cobertura local, **antes do Windy**. Com dois pluviômetros oficiais
+compatíveis, a média ponderada tem prioridade sobre o destaque por modelo.
+Sem nova medição comparável, apresentar uma leitura oficial mais próxima
+do produto INPE ou, se inconclusivo, consultar Windy; são **fontes de tipos
+diferentes** e não entram juntas numa média de observações. NOAA e demais
+fontes especializadas seguem as regras próprias de fenômeno. **Não
+ponderar severidade ou categorias de alerta**.
+
+**Escopo exato:** esta mudança de código trata o caso comprovável de
+`CHUVA_MM_1H`, não presume que CEMADEN possua temperatura, vento ou
+umidade de todos os municípios. Fórmulas de sensação térmica usam T/UR/vento
+observados e coerentes; sistemas oceânicos, rios, sismos e tsunami usam
+seus produtos competentes. A presença na Tabela 2 é somente o contrato
+de consulta: **nenhuma nova API ao vivo, licença ou município ficou
+automaticamente integrado** por esta revisão.
+
+Código: `backend/src/rj-phenomenon-source-policy.mjs` e
+`backend/src/rj-hierarchical-weather-resolution.mjs`; testes
+`backend/test/rj-hierarchical-weather-resolution.test.mjs`.
+
 ## Classes de origem
 - **Medição/aviso oficial:** só quando for do órgão competente, identificando produto, coordenada ou município coberto, valor e unidade, observação/emissão em data válida e URL de origem. NOAA é agência oficial para seus produtos, mas previsões numéricas não são medições locais.
 - **Contexto de modelo e comparação:** INPE/CPTEC (produtos oficiais de previsão meteorológica e satélite) e Windy (visualização/consulta de modelos); registrar tipo de produto, execução, validade, resolução espacial e autoria. Windy e as previsões do INPE não são automaticamente estações de observação. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.
