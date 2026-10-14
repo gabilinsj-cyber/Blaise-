@@ -7,6 +7,7 @@ import { BLAISE_RJ_AGENTS, rjCadenceForLevel } from './rj-agent-registry.mjs';
 import { rjSourceRouting } from './rj-phenomenon-source-policy.mjs';
 import { consultRjSourcesUntilTwo } from './rj-hierarchical-weather-resolution.mjs';
 import { createRjInmetLiveAdapters } from './rj-inmet-live-hierarchy-adapter.mjs';
+import { consultRjTwoTableSources, RJ_TWO_TABLE_VERSION } from './rj-two-table-weighted-consensus.mjs';
 import { linkedRjDisputeSteps, RJ_METEO_MARINE_TABLE } from './rj-meteorological-homologation.mjs';
 import { consultRjTable12FiveSourceDispute, RJ_TABLE1_THREE, RJ_TABLE2_FIVE } from './rj-table12-five-source-dispute.mjs';
 
@@ -203,4 +204,31 @@ export function createRjTable12SourceExecutor({
   const adapters=Object.freeze({...sourceAdapters,INMET_STATION:inmet.INMET_STATION});
   return ({ibge,variable,level=1,now=clock()}={})=>
     reconcileRjTable12Case({ibge,variable,level,adapters,now});
+}
+
+
+export async function reconcileRjTwoTableWeatherCase({
+  ibge,phenomenon,level=1,adapters={},now=Date.now(),
+}={}) {
+  const plan=planRjPhenomenonCase({ibge,phenomenon,level});
+  const resolved=await consultRjTwoTableSources({
+    ibge,phenomenon,adapters,now,
+  });
+  return Object.freeze({
+    ...plan,
+    reconciliationVersion:RJ_TWO_TABLE_VERSION,
+    sourceStatus:resolved.status,
+    table1Sources:resolved.table1Readings ?? Object.freeze([]),
+    table2Sources:resolved.table2Readings ?? Object.freeze([]),
+    displayedPair:resolved.usedSources,
+    weightedValue:resolved.weightedValue,
+    weightedSourceCount:resolved.weightedSourceCount,
+    estimateKind:resolved.estimateKind,
+    calculationAgents:Object.freeze([1,3,2,8]),
+    latestVerifiedResult:resolved,
+    liveFeedState:'REQUIRES_SOURCE_SPECIFIC_APPROVED_ADAPTERS',
+    audibleAlert:false,
+    publishersTriggered:false,
+    purchasesTriggered:false,
+  });
 }

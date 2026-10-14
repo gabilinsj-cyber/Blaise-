@@ -140,5 +140,11 @@ class PublicRjOfficialStatusTest {
         assertNull(PublicRjStatusHttpsClient.create("https://user:pass@example.test"))
         assertNull(PublicRjStatusHttpsClient.create("https://example.test/path"))
         assertNotNull(PublicRjStatusHttpsClient.create("https://example.test/"))
+        assertNull(PublicRjStatusHttpsClient.create("", ""))
+        assertNull(PublicRjStatusHttpsClient.create("", "https://example.test/unrelated/path"))
+        assertNull(PublicRjStatusHttpsClient.create(
+            "http://invalid.test", "https://example.test/v1/entitlements/verify"))
+        assertNotNull(PublicRjStatusHttpsClient.create(
+            "", "https://blaise.example.test/v1/entitlements/verify"))
     }
 }

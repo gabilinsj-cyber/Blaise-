@@ -279,13 +279,28 @@ class PublicRjStatusHttpsClient private constructor(private val endpoint: URI) {
         }finally {connection.disconnect()}
     }
     companion object {
-        fun create(baseUrl: String): PublicRjStatusHttpsClient? = runCatching {
-            val uri=URI(baseUrl.trim())
-            require(uri.scheme == "https" && uri.host != null && uri.userInfo == null)
-            require(uri.rawQuery == null && uri.rawFragment == null &&
-                (uri.path == null || uri.path.isBlank() || uri.path == "/"))
-            require(uri.port in -1..65535)
-            PublicRjStatusHttpsClient(URI("https",null,uri.host,uri.port,
+        fun create(
+            baseUrl: String,
+            entitlementVerifierUrl: String = "",
+        ): PublicRjStatusHttpsClient? = runCatching {
+            // Public safety data remain free. Reuse a configured HTTPS
+            // backend origin when an independent public endpoint is absent,
+            // never a purchase entitlement or subscriber token.
+            val origin = if (baseUrl.isNotBlank()) {
+                val uri = URI(baseUrl.trim())
+                require(uri.scheme == "https" && uri.host != null && uri.userInfo == null)
+                require(uri.rawQuery == null && uri.rawFragment == null &&
+                    (uri.path == null || uri.path.isBlank() || uri.path == "/"))
+                uri
+            } else {
+                val derived = DashboardDataEndpointPolicy
+                    .deriveFromEntitlementVerifier(entitlementVerifierUrl)
+                    ?: error("No validated HTTPS backend configured for public notices")
+                URI(derived)
+            }
+            require(origin.scheme == "https" && origin.host != null &&
+                origin.userInfo == null && origin.port in -1..65535)
+            PublicRjStatusHttpsClient(URI("https",null,origin.host,origin.port,
                 PUBLIC_RJ_STATUS_PATH,null,null))
         }.getOrNull()
     }

@@ -111,6 +111,45 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
   }),
 });
+/**
+ * Two-table RJ meteorology consultation policy from the approved screenshots:
+ * P1 is a JOINT local priority. The third Table-1 complement is OpenWeatherMap,
+ * which is NOT a Brazilian authority or a second independent official station.
+ * Exactly one compatible Table-2 product can confirm ONE Table-1 measurement.
+ * Geography/source access and actual product type must be checked at runtime.
+ */
+export const RJ_TABLE1_SOURCE_IDS = Object.freeze([
+  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API',
+]);
+export const RJ_TABLE2_SOURCE_IDS = Object.freeze([
+  'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
+]);
+export function rjTwoTableRouting({ ibge, phenomenon } = {}) {
+  if(!municipal.has(String(ibge)))throw TypeError('rj_unknown_municipality');
+  if(!RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon))
+    throw TypeError('rj_phenomenon_outside_ten_source_table');
+  const t1=RJ_TABLE1_SOURCE_IDS
+    .filter(id=>id!=='ALERTA_RIO'||String(ibge)===RJ_CITY_IBGE)
+    .map(id=>Object.values(sources).find(s=>s.id===id));
+  const t2=RJ_TABLE2_SOURCE_IDS
+    .map(id=>Object.values(sources).find(s=>s.id===id));
+  return Object.freeze({
+    ibge:String(ibge),phenomenon,
+    table1:Object.freeze(t1),
+    table2:Object.freeze(t2),
+    table1Order:'ALERTA_RIO_AND_DEFESA_CIVIL_JOINT_P1_OPENWEATHER_THIRD_COMPLEMENT',
+    table2Order:'INPE_INMET_CEMADEN_WINDY_NOAA',
+    minimumIndependentInputs:2,
+    maxInputsUsedInOneMean:2,
+    table2InputsToConfirmOneTable1:1,
+    neverAverageWarningCategories:true,
+    rejectRepublishedDuplicates:true,
+    meteorologicalScope:'ONLY_RJ_MUNICIPALITIES',
+    realTimeConnectionsVerified:false,
+    automaticAlertAuthority:false,
+  });
+}
+
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');

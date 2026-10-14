@@ -38,6 +38,17 @@ class CityWeatherObservationTest {
         assertTrue(station.copy(hourlyRainMm = null, windGustKmh = null).current(now))
     }
 
+    @Test fun `station coordinates cannot be guessed or partially attached to measurements`() {
+        val geo = measurement().copy(stationLatitude = -22.88, stationLongitude = -43.11)
+        assertTrue(geo.current(now))
+        assertFalse(geo.copy(stationLatitude = null).current(now))
+        assertFalse(geo.copy(stationLongitude = null).current(now))
+        assertFalse(geo.copy(stationLatitude = 10.0).current(now))
+        assertFalse(geo.copy(stationLongitude = -47.0).current(now))
+        assertFalse(geo.copy(stationLatitude = Double.NaN).current(now))
+        assertTrue(measurement().current(now)) // valid older source without coordinates
+    }
+
     @Test fun `local clock expires a previously valid display without refreshing source timestamp`() {
         val sample = measurement()
         val report = CityWeatherResult(3303302, null, sample)
