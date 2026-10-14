@@ -95,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -228,6 +229,7 @@ fun BlaiseApp(
     var city2 by remember { mutableStateOf(store.load(2)) }
     var pickerSlot by remember { mutableStateOf<Int?>(null) }
     var selectedSection by remember { mutableStateOf(FinalDashboardSpec.primaryNavigation.first()) }
+    var sourcesInitialTab by remember { mutableStateOf(1) }
     var powerOn by remember { mutableStateOf(uiPreferences.getBoolean("power_on", true)) }
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -367,6 +369,11 @@ fun BlaiseApp(
         powerOn = powerOn,
         silentMode = silentMode,
         onSelectSection = { selectedSection = it },
+        sourcesInitialTab = sourcesInitialTab,
+        onOpenSourcesTab = { tab ->
+            sourcesInitialTab = tab
+            selectedSection = "Mais"
+        },
         onPowerChange = {
             powerOn = it
             uiPreferences.edit().putBoolean("power_on", it).apply()
@@ -416,6 +423,8 @@ private fun BlaiseDashboard(
     onSubscribe: (SubscriptionOffer) -> Unit,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
+    sourcesInitialTab: Int = 1,
+    onOpenSourcesTab: (Int) -> Unit = {},
 ) {
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize().background(Navy).safeDrawingPadding(), color = Navy) {
@@ -454,7 +463,7 @@ private fun BlaiseDashboard(
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
 
                         when (selectedSection) {
-                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection, onOpenSourcesTab)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
                             "Mapa" -> MapScreen(city1, city2)
                             "Alertas" -> AlertsScreen(city1, city2)
@@ -465,12 +474,13 @@ private fun BlaiseDashboard(
                             "Histórico" -> HistoryScreen(city1, city2)
                             "Mais" -> MoreScreen(
                                 city = city1,
+                                sourcesInitialTab = sourcesInitialTab,
                                 powerOn = powerOn,
                                 silentMode = silentMode,
                                 onPowerChange = onPowerChange,
                                 onSilentModeChange = onSilentModeChange,
                             )
-                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection, onOpenSourcesTab)
                         }
 
                         if (selectedSection == "Mais") {
@@ -978,6 +988,7 @@ private fun HomeScreen(
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
     onNavigate: (String) -> Unit,
+    onOpenSourcesTab: (Int) -> Unit,
 ) {
     // The approved reference is a three-column CONTROL CENTER on landscape,
     // but remains a single vertically scrollable dashboard on phones.
@@ -1024,8 +1035,73 @@ private fun HomeScreen(
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
     Spacer(Modifier.height(10.dp))
+    RjRealtimeTablesShortcut(city1, onOpenSourcesTab)
+    Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
+
+/**
+ * Quick entry points to the already-integrated RJ matrices.
+ * Observe the SAME station/CHM snapshots as the full panels. The clock is
+ * separate from collection time: re-rendering never fabricates new data.
+ */
+@Composable
+private fun RjRealtimeTablesShortcut(city: City, onOpenSourcesTab: (Int) -> Unit) {
+    val now = LocalObservationClock.current
+    val station = LocalCityWeather.current[city.ibgeCode]?.currentObservation(now)
+    val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val marine = public?.marine?.takeIf { it.current(now) }
+    val liveStation = station != null &&
+        (station.source == "INMET" || station.source == "Alerta Rio") &&
+        (station.source != "Alerta Rio" || city.ibgeCode == 3304557)
+    val stationText = if (liveStation) {
+        "${station!!.source} • ${RjLiveTableEvidence.localTime(station.observedAt)}"
+    } else {
+        "Aguardando medição oficial válida nesta cidade"
+    }
+    val marineText = if (marine != null) {
+        val warnings = marine.warnings.count { it.current(now) }
+        "CHM • consulta ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • ${warnings} aviso(s) regionais"
+    } else {
+        "CHM • sem boletim marítimo atual validado"
+    }
+    DashboardSection(
+        title = "FONTES ATUAIS • TABELAS 1, 2 E MAR",
+        subtitle = "Acesse a matriz e confira fonte e horário; atualização da tela não é nova medição",
+        modifier = Modifier.fillMaxWidth().testTag("rj-home-sources-status"),
+    ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val shortcuts = listOf(
+                Triple("Tabela 1", stationText, 1),
+                Triple("Tabela 2", "INPE → INMET → CEMADEN → Windy → NOAA • desempate por produto", 2),
+                Triple("Mar", marineText, 3),
+            )
+            shortcuts.forEachIndexed { index, (label, status, tab) ->
+                Surface(
+                    modifier = Modifier.width(204.dp).testTag("rj-home-table-shortcut-${index+1}")
+                        .clickable { onOpenSourcesTab(tab) },
+                    color = PanelSoft, shape = RoundedCornerShape(9.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(label, color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(status, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Consultar quadro ›", color = Muted,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        Text("Alerta Rio e Defesa Civil P1 conjunta; OpenWeatherMap é complemento. " +
+            "Copernicus Marine e EUMETSAT aguardam produtos autorizados e integração.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-home-sources-limitations"))
+    }
+}
+
 @Composable
 private fun CompactServicesRow(onNavigate: (String) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1824,6 +1900,7 @@ private fun MarineScreen() {
  */
 @Composable
 private fun RjMarineSourceMatrixPanel() {
+    val uriHandler = LocalUriHandler.current
     val clock = LocalObservationClock.current
     val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
@@ -1835,6 +1912,24 @@ private fun RjMarineSourceMatrixPanel() {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text("Consultar visores oficiais em páginas externas (não são medições integradas):",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        val officialViewerLinks = listOf(
+            Triple("Marinha/CHM", "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", "chm"),
+            Triple("Copernicus MyOcean", "https://marine.copernicus.eu/access-data/myocean-viewer", "myocean"),
+            Triple("Copernicus Pro", "https://data.marine.copernicus.eu/viewer/expert?view=viewer", "copernicus-pro"),
+            Triple("EUMETSAT", "https://view.eumetsat.int/", "eumetsat"),
+            Triple("NOAA", "https://www.noaa.gov/", "noaa"),
+        )
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            officialViewerLinks.forEach { (title, url, tag) ->
+                TextButton(
+                    onClick = { runCatching { uriHandler.openUri(url) } },
+                    modifier = Modifier.testTag("marine-official-viewer-${tag}"),
+                ) { Text("${title} ↗", color = Gold, style = MaterialTheme.typography.labelSmall) }
+            }
+        }
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
             Surface(
                 modifier = Modifier.fillMaxWidth()
@@ -1924,6 +2019,7 @@ private fun HistoryScreen(city1: City, city2: City) {
 @Composable
 private fun MoreScreen(
     city: City,
+    sourcesInitialTab: Int = 1,
     powerOn: Boolean,
     silentMode: Boolean,
     onPowerChange: (Boolean) -> Unit,
@@ -1956,7 +2052,7 @@ private fun MoreScreen(
     ) {
         FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
         Text("Desempate Tabela 2 (cinco fontes): " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
+            RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
             "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
@@ -1967,20 +2063,20 @@ private fun MoreScreen(
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
-    RjMeteorologicalTablesPanel(city)
+    RjMeteorologicalTablesPanel(city, initialTab = sourcesInitialTab)
     Spacer(Modifier.height(10.dp))
     AgentStatusPanel()
 }
 
 /** Tables of registered source priorities; they make no live-data claims. */
 @Composable
-private fun RjMeteorologicalTablesPanel(city: City) {
+private fun RjMeteorologicalTablesPanel(city: City, initialTab: Int = 1) {
     val clock = LocalObservationClock.current
     val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock)
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
     val marine = public?.marine?.takeIf { it.current(clock) }
-    var selected by remember { mutableStateOf(1) }
+    var selected by remember(initialTab) { mutableStateOf(initialTab.coerceIn(1, 3)) }
     var chosenPhenomenon by remember { mutableStateOf<String?>(null) }
     var showAllCriteria by remember { mutableStateOf(false) }
     DashboardSection(
@@ -2076,7 +2172,8 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                             else RjLiveTableEvidence.municipality(item.code,
                                 city.ibgeCode,observation,public,clock)
                         Text("Dado consultado: ${live.description}",
-                            color = if(live.source != null) StableGreen else WarningAmber,
+                            color = if(RjLiveTableEvidence.hasConfirmedPhenomenon(live))
+                                StableGreen else WarningAmber,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.testTag("rj-meteo-live-${item.code}"))
                         if(live.source!=null) {
@@ -2096,10 +2193,19 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
+            RjMeteorologicalTables.disputeTable2SourceRoles.forEachIndexed { index, entry ->
+                Text(entry,
+                    color = if (index % 2 == 0) Color.White else Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("rj-table2-provider-${index + 1}"))
+            }
             Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
                 "Uma leitura primária pode ser comparada a uma fonte de desempate. " +
                 "Média numérica somente entre MEDIÇÕES compatíveis; previsão e medição são exibidas separadamente.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text(RjMeteorologicalTables.DISPUTE_DATA_SAFETY,
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-table2-application-safety"))
             val active = chosenPhenomenon?.let { code ->
                 RjMeteorologicalTables.table1.firstOrNull { it.code == code }
             }

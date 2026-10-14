@@ -148,6 +148,19 @@ class MainActivityTest {
         assertTextDisplayed("10. Auditoria Profunda RJ")
     }
 
+    @Test fun homeShortcutsOpenCorrectTable1Table2OrMarineMatrixWithoutInventingLiveSources() {
+        rule.onNodeWithTag("rj-home-sources-status").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-home-sources-limitations").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-home-table-shortcut-1").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("nav-Início").performClick()
+        rule.onNodeWithTag("rj-home-table-shortcut-2").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("nav-Início").performClick()
+        rule.onNodeWithTag("rj-home-table-shortcut-3").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-matrix-content").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun officialMeteorologicalTablesAreNamedAndAvailableInsideExistingMoreScreen() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
         rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
@@ -189,6 +202,14 @@ class MainActivityTest {
             .performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-marine-screen-row-TSUNAMI")
             .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun maritimeMatrixProvidesDirectLinksToOfficialOceanSatelliteViewers() {
+        rule.onNodeWithTag("nav-Mar e Ondas").performClick()
+        rule.onNodeWithTag("rj-marine-screen-table").performScrollTo().assertIsDisplayed()
+        for (tag in listOf("chm", "myocean", "copernicus-pro", "eumetsat", "noaa")) {
+            rule.onNodeWithTag("marine-official-viewer-$tag").fetchSemanticsNode()
+        }
     }
 
     @Test fun maritimeMatrixLinksTsunamiToAuthorityChecksNotWeightedAverage() {

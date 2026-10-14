@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RJ_MUNICIPALITIES} from '../src/rio-municipalities.mjs';
 import {
-  RJ_TABLE1_THREE,RJ_TABLE2_FIVE,
+  RJ_TABLE1_THREE,RJ_TABLE2_FIVE,RJ_TABLE2_PROVIDER_ROLES,
+  rjTable2EligibleSources,
   resolveRjTable12FiveSourceDispute,consultRjTable12FiveSourceDispute,
 } from '../src/rj-table12-five-source-dispute.mjs';
 
@@ -33,6 +34,66 @@ test('Table 1 has three; dispute Table 2 has FIVE in priority order INPE INMET C
     'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API']);
   assert.deepEqual(RJ_TABLE2_FIVE,[
     'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA']);
+});
+test('Table 2 roles remain INPE, INMET, CEMADEN, Windy, NOAA, preserving observed vs modeled nature',()=>{
+  assert.deepEqual(RJ_TABLE2_PROVIDER_ROLES.map(x=>x.id),RJ_TABLE2_FIVE);
+  assert.deepEqual(RJ_TABLE2_PROVIDER_ROLES.map(x=>x.order),[1,2,3,4,5]);
+  assert.equal(RJ_TABLE2_PROVIDER_ROLES.find(x=>x.id==='INMET_STATION').kind,
+    'OFFICIAL_STATION_OBSERVATION');
+  assert.equal(RJ_TABLE2_PROVIDER_ROLES.find(x=>x.id==='WINDY_MODELO').kind,
+    'THIRD_PARTY_MODEL_COMPARISON');
+});
+test('CEMADEN is third dispute check for rain but not a universal temp, pressure or wind sensor',()=>{
+  assert.deepEqual(rjTable2EligibleSources({variable:'CHUVA_MM_1H'}),RJ_TABLE2_FIVE);
+  for(const variable of ['TEMPERATURA_C','UMIDADE_PERCENTUAL','VENTO_KMH','RAJADA_KMH','PRESSAO_HPA']){
+    const sources=rjTable2EligibleSources({variable});
+    assert.equal(sources.includes('CEMADEN_RJ'),false);
+    assert.deepEqual(sources,['INPE_CPTEC_FORECAST','INMET_STATION','WINDY_MODELO','NOAA']);
+  }
+  assert.throws(()=>rjTable2EligibleSources({variable:'TSUNAMI'}),TypeError);
+});
+test('temperature consultation skips CEMADEN, reaches Windy fourth, and stops before NOAA',async()=>{
+  const called=[];
+  const adapters={
+    ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[O('ALERTA_RIO',22)]};},
+    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {observations:[O('DEFESA_CIVIL_RJ_REGIONAL',31)]};},
+    INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {forecasts:[M('INPE_CPTEC_FORECAST',26)]};},
+    INMET_STATION:async()=>{called.push('INMET');return {observations:[O('INMET_STATION',25)]};},
+    CEMADEN_RJ:async()=>{called.push('CEMADEN');throw Error('rain product must not be queried for temperature');},
+    WINDY_MODELO:async()=>{called.push('WINDY');return {forecasts:[M('WINDY_MODELO',23)]};},
+    NOAA:async()=>{called.push('NOAA');throw Error('NOAA must not be queried after Windy match');},
+  };
+  const result=await consultRjTable12FiveSourceDispute(input({adapters}));
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INPE','INMET','WINDY']);
+  assert.deepEqual(result.selectedSources,['ALERTA_RIO','WINDY_MODELO']);
+  assert.deepEqual(result.readingAndForecast.map(x=>x.type),
+    ['OBSERVED_STATION','MODEL_FORECAST_NOT_A_SENSOR']);
+  assert.equal(result.safeForAutomaticWarning,false);
+});
+test('rain-specific CEMADEN can corroborate existing P1 rain window after INPE and INMET cannot',async()=>{
+  const rain=(sourceId,mm)=>O(sourceId,mm,{
+    variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60,
+  });
+  const model=(sourceId,mm)=>M(sourceId,mm,{
+    variable:'CHUVA_MM_1H',unit:'mm',forecastWindowMinutes:60,
+  });
+  const called=[];
+  const adapters={
+    ALERTA_RIO:async()=>{called.push('ALERTA_RIO');return {observations:[rain('ALERTA_RIO',2)]};},
+    DEFESA_CIVIL_RJ_REGIONAL:async()=>{called.push('DEFESA_CIVIL');return {observations:[rain('DEFESA_CIVIL_RJ_REGIONAL',20)]};},
+    INPE_CPTEC_FORECAST:async()=>{called.push('INPE');return {forecasts:[model('INPE_CPTEC_FORECAST',11)]};},
+    INMET_STATION:async()=>{called.push('INMET');return {observations:[rain('INMET_STATION',32)]};},
+    CEMADEN_RJ:async()=>{called.push('CEMADEN');return {observations:[rain('CEMADEN_RJ',21)]};},
+    WINDY_MODELO:async()=>{called.push('WINDY');throw Error('stop after CEMADEN');},
+  };
+  const result=await consultRjTable12FiveSourceDispute({
+    ibge:'3304557',variable:'CHUVA_MM_1H',adapters,now:NOW,
+  });
+  assert.deepEqual(called,['ALERTA_RIO','DEFESA_CIVIL','INPE','INMET','CEMADEN']);
+  assert.deepEqual(result.selectedSources,['DEFESA_CIVIL_RJ_REGIONAL','CEMADEN_RJ']);
+  assert.equal(result.estimatedValue,20.5);
+  assert.equal(result.stage,'TABLE_2_OBSERVED_DISPUTE_RESOLVED');
+  assert.equal(result.safeForAutomaticWarning,false);
 });
 test('two compatible independent Table 1 readings immediately calculate arithmetic mean without ANY dispute queries',async()=>{
   const calls=[];
@@ -112,7 +173,10 @@ test('NOAA last: if prior four comparators do not match a Table 1 reading, NOAA 
     NOAA:async()=>{calls.push('NOAA');return {forecasts:[M('NOAA',31)]};},
   };
   const r=await consultRjTable12FiveSourceDispute(input({adapters}));
-  assert.deepEqual(calls,['INPE','INMET','CEMADEN','Windy','NOAA']);
+  // Temperature is not a verified CEMADEN pluviometer variable:
+  // the canonical Table 2 still has five sources, but this product-specific
+  // consultation correctly skips CEMADEN (rainfall-only).
+  assert.deepEqual(calls,['INPE','INMET','Windy','NOAA']);
   assert.equal(r.state,'OFFICIAL_OR_VETTED_READING_WITH_MODEL_REFERENCE');
   assert.deepEqual(r.selectedSources,['DEFESA_CIVIL_RJ_REGIONAL','NOAA']);
   assert.equal(r.estimatedValue,null);
