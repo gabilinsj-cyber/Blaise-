@@ -194,3 +194,12 @@ test('public endpoint only supports GET and blocks stale status without claiming
   await handler({url:RJ_PUBLIC_STATUS_PATH,method:'POST'},other);
   assert.equal(other.statusCode,405);
 });
+
+test('a freshly generated wrapper cannot revive old or future hydrological bulletins',()=>{
+  for(const observedAt of [new Date(now-301_000).toISOString(),new Date(now+1000).toISOString()]){
+    const w=worker(),read=w.readSource;
+    w.readSource=id=>{const feed=read(id);return feed?.snapshot?.records
+      ?{...feed,snapshot:{...feed.snapshot,records:feed.snapshot.records.map(r=>({...r,observedAt}))}}:feed;};
+    assert.ok(buildRjPublicStatusSnapshot(w,{nowMillis:now}).municipalities.every(r=>r.risk===null));
+  }
+});
