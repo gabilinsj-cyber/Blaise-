@@ -211,6 +211,7 @@ private val LocalInmetHourlySeries = compositionLocalOf<InmetHourlySeries?> { nu
 private val LocalRjMeasuredRadarFrame = compositionLocalOf<RjRadarMeasuredFrame?> { null }
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalOfficialWarningHistory = compositionLocalOf { emptyList<PublicRjWarning>() }
+private val LocalOfficialMarineHistory = compositionLocalOf { emptyList<br.com.blaise.rj.data.PublicRjMarineWarning>() }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalPublicRjStatus = compositionLocalOf<PublicRjStatusResult> { PublicRjStatusResult.Unavailable }
 private val LocalPublicStatusConfigured = compositionLocalOf { false }
@@ -262,13 +263,26 @@ fun BlaiseApp(
     var publicRjStatus by remember { mutableStateOf<PublicRjStatusResult>(PublicRjStatusResult.Unavailable) }
     val warningHistoryStore = remember(context) { br.com.blaise.rj.data.OfficialWarningHistory(context) }
     var warningHistory by remember(warningHistoryStore) { mutableStateOf(warningHistoryStore.read(Instant.now())) }
-    LaunchedEffect(publicRjStatus, observationClock) {
+    val marineHistoryStore = remember(context) { br.com.blaise.rj.data.OfficialMarineWarningHistory(context) }
+    var marineHistory by remember(marineHistoryStore) { mutableStateOf(marineHistoryStore.read(Instant.now())) }
+    LaunchedEffect(publicRjStatus, statewideDashboard, observationClock) {
         val current = (publicRjStatus as? PublicRjStatusResult.Available)?.snapshot
             ?.takeIf { it.current(observationClock) }
-        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty(), observationClock)
+        val paid = (statewideDashboard as? StatewideDataResult.Available)?.snapshot
+            ?.takeIf { it.current(observationClock) && it.workerActive }
+        val paidWarnings = paid?.warnings.orEmpty().filter { it.attribution == "EXACT_IBGE" }
+            .map { PublicRjWarning(it.id, it.event, it.severity, it.sent, it.onset, it.expires,
+                it.municipalityIbges, "https://apiprevmet3.inmet.gov.br/avisos/rss") }
+        val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty() + paidWarnings, observationClock)
         if (next != warningHistory) {
             warningHistory = next
             warningHistoryStore.write(next)
+        }
+        val marine = current?.marine?.takeIf { it.current(observationClock) }
+        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock)
+        if (nextMarine != marineHistory) {
+            marineHistory = nextMarine
+            marineHistoryStore.write(nextMarine)
         }
     }
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
@@ -417,6 +431,7 @@ fun BlaiseApp(
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
         LocalOfficialWarningHistory provides warningHistory,
+        LocalOfficialMarineHistory provides marineHistory,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
         city1 = city1,
@@ -1896,6 +1911,8 @@ private fun PulsingRiskLabel(text: String, level: Int) {
 private fun MunicipalAlertValidityPanel(ibge: Int) {
     val now = LocalObservationClock.current
     val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+    val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
+        ?.takeIf { it.current(now) && it.workerActive }
     val warnings = LocalOfficialWarningHistory.current.filter {
         ibge in it.municipalityIbges && AlertValidityPolicy.retainHistory(it.sent, it.expires, now)
     }
@@ -1907,8 +1924,10 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
         (activeRecords + historicalRecords).forEach { warning ->
             if (historicalRecords.firstOrNull()?.id == warning.id)
                 Text("HISTÓRICO • encerrados no Blaise", color = Muted, fontWeight = FontWeight.Bold)
-            val sourceCurrent = snapshot?.current(now) == true &&
-                snapshot.warnings.any { it == warning }
+            val sourceCurrent = (snapshot?.current(now) == true && snapshot.warnings.any { it == warning }) ||
+                paid?.warnings?.any { it.id == warning.id && it.sent == warning.sent &&
+                    it.expires == warning.expires && it.event == warning.event && it.severity == warning.severity &&
+                    it.attribution == "EXACT_IBGE" && ibge in it.municipalityIbges } == true
             val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
                 warning.expires, now, sourceCurrent)
             val historical = state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
@@ -1933,6 +1952,31 @@ private fun MunicipalAlertValidityPanel(ibge: Int) {
                             color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MarineWarningHistoryPanel() {
+    val now = LocalObservationClock.current
+    val records = LocalOfficialMarineHistory.current.filter {
+        !AlertValidityPolicy.activeUntil(it.issuedAt, it.validUntil).isAfter(now) &&
+            AlertValidityPolicy.retainHistory(it.issuedAt, it.validUntil, now)
+    }
+    if (records.isEmpty()) return
+    Spacer(Modifier.height(14.dp))
+    DashboardSection("HISTÓRICO MARÍTIMO • MARINHA / CHM", "Registros encerrados no Blaise • não representam risco atual") {
+        records.forEach { warning ->
+            val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+            val zone = java.time.ZoneId.of("America/Sao_Paulo")
+            val closed = AlertValidityPolicy.activeUntil(warning.issuedAt, warning.validUntil)
+            Text("${warning.id} • ${warning.warningType} • ${warning.areas.joinToString()}", color = Muted)
+            Text("Emissão ${warning.issuedAt.atZone(zone).format(format)} • encerramento local ${closed.atZone(zone).format(format)} • histórico até ${closed.plusSeconds(AlertValidityPolicy.HISTORY_SECONDS).atZone(zone).format(format)} (Brasília)",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Fonte: Marinha / CHM • aviso regional METAREA V, sem atribuição automática a município.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", color = Muted,
+                style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -1987,6 +2031,7 @@ private fun AlertsScreen(city1: City, city2: City) {
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    MarineWarningHistoryPanel()
     DashboardSection(
         title = "ABALO SÍSMICO",
         subtitle = "Regra de notificação do Blaise V6 RJ",
