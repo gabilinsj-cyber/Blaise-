@@ -55,14 +55,14 @@ const sources = Object.freeze({
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
 const ROUTES = Object.freeze({
   TEMPERATURA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  CHUVA_ATUAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
+  CHUVA_ATUAL: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN','WINDY']),
   SENSACAO_TERMICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
   UMIDADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
   VENTO: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
   RAJADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN','EUMETSAT']),
+  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN','WINDY']),
+  TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN','WINDY']),
+  TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN','WINDY','EUMETSAT']),
   RISCO_HIDROLOGICO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   VAZAO_RIO: series(['ANA','SGB']),
   RESSACA: series(['MARINHA','INMET','NOAA','COPERNICUS','INPE','WINDY']),
@@ -86,6 +86,25 @@ const ROUTES = Object.freeze({
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
 });
 
+
+/**
+ * Tabela 2 desempate: source identifiers from the already approved RJ matrix.
+ * This list is QUERY priority, not a license to average forecasts with
+ * observations. INMET can be reused as a measurement only if it has not
+ * already contributed to the primary comparison; CEMADEN may provide a
+ * distinct independent rainfall station when coverage and provenance allow.
+ */
+export const RJ_TABLE2_DISPUTE_SOURCES = Object.freeze([
+  'INPE_CPTEC_FORECAST', 'INMET_STATION', 'CEMADEN_RJ',
+  'WINDY_MODELO', 'NOAA',
+]);
+export const RJ_TABLE2_OBSERVATION_ONLY = Object.freeze([
+  'INMET_STATION', 'CEMADEN_RJ',
+]);
+export const RJ_TABLE2_WEIGHTABLE_PHENOMENA = Object.freeze([
+  'TEMPERATURA','UMIDADE','VENTO','RAJADA','CHUVA_ATUAL',
+  'CHUVA_ACUMULADA','PRESSAO_ATMOSFERICA',
+]);
 
 // Complementary, product-specific data channels do NOT change the primary
 // official alert hierarchy or the INPE->Windy forecast dispute cascade.
