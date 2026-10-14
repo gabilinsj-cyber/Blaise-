@@ -42,7 +42,8 @@ class AlertValidityTest {
     }
 
     @Test fun completedHoursAdvanceUntilLocalExpiry() {
-        assertEquals(null, AlertValidityPolicy.updateLabel(issued, issued.plusSeconds(10799)))
+        org.junit.Assert.assertTrue(AlertValidityPolicy.updateLabel(issued, issued.plusSeconds(10799))!!
+            .contains("Última atualização oficial: 14/10 09:00 (Brasília)."))
         for (hour in 3L..12L) org.junit.Assert.assertTrue(
             AlertValidityPolicy.updateLabel(issued, issued.plusSeconds(hour * 3600))!!.contains("últimas $hour horas"))
     }

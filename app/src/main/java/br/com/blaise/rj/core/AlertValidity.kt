@@ -39,7 +39,11 @@ object AlertValidityPolicy {
     fun updateLabel(lastOfficialUpdate: Instant, now: Instant): String? {
         if (lastOfficialUpdate.isAfter(now)) return updateLabel(AlertUpdateAge.INVALID)
         val hours = Duration.between(lastOfficialUpdate, now).seconds / 3600
-        return if (hours >= 3) "Sem atualização nas últimas $hours horas • risco atual sem confirmação." else null
+        val stamp = lastOfficialUpdate.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+        val lastUpdate = "Última atualização oficial: $stamp (Brasília)."
+        return if (hours >= 3) "$lastUpdate Sem atualização nas últimas $hours horas • risco atual sem confirmação."
+            else lastUpdate
     }
 
     /** Local presentation only: preserve the severity declared by the issuer. */

@@ -10,6 +10,22 @@ import org.junit.Before
 import org.junit.Test
 
 class OfficialWarningHistoryTest {
+    @Test fun cleanupDeletesOnlyExpiredHistoryAndPreservesCurrentRecordsAndSettings() {
+        val now = issued.plusSeconds(24 * 3600)
+        val old = warning().copy(expires = issued.plusSeconds(48 * 3600))
+        val current = old.copy(id = "current", sent = now.minusSeconds(60), onset = now.minusSeconds(60))
+        val settings = context.getSharedPreferences("cleanup_preservation_test", Context.MODE_PRIVATE)
+        settings.edit().putString("city", "3301900").commit()
+        try {
+            OfficialWarningHistory(context).write(listOf(old, current))
+            AlertHistoryCleanupService.prune(context, now)
+            assertEquals(listOf(current), OfficialWarningHistory(context).read(now))
+            assertEquals("3301900", settings.getString("city", null))
+        } finally {
+            settings.edit().clear().commit()
+        }
+    }
+
     @Test fun confirmedRemovalAtFifthHourClosesRecordAndCannotResurrectTheSameEmission() {
         val store = OfficialWarningHistory(context)
         val original = warning().copy(expires = issued.plusSeconds(2 * 86400))

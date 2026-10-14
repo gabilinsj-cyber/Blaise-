@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -22,6 +23,10 @@
         android:label="Blaise V6 RJ"
         android:supportsRtl="true"
         android:theme="@style/Theme.Blaise">
+        <service
+            android:name=".data.AlertHistoryCleanupService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
