@@ -148,14 +148,17 @@ class MainActivityTest {
         assertTextDisplayed("10. Auditoria Profunda RJ")
     }
 
-    @Test fun homeShowsLinkedTable1Table2AndMarineFreshnessWithoutInventingLiveSources() {
+    @Test fun homeShortcutsOpenCorrectTable1Table2OrMarineMatrixWithoutInventingLiveSources() {
         rule.onNodeWithTag("rj-home-sources-status").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-home-sources-limitations").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("rj-home-table-shortcut-1").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("nav-Início").performClick()
+        rule.onNodeWithTag("rj-home-table-shortcut-2").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("nav-Início").performClick()
         rule.onNodeWithTag("rj-home-table-shortcut-3").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-marine-screen-table").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-matrix-content").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun officialMeteorologicalTablesAreNamedAndAvailableInsideExistingMoreScreen() {
