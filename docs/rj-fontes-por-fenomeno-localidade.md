@@ -12,6 +12,18 @@ A matriz meteorológica principal tem **cinco fontes**, selecionadas conforme a 
 
 Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializados reais* (por exemplo, células/grade de radar ou satélite com resolução, hora, refletividade/intensidade e georreferenciamento) devidamente autorizados; quatro leituras pontuais **não permitem deduzir esses pixels**. Até existir a entrada, a camada permanece indisponível.
 
+## Hierarquia operacional vigente — 14/10/2026
+
+**Esta regra substitui as ordens antigas citadas em textos históricos abaixo**, sem retirar o catálogo das dez variáveis, os 30 fenômenos nem as cinco categorias marítimas.
+
+- **Primeiras três fontes de observação/aviso:** 1. **Alerta Rio**, somente no município do Rio; 2. **Defesa Civil** competente por localidade; 3. **INMET**, conforme estação e fenômeno. **Bastam duas medições oficiais independentes e comparáveis** para cálculo simples ou ponderado com pesos justificados; avisos não são grandezas a ponderar.
+- **Desempate após discordância:** 4. **INPE/CPTEC**, primeira referência de modelo/previsão; 5. **Windy**, somente se INPE for inconclusivo. O par exibido pode conter uma observação oficial e uma previsão identificada, **nunca misturadas numa média de sensores**. Preservar as demais medições divergentes.
+- **Complementar das dez variáveis:** OpenWeatherMap permanece **terceiro produto de consulta complementar** conforme plano, produto, licença e independência dos dados. **Não é a terceira autoridade oficial antes do INMET**. CEMADEN, ANA, SGB/SACE, NOAA e redes autorizadas são fontes especializadas quando o fenômeno exigir e não perdem prioridade em avisos próprios.
+- **Marítimo:** Marinha/CHM (autoridade de avisos costeiros), NOAA, Copernicus Marine, EUMETSAT e boias oficiais, segundo variável e direitos do produto. Não misturar maré prevista, nível observado, imagens de satélite e avisos de ressaca/tsunami.
+- **Geografia:** 92 municípios RJ com cobertura dependente de estação/produto; Alerta Rio nunca é atribuído aos outros 91. **INEA excluído**. Cada tela mostra origem, horário real da medição, validade e produto. Consulta periódica sozinha não comprova medição nova.
+
+**Código vigente:** `backend/src/rj-table12-five-source-dispute.mjs`, `backend/src/rj-meteorological-homologation.mjs`, `backend/src/rj-phenomenon-source-policy.mjs`; tela `app/src/main/java/br/com/blaise/rj/RjMeteorologicalTables.kt`. A conectividade do servidor e os direitos de uso são verificações separadas: o cadastro de fonte não comprova dados ao vivo.
+
 ## Revisão de 12/10/2026 — ampliação para 30 fenômenos e complementos
 
 **Situação de validação:** o cadastro anterior continha **25 categorias**. Cinco categorias adicionais foram registradas para atingir **30 no código** (`CHUVA_ATUAL`, `MARE`, `SWELL`, `CORRENTES_MARINHAS`, `TEMPERATURA_MAR`), com **cinco novas verificações de desempate** na interface (treze critérios ao todo). Esta é uma reconciliação técnica com os requisitos recuperados; **as duas capturas apresentadas exibem somente os dez primeiros fenômenos e o quadro marítimo**, logo não comprovam que estes sejam exatamente os dois itens adicionais da tabela original de 28. Não declarar correspondência histórica exata sem a tabela integral.

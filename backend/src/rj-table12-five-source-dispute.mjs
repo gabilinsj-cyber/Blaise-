@@ -1,9 +1,12 @@
 /**
  * Blaise V6 RJ — Table 1 / Table 2 cascade.
- * Table 1: Alerta Rio (Rio municipality only), regional Civil Defence,
- * then complementary OpenWeatherMap product (independence NOT presumed).
+ * Table 1: the three first AUTHORITATIVE candidates by locality:
+ * Alerta Rio (Rio municipality only), regional Civil Defence, INMET.
  * If TWO genuinely independent measured readings match, calculate and STOP.
- * Otherwise Table 2: INPE/CPTEC -> INMET -> CEMADEN -> Windy -> NOAA.
+ * Table 2: INPE/CPTEC -> Windy (forecast proximity, NOT sensors), then
+ * specialist CEMADEN / NOAA and optional OpenWeatherMap product.
+ * OpenWeatherMap remains a complementary consultation for the ten weather
+ * variables, not a third official station nor an automatic tie-breaker.
  *
  * A forecast may corroborate/provide context to ONE measured reading but
  * CANNOT be numerically averaged with a station observation or certify a
@@ -13,12 +16,12 @@
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 
 export const RJ_TABLE1_THREE=Object.freeze([
-  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API',
+  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION',
 ]);
 export const RJ_TABLE2_FIVE=Object.freeze([
-  'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
+  'INPE_CPTEC_FORECAST','WINDY_MODELO','CEMADEN_RJ','NOAA','OPENWEATHERMAP_API',
 ]);
-export const RJ_TABLE12_CASCADE_VERSION='2026-10-12.v3';
+export const RJ_TABLE12_CASCADE_VERSION='2026-10-14.v4';
 const RJ_CITIES=new Set(RJ_MUNICIPALITIES.map(row=>row.ibge));
 const VARIABLES=Object.freeze({
   TEMPERATURA_C:Object.freeze({unit:'°C',min:-30,max:60,threshold:2}),
@@ -221,14 +224,18 @@ export function resolveRjTable12FiveSourceDispute({
   // order. Never treat a modeled product as a second measured observation.
   for(const id of RJ_TABLE2_FIVE){
     checked.push(id);
-    if(STATIONS.has(id)){
+    if(STATIONS.has(id)||id==='OPENWEATHERMAP_API'){
+      // OWM may only participate as an independent observation when
+      // explicit upstream station independence is proven; ordinary OWM
+      // model data is always handled by the forecast branch below.
       const pair=gather(id);
       if(pair)return observedPair(pair,spec,{
         stage:'TABLE_2_OBSERVED_DISPUTE_RESOLVED',
         step:'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY',
         consultedSources:checked,allPrimary:initial,
       });
-    } else {
+    }
+    if(!STATIONS.has(id)){
       const products=forecasts.filter(f=>forecastAllowed(f,{
         sourceId:id,ibge,variable,spec,now,
       })).sort((a,b)=>time(b.issuedAt)-time(a.issuedAt));
@@ -247,6 +254,8 @@ export function resolveRjTable12FiveSourceDispute({
       f.sourceId==='OPENWEATHERMAP_API'&&forecastAllowed(f,{
         sourceId:'OPENWEATHERMAP_API',ibge,variable,spec,now,
       })).map(modelSummary)),
+    primaryOfficialPriority:RJ_TABLE1_THREE,
+    forecastTieBreakPriority:Object.freeze(['INPE_CPTEC_FORECAST','WINDY_MODELO']),
     consultedSources:Object.freeze(checked),
     conclusion:'SHOW_REAL_READINGS_OR_UNAVAILABLE_DO_NOT_INVENT_SECOND_READING',
   });

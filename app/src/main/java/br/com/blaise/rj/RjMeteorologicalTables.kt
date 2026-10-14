@@ -28,9 +28,9 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-12.v4"
+    const val VERSION = "2026-10-14.v5"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
-    const val METHOD = "Duas das três primárias convergentes: média simples ou ponderada; senão cinco referências de desempate"
+    const val METHOD = "Duas fontes oficiais compatíveis: cálculo; senão INPE, depois Windy; fontes especializadas por fenômeno"
     const val NO_INEA = "INEA excluído"
     const val PHENOMENA_COUNT = 30
     const val ADDITIONAL_TIEBREAK_CHECKS = 5
@@ -39,25 +39,25 @@ object RjMeteorologicalTables {
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
     val primaryTable1Sources = listOf(
-        "Alerta Rio", "Defesa Civil RJ", "OpenWeatherMap (3ª consulta complementar)"
+        "Alerta Rio (somente Rio)", "Defesa Civil RJ", "INMET (estações)"
     )
     val disputeTable2FiveSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+        "INPE/CPTEC", "Windy", "CEMADEN", "NOAA", "OpenWeatherMap (complementar)"
     )
 
     // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
     // are MODEL sources, never a second station for observational averages.
     val table1 = listOf(
-        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; 3ª consulta OpenWeatherMap; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3º complemento; cálculo físico Blaise sobre entradas válidas, sem média de índices"),
-        RjMeteoSourceRow("CHUVA_ATUAL", "Chuva atual", "RJ, estações com medição", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta por produto; desempate de leituras de chuva INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil por igual janela; OpenWeatherMap 3ª consulta; INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "P1 Alerta Rio + Defesa Civil por aviso vigente; OpenWeatherMap 3ª consulta complementar; INPE, INMET, CEMADEN, Windy, NOAA para evidências, não média de alertas"),
-        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("RAJADA", "Rajadas de vento", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "P1 Alerta Rio + Defesa Civil com dados reais; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("GRANIZO", "Granizo", "92 municípios, área do evento", "P1 Alerta Rio + Defesa Civil por aviso oficial; OpenWeatherMap 3ª consulta de contexto; desempate conforme fenômeno e produto, nunca média de avisos"),
+        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "Alerta Rio (Rio) → Defesa Civil → INMET; OWM 3º complemento; desempate INPE → Windy"),
+        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "Temperatura/umidade/vento válidos: Alerta Rio (Rio), Defesa Civil, INMET; cálculo físico Blaise; OWM complemento, INPE → Windy modelos"),
+        RjMeteoSourceRow("CHUVA_ATUAL", "Chuva atual", "RJ, estações com medição", "Alerta Rio (Rio) → Defesa Civil → INMET por ponto e hora; OWM complemento; INPE → Windy; CEMADEN especializado"),
+        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "Alerta Rio (Rio) → Defesa Civil → INMET; mesma janela de chuva; OWM complemento; INPE → Windy; CEMADEN hidrologia"),
+        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "Aviso oficial vigente: Alerta Rio (Rio), Defesa Civil, INMET; CEMADEN conforme produto; INPE → Windy contexto, sem média de alerta"),
+        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "Alerta Rio (Rio) → Defesa Civil → INMET por estação; OWM complemento; INPE → Windy previsão comparativa"),
+        RjMeteoSourceRow("RAJADA", "Rajadas de vento", "92 municípios, estações existentes", "Alerta Rio (Rio) → Defesa Civil → INMET; rajada medida ≠ vento médio; OWM complemento; INPE → Windy"),
+        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "Alerta Rio (Rio) → Defesa Civil → INMET por mesma pressão/estação; OWM complemento; INPE → Windy"),
+        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "Alerta Rio (Rio) → Defesa Civil → INMET por estação; OWM complemento; INPE → Windy"),
+        RjMeteoSourceRow("GRANIZO", "Granizo", "92 municípios, área do evento", "Avisos Alerta Rio (Rio), Defesa Civil e INMET; radar e CEMADEN especializados; OWM complemento sem autoridade de alerta"),
         RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Alerta Rio + Defesa Civil P1 na cidade do Rio; INMET/CEMADEN; OpenWeatherMap complementar; EUMETSAT satélite; INPE → Windy"),
         RjMeteoSourceRow("RISCO_HIDROLOGICO", "Cheia e inundação", "Bacias e municípios com risco", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
         RjMeteoSourceRow("VAZAO_RIO", "Vazão dos rios", "Estações hidrológicas RJ", "ANA HidroWeb → SGB/SACE"),
@@ -80,11 +80,11 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA; medição e modelo identificados"),
     )
     val table2 = listOf(
-        RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média simples ou ponderada."),
-        RjMeteoDisputeRow("02", "Convergência 2 de 3", "Duas observações independentes e comparáveis entre as três primeiras bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
-        RjMeteoDisputeRow("03", "Se não houver convergência", "Consultar CINCO fontes de desempate em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA; basta uma confirmar aproximadamente uma leitura primária."),
-        RjMeteoDisputeRow("04", "INPE e INMET", "INPE/CPTEC é a 1ª consulta; INMET é a 2ª. Se o INPE oferecer apenas previsão, apresentar previsão e medição separadas; uma estação INMET pode validar uma medição existente."),
-        RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "Se necessário, CEMADEN é a 3ª referência, Windy a 4ª e NOAA a 5ª. Aplicar somente produtos compatíveis por fenômeno; modelos não substituem medições."),
+        RjMeteoDisputeRow("01", "Três fontes oficiais iniciais", "Alerta Rio (somente Rio), Defesa Civil competente e INMET por estação. Duas medições independentes compatíveis bastam; OWM é terceiro produto complementar, não terceira autoridade."),
+        RjMeteoDisputeRow("02", "Convergência de duas fontes", "Duas observações oficiais independentes e comparáveis: verificar localidade, janela, timestamp e origem; média simples ou ponderada somente com pesos válidos."),
+        RjMeteoDisputeRow("03", "Se houver divergência", "Após as três fontes oficiais sem dupla convergente, INPE/CPTEC é primeiro desempate por previsão; Windy somente se INPE inconclusivo."),
+        RjMeteoDisputeRow("04", "INPE primeiro", "INPE/CPTEC compara previsões com estações das três primeiras fontes, sem substituir medição, nem cancelar avisos oficiais."),
+        RjMeteoDisputeRow("05", "Windy e especializadas", "Windy se INPE não resolver; CEMADEN, NOAA e OpenWeatherMap são complementares condicionadas ao evento, cobertura e licença."),
         RjMeteoDisputeRow("06", "Duas fontes apresentadas", "Mostrar leituras reais e/ou uma medição oficial + uma previsão identificada; nunca média mista de modelo e sensor."),
         RjMeteoDisputeRow("07", "Dados faltantes", "Usar próximo canal autorizado ou cache recente; nunca criar valor numérico ou aviso sem evidência."),
         RjMeteoDisputeRow("08", "Exceções especializadas", "Avisos marítimos, rios, raios, sismo e tsunami usam fontes competentes; não fazer média de categorias de alerta."),
@@ -154,8 +154,8 @@ object RjMeteorologicalTables {
 
     init {
         require(primaryTable1Sources.size == 3 && disputeTable2FiveSources.size == 5)
-        require(disputeTable2FiveSources.take(2) == listOf("INPE/CPTEC", "INMET"))
-        require(disputeTable2FiveSources.last() == "NOAA")
+        require(disputeTable2FiveSources.take(2) == listOf("INPE/CPTEC", "Windy"))
+        require(disputeTable2FiveSources.last().contains("OpenWeatherMap"))
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
         require(marineTable.size == 5 && marineTable.map { it.code }.distinct().size == 5)

@@ -14,8 +14,13 @@ class RjMeteorologicalTablesTest {
         )
         assertEquals(expected, RjMeteorologicalTables.table1.take(10).map { it.code })
         assertTrue(RjMeteorologicalTables.table1.take(10).all {
-            it.priority.contains("OpenWeatherMap")
+            it.priority.contains("OWM")
         })
+        assertEquals(listOf("Alerta Rio (somente Rio)", "Defesa Civil RJ",
+            "INMET (estações)"), RjMeteorologicalTables.primaryTable1Sources)
+        assertEquals(listOf("INPE/CPTEC", "Windy"),
+            RjMeteorologicalTables.disputeTable2FiveSources.take(2))
+        assertTrue(RjMeteorologicalTables.THIRD_COMPLEMENT.contains("OpenWeatherMap"))
     }
 
     @Test fun expandedTablesMatchThirtyDistinctCategoriesAndFiveExtraDisputeChecks() {

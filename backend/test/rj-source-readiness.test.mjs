@@ -7,14 +7,15 @@ import {
 } from '../src/rj-source-readiness.mjs';
 const NOW=Date.parse('2026-10-11T04:00:00.000Z');
 const status=({enabled=true,started=true,runCount=1,sourceState='CURRENT',
-  fetchedAt='2026-10-11T03:59:00.000Z'}={})=>({
+  fetchedAt='2026-10-11T03:59:00.000Z',
+  observedAt=fetchedAt}={})=>({
   enabled,started,
   scheduler:{mode:'normal',refreshIntervalMs:60_000,
     tasks:[{taskId:'inmet-cap-warnings',runCount,
       lastOutcome:runCount?'SUCCESS':'NOT_STARTED',
       lastFinishedAt:fetchedAt}]},
   sources:[{sourceId:'inmet-cap-warnings',state:sourceState,fetchedAt,
-    lastErrorCode:null,observedAt:fetchedAt}],
+    lastErrorCode:null,observedAt}],
 });
 test('enabled-but-not-running is NOT confirmed real-time collection',()=>{
   const r=buildRjSourceReadiness({status:()=>status({enabled:false,started:false})},{nowMillis:NOW});
@@ -41,6 +42,21 @@ test('configuration, running process and one successful fresh source task requir
   assert.equal(r.homologationRegister.copernicusMarineLiveProof,false);
   assert.equal(r.homologationRegister.eumetsatSatelliteLiveProof,false);
   assert.equal(r.homologationRegister.liveSourceTasksWithRecentData,1);
+});
+test('a recent fetch with an old or absent observation is not real-time source evidence',()=>{
+  for(const observedAt of ['2026-10-09T03:59:00.000Z',null,
+    '2026-10-12T03:59:00.000Z']) {
+    const r=buildRjSourceReadiness({status:()=>status({observedAt})},{nowMillis:NOW});
+    assert.equal(r.collectionState,'NO_FRESH_VALIDATED_SOURCE_EVIDENCE');
+    assert.equal(r.sourceStates[0].fetchedRecently,true);
+    assert.equal(r.sourceStates[0].observationFresh,false);
+    assert.equal(r.freshSourceCount,0);
+  }
+});
+test('same source metadata supports recent observational evidence with exact timestamp',()=>{
+  const r=buildRjSourceReadiness({status:()=>status()},{nowMillis:NOW});
+  assert.equal(r.sourceStates[0].observationFresh,true);
+  assert.equal(r.sourceStates[0].observationAgeSeconds,60);
 });
 test('stale station data and no successful tasks cannot masquerade as live',()=>{
   for(const snapshot of [
