@@ -23,8 +23,8 @@ test('ten numbered names and functions preserved with explicit deployment honest
 });
 test('normal, severe and confirmed-extreme science cadence cannot activate 25s network polling', () => {
   assert.equal(rjCadenceForLevel(3).observationUpdateMs, 300000);
-  assert.equal(rjCadenceForLevel(4).observationUpdateMs, 60000);
-  assert.equal(rjCadenceForLevel(5).calculationRecheckMs, 60000);
+  assert.equal(rjCadenceForLevel(4).observationUpdateMs, 30000);
+  assert.equal(rjCadenceForLevel(5).calculationRecheckMs, 30000);
   const extreme = rjCadenceForLevel(5, {independentOfficialLevel5Alerts: 2, scientificRevalidationLevel: 5});
   assert.equal(extreme.calculationRecheckMs, 25000);
   assert.equal(extreme.sourceMayBePolledEvery25s, false);

@@ -66,12 +66,14 @@ test('public API defaults off and requires independent operator data-usage appro
   const res=fakeResponse();
   const disabled=createRjPublicStatusHandler(delegate,{sourceWorker:worker()});
   await disabled({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
-  assert.equal(delegated,1);
+  assert.equal(delegated,0);
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'official_status_not_enabled');
   const unlicensed=createRjPublicStatusHandler(delegate,{
     enabled:true,licensingApproved:false,sourceWorker:worker(),
   });
   await unlicensed({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
-  assert.equal(delegated,2);
+  assert.equal(delegated,0);
   const enabled=createRjPublicStatusHandler(delegate,{
     enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:worker(),
   });
@@ -80,7 +82,7 @@ test('public API defaults off and requires independent operator data-usage appro
   assert.equal(res.headers['Cache-Control'],'no-store');
   assert.equal(res.body.contract,RJ_PUBLIC_STATUS_CONTRACT);
   assert.equal(res.body.municipalities.length,92);
-  assert.equal(delegated,2);
+  assert.equal(delegated,0);
 });
 test('fresh CHM warnings expose regional facts and waves, never municipal P0',()=>{
   const baseline=worker();
@@ -170,7 +172,8 @@ test('fresh licensed CHM bulletin remains available when INMET CAP and CEMADEN a
     });
   const blocked=fakeResponse();
   await denied({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},blocked);
-  assert.equal(blocked.statusCode,404);
+  assert.equal(blocked.statusCode,503);
+  assert.equal(blocked.body.error,'source_terms_not_approved');
 });
 
 test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{

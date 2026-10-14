@@ -21,7 +21,7 @@ data class CityWeatherObservation(
     val hourlyRainMm: Double? = null,
 ) {
     fun current(now: Instant): Boolean = maxAgeSeconds in 1..7200 &&
-        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= maxAgeSeconds &&
+        !observedAt.isAfter(now) && !observedAt.isBefore(now.minusSeconds(minOf(maxAgeSeconds, 300))) &&
         sourceUrl.startsWith("https://") &&
         listOfNotNull(temperatureC, humidityPercent, windKmh, windGustKmh, hourlyRainMm).isNotEmpty() &&
         (temperatureC == null || temperatureC.isFinite() && temperatureC in -30.0..60.0) &&

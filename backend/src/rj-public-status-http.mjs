@@ -153,8 +153,11 @@ export function createRjPublicStatusHandler(delegate, {
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
-    if(path!==RJ_PUBLIC_STATUS_PATH || !enabled || !licensingApproved)
-      return delegate(req,res);
+    if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
+    if(!enabled || !licensingApproved) {
+      respond(res,503,{error:!enabled?'official_status_not_enabled':'source_terms_not_approved'});
+      return;
+    }
     if(req.method!=='GET') {
       respond(res,405,{error:'method_not_allowed'});return;
     }

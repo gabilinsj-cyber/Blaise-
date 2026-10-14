@@ -19,7 +19,7 @@ class InmetHourlySeriesTest {
     )
 
     @Test fun `observations retain source station and allow real zero rain`() {
-        val s = series(row(7200), row(3600, rain = 0.0))
+        val s = series(row(7200), row(60, rain = 0.0))
         val readings = s.recentPoints(InmetMetric.HOURLY_RAINFALL, now)
         assertEquals(2, readings.size)
         assertEquals(0.0, readings.last().second, 0.0)
@@ -34,7 +34,7 @@ class InmetHourlySeriesTest {
     }
 
     @Test fun `null sentinel and physically impossible readings fail closed for each variable`() {
-        val s = series(row(3600, temp = null, rain = 9999.0, wind = Double.NaN), row(7100))
+        val s = series(row(3600, temp = null, rain = 9999.0, wind = Double.NaN), row(120))
         assertTrue(s.recentPoints(InmetMetric.HOURLY_RAINFALL, now).isEmpty())
         assertTrue(s.recentPoints(InmetMetric.WIND, now).isEmpty())
         assertEquals(0.0, s.currentPoint(InmetMetric.HOURLY_RAINFALL, now)!!.second, 0.0)
@@ -50,7 +50,7 @@ class InmetHourlySeriesTest {
     }
 
     @Test fun `metric requires its own fresh value and two distinct hours to draw`() {
-        val s = series(row(1800, temp = 29.0, rain = null), row(5400, temp = null, rain = null), row(10800, temp = 26.0, rain = 2.5))
+        val s = series(row(60, temp = 29.0, rain = null), row(5400, temp = null, rain = null), row(10800, temp = 26.0, rain = 2.5))
         assertEquals(2, s.recentPoints(InmetMetric.TEMPERATURE, now).size)
         assertTrue(s.recentPoints(InmetMetric.HOURLY_RAINFALL, now).isEmpty())
         assertEquals(29.0, s.currentPoint(InmetMetric.TEMPERATURE, now)!!.second, 0.0)

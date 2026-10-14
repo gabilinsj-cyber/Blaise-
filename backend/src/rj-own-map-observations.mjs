@@ -35,7 +35,7 @@ const valid = (n,min,max)=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=m
 const reject = reason=>Object.freeze({status:'UNAVAILABLE',reason,points:Object.freeze([]),
   radarFrameAvailable:false,estimatedMunicipalAverage:null,thirdPartyImageCopied:false});
 
-export function prepareOwnMapObservationLayer({observations,now=Date.now(),maxAgeMs=7_200_000}={}) {
+export function prepareOwnMapObservationLayer({observations,now=Date.now(),maxAgeMs=300_000}={}) {
   if(!Array.isArray(observations)||observations.length>128
     ||!Number.isFinite(now)||!valid(maxAgeMs,1,7_200_000))return reject('INVALID_INPUT');
   if(observations.length===0)return reject('NO_VALID_RECENT_OFFICIAL_STATION_POINTS');
@@ -54,7 +54,7 @@ export function prepareOwnMapObservationLayer({observations,now=Date.now(),maxAg
     if(typeof row.sourceUrl!=='string'||!row.sourceUrl.startsWith('https://'))continue;
     if(row.usagePermissionStatus!=='VERIFIED_FOR_APP_DATA_DISPLAY')continue;
     const seen=Date.parse(row.observedAt);
-    if(!Number.isFinite(seen)||now-seen<0||now-seen>maxAgeMs)continue;
+    if(!Number.isFinite(seen)||now-seen<0||now-seen>Math.min(maxAgeMs,300_000))continue;
     const id=`${row.sourceId}:${row.stationId}:${row.variable}:${row.observedAt}`;
     if(dedup.has(id))continue;
     dedup.add(id);

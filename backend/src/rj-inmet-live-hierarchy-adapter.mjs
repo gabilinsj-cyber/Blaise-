@@ -64,7 +64,7 @@ function catalogForMunicipality(raw,ibge) {
   }
   return results.sort((a,b)=>a.code.localeCompare(b.code)).slice(0,4);
 }
-function parseStationReadings(raw,station,variable,ibge,now,sourceUrl) {
+function parseStationReadings(raw,station,variable,ibge,now,sourceUrl,qualityEvidence) {
   if(!Array.isArray(raw)||raw.length<1||raw.length>500)return null;
   const spec=SPECS[variable];
   let best=null;
@@ -74,14 +74,17 @@ function parseStationReadings(raw,station,variable,ibge,now,sourceUrl) {
     const stamp=utcObservation(row);
     if(!stamp)continue;
     const t=Date.parse(stamp);
-    if(now-t<0||now-t>7_200_000)continue;
+    if(now-t<0||now-t>300_000)continue;
     const measured=number(row[spec.field],spec.min,spec.max);
     if(measured===null)continue;
     const value=Math.round(measured*spec.factor*1000)/1000;
     if(!best||t>Date.parse(best.observedAt))best=Object.freeze({
       origin:'OFFICIAL_OBSERVATION',sourceId:'INMET_STATION',
       stationId:station.code,ibge:String(ibge),variable,
-      value,unit:spec.unit,weight:1,
+      value,unit:spec.unit,
+      usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
+      ...(qualityEvidence?.stationId===station.code&&qualityEvidence.variable===variable?{weight:qualityEvidence.weight,qualityWeight:qualityEvidence.weight,
+        qualityWeightBasis:qualityEvidence.basis,qualityEvidenceId:qualityEvidence.evidenceId}:{}),
       observedAt:stamp,latitude:station.latitude,longitude:station.longitude,
       sourceUrl,measurementWindowMinutes:variable==='CHUVA_MM_1H'?60:undefined,
       stationName:station.name,
@@ -99,13 +102,20 @@ const unavailable=(status,details=null)=>Object.freeze({
 
 export function createRjInmetLiveAdapters({
   enabled=false,usageApproved=false,fetchImpl=globalThis.fetch,
-  clock=()=>Date.now(),catalogTtlMs=3_600_000,stationTtlMs=60_000,
+  clock=()=>Date.now(),catalogTtlMs=3_600_000,stationTtlMs=60_000,qualityEvidence=null,
 }={}) {
   if(typeof enabled!=='boolean'||typeof usageApproved!=='boolean'
     ||typeof fetchImpl!=='function'||typeof clock!=='function'
     ||!Number.isInteger(catalogTtlMs)||catalogTtlMs<60_000||catalogTtlMs>86_400_000
     ||!Number.isInteger(stationTtlMs)||stationTtlMs<30_000||stationTtlMs>300_000)
     throw TypeError('rj_inmet_invalid_adapter_configuration');
+  if(qualityEvidence!==null&&(!finite(qualityEvidence?.weight,0.01,5)
+    ||qualityEvidence.basis!=='VERIFIED_STATION_QC_AND_LOCAL_SKILL'
+    ||typeof qualityEvidence.evidenceId!=='string'||qualityEvidence.evidenceId.length<4
+    ||!/^[-_A-Za-z0-9]{2,70}$/.test(qualityEvidence.stationId??'')
+    ||!Object.hasOwn(SPECS,qualityEvidence.variable??'')))
+    throw TypeError('rj_inmet_unverified_quality_weight');
+  qualityEvidence=qualityEvidence?Object.freeze({...qualityEvidence}):null;
   let catalog=null, catalogAt=-Infinity;
   const stationCache=new Map();
   async function getCatalog(now) {
@@ -146,9 +156,13 @@ export function createRjInmetLiveAdapters({
     try {
       const stations=catalogForMunicipality(await getCatalog(now),city);
       if(!stations.length)return unavailable('NO_EXACT_MUNICIPAL_INMET_STATION');
+      let fetchFailures=0;
       for(const station of stations) {
-        const {url,data}=await getHourly(station,now);
-        const observation=parseStationReadings(data,station,variable,city,now,url);
+        let response;
+        try { response=await getHourly(station,now); }
+        catch { fetchFailures++;continue; }
+        const {url,data}=response;
+        const observation=parseStationReadings(data,station,variable,city,now,url,qualityEvidence);
         if(observation)return Object.freeze({
           contract:RJ_INMET_LIVE_ADAPTER_CONTRACT,
           status:'VALIDATED_RECENT_OFFICIAL_STATION_READING',
@@ -156,7 +170,8 @@ export function createRjInmetLiveAdapters({
           forecasts:Object.freeze([]),automaticAlertAuthorized:false,
         });
       }
-      return unavailable('NO_RECENT_VALID_MEASUREMENT');
+      return unavailable(fetchFailures===stations.length
+        ?'INMET_FETCH_OR_PRODUCT_VALIDATION_FAILED':'NO_RECENT_VALID_MEASUREMENT');
     }catch(e) {
       // No exception details or HTTP response bodies are returned to callers.
       return unavailable('INMET_FETCH_OR_PRODUCT_VALIDATION_FAILED');
@@ -198,5 +213,5 @@ export function projectRjInmetOnOwnMap(readingResult,{now=Date.now()}={}) {
         usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
       }];
     });
-  return prepareOwnMapObservationLayer({observations,now,maxAgeMs:7_200_000});
+  return prepareOwnMapObservationLayer({observations,now,maxAgeMs:300_000});
 }

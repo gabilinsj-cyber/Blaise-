@@ -8,7 +8,7 @@ const sample={
   sourceId:'INMET_STATION', stationId:'A652', ibge:'3304557',
   variable:'TEMPERATURE_C',value:28.5,unit:'°C',
   longitude:-43.2,latitude:-22.9,
-  observedAt:'2026-10-10T17:00:00.000Z',
+  observedAt:'2026-10-10T17:59:00.000Z',
   sourceUrl:'https://apitempo.inmet.gov.br/estacao/A652',
   usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
 };
@@ -62,4 +62,10 @@ test('two duplicate points cannot create a false denser coverage or municipality
   const result=prepareOwnMapObservationLayer({observations:[sample,sample],now:NOW});
   assert.equal(result.points.length,1);
   assert.equal(result.estimatedMunicipalAverage,null);
+});
+
+test('a map caller cannot revive a six-minute-old point with a long cache limit',()=>{
+  const layer=prepareOwnMapObservationLayer({observations:[{...sample,
+    observedAt:'2026-10-10T17:54:00.000Z'}],now:NOW,maxAgeMs:7_200_000});
+  assert.equal(layer.points.length,0);
 });

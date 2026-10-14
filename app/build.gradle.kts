@@ -25,6 +25,7 @@ val monthlyProductId = System.getenv("BLAISE_MONTHLY_PRODUCT_ID").orEmpty().trim
 val annualProductId = System.getenv("BLAISE_ANNUAL_PRODUCT_ID").orEmpty().trim()
 val entitlementVerifyUrl = System.getenv("BLAISE_ENTITLEMENT_VERIFY_URL").orEmpty().trim()
 val publicStatusBaseUrl = System.getenv("BLAISE_RJ_PUBLIC_STATUS_BASE_URL").orEmpty().trim()
+    .ifEmpty { "https://blaise-v6-rj-backend-4bl6iadyua-rj.a.run.app" }
 val firebaseApplicationId = System.getenv("BLAISE_FIREBASE_APPLICATION_ID").orEmpty().trim()
 val firebaseApiKey = System.getenv("BLAISE_FIREBASE_API_KEY").orEmpty().trim()
 val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().trim()

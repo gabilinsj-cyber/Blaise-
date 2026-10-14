@@ -10,7 +10,7 @@ import org.junit.Test
 class ScientificDashboardPolicyTest {
     private val now = Instant.parse("2026-10-10T18:00:00Z")
     private fun official(t: Double? = 30.0, rh: Double? = 70.0, wind: Double? = 12.0,
-        at: Instant = now.minusSeconds(900)) = CityWeatherObservation(
+        at: Instant = now.minusSeconds(60)) = CityWeatherObservation(
         3304557, "INMET local (código verificado)", "INMET",
         "https://apitempo.inmet.gov.br/estacao/2026-10-09/2026-10-10/A652",
         at, t, rh, wind, 7200,
