@@ -174,6 +174,17 @@ async function main() {
   }
 
   const sourceWorker = createOfficialSourceWorker({
+    onEvent: e => {
+      if (e.type !== 'task_finished') return;
+      const source = sourceWorker.status().sources.find(s => s.sourceId === e.taskId);
+      console.log('blaise_source_collection:' + JSON.stringify({
+        source: e.taskId, outcome: e.outcome, errorCode: e.errorCode,
+        finishedAt: e.finishedAt, runCount: e.runCount,
+        state: source?.state, reason: source?.reason,
+        fetchedAt: source?.fetchedAt, observedAt: source?.observedAt,
+        dataAgeMs: source?.dataAgeMs,
+      }));
+    },
     config: sourceWorkerConfig,
     publishInmetP0,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },

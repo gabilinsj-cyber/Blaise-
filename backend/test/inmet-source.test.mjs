@@ -184,3 +184,37 @@ test('CAP cancellation removes referenced warning and never becomes an active al
   assert.equal(result.cancellations.length, 1);
   assert.throws(() => validateInmetCapFeedXml(feedXml([alertXml({msgType:'Cancel'})])), e => e.code === 'inmet_cancel_references_missing');
 });
+
+for (const failure of ['http500', 'network']) {
+  test(`CAP retrieval retries a transient ${failure} once`, async () => {
+    let attempts = 0;
+    const link = `${INMET_CAP_RSS_URL}/56050`;
+    const result = await probeInmetCapWarnings({ fetchImpl: async url => {
+      if (String(url) === INMET_CAP_RSS_URL) return new Response(
+        `<rss><channel><item><link>${link}</link></item></channel></rss>`,
+        { headers: { 'content-type': 'application/xml' } });
+      if (++attempts === 1) {
+        if (failure === 'network') throw new TypeError('connection reset');
+        return new Response('upstream failure', { status: 500 });
+      }
+      return new Response(alertXml(), { headers: { 'content-type': 'application/xml' } });
+    }});
+    assert.equal(attempts, 2);
+    assert.equal(result.rjWarningCount, 1);
+  });
+}
+
+for (const status of [404, 500]) {
+  test(`persistent CAP HTTP ${status} never becomes an empty successful inventory`, async () => {
+    let attempts = 0;
+    const link = `${INMET_CAP_RSS_URL}/56050`;
+    await assert.rejects(probeInmetCapWarnings({ fetchImpl: async url => {
+      if (String(url) === INMET_CAP_RSS_URL) return new Response(
+        `<rss><channel><item><link>${link}</link></item></channel></rss>`,
+        { headers: { 'content-type': 'application/xml' } });
+      attempts++;
+      return new Response('failure', { status });
+    }}), error => error.code === 'source_http_error');
+    assert.equal(attempts, status === 500 ? 2 : 1);
+  });
+}

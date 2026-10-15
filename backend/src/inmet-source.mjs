@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { findRjMunicipality } from './rio-municipalities.mjs';
 import { fetchXmlContract, SourceContractError } from './source-contract.mjs';
@@ -264,7 +265,29 @@ export function validateInmetCapFeedXml(xml) {
   });
 }
 
+// Retry transient transport/server failures once, within the original request timeout.
+// A failed CAP document still fails the inventory: absence never means withdrawal.
+function retryTransientInmetFetch(fetchImpl) {
+  return async (url, options) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      options.signal.throwIfAborted();
+      let response;
+      try {
+        response = await fetchImpl(url, options);
+      } catch (error) {
+        if (attempt === 1 || options.signal.aborted || !(error instanceof TypeError)) throw error;
+        await delay(250, undefined, { signal: options.signal });
+        continue;
+      }
+      if (attempt === 1 || ![500, 502, 503, 504].includes(response.status)) return response;
+      try { await response.body?.cancel(); } catch {}
+      await delay(250, undefined, { signal: options.signal });
+    }
+  };
+}
+
 export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {}) {
+  fetchImpl = retryTransientInmetFetch(fetchImpl);
   let xml;
   try {
     xml = await fetchXmlContract(INMET_CAP_RSS_URL, {

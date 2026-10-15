@@ -2389,6 +2389,10 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             "com horário da medição (não da atualização da tela).",
             color = Color.White, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-selected-city"))
+        Text("Falha de conexão não significa retirada de alerta. Confira o horário " +
+            "da medição; uma consulta concluída pode trazer dados antigos.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-source-failure-policy"))
         Text("Reconsulta em intervalos; um painel atualizado não prova que uma " +
             "estação publicou leitura nova. Desempate entre duas fontes requer " +
             "observações comparáveis, nunca duas republicações.",
