@@ -28,16 +28,18 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v7"
+    const val VERSION = "2026-10-15.v8"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
     const val NO_INEA = "INEA excluído"
     const val PHENOMENA_COUNT = 30
     const val ADDITIONAL_TIEBREAK_CHECKS = 5
     const val THIRD_COMPLEMENT = "OpenWeatherMap: terceira consulta complementar para as 10 variáveis, não alerta oficial"
-    const val MARINE_COMPLEMENT = "Base marítima: NOAA + Copernicus Marine + EUMETSAT por produto; boias da Marinha como complemento"
-    const val MARINE_PRIORITY = "NOAA → Copernicus Marine → EUMETSAT conforme produto; Marinha/boias por último na consulta de dados"
+    const val MARINE_COMPLEMENT = "Base marítima: NOAA + Copernicus Marine + EUMETSAT por produto; CPTEC/INPE como previsão complementar"
+    const val MARINE_PRIORITY = "NOAA → Copernicus Marine → EUMETSAT conforme produto; CPTEC/INPE complementar, conforme disponibilidade e licença"
     const val MARINE_AUTHORITY = "Avisos de tsunami/ressaca exigem órgão competente e cobertura validada; prioridade de dados não altera autoridade"
+    const val CPTEC_MARINE_URL = "https://servicos.cptec.inpe.br/XML/"
+    const val CPTEC_MARINE_STATUS = "CPTEC/INPE: previsão de ondas e vento documentada; serviço indisponível na verificação. Sem dados atuais validados. Não fornece maré local nem confirmação de tsunami."
     const val STORMSURF_URL = "https://www.stormsurf.com/page2/links/satla72hr.shtml"
     const val STORMSURF_DESCRIPTION = "Stormsurf • Atlântico Sul: consulta complementar de previsão de ondas, swell e vento. Produtos derivados da NOAA não contam como fonte independente. Não confirma maré local nem aviso oficial de ressaca."
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
@@ -65,23 +67,23 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Alerta Rio + Defesa Civil P1 na cidade do Rio; INMET/CEMADEN; OpenWeatherMap complementar; EUMETSAT satélite; INPE → Windy"),
         RjMeteoSourceRow("RISCO_HIDROLOGICO", "Cheia e inundação", "Bacias e municípios com risco", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
         RjMeteoSourceRow("VAZAO_RIO", "Vazão dos rios", "Estações hidrológicas RJ", "ANA HidroWeb → SGB/SACE"),
-        RjMeteoSourceRow("RESSACA", "Ressaca e ondas altas", "Litoral RJ", "NOAA + Copernicus Marine; EUMETSAT para contexto; boias Marinha complementares; aviso competente separado"),
-        RjMeteoSourceRow("ONDAS", "Ondas, marés e mar", "Litoral e oceano próximo", "NOAA + Copernicus Marine; boias Marinha complementares; altura, período e direção"),
-        RjMeteoSourceRow("CICLONE_EXTRATROPICAL", "Ciclone extratropical", "Atlântico com possível impacto RJ", "NOAA + Copernicus Marine + EUMETSAT; INMET/INPE para contexto atmosférico; boias Marinha complementares"),
-        RjMeteoSourceRow("CHUVA_ATLANTICO", "Chuva oceânica", "Atlântico próximo ao RJ", "NOAA + EUMETSAT para nuvens e sistemas; Copernicus por produto; boias Marinha complementares"),
-        RjMeteoSourceRow("MASSA_AR", "Massa de ar polar ou quente", "RJ e divisas", "INMET + NOAA + EUMETSAT; Copernicus conforme produto; Marinha/boias como complemento; INPE → Windy"),
+        RjMeteoSourceRow("RESSACA", "Ressaca e ondas altas", "Litoral RJ", "NOAA + Copernicus Marine; EUMETSAT para contexto; CPTEC/INPE para previsão; aviso competente separado"),
+        RjMeteoSourceRow("ONDAS", "Ondas, marés e mar", "Litoral e oceano próximo", "NOAA + Copernicus Marine; CPTEC/INPE para previsão; altura, período e direção"),
+        RjMeteoSourceRow("CICLONE_EXTRATROPICAL", "Ciclone extratropical", "Atlântico com possível impacto RJ", "NOAA + Copernicus Marine + EUMETSAT; INMET/INPE para contexto atmosférico; CPTEC/INPE para previsão"),
+        RjMeteoSourceRow("CHUVA_ATLANTICO", "Chuva oceânica", "Atlântico próximo ao RJ", "NOAA + EUMETSAT para nuvens e sistemas; Copernicus por produto; CPTEC/INPE para previsão"),
+        RjMeteoSourceRow("MASSA_AR", "Massa de ar polar ou quente", "RJ e divisas", "INMET + NOAA + EUMETSAT; Copernicus conforme produto; CPTEC/INPE como previsão complementar; INPE → Windy"),
         RjMeteoSourceRow("RADAR", "Radar meteorológico próprio", "Cobertura geográfica real RJ", "Alerta Rio (cidade Rio) / CEMADEN → Defesa Civil; grade licenciada"),
         RjMeteoSourceRow("DESLIZAMENTO", "Deslizamentos", "Áreas susceptíveis RJ", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
         RjMeteoSourceRow("ALAGAMENTO", "Alagamento urbano", "Municípios / vias RJ", "Defesa Civil → CEMADEN → ANA → SGB/SACE; COR.Rio quando aplicável"),
-        RjMeteoSourceRow("FRENTE_FRIA", "Frentes frias", "RJ, divisas e Atlântico", "INMET + NOAA + EUMETSAT; Copernicus conforme produto; Marinha/boias como complemento; INPE → Windy"),
+        RjMeteoSourceRow("FRENTE_FRIA", "Frentes frias", "RJ, divisas e Atlântico", "INMET + NOAA + EUMETSAT; Copernicus conforme produto; CPTEC/INPE como previsão complementar; INPE → Windy"),
         RjMeteoSourceRow("EL_NINO_LA_NINA", "El Niño / La Niña", "Escala climática e impactos no RJ", "INMET → NOAA → INPE → Windy"),
-        RjMeteoSourceRow("SISMO", "Sismos e terremotos", "RJ/Atlântico e seção global", "USGS → Defesa Civil → Marinha/CHM → NOAA"),
-        RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "NOAA conforme jurisdição + autoridades brasileiras; USGS para origem sísmica; boias Marinha complementares"),
+        RjMeteoSourceRow("SISMO", "Sismos e terremotos", "RJ/Atlântico e seção global", "USGS → Defesa Civil → NOAA"),
+        RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "NOAA conforme jurisdição + autoridades brasileiras; USGS para origem sísmica"),
         RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "NOAA/GOES GLM + rede terrestre autorizada → Defesa Civil"),
-        RjMeteoSourceRow("MARE", "Marés e nível do mar", "Litoral RJ", "NOAA/Copernicus Marine com produto de maré local validado; boias Marinha complementares; não confundir nível modelado com alta/baixa"),
-        RjMeteoSourceRow("SWELL", "Swell e ondulações", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; boias Marinha complementares; altura, período e direção"),
-        RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; boias Marinha complementares por produto"),
-        RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; boias Marinha complementares; medição e modelo identificados"),
+        RjMeteoSourceRow("MARE", "Marés e nível do mar", "Litoral RJ", "NOAA/Copernicus Marine com produto de maré local validado; não confundir nível modelado com alta/baixa"),
+        RjMeteoSourceRow("SWELL", "Swell e ondulações", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; CPTEC/INPE para previsão; altura, período e direção"),
+        RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine"),
+        RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; medição e modelo identificados"),
     )
     val table2 = listOf(
         RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média ponderada somente com pesos verificados."),
@@ -95,7 +97,7 @@ object RjMeteorologicalTables {
         RjMeteoDisputeRow("09", "P1 conjunta", "Alerta Rio e Defesa Civil são prioridade conjunta no Rio; dado republicado não equivale a duas medições independentes."),
         RjMeteoDisputeRow("10", "Terceira fonte complementar", "OpenWeatherMap auxilia as 10 variáveis da tabela, quando o produto existe; não substitui INMET, Alerta Rio ou avisos oficiais."),
         RjMeteoDisputeRow("11", "Compatibilidade antes de ponderar", "Média ponderada somente entre duas medições atuais, independentes e similares, com unidades, janelas, localidades e tipos equivalentes e pesos verificáveis. Sem pesos válidos, mostrar as leituras sem calcular. Previsão não é medição."),
-        RjMeteoDisputeRow("12", "Exceções marítimas", "NOAA/Copernicus/EUMETSAT por produto; boias Marinha como complemento; tsunami depende de aviso competente, nunca de imagens ou de média."),
+        RjMeteoDisputeRow("12", "Exceções marítimas", "NOAA/Copernicus/EUMETSAT por produto; CPTEC/INPE como previsão complementar; tsunami depende de aviso competente, nunca de imagens ou de média."),
         RjMeteoDisputeRow("13", "Licença e rastreabilidade", "Verificar produto, fonte, hora, autorização de uso comercial, atribuição e independência; sem evidência, não emitir alerta."),
     )
     // Map one selected Table 1 item to ONLY the Table 2 checks that
@@ -135,23 +137,23 @@ object RjMeteorologicalTables {
     // These are SOURCE ELIGIBILITY, not live observations or warnings.
     val marineTable = listOf(
         RjMeteoMarineRow("CICLONES_OCEANICOS", "Ciclones oceânicos",
-            "NOAA + Copernicus Marine + EUMETSAT; Marinha/boias como complemento",
+            "NOAA + Copernicus Marine + EUMETSAT; CPTEC/INPE como previsão complementar",
             "Evolução atmosférica, deslocamento e efeitos no mar",
             listOf("CICLONE_EXTRATROPICAL")),
         RjMeteoMarineRow("TEMPESTADES_ATLANTICO", "Tempestades no Atlântico",
-            "NOAA + EUMETSAT; Copernicus conforme produto; Marinha/boias como complemento",
+            "NOAA + EUMETSAT; Copernicus conforme produto; CPTEC/INPE como previsão complementar",
             "Nuvens e sistemas intensos; satélite não substitui radar",
             listOf("TEMPESTADE", "CHUVA_ATLANTICO")),
         RjMeteoMarineRow("ONDAS_SWELL", "Ondas e swell",
-            "NOAA + Copernicus Marine; Marinha/boias como complemento",
+            "NOAA + Copernicus Marine; CPTEC/INPE como previsão complementar",
             "Altura, período, direção e propagação das ondas",
             listOf("ONDAS", "SWELL")),
         RjMeteoMarineRow("RESSACA_LITORAL", "Ressaca no litoral RJ",
-            "NOAA + Copernicus Marine; EUMETSAT para contexto; boias da Marinha como complemento",
+            "NOAA + Copernicus Marine; EUMETSAT para contexto; CPTEC/INPE como previsão complementar",
             "Previsão e avaliação do risco costeiro por aviso competente",
             listOf("RESSACA")),
         RjMeteoMarineRow("TSUNAMI", "Tsunami / maremoto",
-            "NOAA conforme competência + autoridades brasileiras; boias da Marinha como complemento observacional",
+            "NOAA conforme competência + autoridades brasileiras",
             "Avisos oficiais, nível do mar e avaliação de ameaça",
             listOf("TSUNAMI")),
     )
