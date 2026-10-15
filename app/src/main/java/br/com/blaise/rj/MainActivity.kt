@@ -2119,6 +2119,7 @@ private fun MarineScreen() {
 @Composable
 private fun PnboiaCatalogPanel() {
     val enabled = LocalAppPowerOn.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val client = remember { br.com.blaise.rj.data.PnboiaCatalogClient() }
     var result by remember { mutableStateOf<br.com.blaise.rj.data.PnboiaCatalogResult?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -2126,15 +2127,17 @@ private fun PnboiaCatalogPanel() {
     val readingsClient = remember { br.com.blaise.rj.data.PnboiaReadingsClient(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL) }
     var readings by remember { mutableStateOf<br.com.blaise.rj.data.PnboiaReadings?>(null) }
     var request by remember { mutableStateOf(0) }
-    LaunchedEffect(enabled, request) {
+    LaunchedEffect(enabled, request, lifecycle) {
         if (!enabled) { result = null; readings = null; request = 0 }
         else if (request > 0) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 loading = true
                 try { result = client.fetch(); readings = readingsClient.fetch() }
                 finally { loading = false }
                 if (readings?.state in setOf("ACCESS_NOT_CONFIGURED", "DISPLAY_TERMS_NOT_CONFIRMED", "ACCESS_DENIED")) break
                 delay(60_000)
+            }
             }
         }
     }
