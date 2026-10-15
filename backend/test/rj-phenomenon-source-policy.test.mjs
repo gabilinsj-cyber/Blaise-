@@ -117,3 +117,17 @@ test('unknown municipality or phenomenon is blocked rather than treated as Rio',
   assert.throws(() => rjSourceRouting({ ibge: '3304557', phenomenon: 'FURACAO' }));
   assert.equal(RJ_PHENOMENA.includes('CICLONE_EXTRATROPICAL'), true);
 });
+
+test('marine data prioritizes NOAA Copernicus and EUMETSAT with Navy optional and last',()=>{
+ for(const phenomenon of ['ONDAS','SWELL','RESSACA','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA','TSUNAMI']){
+  const route=rjSourceRouting({region:'ATLANTICO',phenomenon});
+  assert.equal(route.sources[0].id,'NOAA');
+  assert.equal(route.sources.at(-1).id,'MARINHA_CHM');
+  assert.equal(route.marinePriority.navyRequiredForPrimaryProducts,false);
+  assert.equal(route.marinePriority.tsunamiFromWavesOrSatellite,false);
+  assert.equal(route.liveData,'NOT_CONFIRMED');
+ }
+ const wind=rjSourceRouting({ibge:'3304557',phenomenon:'VENTO'});
+ assert.equal(wind.marinePriority,null);
+ assert.equal(wind.sources[0].id,'ALERTA_RIO');
+});
