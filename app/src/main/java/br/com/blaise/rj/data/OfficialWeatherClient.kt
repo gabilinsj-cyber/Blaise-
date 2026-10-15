@@ -20,7 +20,11 @@ private class OfficialWeatherSourceFailure(val code: String) : java.io.IOExcepti
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
-        runCatching { currentCityBlocking(request) }.getOrElse {
+        try {
+            currentCityBlocking(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             CityWeatherResult(request.city.ibgeCode, request.localScope,
                 unavailableReason = "Não foi possível confirmar uma medição oficial recente para ${request.localScope ?: request.city.name}.")
         }
@@ -32,11 +36,7 @@ class OfficialWeatherClient {
             if (request.localScope != null) {
                 MunicipalWeatherSnapshot(currentCityBlocking(request), null, Instant.now())
             } else {
-                val failures = mutableListOf<String>()
-                val series = recentMunicipalityHourlySeriesBlocking(request.city) { failures.add(it) }
-                val snapshot = MunicipalWeatherSnapshot.fromSeries(request.city.ibgeCode, series, Instant.now())
-                snapshot.copy(sourceFailures = failures.toList(), failureCode = if(snapshot.report.observation == null)
-                    failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT" else null)
+                municipalitySnapshotBlocking(request.city)
             }
         } catch (error: CancellationException) {
             throw error
@@ -144,6 +144,14 @@ class OfficialWeatherClient {
         return historicalFallback
     }
 
+    private fun municipalitySnapshotBlocking(city: City): MunicipalWeatherSnapshot {
+        val failures = mutableListOf<String>()
+        val series = recentMunicipalityHourlySeriesBlocking(city) { failures.add(it) }
+        val snapshot = MunicipalWeatherSnapshot.fromSeries(city.ibgeCode, series, Instant.now())
+        return snapshot.copy(sourceFailures = failures.toList(), failureCode = if (snapshot.report.observation == null)
+            failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT" else null)
+    }
+
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
         val scope = request.localScope
         if (request.city.ibgeCode == 3304557 && scope != null) {
@@ -158,38 +166,21 @@ class OfficialWeatherClient {
                     it.temperatureC, it.humidityPercent, it.windKmh, 300)
             })
         }
-        val today = LocalDate.now(zone)
-        val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
-        val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
-            it.optString("SG_ESTADO") == "RJ" && it.optString("CD_SITUACAO") == "Operante" &&
-                normalizedSpeech(it.optString("DC_NOME")) == normalizedSpeech(request.city.name)
-        } ?: return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Nenhuma estação INMET local confirmada para ${request.city.name}. Não é usada uma cidade vizinha como substituta.")
-        val code = station.getString("CD_ESTACAO")
-        check(Regex("[A-Z][0-9]{3}").matches(code))
-        val url = "https://apitempo.inmet.gov.br/estacao/${today.minusDays(1)}/$today/$code"
-        val rows = JSONArray(get(url))
-        val instant = Instant.now()
-        val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
-            OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..300 }.maxByOrNull { it.second }
-            ?: return CityWeatherResult(request.city.ibgeCode, scope,
-                unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
         if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Cobertura de $scope não confirmada pela estação INMET $code.")
-        return CityWeatherResult(request.city.ibgeCode, scope, CityWeatherObservation(
-            request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
-            OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
-            OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 300,
-            windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
-            hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
-        ))
+            unavailableReason = "Cobertura de $scope não confirmada por uma estação local.")
+        // Use the same station policy, fallback sequence and age validation as
+        // the cards, charts and map instead of selecting the first catalog row.
+        return municipalitySnapshotBlocking(request.city).currentReport(Instant.now())
     }
+
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
         // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
         // retrieval age cannot extend the validity of the underlying observation.
-        val result = runCatching { query(request) }.getOrElse {
+        val result = try {
+            query(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             "Não consegui confirmar os dados oficiais de ${request.localScope ?: request.city.name} agora. A consulta ao INMET está indisponível. Não tenho temperatura ou sensação térmica válida para informar. Tente novamente em instantes."
         }
         result
@@ -207,7 +198,9 @@ class OfficialWeatherClient {
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
         conn.setRequestProperty("Accept", "application/json")
         try {
-            if (conn.responseCode != 200) throw OfficialWeatherSourceFailure("HTTP_${conn.responseCode}")
+            val status = conn.responseCode
+            if (status == 204) throw OfficialWeatherSourceFailure("SOURCE_NO_OBSERVATIONS")
+            if (status != 200) throw OfficialWeatherSourceFailure("HTTP_$status")
             return conn.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)

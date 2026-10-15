@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import {
   CHM_EXPECTED_RJ_TIDE_STATION_COUNT,
@@ -142,11 +143,21 @@ export function validateChmTidePdfBytes(bytes) {
   });
 }
 
+// Retry only transient gateway failures, once, within the caller's deadline.
+// A rejected redirect, authentication error or missing PDF is never retried.
+async function fetchChmPdfWithRetry(url, options, fetchImpl) {
+  const response = await fetchImpl(url, options);
+  if (![502, 503, 504].includes(response.status)) return response;
+  await response.body?.cancel();
+  await delay(250, undefined, {signal: options?.signal});
+  return fetchImpl(url, {...options, redirect: 'manual'});
+}
+
 // The CHM publication now redirects PDF bytes to its official assets host.
 // Permit one exact-path HTTPS transfer only; all other redirects remain rejected.
 export async function fetchChmTidePdfResponse(url, options, fetchImpl = globalThis.fetch) {
   const original = new URL(String(url));
-  const response = await fetchImpl(url, options);
+  const response = await fetchChmPdfWithRetry(url, options, fetchImpl);
   if (![301, 302, 307, 308].includes(response.status)) return response;
   const target = new URL(response.headers.get('location') ?? '', original);
   if (original.hostname !== CHM_TIDE_CATALOG_HOST || original.protocol !== 'https:' ||
@@ -158,7 +169,7 @@ export async function fetchChmTidePdfResponse(url, options, fetchImpl = globalTh
     throw new SourceContractError('source_redirect_rejected');
   }
   await response.body?.cancel();
-  return fetchImpl(target, {...options, redirect: 'manual'});
+  return fetchChmPdfWithRetry(target, {...options, redirect: 'manual'}, fetchImpl);
 }
 
 export async function probeChmTidePdfArtifact(station, { fetchImpl = globalThis.fetch } = {}) {

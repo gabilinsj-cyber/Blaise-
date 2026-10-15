@@ -58,4 +58,18 @@ class MunicipalWeatherSnapshotTest {
   store.publish(ticket, mapOf(3304557 to MunicipalWeatherSnapshot(CityWeatherResult(3304557, null), null, now, "HTTP_204")), now)
   assertEquals("SOURCE_FAILURE:HTTP_204", store.audits().last().reason)
  }
+ @Test fun `missing INMET observations are visible without reviving expired data`() {
+  val stale = snapshot(3304557).copy(failureCode = "SOURCE_NO_OBSERVATIONS")
+  val later = now.plusSeconds(600)
+  val report = stale.currentReport(later)
+  assertNull(report.currentObservation(later))
+  assertTrue(report.unavailableReason!!.contains("INMET não forneceu observações"))
+  assertNull(stale.currentSeries(later))
+  assertNotNull(stale.historySeries())
+ }
+ @Test fun `failed fallback does not hide a valid station observation`() {
+  val valid = snapshot(3304557).copy(failureCode = "SOURCE_NO_OBSERVATIONS")
+  assertNotNull(valid.currentReport(now).currentObservation(now))
+  assertEquals(valid.report, valid.currentReport(now))
+ }
 }

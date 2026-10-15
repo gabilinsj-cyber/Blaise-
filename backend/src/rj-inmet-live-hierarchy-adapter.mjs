@@ -53,7 +53,12 @@ function catalogForMunicipality(raw,ibge) {
   for(const s of raw) {
     if(!s||typeof s!=='object'||Array.isArray(s))continue;
     if(s.SG_ESTADO!=='RJ'||s.SG_ENTIDADE!=='INMET'||s.CD_SITUACAO!=='Operante')continue;
-    if(normalize(s.DC_NOME)!==normalize(name))continue;
+    const stationName=normalize(s.DC_NOME),cityName=normalize(name);
+    // Keep parity with Android's exact municipality policy: Rio's official
+    // catalog uses district suffixes; these are station labels, not city means.
+    const matches=stationName===cityName || (String(ibge)==='3304557'
+      &&stationName.startsWith(`${cityName} `)&&/[-/]/.test(s.DC_NOME));
+    if(!matches)continue;
     const code=s.CD_ESTACAO;
     if(typeof code!=='string'||!/^[AB]\d{3}$/.test(code)||seen.has(code))continue;
     const lat=number(s.VL_LATITUDE,-23.7,-20.4);
@@ -62,7 +67,10 @@ function catalogForMunicipality(raw,ibge) {
     seen.add(code);
     results.push(Object.freeze({code,name:s.DC_NOME,latitude:lat,longitude:lon}));
   }
-  return results.sort((a,b)=>a.code.localeCompare(b.code)).slice(0,4);
+  return results.sort((a,b)=>{
+    const rank=s=>String(ibge)==='3304557'&&s.code==='A652'?0:1;
+    return rank(a)-rank(b)||a.code.localeCompare(b.code);
+  }).slice(0,4);
 }
 function parseStationReadings(raw,station,variable,ibge,now,sourceUrl,qualityEvidence) {
   if(!Array.isArray(raw)||raw.length<1||raw.length>500)return null;

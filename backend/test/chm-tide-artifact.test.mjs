@@ -159,3 +159,47 @@ test('PDF redirect accepts only official assets host and exact publication path'
     await assert.rejects(() => fetchChmTidePdfResponse(source, {redirect:'manual'}, async()=>new Response(null,{status:301,headers:{location}})), e => e.code === 'source_redirect_rejected');
   }
 });
+
+test('CHM retries a transient assets gateway error once and still validates the recovered PDF', async () => {
+  const original=station().tideTablePdfUrl;
+  const target=original.replace('www.marinha.mil.br','assets.marinha.mil.br');
+  const visited=[];
+  const result=await probeChmTidePdfArtifact(station(),{fetchImpl:async(url)=>{
+    visited.push(String(url));
+    if(visited.length===1)return new Response(null,{status:301,headers:{location:target}});
+    if(visited.length===2)return new Response('gateway failure',{status:502});
+    return responseFor();
+  }});
+  assert.deepEqual(visited,[original,target,target]);
+  assert.equal(result.pdfMagicValidation,'PASS');
+});
+
+test('CHM persistent gateway errors stop after one retry and never accept HTML as tides', async () => {
+  let attempts=0;
+  await assert.rejects(()=>probeChmTidePdfArtifact(station(),{fetchImpl:async()=>{
+    attempts++;return new Response('gateway failure',{status:503});
+  }}),e=>e.code==='chm_tide_pdf_source_http_error');
+  assert.equal(attempts,2);
+});
+
+test('CHM does not retry forbidden responses or follow redirects returned by the assets server', async () => {
+  for(const status of [403,404,302]) {
+    let attempts=0;
+    const target=station().tideTablePdfUrl.replace('www.marinha.mil.br','assets.marinha.mil.br');
+    await assert.rejects(()=>probeChmTidePdfArtifact(station(),{fetchImpl:async()=>{
+      attempts++;
+      if(attempts===1)return new Response(null,{status:301,headers:{location:target}});
+      return new Response(null,{status,headers:{location:'https://example.invalid/tides.pdf'}});
+    }}));
+    assert.equal(attempts,2);
+  }
+});
+
+test('CHM cancellation prevents a gateway retry beyond the caller deadline', async () => {
+  const controller=new AbortController();let attempts=0;
+  await assert.rejects(()=>fetchChmTidePdfResponse(station().tideTablePdfUrl,
+    {signal:controller.signal,redirect:'manual'},async()=>{
+      attempts++;controller.abort();return new Response(null,{status:504});
+    }),{name:'AbortError'});
+  assert.equal(attempts,1);
+});
