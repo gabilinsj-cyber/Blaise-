@@ -36,11 +36,7 @@ class OfficialWeatherClient {
             if (request.localScope != null) {
                 MunicipalWeatherSnapshot(currentCityBlocking(request), null, Instant.now())
             } else {
-                val failures = mutableListOf<String>()
-                val series = recentMunicipalityHourlySeriesBlocking(request.city) { failures.add(it) }
-                val snapshot = MunicipalWeatherSnapshot.fromSeries(request.city.ibgeCode, series, Instant.now())
-                snapshot.copy(sourceFailures = failures.toList(), failureCode = if(snapshot.report.observation == null)
-                    failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT" else null)
+                municipalitySnapshotBlocking(request.city)
             }
         } catch (error: CancellationException) {
             throw error
@@ -148,6 +144,14 @@ class OfficialWeatherClient {
         return historicalFallback
     }
 
+    private fun municipalitySnapshotBlocking(city: City): MunicipalWeatherSnapshot {
+        val failures = mutableListOf<String>()
+        val series = recentMunicipalityHourlySeriesBlocking(city) { failures.add(it) }
+        val snapshot = MunicipalWeatherSnapshot.fromSeries(city.ibgeCode, series, Instant.now())
+        return snapshot.copy(sourceFailures = failures.toList(), failureCode = if (snapshot.report.observation == null)
+            failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT" else null)
+    }
+
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
         val scope = request.localScope
         if (request.city.ibgeCode == 3304557 && scope != null) {
@@ -166,8 +170,7 @@ class OfficialWeatherClient {
             unavailableReason = "Cobertura de $scope não confirmada por uma estação local.")
         // Use the same station policy, fallback sequence and age validation as
         // the cards, charts and map instead of selecting the first catalog row.
-        val series = recentMunicipalityHourlySeriesBlocking(request.city)
-        return MunicipalWeatherSnapshot.fromSeries(request.city.ibgeCode, series, Instant.now()).report
+        return municipalitySnapshotBlocking(request.city).currentReport(Instant.now())
     }
 
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
@@ -195,7 +198,9 @@ class OfficialWeatherClient {
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
         conn.setRequestProperty("Accept", "application/json")
         try {
-            if (conn.responseCode != 200) throw OfficialWeatherSourceFailure("HTTP_${conn.responseCode}")
+            val status = conn.responseCode
+            if (status == 204) throw OfficialWeatherSourceFailure("SOURCE_NO_OBSERVATIONS")
+            if (status != 200) throw OfficialWeatherSourceFailure("HTTP_$status")
             return conn.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
