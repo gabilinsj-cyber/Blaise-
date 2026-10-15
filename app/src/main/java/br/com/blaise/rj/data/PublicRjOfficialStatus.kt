@@ -204,47 +204,7 @@ object PublicRjStatusParser {
         }
         // Older public-status deployments are backwards compatible and have
         // no marine object. Do not synthesize a warning from an empty feed.
-        val marine = root.optJSONObject("marine")?.let { sea ->
-            require(sea.getString("sourceId") == "chm-marine")
-            require(sea.getString("scope") == "METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL")
-            require(!sea.getBoolean("municipalityGeofenceValidated"))
-            require(sea.getBoolean("noWarningsDoesNotMeanSafe"))
-            val waveList = sea.getJSONArray("warnings")
-            require(waveList.length() <= 16 && sea.getInt("warningCount") == waveList.length())
-            val warningRows=(0 until waveList.length()).map { idx ->
-                val w=waveList.getJSONObject(idx)
-                require(!w.getBoolean("municipalityGeofenceValidated") &&
-                    !w.getBoolean("mayIssueMunicipalP0"))
-                val regionList=w.getJSONArray("areas")
-                require(regionList.length() in 1..8)
-                val areas=(0 until regionList.length()).map { regionIndex ->
-                    regionList.getString(regionIndex).also {
-                        require(it.isNotBlank() && it.length<=48)
-                    }
-                }
-                val hasWave=!w.isNull("waveMinMeters") && !w.isNull("waveMaxMeters")
-                val min=if(hasWave) w.getDouble("waveMinMeters") else null
-                val max=if(hasWave) w.getDouble("waveMaxMeters") else null
-                require((min == null && max == null) || (min != null && max != null &&
-                    min.isFinite() && max.isFinite() && min>0.0 && max>=min && max<=30.0))
-                val direction=if (w.isNull("waveDirection")) null else w.getString("waveDirection")
-                require((min==null)==(direction==null))
-                if(direction!=null) require(direction.matches(Regex("^[NSEW/]{1,7}$")))
-                val exceeded=if(w.isNull("waveThresholdExceeded")) null else w.getBoolean("waveThresholdExceeded")
-                require(exceeded==(max?.let { it>3.5 }))
-                PublicRjMarineWarning(
-                    w.getString("id"),w.getString("warningType"),
-                    Instant.parse(w.getString("issuedAt")),Instant.parse(w.getString("validUntil")),
-                    areas,min,max,direction,w.getBoolean("officialRessacaLabel"),
-                ).also { require(it.id.matches(Regex("^\\d{1,4}/\\d{4}$")) &&
-                    it.warningType.length in 3..96 && it.validUntil>it.issuedAt) }
-            }
-            PublicRjMarine(Instant.parse(sea.getString("fetchedAt")),
-                sea.getString("sourceUrl"),warningRows).also {
-                require(it.sourceUrl ==
-                    "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
-            }
-        }
+        val marine: PublicRjMarine? = null // Legacy maritime payload excluded by project policy.
         // Older deployments omit "sources": never infer that a worker is
         // connected just because the enclosing HTTP response is fresh.
         val products = root.optJSONArray("sources")?.let { rows ->
