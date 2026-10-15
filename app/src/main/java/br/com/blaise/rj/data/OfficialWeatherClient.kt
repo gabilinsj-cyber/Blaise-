@@ -20,7 +20,11 @@ private class OfficialWeatherSourceFailure(val code: String) : java.io.IOExcepti
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
-        runCatching { currentCityBlocking(request) }.getOrElse {
+        try {
+            currentCityBlocking(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             CityWeatherResult(request.city.ibgeCode, request.localScope,
                 unavailableReason = "Não foi possível confirmar uma medição oficial recente para ${request.localScope ?: request.city.name}.")
         }
@@ -158,38 +162,22 @@ class OfficialWeatherClient {
                     it.temperatureC, it.humidityPercent, it.windKmh, 300)
             })
         }
-        val today = LocalDate.now(zone)
-        val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
-        val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
-            it.optString("SG_ESTADO") == "RJ" && it.optString("CD_SITUACAO") == "Operante" &&
-                normalizedSpeech(it.optString("DC_NOME")) == normalizedSpeech(request.city.name)
-        } ?: return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Nenhuma estação INMET local confirmada para ${request.city.name}. Não é usada uma cidade vizinha como substituta.")
-        val code = station.getString("CD_ESTACAO")
-        check(Regex("[A-Z][0-9]{3}").matches(code))
-        val url = "https://apitempo.inmet.gov.br/estacao/${today.minusDays(1)}/$today/$code"
-        val rows = JSONArray(get(url))
-        val instant = Instant.now()
-        val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
-            OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..300 }.maxByOrNull { it.second }
-            ?: return CityWeatherResult(request.city.ibgeCode, scope,
-                unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
         if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
-            unavailableReason = "Cobertura de $scope não confirmada pela estação INMET $code.")
-        return CityWeatherResult(request.city.ibgeCode, scope, CityWeatherObservation(
-            request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
-            OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
-            OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 300,
-            windGustKmh = OfficialWeatherParser.number(valid.first, "VEN_RAJ", 0.0, 111.11)?.times(3.6),
-            hourlyRainMm = OfficialWeatherParser.number(valid.first, "CHUVA", 0.0, 400.0),
-        ))
+            unavailableReason = "Cobertura de $scope não confirmada por uma estação local.")
+        // Use the same station policy, fallback sequence and age validation as
+        // the cards, charts and map instead of selecting the first catalog row.
+        val series = recentMunicipalityHourlySeriesBlocking(request.city)
+        return MunicipalWeatherSnapshot.fromSeries(request.city.ibgeCode, series, Instant.now()).report
     }
+
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
         // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
         // retrieval age cannot extend the validity of the underlying observation.
-        val result = runCatching { query(request) }.getOrElse {
+        val result = try {
+            query(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             "Não consegui confirmar os dados oficiais de ${request.localScope ?: request.city.name} agora. A consulta ao INMET está indisponível. Não tenho temperatura ou sensação térmica válida para informar. Tente novamente em instantes."
         }
         result
