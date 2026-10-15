@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+python3 scripts/test-validate-public-status.py
+
 workflow='.github/workflows/cloudrun-candidate.yml'
 test -s "$workflow"
 
