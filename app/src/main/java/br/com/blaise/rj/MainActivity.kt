@@ -2195,6 +2195,8 @@ private fun PnboiaCatalogPanel() {
  */
 @Composable
 private fun RjMarineSourceMatrixPanel() {
+    val externalUri = androidx.compose.ui.platform.LocalUriHandler.current
+    var stormsurfOpenFailed by remember { mutableStateOf(false) }
     val clock = LocalObservationClock.current
     val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
@@ -2234,6 +2236,16 @@ private fun RjMarineSourceMatrixPanel() {
             "sem ingestão contínua validada no painel.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-unconnected-products"))
+        Text(RjMeteorologicalTables.STORMSURF_DESCRIPTION, color = Muted,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-stormsurf-reference"))
+        TextButton(onClick = {
+            stormsurfOpenFailed = runCatching { externalUri.openUri(RjMeteorologicalTables.STORMSURF_URL) }.isFailure
+        }, modifier = Modifier.testTag("rj-stormsurf-open")) {
+            Text("Consultar Stormsurf — Atlântico Sul")
+        }
+        if (stormsurfOpenFailed) Text("Não foi possível abrir o navegador. Endereço: ${RjMeteorologicalTables.STORMSURF_URL}",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
             Surface(
                 modifier = Modifier.fillMaxWidth()
