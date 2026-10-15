@@ -173,7 +173,29 @@ function normalizeRecord(block) {
   }
 
   const areaDescriptions = normalizeAreaDescriptions(areaBlocks);
-  const { rjMatchMethod, rjMunicipalityIbges } = normalizeRjScopeFromAreas(areaBlocks);
+  let { rjMatchMethod, rjMunicipalityIbges } = normalizeRjScopeFromAreas(areaBlocks);
+  // WIS2 CAP lists exact municipalities in an official info/parameter, not geocode.
+  const parameters = tagBlocks(info, 'parameter').filter(p => tagText(p, 'valueName') === 'Municipios');
+  if (parameters.length > 1) throw new InmetSourceContractError('inmet_duplicate_municipal_parameter');
+  if (parameters.length === 1) {
+    const value = requiredText(parameters[0], 'value', 'inmet_municipal_parameter_missing', 128 * 1024);
+    const entries = [...value.matchAll(/([^,]+?) - ([A-Z]{2}) \((\d{7})\)/g)];
+    const residual = value.replace(/([^,]+?) - ([A-Z]{2}) \((\d{7})\)/g, '').replace(/[,\s]/g, '');
+    if (!entries.length || residual || entries.length > 5570) throw new InmetSourceContractError('inmet_municipal_parameter_invalid');
+    const codes = new Set();
+    for (const [, name, uf, ibge] of entries) {
+      if (uf !== 'RJ' && !ibge.startsWith('33')) continue;
+      const city = findRjMunicipality(ibge);
+      if (uf !== 'RJ' || !city || fold(city.name) !== fold(name.trim())) throw new InmetSourceContractError('inmet_municipal_parameter_untrusted');
+      if (codes.has(ibge)) throw new InmetSourceContractError('inmet_municipal_parameter_duplicate');
+      codes.add(ibge);
+    }
+    if (codes.size) {
+      if (rjMunicipalityIbges.some(code => !codes.has(code))) throw new InmetSourceContractError('inmet_municipal_parameter_conflict');
+      rjMatchMethod = 'CAP_PARAMETER_MUNICIPIOS_IBGE_33';
+      rjMunicipalityIbges = Object.freeze([...codes].sort());
+    }
+  }
 
   return Object.freeze({
     identifier,

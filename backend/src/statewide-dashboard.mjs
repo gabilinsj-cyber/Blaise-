@@ -1,3 +1,5 @@
+import { CEMADEN_NATIONAL_TASK_ID, CEMADEN_NATIONAL_URL } from './cemaden-national-source.mjs';
+import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
@@ -13,6 +15,7 @@ const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 
 // Approved responsibilities, not a claim that all portals supply an operational feed.
 export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
+  { id: 'cemaden-national', name: 'CEMADEN nacional', products: ['alertas-abertos'], scope: 'RJ_POR_IBGE_EXATO', taskId: CEMADEN_NATIONAL_TASK_ID },
   { id: 'inmet', name: 'INMET', products: ['temperatura', 'umidade', 'vento', 'previsao', 'avisos'], scope: 'RJ_POR_COBERTURA_VALIDADA', taskId: INMET_WARNINGS_TASK_ID },
   { id: 'cemaden-rj', name: 'CEMADEN-RJ / Defesa Civil RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
   { id: 'alerta-rio', name: 'Alerta Rio', products: ['chuva', 'meteorologia', 'radar-conforme-produto'], scope: 'MUNICIPIO_DO_RIO', taskId: 'alerta-rio-rainfall' },
@@ -47,7 +50,18 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
   const hydroReady = ready(hydro, nowMillis, 5 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
-  const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
+  const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && [INMET_CAP_RSS_URL, INMET_WIS2_URL].includes(cap.snapshot.sourceUrl);
+  const national = active ? reading(worker, CEMADEN_NATIONAL_TASK_ID) : null;
+  const nationalReady = ready(national, nowMillis, 300_000)
+    && national.snapshot.sourceId === CEMADEN_NATIONAL_TASK_ID
+    && national.snapshot.sourceUrl === CEMADEN_NATIONAL_URL
+    && freshStamp(national.snapshot.sourceUpdatedAt, nowMillis, 300_000);
+  const nationalAlerts = nationalReady ? {
+    sourceUrl: CEMADEN_NATIONAL_URL, fetchedAt: national.fetchedAt,
+    sourceUpdatedAt: national.snapshot.sourceUpdatedAt,
+    alerts: national.snapshot.alerts, absenceOfRiskProven: false,
+    municipalRiskLevelProvided: false,
+  } : null;
   const records = hydroReady ? hydro.snapshot.records : [];
   const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
   const inventory = capReady && Array.isArray(cap.snapshot.rjWarnings) ? cap.snapshot.rjWarnings : [];
@@ -63,7 +77,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     sent: item.sent,
     onset: item.onset,
     expires: item.expires,
-    sourceUrl: INMET_CAP_RSS_URL,
+    sourceUrl: cap.snapshot.sourceUrl,
     municipalityIbges: [...(item.rjMunicipalityIbges ?? [])],
     attribution: item.rjMunicipalityIbges?.length ? 'EXACT_IBGE' : 'UNRESOLVED_RJ_AREA',
   })) : [];
@@ -92,6 +106,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     generatedAt: new Date(nowMillis).toISOString(),
     scope: 'RJ_92_MUNICIPALITIES',
     workerActive: active,
+    nationalAlerts,
     municipalities,
     warnings,
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
@@ -101,7 +116,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
       return { id: source.id, name: source.name, products: source.products, scope: source.scope,
         state: actual?.state ?? 'NOT_CONNECTED', observedAt: actual?.observedAt ?? null,
         // Connector state applies only to this product, never every listed responsibility.
-        connectedProduct: actual ? (source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
+        connectedProduct: actual ? (source.id === 'cemaden-national' ? 'alertas-abertos' : source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
           : source.id === 'alerta-rio' ? 'chuva' : 'inventario-avisos-maritimos') : null };
     }),
   };

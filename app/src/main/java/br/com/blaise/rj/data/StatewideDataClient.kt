@@ -19,7 +19,8 @@ data class StatewideRisk(val state: String, val label: String?, val level: Int?,
         !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= 300
 }
 data class StatewideWarning(val id: String, val event: String, val severity: String, val sent: Instant, val onset: Instant,
-    val expires: Instant, val municipalityIbges: List<Int>, val attribution: String) {
+    val expires: Instant, val municipalityIbges: List<Int>, val attribution: String,
+    val sourceUrl: String = "https://apiprevmet3.inmet.gov.br/avisos/rss") {
     fun current(now: Instant) = !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
         br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
 }
@@ -28,7 +29,8 @@ data class StatewideMunicipality(val ibge: Int, val name: String, val seaFacing:
 data class StatewideSource(val id: String, val name: String, val products: List<String>, val scope: String,
     val state: String, val connectedProduct: String?)
 data class StatewideSnapshot(val generatedAt: Instant, val workerActive: Boolean,
-    val municipalities: List<StatewideMunicipality>, val warnings: List<StatewideWarning>, val sources: List<StatewideSource>) {
+    val municipalities: List<StatewideMunicipality>, val warnings: List<StatewideWarning>, val sources: List<StatewideSource>,
+    val nationalAlerts: NationalCemadenStatus? = null) {
     init {
         require(municipalities.size == 92 && municipalities.map { it.ibge }.toSet().size == 92)
         require(municipalities.all { RioMunicipalities.byIbgeCode(it.ibge)?.name == it.name })
@@ -66,14 +68,14 @@ object StatewideDataParser {
                 strings(row.getJSONArray("warningIds")), coverage)
         }
         val warnings = map(root.getJSONArray("warnings")) { row ->
-            require(row.getString("sourceUrl") == "https://apiprevmet3.inmet.gov.br/avisos/rss")
+            require(row.getString("sourceUrl") in setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/"))
             StatewideWarning(row.getString("id"), row.getString("event"), row.getString("severity"),
                 Instant.parse(row.getString("sent")), Instant.parse(row.getString("onset")), Instant.parse(row.getString("expires")),
-                strings(row.getJSONArray("municipalityIbges")).map(String::toInt), row.getString("attribution"))
+                strings(row.getJSONArray("municipalityIbges")).map(String::toInt), row.getString("attribution"), row.getString("sourceUrl"))
         }
         val sources = map(root.getJSONArray("sources")) { row -> StatewideSource(row.getString("id"), row.getString("name"),
             strings(row.getJSONArray("products")), row.getString("scope"), row.getString("state"), optional(row, "connectedProduct")) }
-        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources)
+        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources, PublicRjStatusParser.parseNational(root))
     }
 }
 

@@ -244,3 +244,67 @@ test('failed CAP inventory drains in-flight fetches before returning failure', a
   release();
   await rejection;
 });
+
+test('WIS2 municipal parameter requires exact canonical RJ name and IBGE, without expanding areas', () => {
+  const xml = value => alertXml({ geocode: '', areaDesc: 'Área de teste RJ' }).replace('</info>',
+    `<parameter><valueName>Municipios</valueName><value>${value}</value></parameter></info>`);
+  const s = validateInmetCapFeedXml(xml('Rio de Janeiro - RJ (3304557), Niterói - RJ (3303302)'));
+  assert.deepEqual(s.rjWarnings[0].rjMunicipalityIbges, ['3303302', '3304557']);
+  assert.equal(s.rjWarnings[0].rjMatchMethod, 'CAP_PARAMETER_MUNICIPIOS_IBGE_33');
+  assert.throws(() => validateInmetCapFeedXml(xml('Niterói - RJ (3304557)')), e => e.code === 'inmet_municipal_parameter_untrusted');
+});
+
+test('WIS2 HTTPS archive validates CAP bytes while keeping inventory partial', async () => {
+  const { probeInmetWis2Warnings, parseWis2Listing, INMET_WIS2_URL } = await import('../src/inmet-wis2-source.mjs');
+  const { createInmetCapWarningsCache } = await import('../src/inmet-warning-cache.mjs');
+  const at = Date.parse('2026-09-09T19:00:00Z');
+  const s = await probeInmetWis2Warnings({ now: () => at, fetchImpl: async url => {
+    const u = new URL(url);
+    if (u.search) {
+      const prefix = u.searchParams.get('prefix');
+      return new Response(`<ListBucketResult><IsTruncated>false</IsTruncated>${prefix.startsWith('2026-09-09')
+        ? `<Contents><Key>${prefix}INMET-ALERT-123_20260909.xml</Key></Contents>` : ''}</ListBucketResult>`,
+      { headers: { 'content-type': 'application/xml' } });
+    }
+    assert.equal(u.hostname, 'wis2bra.inmet.gov.br');
+    return new Response(alertXml(), { headers: { 'content-type': 'application/octet-stream' } });
+  }});
+  assert.equal(s.sourceUrl, INMET_WIS2_URL);
+  assert.equal(s.inventoryComplete, false);
+  const cache = createInmetCapWarningsCache({ now: () => at }); cache.recordSuccess(s);
+  assert.equal(cache.read().state, 'CURRENT_DEGRADED');
+  assert.equal(cache.read().snapshot.rjWarningCount, 1);
+  assert.throws(() => parseWis2Listing('<ListBucketResult><IsTruncated>true</IsTruncated></ListBucketResult>', 'x'));
+  assert.throws(() => parseWis2Listing('<ListBucketResult><IsTruncated>false</IsTruncated><Key>https://evil.test/a.xml</Key></ListBucketResult>', 'x'));
+});
+
+test('alternative collectors reach public municipal payload without turning CEMADEN alerts into risk levels', async () => {
+  const { createOfficialSourceWorker } = await import('../src/official-source-worker.mjs');
+  const { buildRjPublicStatusSnapshot, projectWarningInventories } = await import('../src/rj-public-status-http.mjs');
+  const { validateCemadenNationalAlerts } = await import('../src/cemaden-national-source.mjs');
+  const at = Date.parse('2026-09-09T19:00:00Z');
+  const snapshot = { ...validateInmetCapFeedXml(alertXml()), sourceHost: 'wis2bra.inmet.gov.br',
+    sourceUrl: 'https://wis2bra.inmet.gov.br/data/', feedShape: 'WIS2_ARCHIVE_WINDOW_CAP', inventoryComplete: false };
+  const national = validateCemadenNationalAlerts({ atualizado: '09-09-2026 18:59:00 UTC', alertas: [{
+    cod_alerta: 1, codibge: 3304557, uf: 'RJ', municipio: 'RIO DE JANEIRO', evento: 'Risco Hidrológico - Alto',
+    nivel: 'Alto', status: 1, datahoracriacao: '2026-09-09 15:00:00' }] }, { nowMillis: at });
+  const worker = createOfficialSourceWorker({
+    config: { enabled: true, initialMode: 'normal', inmetWarningsEnabled: true,
+      inmetWis2Enabled: true, cemadenNationalEnabled: true },
+    now: () => at, autoSchedule: false, maxConcurrency: 3,
+    probeAlertaRio: async () => { throw Object.assign(new Error('source_network_error'), { code: 'source_network_error' }); },
+    probeInmetWis2: async () => snapshot,
+    probeInmetWarningsLive: async () => { throw new Error('RSS must not be used after verified WIS2'); },
+    probeCemadenNational: async () => national,
+  });
+  worker.start(); await worker.tick();
+  const s = buildRjPublicStatusSnapshot(worker, { nowMillis: at });
+  assert.equal(s.usableOfficialProducts, true);
+  assert.equal(s.warnings[0].sourceUrl, 'https://wis2bra.inmet.gov.br/data/');
+  assert.equal(s.nationalAlerts.alerts[0].ibge, '3304557');
+  assert.ok(s.municipalities.every(city => city.risk === null));
+  assert.equal(s.municipalities.find(city => city.ibge === '3304557').warningIds.length, 1);
+  assert.equal(s.municipalities.find(city => city.ibge === '3303302').warningIds.length, 0);
+  assert.equal(projectWarningInventories(worker, at)[0].complete, false);
+  worker.stop();
+});

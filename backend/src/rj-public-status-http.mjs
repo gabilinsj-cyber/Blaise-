@@ -1,3 +1,4 @@
+import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { CHM_WARNINGS_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
@@ -17,8 +18,10 @@ export function projectWarningInventories(worker, nowMillis) {
     let feed;
     try { feed = worker.readSource(task); } catch { return []; }
     const checked = Date.parse(feed?.fetchedAt), snapshot = feed?.snapshot;
-    if (feed?.state !== 'CURRENT' || !Number.isFinite(checked) || checked > nowMillis || nowMillis - checked > 300_000 ||
-        snapshot?.sourceId !== expectedId || snapshot.sourceUrl !== sourceUrl ||
+    const wis2 = sourceId === 'inmet' && snapshot?.sourceUrl === INMET_WIS2_URL
+      && snapshot.feedShape === 'WIS2_ARCHIVE_WINDOW_CAP' && snapshot.inventoryComplete === false;
+    if (!(feed?.state === 'CURRENT' || wis2 && feed?.state === 'CURRENT_DEGRADED') || !Number.isFinite(checked) || checked > nowMillis || nowMillis - checked > 300_000 ||
+        snapshot?.sourceId !== expectedId || snapshot.sourceUrl !== (wis2 ? INMET_WIS2_URL : sourceUrl) ||
         !Array.isArray(snapshot.warnings) || snapshot.warnings.length > 64) return [];
     if (sourceId === 'inmet' ?
         snapshot.identityValidation !== 'INMET_SENDER_DOMAIN+OFFICIAL_OID_PREFIX' ||
@@ -33,7 +36,7 @@ export function projectWarningInventories(worker, nowMillis) {
     const cancelledIds = sourceId === 'inmet' ? [...new Set((snapshot.cancellations ?? [])
       .filter(w => Date.parse(w.sent) <= nowMillis && w.msgType === 'Cancel')
       .flatMap(w => w.cancelledIdentifiers ?? []))].slice(0, 64) : [];
-    return [{sourceId, sourceUrl, checkedAt: new Date(checked).toISOString(), complete, recordKeys: keys, cancelledIds}];
+    return [{sourceId, sourceUrl: snapshot.sourceUrl, checkedAt: new Date(checked).toISOString(), complete, recordKeys: keys, cancelledIds}];
   });
 }
 /** Regional METAREA V is not a coastal municipality polygon. */
@@ -102,7 +105,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
   const source=buildStatewideDashboardSnapshot(worker,{nowMillis});
   if(!source.workerActive) return null;
-  const permittedSourceIds=['inmet','cemaden-rj'];
+  const permittedSourceIds=['inmet','cemaden-rj','cemaden-national'];
   const sourceSummaries=source.sources
     .filter(s=>permittedSourceIds.includes(s.id))
     .map(s=>Object.freeze({
@@ -152,6 +155,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     marine,
+    nationalAlerts: source.nationalAlerts,
     sources:Object.freeze(sourceSummaries),
     warningInventories: Object.freeze(projectWarningInventories(worker, nowMillis)),
     thirdPartyImagesIncluded:false,

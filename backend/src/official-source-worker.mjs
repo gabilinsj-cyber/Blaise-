@@ -1,3 +1,5 @@
+import { probeInmetWis2Warnings } from './inmet-wis2-source.mjs';
+import { CEMADEN_NATIONAL_TASK_ID, probeCemadenNationalAlerts, createCemadenNationalCache } from './cemaden-national-source.mjs';
 import { rjAlertActiveUntil, rjAlertIsActive } from './rj-alert-retention.mjs';
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
 import { createCemadenRjHydrologicalRiskCache } from './cemaden-rj-cache.mjs';
@@ -184,7 +186,12 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     code: 'official_source_worker_invalid_defesa_civil_rio_assets_enabled_flag',
   });
 
+  const alternativeFlags = {};
+  for (const [key, envKey] of [['inmetWis2Enabled', 'BLAISE_INMET_WIS2_ENABLED'], ['cemadenNationalEnabled', 'BLAISE_CEMADEN_NATIONAL_ENABLED']]) {
+    if (env[envKey] != null && env[envKey] !== '') alternativeFlags[key] = parseBoolean(env[envKey], { defaultValue: false, code: 'official_source_worker_invalid_alternative_flag' });
+  }
   const config = {
+    ...alternativeFlags,
     enabled,
     initialMode: severe ? 'severe' : 'normal',
   };
@@ -252,6 +259,8 @@ export function createOfficialSourceWorker({
   refreshIntervalsMs = null,
   cadenceMode = 'after_completion',
   onEvent = () => {},
+  probeInmetWis2 = probeInmetWis2Warnings,
+  probeCemadenNational = probeCemadenNationalAlerts,
   probeAlertaRio = probeAlertaRioLiveRainfall,
   probeCemadenRj = probeCemadenRjHydrologicalRisk,
   probeChmWarningsLive = probeChmWarnings,
@@ -272,6 +281,10 @@ export function createOfficialSourceWorker({
   if (String(config.ineaStationUrl ?? '').trim() !== '') {
     throw new OfficialSourceWorkerError('official_source_worker_retired_source_inea');
   }
+  const cemadenNationalEnabled = config.cemadenNationalEnabled ?? false;
+  const inmetWis2Enabled = config.inmetWis2Enabled ?? false;
+  if (typeof cemadenNationalEnabled !== 'boolean' || typeof inmetWis2Enabled !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
+  const nationalCache = cemadenNationalEnabled ? createCemadenNationalCache({ now }) : null;
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = config.chmWarningsEnabled ?? false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
@@ -341,6 +354,20 @@ export function createOfficialSourceWorker({
     },
   }];
 
+  if (cemadenNationalEnabled) tasks.push({
+    id: CEMADEN_NATIONAL_TASK_ID,
+    run: async ({ startedAt }) => {
+      try {
+        const snapshot = await probeCemadenNational({ fetchImpl, now });
+        nationalCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
+      } catch (error) {
+        nationalCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
+        throw error;
+      }
+    },
+  });
   if (cemadenRjEnabled) {
     tasks.push({
       id: CEMADEN_RJ_TASK_ID,
@@ -381,7 +408,10 @@ export function createOfficialSourceWorker({
       run: async ({ startedAt }) => {
         let snapshot;
         try {
-          snapshot = await probeInmetWarningsLive({ fetchImpl });
+          if (inmetWis2Enabled) {
+            try { snapshot = await probeInmetWis2({ fetchImpl, now }); }
+            catch { snapshot = await probeInmetWarningsLive({ fetchImpl }); }
+          } else snapshot = await probeInmetWarningsLive({ fetchImpl });
           inmetWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
         reconcileCadence();
         } catch (error) {
@@ -490,7 +520,9 @@ export function createOfficialSourceWorker({
       return ['CURRENT', 'CURRENT_DEGRADED'].includes(hydro.state) && [4, 5].includes(row.priority)
         && observed <= at && at - observed <= 300_000;
     }) === true;
-    return scheduler.setMode(highHydro || at < heldCriticalUntil ? 'severe' : 'normal');
+    const national = nationalCache?.read();
+    const highNational = national?.snapshot?.alerts?.some(alert => ['Alto', 'Muito Alto'].includes(alert.officialLevel)) === true;
+    return scheduler.setMode(highHydro || highNational || at < heldCriticalUntil ? 'severe' : 'normal');
   }
 
   function start() {
@@ -510,6 +542,7 @@ export function createOfficialSourceWorker({
 
   function readSource(taskId) {
     reconcileCadence();
+    if (taskId === CEMADEN_NATIONAL_TASK_ID && nationalCache) return nationalCache.read();
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
     }
@@ -534,6 +567,7 @@ export function createOfficialSourceWorker({
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
+    if (nationalCache) sourceStates.push(sourceStateWithoutPayload(nationalCache.read()));
     if (cemadenRjCache) {
       sourceStates.push(sourceStateWithoutPayload(cemadenRjCache.read({ mode: schedulerStatus.mode })));
     }

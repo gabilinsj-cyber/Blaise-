@@ -275,7 +275,7 @@ fun BlaiseApp(
             ?.takeIf { it.current(observationClock) && it.workerActive }
         val paidWarnings = paid?.warnings.orEmpty().filter { it.attribution == "EXACT_IBGE" }
             .map { PublicRjWarning(it.id, it.event, it.severity, it.sent, it.onset, it.expires,
-                it.municipalityIbges, "https://apiprevmet3.inmet.gov.br/avisos/rss") }
+                it.municipalityIbges, it.sourceUrl) }
         val next = warningHistoryStore.merge(warningHistory, current?.warnings.orEmpty() + paidWarnings, observationClock,
             current?.warningInventories?.firstOrNull { it.sourceId == "inmet" })
         if (next != warningHistory) {
@@ -1808,6 +1808,21 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         } else {
             Text("Risco municipal: sem boletim oficial recente validado",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(now) }
+        val national = (snapshot?.nationalAlerts ?: paid?.nationalAlerts)?.takeIf { it.current(now) }
+        if (national != null) {
+            val alerts = national.alerts.filter { it.ibge == ibge }
+            Text("CEMADEN nacional • consulta " +
+                national.sourceUpdatedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) + " (Brasília)",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            alerts.forEach { alert ->
+                Text("Alerta aberto • ${alert.event} • nível oficial ${alert.officialLevel}",
+                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            }
+            if (alerts.isEmpty()) Text("Nenhum alerta aberto publicado para este município nesta consulta. Não indica ausência de risco.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         warnings.take(3).forEach { warning ->

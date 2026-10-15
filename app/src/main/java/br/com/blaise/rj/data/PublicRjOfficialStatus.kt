@@ -36,7 +36,7 @@ data class PublicRjWarning(
 ) {
     fun current(now: Instant) = localClosedAt == null && id.isNotBlank() && event.isNotBlank() &&
         !sent.isAfter(now) && !onset.isAfter(now) && expires.isAfter(now) &&
-        sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss" &&
+        sourceUrl in setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/") &&
         br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires).isAfter(now)
     fun localActiveUntil() = minOf(br.com.blaise.rj.core.AlertValidityPolicy.activeUntil(sent, expires), localClosedAt ?: expires)
     fun retainHistory(now: Instant) = now.isBefore(localActiveUntil().plusSeconds(br.com.blaise.rj.core.AlertValidityPolicy.HISTORY_SECONDS))
@@ -106,18 +106,27 @@ data class PublicRjSourceProduct(
     val scope: String,
 ) {
     init {
-        require(id in setOf("inmet", "cemaden-rj"))
+        require(id in setOf("inmet", "cemaden-rj", "cemaden-national"))
         require(name.isNotBlank() && name.length <= 90)
         require(state in setOf("CURRENT", "CURRENT_DEGRADED", "STALE",
             "UNAVAILABLE", "NOT_CONNECTED", "NOT_CONFIGURED",
             "AWAITING_SOURCE_REFRESH", "ERROR"))
         require(scope.length in 1..80)
         require(connectedProduct == null || connectedProduct ==
-            if (id == "inmet") "avisos" else "risco-hidrologico")
+            if (id == "inmet") "avisos" else if (id == "cemaden-national") "alertas-abertos" else "risco-hidrologico")
     }
     fun currentlyConnected() =
         state in setOf("CURRENT", "CURRENT_DEGRADED") &&
         connectedProduct != null
+}
+
+data class NationalCemadenAlert(val id: String, val ibge: Int, val municipality: String,
+    val event: String, val officialLevel: String, val openedAtRaw: String)
+data class NationalCemadenStatus(val fetchedAt: Instant, val sourceUpdatedAt: Instant,
+    val alerts: List<NationalCemadenAlert>) {
+    fun current(now: Instant) = !fetchedAt.isAfter(now) && !sourceUpdatedAt.isAfter(now) &&
+        Duration.between(fetchedAt, now).seconds in 0..300 &&
+        Duration.between(sourceUpdatedAt, now).seconds in 0..300
 }
 
 data class PublicRjStatus(
@@ -127,6 +136,7 @@ data class PublicRjStatus(
     val marine: PublicRjMarine? = null,
     val sourceProducts: List<PublicRjSourceProduct> = emptyList(),
     val warningInventories: List<PublicWarningInventory> = emptyList(),
+    val nationalAlerts: NationalCemadenStatus? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -139,7 +149,7 @@ data class PublicRjStatus(
         } })
         require(marine == null || marine.warnings.size <= 16 &&
             marine.warnings.map { it.id }.distinct().size == marine.warnings.size)
-        require(sourceProducts.size <= 2 &&
+        require(sourceProducts.size <= 3 &&
             sourceProducts.map { it.id }.distinct().size == sourceProducts.size)
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) &&
@@ -166,6 +176,31 @@ sealed interface PublicRjStatusResult {
 }
 
 object PublicRjStatusParser {
+    fun parseNational(root: JSONObject): NationalCemadenStatus? {
+        return if (root.isNull("nationalAlerts")) null else root.getJSONObject("nationalAlerts").let { info ->
+            require(info.getString("sourceUrl") == "https://painelalertas.cemaden.gov.br/wsAlertas2")
+            require(!info.getBoolean("absenceOfRiskProven") && !info.getBoolean("municipalRiskLevelProvided"))
+            val rows = info.getJSONArray("alerts")
+            require(rows.length() <= 64)
+            val alerts = (0 until rows.length()).map { index ->
+                val row = rows.getJSONObject(index)
+                val code = row.getString("ibge").toInt()
+                require(RioMunicipalities.byIbgeCode(code)?.name == row.getString("municipality"))
+                val level = row.getString("officialLevel")
+                require(level in setOf("Moderado", "Alto", "Muito Alto"))
+                val event = row.getString("event")
+                require(event.length in 1..160 && event.none { it.code < 32 || it == '<' || it == '>' })
+                val id = row.getString("id")
+                require(id.matches(Regex("^[0-9]{1,10}:33[0-9]{5}$")) && id.endsWith(":$code"))
+                NationalCemadenAlert(id, code, row.getString("municipality"), event, level,
+                    row.getString("openedAtRaw").also { require(it.length in 1..40) })
+            }
+            require(alerts.map { it.id }.distinct().size == alerts.size)
+            NationalCemadenStatus(Instant.parse(info.getString("fetchedAt")),
+                Instant.parse(info.getString("sourceUpdatedAt")), alerts)
+        }
+    }
+
     fun parse(root: JSONObject): PublicRjStatus {
         require(root.getString("contract") == PUBLIC_RJ_STATUS_CONTRACT)
         require(root.getString("scope") == "RJ_92_MUNICIPALITIES")
@@ -208,7 +243,7 @@ object PublicRjStatusParser {
         // Older deployments omit "sources": never infer that a worker is
         // connected just because the enclosing HTTP response is fresh.
         val products = root.optJSONArray("sources")?.let { rows ->
-            require(rows.length() <= 2)
+            require(rows.length() <= 3)
             (0 until rows.length()).map { idx ->
                 val item = rows.getJSONObject(idx)
                 val product=if(item.isNull("connectedProduct")) null
@@ -234,9 +269,9 @@ object PublicRjStatusParser {
                 val row = rows.getJSONObject(index)
                 val source = row.getString("sourceId")
                 require(source in setOf("inmet", "chm"))
-                require(row.getString("sourceUrl") == if (source == "inmet")
-                    "https://apiprevmet3.inmet.gov.br/avisos/rss" else
-                    "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
+                require(row.getString("sourceUrl") in if (source == "inmet")
+                    setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/") else
+                    setOf("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo"))
                 val keys = row.getJSONArray("recordKeys")
                 val cancellations = row.getJSONArray("cancelledIds")
                 require(keys.length() <= 64 && cancellations.length() <= 64)
@@ -247,8 +282,9 @@ object PublicRjStatusParser {
                     row.getBoolean("complete"), recordKeys.toSet(), cancelled.toSet())
             }.getOrNull() }
         } ?: emptyList()
+        val national = parseNational(root)
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products,inventories)
+            municipalities,warnings,marine,products,inventories,national)
     }
 }
 
