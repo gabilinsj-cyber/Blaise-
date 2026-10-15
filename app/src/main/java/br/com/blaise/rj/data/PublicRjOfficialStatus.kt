@@ -123,7 +123,7 @@ data class PublicRjSourceProduct(
 data class AerodromeObservation(val stationId: String, val stationName: String, val ibge: Int,
     val observedAt: Instant, val airTemperatureC: Double?, val windSpeedKmh: Double?,
     val gustKmh: Double?, val qnhHpa: Double?) {
-    fun current(now: Instant) = !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..300
+    fun current(now: Instant) = !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..3600
 }
 data class AerodromeStatus(val state: String, val reason: String, val fetchedAt: Instant?,
     val observations: List<AerodromeObservation>) {

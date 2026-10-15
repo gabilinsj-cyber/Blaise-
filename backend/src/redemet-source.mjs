@@ -3,7 +3,7 @@ import { fetchJsonContract } from './source-contract.mjs';
 export const REDEMET_TASK_ID = 'redemet-rj-metar';
 export const REDEMET_PUBLIC_URL = 'https://redemet.decea.mil.br/';
 const HOST = 'api-redemet.decea.mil.br';
-export const REDEMET_MAX_AGE_MS = 300_000;
+export const REDEMET_MAX_AGE_MS = 3_600_000;
 export const REDEMET_RJ_STATIONS = Object.freeze({
   SBGL: Object.freeze({ ibge: '3304557', name: 'Galeão', municipality: 'Rio de Janeiro' }),
   SBRJ: Object.freeze({ ibge: '3304557', name: 'Santos Dumont', municipality: 'Rio de Janeiro' }),
@@ -47,6 +47,7 @@ export function parseRedemetMetar(row, { nowMillis = Date.now() } = {}) {
   const qnhHpa = qnh ? number(Number(qnh[1]), 850, 1100) : null;
   if (airTemperatureC === null && speed === null && qnhHpa === null && visibility === null) fail('no_supported_measurements');
   return Object.freeze({ stationId: row.id_localidade, stationName: station.name, ibge: station.ibge,
+    reportType: header[1], timeBasis: 'HOURLY_BULLETIN_OR_EVENT_SPECI_WITH_ORIGINAL_TIME',
     municipality: station.municipality, observedAt: stamp, sourceUrl: REDEMET_PUBLIC_URL,
     scope: 'AERODROME_POINT_NOT_MUNICIPAL_MEAN', sourceId: REDEMET_TASK_ID,
     airTemperatureC, dewPointC, windSpeedKmh: rounded(speed), gustKmh: rounded(gust),
@@ -58,9 +59,14 @@ export async function probeRedemetRjMetar({ fetchImpl = globalThis.fetch, apiKey
   if (usageApproved !== true) fail('usage_not_approved');
   if (apiKey.length > 1024 || /[\u0000-\u0020]/.test(apiKey)) fail('invalid_configuration');
   const url = new URL(`https://${HOST}/mensagens/metar/SBGL,SBRJ`);
-  url.searchParams.set('api_key', apiKey); url.searchParams.set('page_tam', '150');
+  url.searchParams.set('page_tam', '150');
+  // Credential travels in the header only, never a URL query.
+  const authenticatedFetch = (target, options) => {
+    if (new URL(target).hostname !== HOST) fail('credential_host_mismatch');
+    return fetchImpl(target, { ...options, headers: { ...options.headers, 'X-Api-Key': apiKey } });
+  };
   let result;
-  try { result = await fetchJsonContract(url.href, { fetchImpl, allowedHosts: [HOST], timeoutMs: 8_000, maxBytes: 512 * 1024 }); }
+  try { result = await fetchJsonContract(url.href, { fetchImpl: authenticatedFetch, allowedHosts: [HOST], timeoutMs: 8_000, maxBytes: 512 * 1024 }); }
   catch { fail('request_failed'); } // Never expose URL, key, upstream message or exception.
   const page = result?.data;
   if (result?.status !== true || !page || !Array.isArray(page.data) || page.data.length > 150
@@ -95,9 +101,9 @@ export function createRedemetCache({ now = () => Date.now() } = {}) {
         const stamp = Date.parse(o.observedAt);
         return stamp <= at && at - stamp <= REDEMET_MAX_AGE_MS;
       }) ?? [];
-      const current = fetched <= at && at - fetched <= REDEMET_MAX_AGE_MS && observations.length > 0;
-      return { sourceId: REDEMET_TASK_ID, state: current ? (lastErrorCode ? 'CURRENT_DEGRADED' : 'CURRENT') : snapshot ? 'STALE' : 'UNAVAILABLE',
-        reason: current ? 'current_aerodrome_observations_only' : lastErrorCode ?? 'no_current_aerodrome_observation',
+      const current = fetched <= at && at - fetched <= 300_000 && observations.length > 0;
+      return { sourceId: REDEMET_TASK_ID, state: current ? (lastErrorCode || observations.some(o => at - Date.parse(o.observedAt) > 300_000) ? 'CURRENT_DEGRADED' : 'CURRENT') : snapshot ? 'STALE' : 'UNAVAILABLE',
+        reason: current ? 'hourly_bulletin_original_observation_time_preserved' : lastErrorCode ?? 'no_current_aerodrome_observation',
         lastErrorCode, fetchedAt: snapshot?.fetchedAt ?? null,
         snapshot: current ? { ...snapshot, observations } : null };
     },

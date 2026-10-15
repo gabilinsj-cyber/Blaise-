@@ -1828,13 +1828,13 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
         val aerodromes = snapshot?.aerodromeObservations ?: paid?.aerodromeObservations
         if (aerodromes?.current(now) == true) {
             aerodromes.observations.filter { it.ibge == ibge && it.current(now) }.forEach { point ->
-                Text("REDEMET / DECEA • ${point.stationName} (${point.stationId}) • medição do aeródromo", color = Gold,
+                Text("REDEMET / DECEA • ${point.stationName} (${point.stationId}) • boletim do aeródromo", color = Gold,
                     style = MaterialTheme.typography.labelSmall)
                 val values = listOfNotNull(point.airTemperatureC?.let { "$it °C" },
                     point.windSpeedKmh?.let { "vento $it km/h" }, point.gustKmh?.let { "rajada $it km/h" },
                     point.qnhHpa?.let { "QNH $it hPa" }).joinToString(" • ")
                 Text(values + " • " + point.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília). Não é média municipal.",
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília). Ciclo horário; SPECI pode antecipar atualização. Não é medição minuto a minuto nem média municipal.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         } else if (aerodromes != null) {

@@ -42,7 +42,9 @@ class AlternativeOfficialSourcesTest {
         assertTrue(feed.current(now))
         assertEquals(26.0, feed.observations.single().airTemperatureC!!, 0.001)
         assertNull(feed.observations.single().gustKmh)
-        assertFalse(feed.observations.single().current(now.plusSeconds(301)))
+        assertTrue(feed.observations.single().current(now.plusSeconds(301)))
+        assertFalse(feed.observations.single().current(now.plusSeconds(3601)))
+        assertFalse(feed.current(now.plusSeconds(301)))
         root.getJSONObject("aerodromeObservations").getJSONArray("observations").getJSONObject(0).put("ibge", "3303302")
         assertTrue(runCatching { PublicRjStatusParser.parseAerodromes(root) }.isFailure)
     }

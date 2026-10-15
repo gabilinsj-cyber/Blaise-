@@ -77,3 +77,10 @@ object FinalDashboardSpec {
 ## Verificação operacional — 15/10/2026 19:55 BRT
 
 Consulta direta à candidata validacao-rj: HTTP 200, generatedAt 2026-10-15T22:55:17.490Z, workerActive true, 92 municípios, zero avisos municipais elegíveis. INMET CURRENT_DEGRADED (produto avisos); CEMADEN nacional, CEMADEN-RJ e REDEMET ausentes da publicação. Ausência de avisos não é garantia de segurança; cadastro de 92 cidades não comprova medições para todas. CI 965 backend aprovado e Android ainda em andamento no momento da consulta. Corrigida ligação dos critérios 14/15 à seleção de fenômenos numéricos no Android; não disponibilizar AccuWeather como critério de tsunami.
+
+
+## REDEMET: ciclo horário solicitado e proteção da chave — 15/10/2026
+
+Consulta autenticada às 19:59:48 BRT: HTTP 200, SBGL e SBRJ com METAR válido das 19h BRT. CEMADEN nacional retornou atualizado 19:59:02 BRT, zero alertas abertos RJ; não significa ausência de risco. Chave não foi gravada nem exibida. Adaptador passa a enviar X-Api-Key, removendo segredo da URL.
+
+REDEMET exibe boletim de até 60 minutos com horário original e descrição de ciclo horário/SPECI eventual. Consulta do cache continua limitada a 5 minutos; boletim com observação acima de 5 minutos é CURRENT_DEGRADED, nunca apresentado como medição minuto a minuto. Após 60 minutos, remove valores mesmo havendo nova consulta. Não entra automaticamente na média observacional que exige 5 minutos. Credencial, configuração Cloud Run e autorização de publicação continuam pendentes; teste de acesso não equivale a autorização comercial.

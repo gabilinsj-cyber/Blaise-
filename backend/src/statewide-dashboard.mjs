@@ -1,4 +1,4 @@
-import { REDEMET_TASK_ID, REDEMET_PUBLIC_URL } from './redemet-source.mjs';
+import { REDEMET_TASK_ID, REDEMET_PUBLIC_URL, REDEMET_MAX_AGE_MS } from './redemet-source.mjs';
 import { CEMADEN_NATIONAL_TASK_ID, CEMADEN_NATIONAL_URL } from './cemaden-national-source.mjs';
 import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
@@ -60,7 +60,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const aerodromeObservations = redemetReading ? {
     state: redemetReading.state, reason: redemetReading.reason,
     sourceUrl: REDEMET_PUBLIC_URL, fetchedAt: redemetReading.fetchedAt,
-    observations: redemetReady ? redemetReading.snapshot.observations.filter(o => freshStamp(o.observedAt, nowMillis, 300_000)) : [],
+    observations: redemetReady ? redemetReading.snapshot.observations.filter(o => freshStamp(o.observedAt, nowMillis, REDEMET_MAX_AGE_MS)) : [],
   } : null;
   const national = active ? reading(worker, CEMADEN_NATIONAL_TASK_ID) : null;
   const nationalReady = ready(national, nowMillis, 300_000)
