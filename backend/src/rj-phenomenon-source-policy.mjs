@@ -1,3 +1,4 @@
+import { ACCUWEATHER_RJ_POLICY } from './accuweather-policy.mjs';
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 
 /**
@@ -95,6 +96,7 @@ export const RJ_TEN_WEATHER_COMPLEMENTS = Object.freeze([
   'TEMPORAL','VENTO','RAJADA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO',
 ]);
 export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
+  accuWeather: ACCUWEATHER_RJ_POLICY,
   cptecMarine: Object.freeze({
     sourceId:'INPE_CPTEC_FORECAST', role:'NUMERICAL_WAVE_FORECAST_NOT_OBSERVATION',
     sourceUrl:'https://servicos.cptec.inpe.br/XML/',

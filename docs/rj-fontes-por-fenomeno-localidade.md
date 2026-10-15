@@ -208,3 +208,10 @@ Adaptador METAR/SPECI adicionado: `backend/src/redemet-source.mjs`. Cobertura in
 Flags `BLAISE_REDEMET_ENABLED`, `BLAISE_REDEMET_USAGE_APPROVED` e segredo `BLAISE_REDEMET_API_KEY` ficam no servidor, nunca no APK, payload público ou logs. Sem chave/autorização não há requisição. O teste real sem chave retornou HTTP401; coleta autenticada ainda não validada. `node scripts/verify-redemet.mjs` informa a pendência sem divulgar credenciais. A integração do coletor com o payload e painel de cada cidade está implementada, condicionada às mesmas verificações. Mensagem de pendência aparece em vez de números inventados; falha não renova o horário da observação em cache.
 
 Tabela 2 exibe REDEMET como alternativa condicional para variáveis compatíveis; prioridade conjunta Alerta Rio/Defesa Civil preservada. SiMCosta adicionado como fonte elegível de sensores costeiros e link no painel marítimo, ainda sem extração automática ou contrato de API/redistribuição validado. Copernicus/NOAA/INPE/Windy continuam classificados por produto, previsão e medição separados. Validação backend: 651 testes aprovados. Android com novos testes de escopo, unidade e validade; validação CI e no aparelho pendentes.
+
+
+## AccuWeather complementar — 15/10/2026
+
+Tabela 2: escopo elegível dos 92 códigos IBGE canônicos RJ, sem afirmar cobertura ativa. Temperatura em °C, chuva em mm; manter janela de acumulação e distinguir taxa mm/h de quantidade mm. MinuteCast é previsão de precipitação para até 120 minutos, não observação. Intensidade qualitativa, probabilidade e dBZ não viram quantidade mm. Quantidade ausente permanece indisponível. Condições atuais são outro produto. Chave privada no servidor, plano, termos e cobertura por coordenadas precisam ser validados antes de conectar. Não substituir avisos INMET ou risco CEMADEN nem ponderar previsão como sensor independente.
+
+Referências oficiais: https://developer.accuweather.com/minutecast/geoposition-minutecast ; https://developer.accuweather.com/documentation/terms-of-use ; https://apidev.accuweather.com/developers/forecasts/general . Ingestão: NOT_CONNECTED.
