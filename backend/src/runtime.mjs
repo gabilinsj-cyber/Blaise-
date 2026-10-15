@@ -1,3 +1,4 @@
+import { createPnboiaObservationProvider, createPnboiaHttpHandler } from './pnboia-observations.mjs';
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
@@ -216,7 +217,13 @@ async function main() {
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
-  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
+  const buoyHandler = createPnboiaHttpHandler(publicStatusHandler, {
+    provider: createPnboiaObservationProvider({
+      token: process.env.BLAISE_PNBOIA_TOKEN || '',
+      usageApproved: process.env.BLAISE_PNBOIA_DISPLAY_TERMS_APPROVED === 'true',
+    }),
+  });
+  const sourceReadinessHandler = createRjSourceReadinessHandler(buoyHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
