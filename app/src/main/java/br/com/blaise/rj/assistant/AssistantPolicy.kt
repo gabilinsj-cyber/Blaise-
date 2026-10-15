@@ -21,7 +21,7 @@ object AssistantPolicy {
             listOf("trânsito", "transito", "alagamento", "acidente", "interdição", "interdicao", "rota").any(question::contains) ->
                 AssistantAnswer("Abrindo Trânsito. Ocorrências só são exibidas com fonte oficial e horário.", "Trânsito")
             listOf("mar", "onda", "ressaca", "pesca", "surf", "maré", "mare", "tsunami").any(question::contains) ->
-                AssistantAnswer("Abrindo Mar e Ondas. Os dados dependem de fonte oficial, especialmente Marinha/CHM.", "Mar e Ondas")
+                AssistantAnswer("Abrindo Mar e Ondas. Os dados dependem de fonte oficial, com cobertura, horário e validade verificados.", "Mar e Ondas")
             listOf("qualidade do ar", "iqar", "umidade", "uv").any(question::contains) ->
                 AssistantAnswer("Abrindo Qualidade do Ar para consultar IQAr, umidade e UV com fonte e horário.", "Qualidade do Ar")
             listOf("alerta", "temporal", "tempestade", "ciclone", "tornado", "deslizamento", "sismo", "terremoto").any(question::contains) ->
