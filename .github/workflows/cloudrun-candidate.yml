@@ -232,24 +232,10 @@ jobs:
             -H "Authorization: Bearer $token" \
             --output evidence/cloudrun/public-status.json --write-out '%{http_code}' \
             "$BLAISE_CLOUDRUN_CANDIDATE_URL/v1/public/rj-status")"
-          export BLAISE_CANDIDATE_PUBLIC_HTTP="$public_http"
-          python3 - <<'PY_CHECK'
-          import json, os
-          from pathlib import Path
-          payload = json.loads(Path('evidence/cloudrun/public-status.json').read_text())
-          enabled = os.environ.get('BLAISE_RJ_PUBLIC_STATUS_ENABLED') == 'true'
-          approved = os.environ.get('BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED') == 'true'
-          code = os.environ['BLAISE_CANDIDATE_PUBLIC_HTTP']
-          if enabled and approved:
-              assert code == '200', 'configured public source route is not usable'
-              assert payload.get('contract') == 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1'
-              assert payload.get('usableOfficialProducts') is True
-          else:
-              assert code == '503', 'public route missing or configuration gate bypassed'
-              expected = 'official_status_not_enabled' if not enabled else 'source_terms_not_approved'
-              assert payload.get('error') == expected
-          print('PUBLIC_STATUS_ROUTE_CONTRACT=PASS; marine numerical ingestion not attested')
-          PY_CHECK
+          python3 scripts/validate-public-status.py \
+            --file evidence/cloudrun/public-status.json --http-status "$public_http" \
+            --enabled "$BLAISE_RJ_PUBLIC_STATUS_ENABLED" \
+            --approved "$BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED"
           grep -F 'CLOUDRUN_IMAGE_DIGEST_BINDING=PASS' evidence/cloudrun/digest-binding.txt
           printf '%s\n' \
             'CLOUDRUN_CANDIDATE_GATE=PASS' \
