@@ -94,6 +94,16 @@ export const RJ_TEN_WEATHER_COMPLEMENTS = Object.freeze([
   'TEMPORAL','VENTO','RAJADA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO',
 ]);
 export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
+  stormsurf: Object.freeze({sourceId:'STORMSURF_SOUTH_ATLANTIC',
+    role:'EXTERNAL_VISUAL_FORECAST_REFERENCE_NOT_INDEPENDENT_OBSERVATION',
+    phenomena:Object.freeze(['ONDAS','SWELL','RESSACA','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO']),
+    sourceUrl:'https://www.stormsurf.com/page2/links/satla72hr.shtml',
+    upstreamSourceIds:Object.freeze(['NOAA']),
+    ingestion:'EXTERNAL_LINK_ONLY',
+    permission:'LINKING_ALLOWED_NO_COPY_OR_EMBED_WITHOUT_WRITTEN_PERMISSION',
+    neverCountsAsIndependentRepublishedStation:true,automaticAlertAuthority:false,
+    providesValidatedLocalTides:false,
+  }),
   openWeatherMap: Object.freeze({ sourceId:'OPENWEATHERMAP_API',
     role:'THIRD_COMPLEMENTARY_DATA_PRODUCT_NOT_THIRD_OFFICIAL_ALERT_AUTHORITY',
     phenomena:RJ_TEN_WEATHER_COMPLEMENTS,
