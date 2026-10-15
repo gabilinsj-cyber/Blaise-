@@ -22,9 +22,9 @@ class RjMeteorologicalTablesTest {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)
         assertEquals(30, RjMeteorologicalTables.table1.map { it.code }.distinct().size)
-        assertEquals(5, RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS)
-        assertEquals(13, RjMeteorologicalTables.table2.size)
-        assertEquals((1..13).map { "%02d".format(it) },
+        assertEquals(7, RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS)
+        assertEquals(15, RjMeteorologicalTables.table2.size)
+        assertEquals((1..15).map { "%02d".format(it) },
             RjMeteorologicalTables.table2.map { it.code })
     }
 
