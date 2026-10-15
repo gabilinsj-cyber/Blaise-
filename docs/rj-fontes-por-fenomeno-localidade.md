@@ -164,3 +164,7 @@ A página declara que links são permitidos e que reprodução/reutilização/en
 ## Revisão 15/10/2026: exclusão de fornecedor e CPTEC
 A decisão mais recente exclui Marinha/CHM e PNBOIA/REMObs da operação e interface. Substitui as prioridades marítimas anteriores deste documento. O runtime não monta as rotas de marés/boias e força avisos CHM desativados. O Android não aceita payload marítimo legado e elimina o histórico marítimo local.
 NOAA, Copernicus e EUMETSAT permanecem por produto; CPTEC/INPE é previsão complementar em avaliação. Documentação: https://servicos.cptec.inpe.br/XML/ . Rio código241; ondas/vento previstos, horários UTC. Tentativa HTTPS em15/10/2026: timeout; sem ingestão numérica validada. Não atribuir automaticamente forçante NCEP a todo produto CPTEC. Não representa maré alta/baixa ou confirmação de tsunami/ressaca. Nenhum acompanhamento do email enviado anteriormente será realizado.
+
+
+### Servidor: validação da rota e atualização segura
+Candidatura e promoção Cloud Run usam o mesmo validador scripts/validate-public-status.py. Antes de promover tráfego e após a alteração (sob rollback existente), testar rota /v1/public/rj-status. Rejeitar404,503quando serviço habilitado,contratoincorreto,workerinativo,timestamp semtimezone,vencido/futuro. Rotas explicitamente desabilitadas devem responder503comerrocorreto; isto comprova somente presença da rota e não dados ativos. Envelope atual não comprova medição marítima ou atualização de cada fonte. Deploy permanece manualviaidentidadeOIDC configurada; não inventarURL nem contornar termos.
