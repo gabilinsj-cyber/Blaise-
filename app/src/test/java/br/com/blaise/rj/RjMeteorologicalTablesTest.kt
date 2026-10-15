@@ -53,6 +53,14 @@ class RjMeteorologicalTablesTest {
             .any { it.code == "11" })
     }
 
+    @Test fun weightedPhenomenaExposeFallbackAndAccuWeatherCriteria() {
+        for (code in listOf("TEMPERATURA", "UMIDADE", "VENTO", "RAJADA", "CHUVA_ATUAL", "CHUVA_ACUMULADA", "PRESSAO_ATMOSFERICA")) {
+            val ids = RjMeteorologicalTables.table2ForPhenomenon(code).map { it.code }
+            assertTrue(ids.containsAll(listOf("14", "15")))
+        }
+        assertFalse(RjMeteorologicalTables.table2ForPhenomenon("TSUNAMI").any { it.code == "14" })
+    }
+
     @Test fun theTwoTablesNeverAverageWarningCategoriesOrPhenomenaWithoutObservedNumericInputs() {
         for (code in listOf("TEMPORAL","GRANIZO","TEMPESTADE","SISMO",
             "TSUNAMI","RESSACA","SENSACAO_TERMICA")) {

@@ -28,9 +28,9 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v12"
+    const val VERSION = "2026-10-15.v13"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
-    const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
+    const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão consultar a Tabela 2 em ordem; sem primárias válidas, selecionar par compatível da Tabela 2"
     const val NO_INEA = "INEA excluído"
     const val PHENOMENA_COUNT = 30
     const val ADDITIONAL_TIEBREAK_CHECKS = 7
@@ -124,7 +124,7 @@ object RjMeteorologicalTables {
         val checks = baseChecks.toMutableSet()
         when {
             phenomenonCode in weightableCodes ->
-                checks.addAll(listOf("02", "03", "04", "05", "06", "10", "11"))
+                checks.addAll(listOf("02", "03", "04", "05", "06", "10", "11", "14", "15"))
             phenomenonCode == "SENSACAO_TERMICA" ->
                 checks.addAll(listOf("03", "04", "05", "06", "10", "11"))
             phenomenonCode in marineCodes ->

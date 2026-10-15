@@ -72,3 +72,8 @@ object FinalDashboardSpec {
         else -> "Google Play"
     }
 }
+
+
+## Verificação operacional — 15/10/2026 19:55 BRT
+
+Consulta direta à candidata validacao-rj: HTTP 200, generatedAt 2026-10-15T22:55:17.490Z, workerActive true, 92 municípios, zero avisos municipais elegíveis. INMET CURRENT_DEGRADED (produto avisos); CEMADEN nacional, CEMADEN-RJ e REDEMET ausentes da publicação. Ausência de avisos não é garantia de segurança; cadastro de 92 cidades não comprova medições para todas. CI 965 backend aprovado e Android ainda em andamento no momento da consulta. Corrigida ligação dos critérios 14/15 à seleção de fenômenos numéricos no Android; não disponibilizar AccuWeather como critério de tsunami.
