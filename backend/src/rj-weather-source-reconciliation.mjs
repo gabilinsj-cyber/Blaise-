@@ -348,3 +348,34 @@ export function weightedComparableForecastMean({forecasts=[],ibge,variable,
     action:'DISPLAY_AS_UNCERTAIN_MODEL_FORECAST_ONLY',
   });
 }
+
+export const RJ_TABLE2_ORDER = Object.freeze(['INPE_CPTEC_FORECAST','INMET','INMET_STATION','WINDY_MODELO','CEMADEN','CEMADEN_RJ','NOAA','REDEMET_METAR','ACCUWEATHER_API']);
+/** Pure selection over validated inputs. No network request or invented weight. */
+export function reconcileRjTables({table1=[],table2=[],ibge,variable,kind='OBSERVATION',now=Date.now()}={}) {
+  if(!CODES.has(String(ibge))||!Object.hasOwn(THRESHOLDS,variable))throw TypeError('rj_invalid_reconciliation_scope');
+  if(!Array.isArray(table1)||table1.length>3||!Array.isArray(table2)||table2.length>20||!['OBSERVATION','FORECAST'].includes(kind)||!Number.isFinite(now))throw TypeError('rj_invalid_reconciliation_inputs');
+  const validate=rows=>kind==='OBSERVATION'?validatedObserved(rows,{ibge,variable,now}):validatedForecast(rows,{ibge,variable,now});
+  const primary=validate(table1), secondary=validate(table2).filter(r=>RJ_TABLE2_ORDER.includes(r.sourceId)).sort((a,b)=>RJ_TABLE2_ORDER.indexOf(a.sourceId)-RJ_TABLE2_ORDER.indexOf(b.sourceId));
+  function pair(a,b,mode) {
+    if(a.sourceId===b.sourceId||Math.abs(a.value-b.value)>THRESHOLDS[variable].maxDifference)return null;
+    if(kind==='OBSERVATION'&&a.stationId===b.stationId)return null;
+    if(variable==='CHUVA_MM_1H'&&[a,b].some(r=>(kind==='OBSERVATION'?r.measurementWindowMinutes:r.forecastWindowMinutes)!==60))return null;
+    if(kind==='FORECAST') {
+      if(!a.modelFamilyId||!b.modelFamilyId||a.modelFamilyId===b.modelFamilyId)return null;
+      if([a,b].some(r=>!numeric(r.latitude,-23.7,-20.4)||!numeric(r.longitude,-45.5,-40.4))||kmBetween(a,b)>25)return null;
+    }
+    const calculation=kind==='OBSERVATION'
+      ?assessRjMeteorologicalDisagreement({observations:[a,b],ibge,variable,now})
+      :weightedComparableForecastMean({forecasts:[a,b],ibge,variable,now});
+    if(!['COMPARABLE_OFFICIAL_OBSERVATIONS','COMPARABLE_FORECAST_MODELS'].includes(calculation.state))return null;
+    return result('TABLE_PAIR_WEIGHTED_MEAN',{mode,kind,ibge:String(ibge),variable,unit:THRESHOLDS[variable].unit,calculatedValue:calculation.calculatedValue,sourceIds:Object.freeze([a.sourceId,b.sourceId]),calculation,thresholdIsScreeningNotAccuracy:true});
+  }
+  for(let i=0;i<primary.length;i++)for(let j=i+1;j<primary.length;j++){const selected=pair(primary[i],primary[j],'TABLE1');if(selected)return selected;}
+  if(primary.length){
+    for(const other of secondary)for(const original of primary){const selected=pair(original,other,'TABLE1_PLUS_ONE_TABLE2');if(selected)return selected;}
+  }else{
+    for(let i=0;i<secondary.length;i++)for(let j=i+1;j<secondary.length;j++){const selected=pair(secondary[i],secondary[j],'TABLE2_ONLY');if(selected)return selected;}
+  }
+  const available=primary.length?primary:secondary;
+  return result(available.length===1?'SINGLE_SOURCE_NO_MEAN':'NO_COMPATIBLE_PAIR',{kind,ibge:String(ibge),variable,singleSourceValue:available.length===1?available[0].value:null,sourceIds:Object.freeze(available.map(r=>r.sourceId))});
+}

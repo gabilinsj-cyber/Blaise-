@@ -28,7 +28,7 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v10"
+    const val VERSION = "2026-10-15.v11"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
     const val NO_INEA = "INEA excluído"
@@ -90,12 +90,13 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; medição e modelo identificados"),
     )
     val table2 = listOf(
+        RjMeteoDisputeRow("15", "Tabela 1 indisponível", "Sem dados válidos na Tabela 1, selecionar duas fontes atuais, independentes e próximas somente da Tabela 2, na ordem hierárquica. Média com pesos verificados, mesma variável, município, unidade e período. Uma fonte: mostrar valor e origem sem chamar de média. Previsões e observações ficam separadas; divergência inconclusiva permanece visível."),
         RjMeteoDisputeRow("14", "AccuWeather complementar — 92 municípios RJ", "Temperatura em °C e chuva em mm quando fornecidas pelo produto. MinuteCast: previsão de precipitação minuto a minuto por até 120 min, não medição observada. Cobertura por localidade, plano, chave no servidor e termos ainda precisam de validação. Sem quantidade numérica, mostrar indisponível; não converter intensidade ou dBZ em mm. Não substitui avisos oficiais ou risco CEMADEN."),
         RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média ponderada somente com pesos verificados."),
         RjMeteoDisputeRow("02", "Convergência 2 de 3", "Duas observações independentes e comparáveis entre as três primeiras bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
-        RjMeteoDisputeRow("03", "Se não houver convergência", "Consultar CINCO fontes de desempate em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA; basta uma confirmar aproximadamente uma leitura primária."),
+        RjMeteoDisputeRow("03", "Se não houver convergência", "Consultar INPE/CPTEC → INMET → Windy → demais fontes compatíveis; AccuWeather somente como último recurso. Parar na primeira confirmação compatível de uma leitura primária."),
         RjMeteoDisputeRow("04", "INPE e INMET", "INPE/CPTEC é a 1ª consulta; INMET é a 2ª. Se o INPE oferecer apenas previsão, apresentar previsão e medição separadas; uma estação INMET pode validar uma medição existente."),
-        RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "Se necessário, CEMADEN é a 3ª referência, Windy a 4ª e NOAA a 5ª. Aplicar somente produtos compatíveis por fenômeno; modelos não substituem medições."),
+        RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "CEMADEN e NOAA entram conforme o produto e fenômeno, após as primeiras consultas hierárquicas. Aplicar somente dados atuais e compatíveis; modelos não substituem medições."),
         RjMeteoDisputeRow("06", "Duas fontes apresentadas", "Mostrar leituras reais e/ou uma medição oficial + uma previsão identificada; nunca média mista de modelo e sensor."),
         RjMeteoDisputeRow("07", "Dados faltantes", "Fonte atrasada ou indisponível: consultar a próxima fonte autorizada e compatível. REDEMET é alternativa ao INMET para temperatura, vento, rajadas e QNH de aeródromos validados; não substitui risco CEMADEN, chuva acumulada ou dados marítimos. Medições com mais de 5 min não entram no cálculo; sem fonte atual, mostrar dados indisponíveis. Exibir fonte e horário de origem."),
         RjMeteoDisputeRow("08", "Exceções especializadas", "Avisos marítimos, rios, raios, sismo e tsunami usam fontes competentes; não fazer média de categorias de alerta."),

@@ -279,3 +279,22 @@ test('every RJ municipality can request review without falsely claiming INPE dat
   }
   assert.throws(()=>assessRjMeteorologicalDisagreement({ibge:'4106902',variable:'TEMPERATURA_C'}));
 });
+
+test('table 2 alone chooses hierarchical independent forecast pair',async()=>{
+ const {reconcileRjTables}=await import('../src/rj-weather-source-reconciliation.mjs');
+ const r=reconcileRjTables({table2:[triangulation('NOAA',26,{modelFamilyId:'GFS'}),triangulation('WINDY_MODELO',25),triangulation('INPE_CPTEC_FORECAST',24)],kind:'FORECAST',ibge:'3304557',variable:'TEMPERATURA_C',now:NOW});
+ assert.equal(r.mode,'TABLE2_ONLY');assert.deepEqual(r.sourceIds,['INPE_CPTEC_FORECAST','WINDY_MODELO']);assert.equal(r.calculatedValue,24.5);
+});
+test('one table 2 observation confirms one of three divergent primary readings',async()=>{
+ const {reconcileRjTables}=await import('../src/rj-weather-source-reconciliation.mjs');
+ const r=reconcileRjTables({table1:[obs('D',20),obs('A',27,{sourceId:'ALERTA_RIO'}),obs('C',35,{sourceId:'CEMADEN'})],table2:[obs('A652',28)],ibge:'3304557',variable:'TEMPERATURA_C',now:NOW});
+ assert.equal(r.mode,'TABLE1_PLUS_ONE_TABLE2');assert.equal(r.calculatedValue,27.5);
+});
+test('stale primary inputs enable table 2 only; mixed data and correlated models never form pairs',async()=>{
+ const {reconcileRjTables}=await import('../src/rj-weather-source-reconciliation.mjs');
+ const base={ibge:'3304557',variable:'TEMPERATURA_C',now:NOW};
+ const r=reconcileRjTables({...base,table1:[obs('D',20,{observedAt:'2026-10-09T00:00:00Z'})],table2:[obs('A652',25),obs('C',26,{sourceId:'CEMADEN'})]});
+ assert.equal(r.mode,'TABLE2_ONLY');
+ assert.equal(reconcileRjTables({...base,table2:[obs('A652',25),triangulation('INPE_CPTEC_FORECAST',25)]}).state,'SINGLE_SOURCE_NO_MEAN');
+ assert.equal(reconcileRjTables({...base,kind:'FORECAST',table2:[triangulation('INPE_CPTEC_FORECAST',25,{modelFamilyId:'GFS'}),triangulation('WINDY_MODELO',25,{modelFamilyId:'GFS'})]}).state,'NO_COMPATIBLE_PAIR');
+});
