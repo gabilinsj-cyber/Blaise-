@@ -28,9 +28,20 @@ data class MunicipalWeatherSnapshot(
             observation.windGustKmh == row.windGustKmh
     }
 
-    fun currentReport(now: Instant): CityWeatherResult = if (coherent()) report else
-        CityWeatherResult(municipalityIbge, report.localScope,
+    fun currentReport(now: Instant): CityWeatherResult {
+        if (!coherent()) return CityWeatherResult(municipalityIbge, report.localScope,
             unavailableReason = "Snapshot inconsistente; dados bloqueados para auditoria.")
+        if (report.currentObservation(now) != null) return report
+        val reason = when (failureCode) {
+            "SOURCE_NO_OBSERVATIONS", "HTTP_204" ->
+                "INMET não forneceu observações nesta consulta. Sem medição atual confirmada para este município."
+            "SOURCE_TIMEOUT" -> "A consulta à fonte excedeu o tempo de espera. Sem medição atual confirmada."
+            "SOURCE_NETWORK_ERROR" -> "Não foi possível conectar à fonte. Sem medição atual confirmada."
+            "HTTP_401", "HTTP_403" -> "A fonte não autorizou esta consulta. Sem medição atual confirmada."
+            else -> null
+        }
+        return if (reason == null) report else report.copy(unavailableReason = reason)
+    }
 
     fun historySeries(): InmetHourlySeries? = series?.takeIf { coherent() }
 
