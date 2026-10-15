@@ -35,16 +35,16 @@ Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializ
 
 OpenWeatherMap oferece APIs conforme plano e exige atribuição/licença correspondente, a exemplo de [seu FAQ](https://openweathermap.org/faq). Produtos meteorológicos combinam estações, satélites e modelos e podem reutilizar observações já presentes em outras fontes: **proibido contá-los automaticamente como nova medição independente**. Cada produto, nível do plano, API, autorização comercial, taxa de uso e atribuição devem ser configurados e testados antes de apresentar dados na interface.
 
-### Complemento marítimo — Marinha, NOAA, Copernicus e EUMETSAT
+### Base marítima — NOAA, Copernicus Marine e EUMETSAT; boias Marinha complementares (15/10/2026)
 
 | Categoria | Fontes específicas | Papel / restrição |
 | --- | --- | --- |
-| Ciclones oceânicos e extratropicais | Marinha/CHM + NOAA + EUMETSAT + Copernicus Marine | Evolução atmosférica e efeitos oceânicos; avisos brasileiros prevalecem |
-| Tempestades no Atlântico | Marinha/CHM + NOAA + EUMETSAT | Nuvens/sistemas intensos por satélite; não chamar nuvem de radar de chuva |
-| Ondas e swell | Marinha/CHM + NOAA + Copernicus Marine | Altura, período, direção, grade/estação e horário |
-| Ressaca no litoral RJ | Marinha/CHM + boias competentes + Copernicus Marine + NOAA | Previsão oceânica complementa o aviso costeiro oficial |
-| Correntes, marés e temperatura do mar | Marinha/CHM + Copernicus Marine + NOAA | Separar nível real, maré prevista e estimativa de modelo |
-| Tsunami e maremoto | NOAA + Marinha + autoridades brasileiras; USGS para origem sísmica | **Nunca** inferir tsunami só por magnitude, imagem satelital ou altura de onda |
+| Ciclones oceânicos e extratropicais | NOAA + Copernicus Marine + EUMETSAT; boias Marinha complementares | Evolução atmosférica e efeitos oceânicos; avisos brasileiros prevalecem |
+| Tempestades no Atlântico | NOAA + EUMETSAT; Copernicus conforme produto; boias Marinha complementares | Nuvens/sistemas intensos por satélite; não chamar nuvem de radar de chuva |
+| Ondas e swell | NOAA + Copernicus Marine; boias Marinha complementares | Altura, período, direção, grade/estação e horário |
+| Ressaca no litoral RJ | NOAA + Copernicus Marine; EUMETSAT para contexto; boias Marinha complementares | Previsão oceânica complementa o aviso costeiro oficial |
+| Correntes, marés e temperatura do mar | NOAA + Copernicus Marine por produto; boias Marinha complementares | Separar nível real, maré prevista e estimativa de modelo |
+| Tsunami e maremoto | NOAA com produto e jurisdição aplicáveis + autoridades brasileiras; USGS para origem sísmica; boias complementares | **Nunca** inferir tsunami só por magnitude, imagem satelital ou altura de onda |
 
 O [Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-to-register-for-copernicus-marine-service) informa que os produtos podem ser usados inclusive comercialmente sem tarifa, com **créditos/citação e termos aplicáveis**; cada produto precisa de identificador/DOI e atribuição. [EUMETSAT](https://www.eumetsat.int/legal-framework/data-policy) tem **regimes de licenciamento por produto/latência**; não assumir que um canal recente para redistribuição comercial esteja automaticamente liberado. Algumas categorias como OSI SAF possuem licença CC-BY 4.0, que exige atribuição. Os serviços não estão conectados ao vivo só porque constam desta tabela.
 
@@ -139,3 +139,16 @@ A implementação inicial está em `backend/src/rj-scientific-calculator.mjs` e 
 8. Conectores INPE/CPTEC, ANA, SGB/SACE, NOAA e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
 
 **Situação atual de validação:** o INMET já possui modelo de leitura pontual e testes; última consulta externa reportou HTTP 204 em quatro estações do Rio, portanto **dados horários recentes não comprovados**. As camadas oceânicas, radar espacial, assinatura Google Play e voz física permanecem sujeitas à validação e/ou à autorização aplicável.
+
+
+## Mudança de prioridade marítima aprovada em 15/10/2026
+
+A ausência de credencial/dados das boias da Marinha não deve impedir consultas a produtos NOAA, Copernicus Marine ou EUMETSAT. Preferência de consulta não equivale a disponibilidade operacional. Nenhuma das três fontes é declarada responsável universal por marés locais, ressaca, tsunami ou massas de ar: a capacidade é específica por produto, área, rodada, validade e licença.
+
+- NOAA GFSwave: previsão numérica de ondas/swell; arquivos GRIB2 globais no NOMADS. Não são medição de praia nem aviso local de ressaca.
+- Copernicus GLOBAL_ANALYSISFORECAST_WAV_001_027: grade global de ondas com saídas de três em três horas. Atualizar consulta a cada minuto não transforma a saída em observação por minuto.
+- EUMETSAT: produtos de satélite/OSI SAF para variáveis compatíveis, nuvens, sistemas, ventos e temperatura do mar por produto. Não é tabela de maré nem emissor autônomo de alerta de tsunami para o RJ.
+- Maré alta/baixa requer produto de previsão astronômica/localidade/fuso/referência vertical validado. Altura do mar de um modelo não substitui automaticamente tábua de marés.
+- Tsunami sísmico, meteotsunami e ressaca são fenômenos diferentes; somente avisos com autoridade e cobertura comprovadas podem ser apresentados como oficiais. Boias não substituem esse processo. A prioridade das consultas de dados não revoga avisos competentes da Marinha/Defesa Civil.
+
+Fontes consultadas: https://www.nco.ncep.noaa.gov/pmb/products/wave/ ; https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl ; https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_WAV_001_027/services ; https://www.eumetsat.int/distributing-data ; https://osi-saf.eumetsat.int/about/access-data ; https://tsunami.ioc.unesco.org/en/warningsystems . Produtos identificados/documentação conferida; ingestão numérica ponta a ponta ainda não validada.
