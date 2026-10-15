@@ -18,7 +18,7 @@ O backend expõe GET `/v1/public/rj/buoys`, sem incluir credencial em URL, logs,
 
 Primeiras variáveis suportadas: `sig_wave_height` em `m`, e `wind_speed` em `m/s`, citadas na documentação. Requer `aggregate_flag=1`, sensor identificado, profundidade superficial, valor físico finito e horário UTC dos últimos cinco minutos. Leituras suspeitas, futuras, vencidas, conflitantes e de bancadas de testes são descartadas. Não se usa idade de download para renovar a observação.
 
-Após o botão de consulta na tela Mar e Ondas, consulta a cada 60 segundos enquanto a tela permanece aberta e ligada. Para em erro de configuração/autorização. Backend deduplica requisições e usa cache máximo de 30 segundos, revalidando idade ao servir. Catálogo e medições continuam separados.
+Após o botão de consulta na tela Mar e Ondas, consulta a cada 60 segundos enquanto a tela permanece aberta, o app ligado e a atividade visível (Lifecycle STARTED). A passagem para segundo plano cancela a rotina de consulta; leituras recebidas depois do cancelamento não são publicadas. Para em erro de configuração/autorização. Backend deduplica requisições e usa cache máximo de 30 segundos, revalidando idade ao servir. Catálogo e medições continuam separados.
 
 ## Configuração necessária antes de ativar
 
