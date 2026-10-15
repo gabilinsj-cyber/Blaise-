@@ -28,7 +28,7 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v6"
+    const val VERSION = "2026-10-15.v7"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
     const val NO_INEA = "INEA excluído"
@@ -38,6 +38,8 @@ object RjMeteorologicalTables {
     const val MARINE_COMPLEMENT = "Base marítima: NOAA + Copernicus Marine + EUMETSAT por produto; boias da Marinha como complemento"
     const val MARINE_PRIORITY = "NOAA → Copernicus Marine → EUMETSAT conforme produto; Marinha/boias por último na consulta de dados"
     const val MARINE_AUTHORITY = "Avisos de tsunami/ressaca exigem órgão competente e cobertura validada; prioridade de dados não altera autoridade"
+    const val STORMSURF_URL = "https://www.stormsurf.com/page2/links/satla72hr.shtml"
+    const val STORMSURF_DESCRIPTION = "Stormsurf • Atlântico Sul: consulta complementar de previsão de ondas, swell e vento. Produtos derivados da NOAA não contam como fonte independente. Não confirma maré local nem aviso oficial de ressaca."
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
     val primaryTable1Sources = listOf(
