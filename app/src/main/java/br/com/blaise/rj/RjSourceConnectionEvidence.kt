@@ -60,7 +60,6 @@ object RjSourceConnectionEvidence {
             ?.firstOrNull { it.id == "inmet" && it.currentlyConnected() && inmetInventory != null }
         val hydroWorker = freshStatus?.sourceProducts
             ?.firstOrNull { it.id == "cemaden-rj" && it.currentlyConnected() }
-        val marine = freshStatus?.marine?.takeIf { it.current(now) }
         val localRisk = freshStatus?.municipality(municipalityIbge, now)?.risk
             ?.takeIf { it.current(now) }
 
@@ -88,9 +87,6 @@ object RjSourceConnectionEvidence {
                 else OFFLINE,
                 localRisk?.observedAt,
                 localRisk != null && hydroWorker != null),
-            RjSourceConnectionRow("Marinha do Brasil / CHM", "Avisos regionais de mau tempo • METAREA V",
-                if(marine != null) "Inventário de avisos consultado; não é previsão por praia"
-                else OFFLINE,marine?.fetchedAt,marine != null),
             RjSourceConnectionRow("OpenWeatherMap", "Terceiro complemento das 10 variáveis",
                 OFFLINE),
             RjSourceConnectionRow("INPE / CPTEC", "Produtos meteorológicos de previsão",
