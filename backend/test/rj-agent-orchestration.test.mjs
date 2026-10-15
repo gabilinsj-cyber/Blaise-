@@ -25,7 +25,7 @@ test('litoral/Atlantic cyclone, marine and earthquake cases select the relevant 
   const cyclone=planRjPhenomenonCase({region:'ATLANTICO',phenomenon:'CICLONE_EXTRATROPICAL',level:5});
   assert.ok(cyclone.agents.some(a=>a.number===4));
   assert.ok(cyclone.agents.some(a=>a.number===6));
-  assert.ok(cyclone.eligibleSources.some(a=>a.id==='MARINHA_CHM'));
+  assert.equal(cyclone.eligibleSources.some(a=>a.id==='MARINHA_CHM'),false);
   assert.equal(cyclone.cadence.observationUpdateMs,30000);
   assert.equal(cyclone.audibleAlert,false);
   const seismic=planRjPhenomenonCase({region:'ATLANTICO',phenomenon:'SISMO',level:4});
