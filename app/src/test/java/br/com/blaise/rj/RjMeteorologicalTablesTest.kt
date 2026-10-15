@@ -76,4 +76,13 @@ class RjMeteorologicalTablesTest {
         assertFalse(by.getValue("TSUNAMI").sources.contains("EUMETSAT"))
     }
 
+    @Test fun marineDataPriorityIsIndependentOfNavyAndWarningAuthority() {
+        assertTrue(RjMeteorologicalTables.MARINE_PRIORITY.startsWith("NOAA"))
+        assertTrue(RjMeteorologicalTables.MARINE_AUTHORITY.contains("órgão competente"))
+        val by = RjMeteorologicalTables.marineTable.associateBy { it.code }
+        assertTrue(by.getValue("ONDAS_SWELL").sources.startsWith("NOAA"))
+        assertTrue(by.getValue("ONDAS_SWELL").sources.contains("complemento"))
+        assertFalse(by.getValue("TSUNAMI").sources.contains("EUMETSAT"))
+        assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
+    }
 }
