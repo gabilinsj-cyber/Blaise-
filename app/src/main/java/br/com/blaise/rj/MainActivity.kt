@@ -199,6 +199,7 @@ private val AlertRed = Color(0xFFFF5D62)
 private val WarningAmber = Color(0xFFFFC857)
 private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
+private val LocalAppPowerOn = compositionLocalOf { false }
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
@@ -434,6 +435,7 @@ fun BlaiseApp(
                     municipalities = result.snapshot.municipalities.map { it.copy(warningIds = it.warningIds.filter(ids::contains)) }))
             } ?: statewideDashboard) else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
+        LocalAppPowerOn provides powerOn,
         LocalCityWeather provides if (powerOn) citySnapshots.mapValues { it.value.currentReport(observationClock) } else emptyMap(),
         LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
         LocalWeatherCities provides listOf(city1, city2),
@@ -2098,6 +2100,8 @@ private fun TrafficScreen() {
 private fun MarineScreen() {
     MarinePanel(Modifier.fillMaxWidth())
     Spacer(Modifier.height(10.dp))
+    PnboiaCatalogPanel()
+    Spacer(Modifier.height(10.dp))
     RjMarineSourceMatrixPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
@@ -2108,6 +2112,81 @@ private fun MarineScreen() {
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
+    }
+}
+
+/** Public station metadata, kept separate from unvalidated sensor values. */
+@Composable
+private fun PnboiaCatalogPanel() {
+    val enabled = LocalAppPowerOn.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val client = remember { br.com.blaise.rj.data.PnboiaCatalogClient() }
+    var result by remember { mutableStateOf<br.com.blaise.rj.data.PnboiaCatalogResult?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    val readingClock = LocalObservationClock.current
+    val readingsClient = remember { br.com.blaise.rj.data.PnboiaReadingsClient(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL) }
+    var readings by remember { mutableStateOf<br.com.blaise.rj.data.PnboiaReadings?>(null) }
+    var request by remember { mutableStateOf(0) }
+    LaunchedEffect(enabled, request, lifecycle) {
+        if (!enabled) { result = null; readings = null; request = 0 }
+        else if (request > 0) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                loading = true
+                try { result = client.fetch(); readings = readingsClient.fetch() }
+                finally { loading = false }
+                if (readings?.state in setOf("ACCESS_NOT_CONFIGURED", "DISPLAY_TERMS_NOT_CONFIRMED", "ACCESS_DENIED")) break
+                delay(60_000)
+            }
+            }
+        }
+    }
+    DashboardSection(title = "BOIAS DA MARINHA • RJ", subtitle = "PNBOIA / REMObs • catálogo de estações",
+        modifier = Modifier.fillMaxWidth().testTag("pnboia-catalog-panel")) {
+        Text("Consulta ao catálogo de boias. Situação e último registro não confirmam valores dos sensores.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        TextButton(enabled = enabled && !loading, onClick = { request++ }, modifier = Modifier.testTag("pnboia-catalog-refresh")) {
+            Text(if (loading) "Consultando…" else "Consultar boias do RJ")
+        }
+        val available = if (enabled) result as? br.com.blaise.rj.data.PnboiaCatalogResult.Available else null
+        if (!enabled) Text("Aplicativo desligado.", color = Muted)
+        else if (result is br.com.blaise.rj.data.PnboiaCatalogResult.Unavailable)
+            Text("Catálogo indisponível nesta consulta. Sem confirmação de dados atuais.", color = WarningAmber)
+        available?.let { catalog ->
+            Text("Catálogo consultado em ${RjLiveTableEvidence.localTime(catalog.fetchedAt)}",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            if (catalog.stations.isEmpty()) Text("Nenhuma estação do RJ identificada nesta resposta.", color = WarningAmber)
+            catalog.stations.forEach { station ->
+                Text(station.name, color = Gold, fontWeight = FontWeight.Bold)
+                Text("${station.local} • ${station.statusLabel()}", color = Muted,
+                    style = MaterialTheme.typography.labelSmall)
+                Text("Último registro informado: " + (station.lastRecordAt?.let(RjLiveTableEvidence::localTime)
+                    ?: "horário não confirmado"), color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        val currentReadings = if (enabled) readings?.observations.orEmpty().filter { it.current(readingClock) } else emptyList()
+        val dataStatus = when (readings?.state) {
+            "ACCESS_NOT_CONFIGURED" -> "Acesso às medições da Marinha/REMObs ainda não configurado."
+            "DISPLAY_TERMS_NOT_CONFIRMED" -> "Exibição das medições aguarda confirmação das condições de uso."
+            "ACCESS_DENIED" -> "A fonte não autorizou a consulta às medições."
+            "CURRENT_POINT_OBSERVATIONS" -> if (currentReadings.isEmpty()) "Leituras expiradas; aguardando nova consulta." else "Medições pontuais da boia, com qualidade validada."
+            "NO_VALID_CURRENT_OBSERVATIONS" -> "Sem leitura dos últimos 5 minutos com qualidade e resolução validadas."
+            "SOURCE_UNAVAILABLE", "BACKEND_NOT_CONFIGURED" -> "Canal de medições indisponível nesta consulta."
+            else -> "Consulte as boias para verificar a disponibilidade das medições."
+        }
+        Text(if (enabled) dataStatus else "Medições suspensas com aplicativo desligado.", color = WarningAmber,
+            style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag("pnboia-measurement-status"))
+        currentReadings.forEach { reading ->
+            val label = if (reading.variable == "sig_wave_height") "Altura significativa das ondas" else "Vento"
+            Text("${reading.stationName} • $label: ${String.format(java.util.Locale("pt", "BR"), "%.1f", reading.value)} ${reading.unit}",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Marinha / PNBOIA / REMObs • ${RjLiveTableEvidence.localTime(reading.observedAt)}",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("Após consultar, atualização a cada minuto enquanto esta tela estiver aberta e o acesso disponível. " +
+            "Medições representam a boia, não cada praia. Marés, período/direção das ondas e temperatura do mar aguardam produto validado.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Fonte: Marinha / PNBOIA / REMObs", color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
