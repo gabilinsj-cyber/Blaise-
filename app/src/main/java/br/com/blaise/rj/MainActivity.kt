@@ -2202,9 +2202,11 @@ private fun RjMarineSourceMatrixPanel() {
     val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
-        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        subtitle = "Base: NOAA • Copernicus Marine • EUMETSAT; complemento: boias Marinha",
         modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
     ) {
+        Text(RjMeteorologicalTables.MARINE_PRIORITY, color = GoldSoft,
+            style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag("rj-marine-source-priority"))
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
@@ -2849,20 +2851,20 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
     val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
     val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
     DashboardSection(
-        title = "MAR E ONDAS • MARINHA DO BRASIL",
+        title = "MAR E ONDAS • RJ / ATLÂNTICO",
         subtitle = "Maré • ondas altas • vento • ressaca",
         modifier = modifier.testTag("marine-conditions-card"),
     ) {
-        Text("Maré observada • horários de alta e baixa",
+        Text("Maré prevista e nível observado • produtos separados",
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas (CHM)",wave.description)
-        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
-            "— altura/período/direção • Copernicus/NOAA aguardam integração autorizada")
+        StatusLine("Ondas previstas", "NOAA / Copernicus Marine • ingestão e validade ainda não confirmadas")
+        StatusLine("Aviso complementar CHM", wave.description)
+        StatusLine("Swell", "NOAA / Copernicus Marine • altura, período e direção ainda não recebidos")
         StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
-        StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
-        StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
+        StatusLine("Temperatura do mar", "NOAA / Copernicus Marine • — °C; sem leitura validada")
+        StatusLine("Vento", "NOAA / Copernicus / EUMETSAT por produto • direção e velocidade pendentes")
         StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
         Text(if (marine==null)
@@ -2873,8 +2875,8 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = if(marine==null) WarningAmber else GoldSoft,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-chm-regional-status"))
-        Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
-            "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
+        Text("Base principal: NOAA / Copernicus Marine / EUMETSAT conforme o produto. " +
+            "Boias da Marinha: complemento opcional. Integração ao vivo das fontes principais ainda pendente.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
