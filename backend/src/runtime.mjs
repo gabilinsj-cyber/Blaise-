@@ -183,6 +183,10 @@ async function main() {
         state: source?.state, reason: source?.reason,
         fetchedAt: source?.fetchedAt, observedAt: source?.observedAt,
         dataAgeMs: source?.dataAgeMs,
+        totalRecordCount: source?.totalRecordCount,
+        currentRecordCount: source?.currentRecordCount,
+        excludedRecordCount: source?.excludedRecordCount,
+        oldestDataAgeMs: source?.oldestDataAgeMs,
       }));
     },
     config: sourceWorkerConfig,

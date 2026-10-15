@@ -267,3 +267,23 @@ test('INEA invalid calendar timestamp fails closed instead of rolling over', () 
     (error) => error instanceof OfficialSourceCacheError && error.code === 'inea_station_invalid_observed_at',
   );
 });
+
+test('one stale station does not hide fresh stations or enter their calculations', () => {
+  const cache = createAlertaRioRainfallCache({ now: () => BASE_MS });
+  const old = new Date(BASE_MS - OFFICIAL_SOURCE_MAX_DATA_AGE_MS - 1).toISOString();
+  const input = snapshot();
+  input.oldestObservedAt = old;
+  input.stations[0].observedAt = old;
+  input.stations[0].rain5mMm = 999;
+  cache.recordSuccess(input);
+  const reading = cache.read();
+  assert.equal(reading.state, 'CURRENT_DEGRADED');
+  assert.equal(reading.reason, 'partial_current_station_coverage');
+  assert.equal(reading.currentRecordCount, 32);
+  assert.equal(reading.excludedRecordCount, 1);
+  assert.equal(reading.snapshot.stations.length, 32);
+  assert.ok(reading.snapshot.stations.every(s => s.observedAt === input.freshestObservedAt));
+  assert.ok(!reading.snapshot.stations.some(s => s.rain5mMm === 999));
+  assert.equal(input.stations[0].observedAt, old);
+  assert.equal(cache.read({at: BASE_MS + OFFICIAL_SOURCE_MAX_DATA_AGE_MS + 1}).snapshot, null);
+});

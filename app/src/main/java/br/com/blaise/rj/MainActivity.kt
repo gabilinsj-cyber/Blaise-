@@ -3143,6 +3143,15 @@ private fun BackendRainfallPanel() {
             StatusLine("Maior acumulado em estação • 15 min", mm(rain.max15mMm))
             StatusLine("Maior acumulado em estação • 1 hora", mm(rain.max1hMm))
             StatusLine("Maior acumulado em estação • 24 horas", mm(rain.max24hMm))
+            val currentCount = rain.currentStationCount
+            Text(currentCount?.let { "Estações com medição válida: $it de ${rain.stationCount}." }
+                ?: "Quantidade de estações atuais não informada pelo servidor.",
+                color = if (currentCount == rain.stationCount) StableGreen else WarningAmber,
+                modifier = Modifier.testTag("rainfall-current-station-coverage"))
+            if (currentCount != null && currentCount < rain.stationCount) {
+                Text("Cobertura parcial: estações sem medição válida foram excluídas dos cálculos.",
+                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            }
             Text("Fonte: Alerta Rio • ${rain.stationCount} estações • medição ${rain.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted)
             Text("Máximos da rede, não média da cidade nem medição do Centro ou de Niterói.", color = Muted, style = MaterialTheme.typography.labelSmall)
         }

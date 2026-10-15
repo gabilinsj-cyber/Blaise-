@@ -8,6 +8,20 @@ import org.junit.Test
 import java.time.Instant
 
 class DashboardDataClientTest {
+    @Test fun `current station count from backend is accepted and bounded`() {
+        val payload = validPayload().toMutableMap()
+        val rainfall = (payload["rainfall"] as Map<*, *>).entries
+            .associate { it.key as String to it.value }.toMutableMap()
+        rainfall["currentStationCount"] = 32
+        payload["rainfall"] = rainfall
+        assertEquals(32, DashboardDataParser.parse(payload).rainfall.currentStationCount)
+        rainfall["currentStationCount"] = 34
+        assertTrue(runCatching { DashboardDataParser.parse(payload) }.isFailure)
+        rainfall["currentStationCount"] = 1
+        assertTrue(runCatching { DashboardDataParser.parse(payload) }.isFailure)
+        assertNull(DashboardDataParser.parse(validPayload()).rainfall.currentStationCount)
+    }
+
     @Test fun `display revalidates source time even when backend generated time is renewed`() {
         val snapshot = DashboardDataParser.parse(validPayload())
         assertTrue(snapshot.current(Instant.parse("2026-09-15T11:00:30Z")))
