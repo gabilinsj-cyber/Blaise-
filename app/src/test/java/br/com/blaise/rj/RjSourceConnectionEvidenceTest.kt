@@ -48,14 +48,14 @@ class RjSourceConnectionEvidenceTest {
         )
     }
 
-    @Test fun freshStationAndCHMConsultAreShownOnlyForTheirActualProducts() {
+    @Test fun freshStationProductsExcludeRemovedMarineProvider() {
         val rows=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,
             observation=station(3304557,"INMET"),
             rioStations=listOf(station(3304557,"Alerta Rio")),
             status=public(),now=now,
         )
-        assertEquals(13,rows.size)
+        assertEquals(12,rows.size)
         assertTrue(rows.first { it.source=="Alerta Rio" }.verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="INMET" && "Medição" in it.product }
             .verifiedCurrentProduct)
