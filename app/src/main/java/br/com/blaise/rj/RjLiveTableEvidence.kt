@@ -36,7 +36,7 @@ object RjLiveTableEvidence {
         "CICLONE_EXTRATROPICAL","MASSA_AR","FRENTE_FRIA","CHUVA_ATLANTICO" ->
             "Advecção x(t)=x₀+v×t, tendência da pressão e vento por grades/perfis temporais válidos; ETA é estimativa com incerteza e não afirma impacto."
         "ONDAS","SWELL","RESSACA" ->
-            "Altura, período e direção com produto/boia compatível; velocidade/propagação por teoria de ondas somente com profundidade e período validados. Aviso CHM prevalece."
+            "Altura, período e direção com produto/boia compatível; velocidade/propagação por teoria de ondas somente com profundidade e período validados. Avisos competentes são tratados separadamente."
         "MARE","CORRENTES_MARINHAS","TEMPERATURA_MAR" ->
             "Produto marítimo espacial/temporal adequado; não misturar maré prevista, nível observado, corrente e temperatura do mar."
         "TSUNAMI","SISMO" ->
@@ -114,27 +114,7 @@ object RjLiveTableEvidence {
         snapshot: PublicRjMarine?,
         now: Instant,
     ): RjLiveEvidence {
-        val fresh=snapshot?.takeIf { it.current(now) }
-            ?:return RjLiveEvidence("SEM_AVISO_MARITIMO_VALIDADO",
-                "Inventário regional CHM não disponível ou vencido; não confirma mar seguro")
-        val relevant=fresh.warnings.firstOrNull { it.current(now) &&
-            when(phenomenon) {
-                "RESSACA" -> it.officialRessacaLabel
-                "ONDAS","SWELL" -> it.waveMaxMeters!=null
-                "CICLONE_EXTRATROPICAL" -> it.warningType.contains("CICLONE",ignoreCase=true)
-                "TEMPESTADE","CHUVA_ATLANTICO" -> it.warningType.contains("TEMPESTADE",ignoreCase=true)
-                "TSUNAMI" -> it.warningType.contains("TSUNAMI",ignoreCase=true)
-                else -> false
-            }
-        }
-        return relevant?.let { warning ->
-            val waves=if (warning.waveMinMeters != null && warning.waveMaxMeters != null)
-                " • ondas no aviso: ${numeric(warning.waveMinMeters,"m")}–${numeric(warning.waveMaxMeters,"m")}" else ""
-            RjLiveEvidence("AVISO_CHM_REGIONAL",
-                "${warning.warningType} • zonas ${warning.areas.joinToString(", ")}${waves} • válido até ${localTime(warning.validUntil)}. Região METAREA V, não alerta municipal.",
-                "Marinha / CHM",warning.issuedAt)
-        } ?:RjLiveEvidence("SEM_AVISO_APLICAVEL_CONFIRMADO",
-            "Inventário CHM consultado em ${localTime(fresh.fetchedAt)}; sem evento regional vigente validado para esta categoria. Não significa ausência de risco.",
-            "Marinha / CHM",fresh.fetchedAt)
+        return RjLiveEvidence("SEM_AVISO_MARITIMO_VALIDADO",
+            "Sem produto marítimo validado das fontes habilitadas; não confirma mar seguro")
     }
 }
