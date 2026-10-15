@@ -131,3 +131,14 @@ test('marine data prioritizes NOAA Copernicus and EUMETSAT with Navy optional an
  assert.equal(wind.marinePriority,null);
  assert.equal(wind.sources[0].id,'ALERTA_RIO');
 });
+
+test('Stormsurf is an external reference and NOAA republication cannot become an independent observation',()=>{
+ const reference=RJ_SUPPLEMENTAL_PRODUCTS.stormsurf;
+ assert.equal(reference.ingestion,'EXTERNAL_LINK_ONLY');
+ assert.deepEqual(reference.upstreamSourceIds,['NOAA']);
+ assert.equal(reference.neverCountsAsIndependentRepublishedStation,true);
+ assert.equal(reference.automaticAlertAuthority,false);
+ assert.equal(reference.providesValidatedLocalTides,false);
+ assert.equal(rjSourceRouting({region:'ATLANTICO',phenomenon:'ONDAS'}).sources.some(s=>s.id===reference.sourceId),false);
+ assert.equal(Object.values(RJ_SUPPLEMENTAL_PRODUCTS).some(s=>s.sourceId==='ZOOM_EARTH'),false);
+});
