@@ -267,3 +267,41 @@ test('quality weights are applied only to their calibrated station and variable'
   assert.equal((await run(input)).observations[0].qualityWeight,1);
   assert.equal((await run({...input,variable:'VENTO_KMH'})).observations[0].qualityWeight,undefined);
 });
+
+test('Rio district station labels match Android policy and prioritize A652',async()=>{
+  const catalog=[
+    station({CD_ESTACAO:'A602',DC_NOME:'RIO DE JANEIRO - MARAMBAIA'}),
+    station({DC_NOME:'RIO DE JANEIRO - VILA MILITAR'}),
+  ];
+  const api=fakeApi({catalog});
+  const adapter=createRjInmetLiveAdapters({enabled:true,usageApproved:true,fetchImpl:api.fetchImpl}).INMET_STATION;
+  const result=await adapter(input);
+  assert.equal(result.observations[0].stationId,'A652');
+  assert.equal(result.observations[0].stationName,'RIO DE JANEIRO - VILA MILITAR');
+  assert.equal(api.visited.length,2);
+});
+
+test('district fallback keeps municipality boundaries and rejects ambiguous station names',async()=>{
+  for(const [ibge,name] of [
+    ['3304557','RIO DE JANEIRO EXTRA'],
+    ['3303302','NITEROI - OUTRO LOCAL'],
+    ['3304557','DUQUE DE CAXIAS - RIO DE JANEIRO'],
+  ]) {
+    const api=fakeApi({catalog:[station({DC_NOME:name})]});
+    const result=await createRjInmetLiveAdapters({enabled:true,usageApproved:true,fetchImpl:api.fetchImpl}).INMET_STATION({...input,ibge});
+    assert.equal(result.status,'NO_EXACT_MUNICIPAL_INMET_STATION');
+    assert.equal(api.visited.length,1);
+  }
+});
+
+test('unavailable preferred Rio station falls back to a validated district station',async()=>{
+  const api=fakeApi({catalog:[station({DC_NOME:'RIO DE JANEIRO - VILA MILITAR'}),
+    station({CD_ESTACAO:'A602',DC_NOME:'RIO DE JANEIRO / MARAMBAIA'})],
+    hourly:[reading({CD_ESTACAO:'A602'})]});
+  const fetchImpl=(url,opts)=>String(url).endsWith('/A652')
+    ?Promise.resolve(new Response(null,{status:204})):api.fetchImpl(url,opts);
+  const result=await createRjInmetLiveAdapters({enabled:true,usageApproved:true,fetchImpl}).INMET_STATION(input);
+  assert.equal(result.observations[0].stationId,'A602');
+  assert.equal(result.observations[0].ibge,'3304557');
+  assert.equal(result.observations[0].observedAt,'2026-10-12T11:59:00.000Z');
+});
