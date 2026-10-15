@@ -111,6 +111,19 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
   }),
 });
+// Operational data preference approved 2026-10-15. Warning authority is
+// independent of provider preference; no model or satellite implies a tsunami.
+export const RJ_MARINE_PRIORITY = Object.freeze({
+  version:'2026-10-15',
+  primary:Object.freeze(['NOAA','COPERNICUS_MARINE','EUMETSAT_SATELLITE']),
+  complementary:Object.freeze(['MARINHA_CHM','PNBOIA_REMOBS']),
+  navyRequiredForPrimaryProducts:false,
+  tidalPrediction:'REQUIRES_LOCAL_TIDAL_PRODUCT_AND_VERTICAL_DATUM',
+  warningPolicy:'COMPETENT_AUTHORITY_AND_GEOGRAPHIC_COVERAGE_REQUIRED',
+  tsunamiFromWavesOrSatellite:false,
+});
+const marinePhenomena=new Set(['ONDAS','SWELL','RESSACA','MARE','CORRENTES_MARINHAS',
+  'TEMPERATURA_MAR','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','TSUNAMI']);
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');
@@ -119,16 +132,24 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     throw new TypeError('rj_unknown_municipality');
   }
   const rioCity = String(ibge) === RJ_CITY_IBGE;
-  const keys = ROUTES[phenomenon];
+  const oceanAtmosphere=region!=='MUNICIPAL'&&['VENTO','RAJADA','PRESSAO_ATMOSFERICA','TEMPERATURA','UMIDADE'].includes(phenomenon);
+  const keys = oceanAtmosphere?series(['NOAA','COPERNICUS','EUMETSAT','INMET','INPE','WINDY','MARINHA']):ROUTES[phenomenon];
   const withRio = rioCity && ['CHUVA_ATUAL','CHUVA_ACUMULADA','TEMPORAL','TEMPESTADE','RADAR','VENTO','RAJADA','TEMPERATURA','SENSACAO_TERMICA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO'].includes(phenomenon)
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
+  const marineRequest=oceanAtmosphere||marinePhenomena.has(phenomenon)||region!=='MUNICIPAL'&&['MASSA_AR','FRENTE_FRIA'].includes(phenomenon);
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE','COPERNICUS_MARINE','EUMETSAT_SATELLITE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
+  if(marineRequest) {
+    const rank=id=>id==='MARINHA_CHM'?4:
+      RJ_MARINE_PRIORITY.primary.includes(id)?RJ_MARINE_PRIORITY.primary.indexOf(id):3;
+    eligible.sort((a,b)=>rank(a.id)-rank(b.id));
+  }
   return Object.freeze({
+    marinePriority:marineRequest?RJ_MARINE_PRIORITY:null,
     locality: region === 'MUNICIPAL' ? String(ibge) : region,
     phenomenon,
     sources: Object.freeze(eligible),
@@ -138,7 +159,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     complementaryThirdSource: RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon)
       ? 'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY' : null,
     specialistSeaSources: ['RESSACA','ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL'].includes(phenomenon)
-      ? 'MARINHA_NOAA_COPERNICUS_BY_PRODUCT' : null,
+      ? 'NOAA_COPERNICUS_EUMETSAT_BY_PRODUCT_NAVY_COMPLEMENT_ONLY' : null,
     geographicScope: 'RJ_INCLUI_MUNICIPIOS_DE_DIVISA_SEM_CONFUNDIR_DADOS_DE_ESTADOS_VIZINHOS',
     locationMatching: 'VALIDATE_IBGE_STATION_COORDINATES_AND_SOURCE_COVERAGE',
     crossBorderDataPolicy: 'OUTSIDE_RJ_ONLY_AS_EXPLICITLY_LABELED_REGIONAL_CONTEXT_NOT_RJ_OBSERVATION',
