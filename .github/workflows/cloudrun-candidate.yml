@@ -124,7 +124,7 @@ jobs:
             iam_args+=(--no-allow-unauthenticated)
           fi
 
-          runtime_env="BLAISE_ANDROID_PACKAGE=br.com.blaise.rj,BLAISE_MONTHLY_PRODUCT_ID=${BLAISE_MONTHLY_PRODUCT_ID},BLAISE_ANNUAL_PRODUCT_ID=${BLAISE_ANNUAL_PRODUCT_ID},BLAISE_ALLOW_TEST_PURCHASES=false,BLAISE_FIREBASE_PROJECT_ID=${BLAISE_FIREBASE_PROJECT_ID},BLAISE_FCM_P0_TOPIC=${BLAISE_FCM_P0_TOPIC:-blaise-rj-p0},BLAISE_PUBSUB_AUDIENCE=${BLAISE_PUBSUB_AUDIENCE},BLAISE_PUBSUB_SERVICE_ACCOUNT=${BLAISE_PUBSUB_SERVICE_ACCOUNT},BLAISE_P0_AUDIENCE=${BLAISE_P0_AUDIENCE},BLAISE_P0_SERVICE_ACCOUNT=${BLAISE_P0_SERVICE_ACCOUNT},BLAISE_OBSERVABILITY_AUDIENCE=${BLAISE_OBSERVABILITY_AUDIENCE},BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=${BLAISE_OBSERVABILITY_SERVICE_ACCOUNT},BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED=true,BLAISE_OFFICIAL_SOURCE_SEVERE=false,BLAISE_CEMADEN_RJ_ENABLED=true,BLAISE_INMET_WARNINGS_ENABLED=true,BLAISE_CHM_WARNINGS_ENABLED=true,BLAISE_INMET_P0_PUBLISH_ENABLED=false,BLAISE_RJ_PUBLIC_STATUS_ENABLED=${BLAISE_RJ_PUBLIC_STATUS_ENABLED},BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED=${BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED}"
+          runtime_env="BLAISE_ANDROID_PACKAGE=br.com.blaise.rj,BLAISE_MONTHLY_PRODUCT_ID=${BLAISE_MONTHLY_PRODUCT_ID},BLAISE_ANNUAL_PRODUCT_ID=${BLAISE_ANNUAL_PRODUCT_ID},BLAISE_ALLOW_TEST_PURCHASES=false,BLAISE_FIREBASE_PROJECT_ID=${BLAISE_FIREBASE_PROJECT_ID},BLAISE_FCM_P0_TOPIC=${BLAISE_FCM_P0_TOPIC:-blaise-rj-p0},BLAISE_PUBSUB_AUDIENCE=${BLAISE_PUBSUB_AUDIENCE},BLAISE_PUBSUB_SERVICE_ACCOUNT=${BLAISE_PUBSUB_SERVICE_ACCOUNT},BLAISE_P0_AUDIENCE=${BLAISE_P0_AUDIENCE},BLAISE_P0_SERVICE_ACCOUNT=${BLAISE_P0_SERVICE_ACCOUNT},BLAISE_OBSERVABILITY_AUDIENCE=${BLAISE_OBSERVABILITY_AUDIENCE},BLAISE_OBSERVABILITY_SERVICE_ACCOUNT=${BLAISE_OBSERVABILITY_SERVICE_ACCOUNT},BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED=true,BLAISE_OFFICIAL_SOURCE_SEVERE=false,BLAISE_CEMADEN_RJ_ENABLED=true,BLAISE_INMET_WARNINGS_ENABLED=true,BLAISE_CHM_WARNINGS_ENABLED=false,BLAISE_INMET_P0_PUBLISH_ENABLED=false,BLAISE_RJ_PUBLIC_STATUS_ENABLED=${BLAISE_RJ_PUBLIC_STATUS_ENABLED},BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED=${BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED}"
 
           gcloud run deploy "$BLAISE_CLOUDRUN_SERVICE" \
             --project="$BLAISE_GCP_PROJECT_ID" \
@@ -227,6 +227,29 @@ jobs:
             | tee evidence/cloudrun/readyz.json
           grep -F '"status":"ok"' evidence/cloudrun/health.json
           grep -F '"status":"ready"' evidence/cloudrun/readyz.json
+          # A healthy container does not prove the app's public route exists.
+          public_http="$(curl --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $token" \
+            --output evidence/cloudrun/public-status.json --write-out '%{http_code}' \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/v1/public/rj-status")"
+          export BLAISE_CANDIDATE_PUBLIC_HTTP="$public_http"
+          python3 - <<'PY_CHECK'
+          import json, os
+          from pathlib import Path
+          payload = json.loads(Path('evidence/cloudrun/public-status.json').read_text())
+          enabled = os.environ.get('BLAISE_RJ_PUBLIC_STATUS_ENABLED') == 'true'
+          approved = os.environ.get('BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED') == 'true'
+          code = os.environ['BLAISE_CANDIDATE_PUBLIC_HTTP']
+          if enabled and approved:
+              assert code == '200', 'configured public source route is not usable'
+              assert payload.get('contract') == 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1'
+              assert payload.get('usableOfficialProducts') is True
+          else:
+              assert code == '503', 'public route missing or configuration gate bypassed'
+              expected = 'official_status_not_enabled' if not enabled else 'source_terms_not_approved'
+              assert payload.get('error') == expected
+          print('PUBLIC_STATUS_ROUTE_CONTRACT=PASS; marine numerical ingestion not attested')
+          PY_CHECK
           grep -F 'CLOUDRUN_IMAGE_DIGEST_BINDING=PASS' evidence/cloudrun/digest-binding.txt
           printf '%s\n' \
             'CLOUDRUN_CANDIDATE_GATE=PASS' \
