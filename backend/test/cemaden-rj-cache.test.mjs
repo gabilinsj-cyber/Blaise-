@@ -97,3 +97,25 @@ test('CEMADEN cache rejects digest or coverage drift', () => {
     (error) => error.code === 'cemaden_rj_cache_coverage_invalid',
   );
 });
+
+test('CEMADEN diagnostics distinguish municipal status updates and stale coverage without exposing stale risk', () => {
+  const original = snapshot();
+  const records = original.records.map((r, i) => ({ ...r,
+    observedAt: new Date(BASE - (i === 0 ? 3_600_000 : 60_000)).toISOString() }));
+  const canonical = records.map(({ ibge, municipality, redec, risk, priority, observedAt }) =>
+    ({ ibge, municipality, redec, risk, priority, observedAt }));
+  const mixed = { ...original, records,
+    oldestObservedAt: new Date(BASE - 3_600_000).toISOString(),
+    latestObservedAt: new Date(BASE - 60_000).toISOString(),
+    statusInventorySha256: createHash('sha256').update(JSON.stringify(canonical)).digest('hex') };
+  const cache = createCemadenRjHydrologicalRiskCache({ now: () => BASE });
+  cache.recordSuccess(mixed);
+  const result = cache.read();
+  assert.equal(result.state, 'STALE');
+  assert.equal(result.snapshot, null);
+  assert.equal(result.currentRecordCount, 91);
+  assert.equal(result.excludedRecordCount, 1);
+  assert.equal(result.totalRecordCount, 92);
+  assert.equal(result.oldestDataAgeMs, 3_600_000);
+  assert.equal(result.timestampMeaning, 'OFFICIAL_STATUS_LAST_UPDATE_NOT_SENSOR_OBSERVATION');
+});

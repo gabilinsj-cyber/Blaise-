@@ -321,7 +321,7 @@ export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {
     let totalBytes = 0;
     const deadline = Date.now() + 90_000;
     let failed = false;
-    await Promise.all(Array.from({length: Math.min(6, links.length)}, async () => {
+    const resolutions = await Promise.allSettled(Array.from({length: Math.min(6, links.length)}, async () => {
       while (!failed && cursor < links.length) {
         if (Date.now() > deadline) throw new InmetSourceContractError('inmet_cap_resolution_deadline');
         const index = cursor++;
@@ -335,6 +335,10 @@ export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {
         documents[index] = document.replace(/<\?xml[^?]*\?>/gi, '');
       }
     }));
+    // Drain bounded in-flight requests before completing the failed collection.
+    // This prevents overlapping orphan requests and incomplete HTTP diagnostics.
+    const rejected = resolutions.find(result => result.status === 'rejected');
+    if (rejected) throw rejected.reason;
     const result = validateInmetCapFeedXml(`<feed>${documents.join('')}</feed>`);
     return Object.freeze({...result, feedShape: 'RSS_INDEX_RESOLVED_CAP'});
   }

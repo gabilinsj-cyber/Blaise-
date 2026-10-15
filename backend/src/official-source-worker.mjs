@@ -235,6 +235,9 @@ function sourceStateWithoutPayload(reading) {
     oldestDataAgeMs: reading.oldestDataAgeMs ?? null,
     dataAgeMs: reading.dataAgeMs,
     cacheAgeMs: reading.cacheAgeMs,
+    timestampMeaning: reading.timestampMeaning ?? null,
+    oldestUpdatedAt: reading.oldestUpdatedAt ?? null,
+    latestUpdatedAt: reading.latestUpdatedAt ?? null,
     semanticValidity: reading.semanticValidity ?? null,
     payloadExposed: false,
   });

@@ -218,3 +218,29 @@ for (const status of [404, 500]) {
     assert.equal(attempts, status === 500 ? 2 : 1);
   });
 }
+
+test('failed CAP inventory drains in-flight fetches before returning failure', async () => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  let began;
+  const started = new Promise(resolve => { began = resolve; });
+  let drained = false;
+  const collection = probeInmetCapWarnings({ fetchImpl: async url => {
+    if (String(url) === INMET_CAP_RSS_URL) return new Response(
+      `<rss><channel><item><link>${INMET_CAP_RSS_URL}/1</link></item><item><link>${INMET_CAP_RSS_URL}/2</link></item></channel></rss>`,
+      { headers: { 'content-type': 'application/xml' } });
+    if (String(url).endsWith('/1')) return new Response('missing', { status: 404 });
+    began();
+    await pending;
+    drained = true;
+    return new Response(alertXml(), { headers: { 'content-type': 'application/xml' } });
+  }});
+  const rejection = assert.rejects(collection, e => {
+    assert.equal(drained, true);
+    return e.code === 'source_http_error';
+  });
+  await started;
+  await Promise.resolve();
+  release();
+  await rejection;
+});

@@ -1802,7 +1802,7 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
     ) {
         if (risk != null) {
             PulsingRiskLabel("Risco hidrológico: ${risk.label} (nível ${risk.level})", risk.level)
-            Text("CEMADEN-RJ / Defesa Civil • " +
+            Text("CEMADEN-RJ / Defesa Civil • atualização do status: " +
                 risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                     .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")),
                 color = Muted, style = MaterialTheme.typography.labelSmall)
