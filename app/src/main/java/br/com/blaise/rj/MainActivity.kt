@@ -2321,10 +2321,10 @@ private fun MoreScreen(
             modifier = Modifier.testTag("redemet-source-policy"))
         val sourceBrowser = androidx.compose.ui.platform.LocalUriHandler.current
         TextButton(onClick = { runCatching { sourceBrowser.openUri(RjMeteorologicalTables.REDEMET_URL) } }) { Text("REDEMET / DECEA ›", color = Gold) }
-        Text("Desempate Tabela 2 (cinco fontes): " +
+        Text("Desempate Tabela 2: " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
+            "INMET possui observações por estação; CEMADEN depende do produto (medição ou boletim). Previsão e observação não são misturadas.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
         Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
@@ -2362,6 +2362,20 @@ private fun RjMeteorologicalTablesPanel(city: City) {
         subtitle = RjMeteorologicalTables.ID,
         modifier = Modifier.fillMaxWidth().testTag("rj-meteo-homologation-panel"),
     ) {
+        Text(RjMeteorologicalTables.RECONCILIATION_POLICY, color = Muted,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-table-reconciliation-policy"))
+        Text(
+            if (observation == null) "${city.name}: sem medição municipal atual validada neste canal. Nenhum valor foi preenchido por suposição."
+            else "${city.name}: medição pontual de ${observation.source}, estação ${observation.station}, " +
+                "${RjLiveTableEvidence.localTime(observation.observedAt)}. Não é média entre fontes.",
+            color = if (observation == null) WarningAmber else GoldSoft,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-reconciliation-current-evidence"))
+        Text("Média entre Tabelas 1 e 2: aguardando pares de dados comparáveis e pesos validados no fluxo do aplicativo. " +
+            "Uma fonte listada não comprova conexão, cobertura ou dado atual.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("rj-reconciliation-operational-status"))
         Text(RjMeteorologicalTables.STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-meteo-homologation-status"))

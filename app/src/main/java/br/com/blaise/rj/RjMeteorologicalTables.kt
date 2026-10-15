@@ -28,7 +28,7 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v11"
+    const val VERSION = "2026-10-15.v12"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
     const val NO_INEA = "INEA excluído"
@@ -89,6 +89,7 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine"),
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; medição e modelo identificados"),
     )
+    const val RECONCILIATION_POLICY = "Tabela 1: três consultas compatíveis. Duas convergentes permitem média com pesos verificados. Havendo divergência, basta uma confirmação compatível da Tabela 2. Sem dados válidos na Tabela 1, buscar duas fontes da Tabela 2 em ordem: INPE/CPTEC → INMET → Windy → demais fontes por fenômeno; AccuWeather por último, sob demanda e cota diária. Uma fonte isolada não é média. Temperatura em °C; acumulados em mm com período informado. Previsões e observações separadas; avisos e risco oficial não entram em média."
     val table2 = listOf(
         RjMeteoDisputeRow("15", "Tabela 1 indisponível", "Sem dados válidos na Tabela 1, selecionar duas fontes atuais, independentes e próximas somente da Tabela 2, na ordem hierárquica. Média com pesos verificados, mesma variável, município, unidade e período. Uma fonte: mostrar valor e origem sem chamar de média. Previsões e observações ficam separadas; divergência inconclusiva permanece visível."),
         RjMeteoDisputeRow("14", "AccuWeather complementar — 92 municípios RJ", "Temperatura em °C e chuva em mm quando fornecidas pelo produto. MinuteCast: previsão de precipitação minuto a minuto por até 120 min, não medição observada. Cobertura por localidade, plano, chave no servidor e termos ainda precisam de validação. Sem quantidade numérica, mostrar indisponível; não converter intensidade ou dBZ em mm. Não substitui avisos oficiais ou risco CEMADEN."),
