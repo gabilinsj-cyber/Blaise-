@@ -152,3 +152,10 @@ A ausência de credencial/dados das boias da Marinha não deve impedir consultas
 - Tsunami sísmico, meteotsunami e ressaca são fenômenos diferentes; somente avisos com autoridade e cobertura comprovadas podem ser apresentados como oficiais. Boias não substituem esse processo. A prioridade das consultas de dados não revoga avisos competentes da Marinha/Defesa Civil.
 
 Fontes consultadas: https://www.nco.ncep.noaa.gov/pmb/products/wave/ ; https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl ; https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_WAV_001_027/services ; https://www.eumetsat.int/distributing-data ; https://osi-saf.eumetsat.int/about/access-data ; https://tsunami.ioc.unesco.org/en/warningsystems . Produtos identificados/documentação conferida; ingestão numérica ponta a ponta ainda não validada.
+
+
+## Stormsurf — consulta complementar aprovada em 15/10/2026
+
+Cadastrar https://www.stormsurf.com/page2/links/satla72hr.shtml na interface como link externo de previsão visual para o Atlântico Sul (ondas/swell/vento/pressão). Não alterar prioridade NOAA → Copernicus Marine → EUMETSAT por produto; boias Marinha complementares. Produtos Stormsurf derivados de NOAA não contam como outra medição independente nem entram em média como confirmação independente. Sem dados numéricos extraídos, sem afirmação de maré alta/baixa local, aviso oficial de ressaca ou tsunami.
+
+A página declara que links são permitidos e que reprodução/reutilização/enquadramento exige autorização escrita. Portanto, disponibilizar botão para o navegador, sem copiar gráficos, iframe/WebView ou extrair conteúdo. Timestamps, imagens e disponibilidade da página externa não foram homologados como feed do Blaise. Zoom Earth permanece excluído por decisão da usuária; não adicionar conector ou link dele.
