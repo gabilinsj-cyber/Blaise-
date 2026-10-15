@@ -176,7 +176,7 @@ async function main() {
   const sourceWorker = createOfficialSourceWorker({
     onEvent: e => {
       if (e.type !== 'task_finished') return;
-      const source = sourceWorker.status().sources.find(s => s.sourceId === e.taskId);
+      const source = sourceWorker.readSource(e.taskId);
       console.log('blaise_source_collection:' + JSON.stringify({
         source: e.taskId, outcome: e.outcome, errorCode: e.errorCode,
         finishedAt: e.finishedAt, runCount: e.runCount,
