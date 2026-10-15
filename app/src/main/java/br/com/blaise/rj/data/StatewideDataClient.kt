@@ -30,7 +30,8 @@ data class StatewideSource(val id: String, val name: String, val products: List<
     val state: String, val connectedProduct: String?)
 data class StatewideSnapshot(val generatedAt: Instant, val workerActive: Boolean,
     val municipalities: List<StatewideMunicipality>, val warnings: List<StatewideWarning>, val sources: List<StatewideSource>,
-    val nationalAlerts: NationalCemadenStatus? = null) {
+    val nationalAlerts: NationalCemadenStatus? = null,
+    val aerodromeObservations: AerodromeStatus? = null) {
     init {
         require(municipalities.size == 92 && municipalities.map { it.ibge }.toSet().size == 92)
         require(municipalities.all { RioMunicipalities.byIbgeCode(it.ibge)?.name == it.name })
@@ -75,7 +76,7 @@ object StatewideDataParser {
         }
         val sources = map(root.getJSONArray("sources")) { row -> StatewideSource(row.getString("id"), row.getString("name"),
             strings(row.getJSONArray("products")), row.getString("scope"), row.getString("state"), optional(row, "connectedProduct")) }
-        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources, PublicRjStatusParser.parseNational(root))
+        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources, PublicRjStatusParser.parseNational(root), PublicRjStatusParser.parseAerodromes(root))
     }
 }
 

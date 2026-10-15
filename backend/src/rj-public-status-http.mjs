@@ -105,7 +105,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
   const source=buildStatewideDashboardSnapshot(worker,{nowMillis});
   if(!source.workerActive) return null;
-  const permittedSourceIds=['inmet','cemaden-rj','cemaden-national'];
+  const permittedSourceIds=['inmet','cemaden-rj','cemaden-national','redemet'];
   const sourceSummaries=source.sources
     .filter(s=>permittedSourceIds.includes(s.id))
     .map(s=>Object.freeze({
@@ -156,6 +156,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     warnings:Object.freeze(warnings),
     marine,
     nationalAlerts: source.nationalAlerts,
+    aerodromeObservations: source.aerodromeObservations,
     sources:Object.freeze(sourceSummaries),
     warningInventories: Object.freeze(projectWarningInventories(worker, nowMillis)),
     thirdPartyImagesIncluded:false,

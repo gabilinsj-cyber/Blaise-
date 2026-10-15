@@ -1,3 +1,4 @@
+import { REDEMET_TASK_ID, probeRedemetRjMetar, createRedemetCache } from './redemet-source.mjs';
 import { probeInmetWis2Warnings } from './inmet-wis2-source.mjs';
 import { CEMADEN_NATIONAL_TASK_ID, probeCemadenNationalAlerts, createCemadenNationalCache } from './cemaden-national-source.mjs';
 import { rjAlertActiveUntil, rjAlertIsActive } from './rj-alert-retention.mjs';
@@ -187,11 +188,12 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
   });
 
   const alternativeFlags = {};
-  for (const [key, envKey] of [['inmetWis2Enabled', 'BLAISE_INMET_WIS2_ENABLED'], ['cemadenNationalEnabled', 'BLAISE_CEMADEN_NATIONAL_ENABLED']]) {
+  for (const [key, envKey] of [['inmetWis2Enabled', 'BLAISE_INMET_WIS2_ENABLED'], ['cemadenNationalEnabled', 'BLAISE_CEMADEN_NATIONAL_ENABLED'], ['redemetEnabled', 'BLAISE_REDEMET_ENABLED'], ['redemetUsageApproved', 'BLAISE_REDEMET_USAGE_APPROVED']]) {
     if (env[envKey] != null && env[envKey] !== '') alternativeFlags[key] = parseBoolean(env[envKey], { defaultValue: false, code: 'official_source_worker_invalid_alternative_flag' });
   }
   const config = {
     ...alternativeFlags,
+    ...(env.BLAISE_REDEMET_API_KEY ? { redemetApiKey: env.BLAISE_REDEMET_API_KEY } : {}),
     enabled,
     initialMode: severe ? 'severe' : 'normal',
   };
@@ -259,6 +261,7 @@ export function createOfficialSourceWorker({
   refreshIntervalsMs = null,
   cadenceMode = 'after_completion',
   onEvent = () => {},
+  probeRedemet = probeRedemetRjMetar,
   probeInmetWis2 = probeInmetWis2Warnings,
   probeCemadenNational = probeCemadenNationalAlerts,
   probeAlertaRio = probeAlertaRioLiveRainfall,
@@ -281,6 +284,9 @@ export function createOfficialSourceWorker({
   if (String(config.ineaStationUrl ?? '').trim() !== '') {
     throw new OfficialSourceWorkerError('official_source_worker_retired_source_inea');
   }
+  const redemetEnabled = config.redemetEnabled ?? false;
+  if (typeof redemetEnabled !== 'boolean' || typeof (config.redemetUsageApproved ?? false) !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
+  const redemetCache = redemetEnabled ? createRedemetCache({ now }) : null;
   const cemadenNationalEnabled = config.cemadenNationalEnabled ?? false;
   const inmetWis2Enabled = config.inmetWis2Enabled ?? false;
   if (typeof cemadenNationalEnabled !== 'boolean' || typeof inmetWis2Enabled !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
@@ -354,6 +360,17 @@ export function createOfficialSourceWorker({
     },
   }];
 
+  if (redemetEnabled) tasks.push({
+    id: REDEMET_TASK_ID,
+    run: async () => {
+      try {
+        redemetCache.recordSuccess(await probeRedemet({ fetchImpl, now,
+          apiKey: config.redemetApiKey ?? '', usageApproved: config.redemetUsageApproved ?? false }));
+      } catch (error) {
+        redemetCache.recordFailure(safeSourceErrorCode(error)); throw error;
+      }
+    },
+  });
   if (cemadenNationalEnabled) tasks.push({
     id: CEMADEN_NATIONAL_TASK_ID,
     run: async ({ startedAt }) => {
@@ -542,6 +559,7 @@ export function createOfficialSourceWorker({
 
   function readSource(taskId) {
     reconcileCadence();
+    if (taskId === REDEMET_TASK_ID && redemetCache) return redemetCache.read();
     if (taskId === CEMADEN_NATIONAL_TASK_ID && nationalCache) return nationalCache.read();
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
@@ -567,6 +585,7 @@ export function createOfficialSourceWorker({
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
+    if (redemetCache) sourceStates.push(sourceStateWithoutPayload(redemetCache.read()));
     if (nationalCache) sourceStates.push(sourceStateWithoutPayload(nationalCache.read()));
     if (cemadenRjCache) {
       sourceStates.push(sourceStateWithoutPayload(cemadenRjCache.read({ mode: schedulerStatus.mode })));

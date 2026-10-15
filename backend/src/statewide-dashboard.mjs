@@ -1,3 +1,4 @@
+import { REDEMET_TASK_ID, REDEMET_PUBLIC_URL } from './redemet-source.mjs';
 import { CEMADEN_NATIONAL_TASK_ID, CEMADEN_NATIONAL_URL } from './cemaden-national-source.mjs';
 import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
@@ -15,6 +16,7 @@ const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 
 // Approved responsibilities, not a claim that all portals supply an operational feed.
 export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
+  { id: 'redemet', name: 'REDEMET / DECEA', products: ['observacoes-aerodromo'], scope: 'AERODROMOS_RJ_VALIDADOS_NAO_MEDIA_MUNICIPAL', taskId: REDEMET_TASK_ID },
   { id: 'cemaden-national', name: 'CEMADEN nacional', products: ['alertas-abertos'], scope: 'RJ_POR_IBGE_EXATO', taskId: CEMADEN_NATIONAL_TASK_ID },
   { id: 'inmet', name: 'INMET', products: ['temperatura', 'umidade', 'vento', 'previsao', 'avisos'], scope: 'RJ_POR_COBERTURA_VALIDADA', taskId: INMET_WARNINGS_TASK_ID },
   { id: 'cemaden-rj', name: 'CEMADEN-RJ / Defesa Civil RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
@@ -51,6 +53,15 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
   const hydroReady = ready(hydro, nowMillis, 5 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
   const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && [INMET_CAP_RSS_URL, INMET_WIS2_URL].includes(cap.snapshot.sourceUrl);
+  const redemetReading = active ? reading(worker, REDEMET_TASK_ID) : null;
+  const redemetReady = ready(redemetReading, nowMillis, 300_000)
+    && redemetReading.snapshot.sourceUrl === REDEMET_PUBLIC_URL
+    && redemetReading.snapshot.sourceId === REDEMET_TASK_ID;
+  const aerodromeObservations = redemetReading ? {
+    state: redemetReading.state, reason: redemetReading.reason,
+    sourceUrl: REDEMET_PUBLIC_URL, fetchedAt: redemetReading.fetchedAt,
+    observations: redemetReady ? redemetReading.snapshot.observations.filter(o => freshStamp(o.observedAt, nowMillis, 300_000)) : [],
+  } : null;
   const national = active ? reading(worker, CEMADEN_NATIONAL_TASK_ID) : null;
   const nationalReady = ready(national, nowMillis, 300_000)
     && national.snapshot.sourceId === CEMADEN_NATIONAL_TASK_ID
@@ -107,6 +118,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     scope: 'RJ_92_MUNICIPALITIES',
     workerActive: active,
     nationalAlerts,
+    aerodromeObservations,
     municipalities,
     warnings,
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
@@ -116,7 +128,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
       return { id: source.id, name: source.name, products: source.products, scope: source.scope,
         state: actual?.state ?? 'NOT_CONNECTED', observedAt: actual?.observedAt ?? null,
         // Connector state applies only to this product, never every listed responsibility.
-        connectedProduct: actual ? (source.id === 'cemaden-national' ? 'alertas-abertos' : source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
+        connectedProduct: actual ? (source.id === 'redemet' ? 'observacoes-aerodromo' : source.id === 'cemaden-national' ? 'alertas-abertos' : source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
           : source.id === 'alerta-rio' ? 'chuva' : 'inventario-avisos-maritimos') : null };
     }),
   };

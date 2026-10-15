@@ -28,7 +28,7 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v8"
+    const val VERSION = "2026-10-15.v9"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
     const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
     const val NO_INEA = "INEA excluído"
@@ -40,6 +40,10 @@ object RjMeteorologicalTables {
     const val MARINE_AUTHORITY = "Avisos de tsunami/ressaca exigem órgão competente e cobertura validada; prioridade de dados não altera autoridade"
     const val CPTEC_MARINE_URL = "https://servicos.cptec.inpe.br/XML/"
     const val CPTEC_MARINE_STATUS = "CPTEC/INPE: previsão de ondas e vento documentada; serviço indisponível na verificação. Sem dados atuais validados. Não fornece maré local nem confirmação de tsunami."
+    const val REDEMET_URL = "https://redemet.decea.mil.br/"
+    const val REDEMET_STATUS = "REDEMET/DECEA • alternativa da Tabela 2 para temperatura, vento, rajadas e QNH de aeródromos. Coleta exige chave no servidor, autorização e validação do horário. Não fornece risco hidrológico nem média municipal."
+    const val SIMCOSTA_URL = "https://www.simcosta.furg.br/"
+    const val SIMCOSTA_STATUS = "SiMCosta/FURG • complemento marítimo observacional por estação e sensor. Validar atividade, horário, acesso e termos; ainda sem ingestão automática. Não substitui aviso de ressaca ou tsunami."
     const val STORMSURF_URL = "https://www.stormsurf.com/page2/links/satla72hr.shtml"
     const val STORMSURF_DESCRIPTION = "Stormsurf • Atlântico Sul: consulta complementar de previsão de ondas, swell e vento. Produtos derivados da NOAA não contam como fonte independente. Não confirma maré local nem aviso oficial de ressaca."
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
@@ -92,7 +96,7 @@ object RjMeteorologicalTables {
         RjMeteoDisputeRow("04", "INPE e INMET", "INPE/CPTEC é a 1ª consulta; INMET é a 2ª. Se o INPE oferecer apenas previsão, apresentar previsão e medição separadas; uma estação INMET pode validar uma medição existente."),
         RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "Se necessário, CEMADEN é a 3ª referência, Windy a 4ª e NOAA a 5ª. Aplicar somente produtos compatíveis por fenômeno; modelos não substituem medições."),
         RjMeteoDisputeRow("06", "Duas fontes apresentadas", "Mostrar leituras reais e/ou uma medição oficial + uma previsão identificada; nunca média mista de modelo e sensor."),
-        RjMeteoDisputeRow("07", "Dados faltantes", "Fonte atrasada ou indisponível: consultar imediatamente a próxima fonte autorizada e compatível. Medições com mais de 5 min não entram no cálculo; sem fonte atual, mostrar dados indisponíveis. Exibir fonte e horário de origem."),
+        RjMeteoDisputeRow("07", "Dados faltantes", "Fonte atrasada ou indisponível: consultar a próxima fonte autorizada e compatível. REDEMET é alternativa ao INMET para temperatura, vento, rajadas e QNH de aeródromos validados; não substitui risco CEMADEN, chuva acumulada ou dados marítimos. Medições com mais de 5 min não entram no cálculo; sem fonte atual, mostrar dados indisponíveis. Exibir fonte e horário de origem."),
         RjMeteoDisputeRow("08", "Exceções especializadas", "Avisos marítimos, rios, raios, sismo e tsunami usam fontes competentes; não fazer média de categorias de alerta."),
         RjMeteoDisputeRow("09", "P1 conjunta", "Alerta Rio e Defesa Civil são prioridade conjunta no Rio; dado republicado não equivale a duas medições independentes."),
         RjMeteoDisputeRow("10", "Terceira fonte complementar", "OpenWeatherMap auxilia as 10 variáveis da tabela, quando o produto existe; não substitui INMET, Alerta Rio ou avisos oficiais."),
@@ -145,7 +149,7 @@ object RjMeteorologicalTables {
             "Nuvens e sistemas intensos; satélite não substitui radar",
             listOf("TEMPESTADE", "CHUVA_ATLANTICO")),
         RjMeteoMarineRow("ONDAS_SWELL", "Ondas e swell",
-            "NOAA + Copernicus Marine; CPTEC/INPE como previsão complementar",
+            "NOAA + Copernicus Marine; CPTEC/INPE como previsão; SiMCosta para observações validadas",
             "Altura, período, direção e propagação das ondas",
             listOf("ONDAS", "SWELL")),
         RjMeteoMarineRow("RESSACA_LITORAL", "Ressaca no litoral RJ",

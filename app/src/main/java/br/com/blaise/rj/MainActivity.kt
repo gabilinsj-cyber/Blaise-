@@ -1825,6 +1825,26 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
             if (alerts.isEmpty()) Text("Nenhum alerta aberto publicado para este município nesta consulta. Não indica ausência de risco.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
+        val aerodromes = snapshot?.aerodromeObservations ?: paid?.aerodromeObservations
+        if (aerodromes?.current(now) == true) {
+            aerodromes.observations.filter { it.ibge == ibge && it.current(now) }.forEach { point ->
+                Text("REDEMET / DECEA • ${point.stationName} (${point.stationId}) • medição do aeródromo", color = Gold,
+                    style = MaterialTheme.typography.labelSmall)
+                val values = listOfNotNull(point.airTemperatureC?.let { "$it °C" },
+                    point.windSpeedKmh?.let { "vento $it km/h" }, point.gustKmh?.let { "rajada $it km/h" },
+                    point.qnhHpa?.let { "QNH $it hPa" }).joinToString(" • ")
+                Text(values + " • " + point.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) + " (Brasília). Não é média municipal.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+        } else if (aerodromes != null) {
+            val message = when (aerodromes.reason) {
+                "redemet_missing_api_key" -> "REDEMET: aguardando chave de acesso no servidor."
+                "redemet_usage_not_approved" -> "REDEMET: aguardando validação das condições de uso."
+                else -> "REDEMET: sem medição recente validada."
+            }
+            Text(message, color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
         warnings.take(3).forEach { warning ->
             val expiry = warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                 .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
@@ -2115,6 +2135,10 @@ private fun RjMarineSourceMatrixPanel() {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
             "com autorização, cobertura, fonte, horário e validade verificados.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text(RjMeteorologicalTables.SIMCOSTA_STATUS, color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("simcosta-matrix-policy"))
+        val marineBrowser = androidx.compose.ui.platform.LocalUriHandler.current
+        TextButton(onClick = { runCatching { marineBrowser.openUri(RjMeteorologicalTables.SIMCOSTA_URL) } }) { Text("SiMCosta / FURG • estações RJ ›", color = Gold) }
         Text(RjMeteorologicalTables.CPTEC_MARINE_STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag("rj-cptec-marine-status"))
         TextButton(onClick = {
@@ -2293,6 +2317,10 @@ private fun MoreScreen(
         val news = LocalNews.current?.takeIf { it.current(clock) }
         StatusLine("Agência Brasil • RSS", news?.let { "RSS recebido • ${formatInformationTime(it.fetchedAt)}" }
             ?: "Sem RSS atual confirmado")
+        Text(RjMeteorologicalTables.REDEMET_STATUS, color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("redemet-source-policy"))
+        val sourceBrowser = androidx.compose.ui.platform.LocalUriHandler.current
+        TextButton(onClick = { runCatching { sourceBrowser.openUri(RjMeteorologicalTables.REDEMET_URL) } }) { Text("REDEMET / DECEA ›", color = Gold) }
         Text("Desempate Tabela 2 (cinco fontes): " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
@@ -2762,6 +2790,10 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         StatusLine("Vento", "NOAA / Copernicus / EUMETSAT por produto • direção e velocidade pendentes")
         StatusLine("Ressaca", "Sem aviso local validado; ausência de dados não significa ausência de risco")
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
+        Text(RjMeteorologicalTables.SIMCOSTA_STATUS, color = Muted, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.testTag("simcosta-source-policy"))
+        val marineBrowser = androidx.compose.ui.platform.LocalUriHandler.current
+        TextButton(onClick = { runCatching { marineBrowser.openUri(RjMeteorologicalTables.SIMCOSTA_URL) } }) { Text("SiMCosta / FURG • estações RJ ›", color = Gold) }
         Text(RjMeteorologicalTables.CPTEC_MARINE_STATUS, color = WarningAmber,
             style = MaterialTheme.typography.labelSmall)
         Text("Base principal: NOAA / Copernicus Marine / EUMETSAT conforme o produto. " +

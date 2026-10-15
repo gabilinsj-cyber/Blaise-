@@ -37,6 +37,8 @@ const sources = Object.freeze({
   ALERTA_RIO: definition('ALERTA_RIO', OFFICIAL, 'MUNICIPIO_RIO_APENAS'),
   DEFESA_CIVIL: definition('DEFESA_CIVIL_RJ_REGIONAL', OFFICIAL, 'CONFORME_COMPETENCIA_MUNICIPIO'),
   CEMADEN: definition('CEMADEN_RJ', OFFICIAL, 'CONFORME_COBERTURA_MUNICIPIO'),
+  REDEMET: definition('REDEMET_METAR', OFFICIAL, 'AERODROMOS_RJ_VALIDADOS_NAO_MEDIA_MUNICIPAL'),
+  SIMCOSTA: definition('SIMCOSTA_BUOY', OFFICIAL, 'ESTACOES_COSTEIRAS_RJ_POR_SENSOR_HORARIO_E_PERMISSAO'),
   INMET: definition('INMET_STATION', OFFICIAL, 'ESTACOES_PRESENTES_NAO_92_GARANTIDOS'),
   INPE: definition('INPE_CPTEC_FORECAST', MODEL, 'FORECAST_MODELS_AND_SATELLITE_PRODUCTS_RJ_AS_APPLICABLE'),
   ANA: definition('ANA_HIDROWEB', OFFICIAL, 'ESTACAO_HIDROLOGICA'),
@@ -53,23 +55,23 @@ const sources = Object.freeze({
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
 const ROUTES = Object.freeze({
-  TEMPERATURA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
+  TEMPERATURA: series(['DEFESA_CIVIL','INMET','REDEMET','INPE','WINDY']),
   CHUVA_ATUAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
   SENSACAO_TERMICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
   UMIDADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  VENTO: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  RAJADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
+  VENTO: series(['DEFESA_CIVIL','INMET','REDEMET','INPE','WINDY']),
+  RAJADA: series(['DEFESA_CIVIL','INMET','REDEMET','INPE','WINDY']),
   CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
   TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
   TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN','EUMETSAT']),
   RISCO_HIDROLOGICO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   VAZAO_RIO: series(['ANA','SGB']),
   RESSACA: series(['INMET','NOAA','COPERNICUS','INPE','WINDY']),
-  ONDAS: series(['NOAA','COPERNICUS','INPE','WINDY']),
-  SWELL: series(['NOAA','COPERNICUS','INPE','WINDY']),
-  MARE: series(['COPERNICUS','NOAA']),
-  CORRENTES_MARINHAS: series(['COPERNICUS','NOAA']),
-  TEMPERATURA_MAR: series(['COPERNICUS','NOAA']),
+  ONDAS: series(['NOAA','COPERNICUS','INPE','WINDY','SIMCOSTA']),
+  SWELL: series(['NOAA','COPERNICUS','INPE','WINDY','SIMCOSTA']),
+  MARE: series(['COPERNICUS','NOAA','SIMCOSTA']),
+  CORRENTES_MARINHAS: series(['COPERNICUS','NOAA','SIMCOSTA']),
+  TEMPERATURA_MAR: series(['COPERNICUS','NOAA','SIMCOSTA']),
   CICLONE_EXTRATROPICAL: series(['INMET','DEFESA_CIVIL','NOAA','EUMETSAT','COPERNICUS','INPE','WINDY']),
   CHUVA_ATLANTICO: series(['NOAA','EUMETSAT','INPE','WINDY']),
   MASSA_AR: series(['INMET','NOAA','EUMETSAT','INPE','WINDY']),
@@ -81,7 +83,7 @@ const ROUTES = Object.freeze({
   EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
   SISMO: series(['USGS','DEFESA_CIVIL','NOAA']),
   TSUNAMI: series(['NOAA','DEFESA_CIVIL','USGS']),
-  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
+  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','REDEMET','INPE','WINDY']),
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
 });
 
@@ -158,6 +160,8 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
   const marineRequest=oceanAtmosphere||marinePhenomena.has(phenomenon)||region!=='MUNICIPAL'&&['MASSA_AR','FRENTE_FRIA'].includes(phenomenon);
   const eligible = withRio.filter(s => {
     if (s.id === 'MARINHA_CHM' || s.id === 'PNBOIA_REMOBS') return false;
+    if (s.id === 'REDEMET_METAR' && (!rioCity || region !== 'MUNICIPAL')) return false;
+    if (s.id === 'SIMCOSTA_BUOY' && region === 'ATLANTICO') return false;
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
     if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE','COPERNICUS_MARINE','EUMETSAT_SATELLITE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;

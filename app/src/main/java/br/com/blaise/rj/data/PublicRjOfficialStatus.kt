@@ -106,18 +106,29 @@ data class PublicRjSourceProduct(
     val scope: String,
 ) {
     init {
-        require(id in setOf("inmet", "cemaden-rj", "cemaden-national"))
+        require(id in setOf("inmet", "cemaden-rj", "cemaden-national", "redemet"))
         require(name.isNotBlank() && name.length <= 90)
         require(state in setOf("CURRENT", "CURRENT_DEGRADED", "STALE",
             "UNAVAILABLE", "NOT_CONNECTED", "NOT_CONFIGURED",
             "AWAITING_SOURCE_REFRESH", "ERROR"))
         require(scope.length in 1..80)
         require(connectedProduct == null || connectedProduct ==
-            if (id == "inmet") "avisos" else if (id == "cemaden-national") "alertas-abertos" else "risco-hidrologico")
+            if (id == "inmet") "avisos" else if (id == "cemaden-national") "alertas-abertos" else if (id == "redemet") "observacoes-aerodromo" else "risco-hidrologico")
     }
     fun currentlyConnected() =
         state in setOf("CURRENT", "CURRENT_DEGRADED") &&
         connectedProduct != null
+}
+
+data class AerodromeObservation(val stationId: String, val stationName: String, val ibge: Int,
+    val observedAt: Instant, val airTemperatureC: Double?, val windSpeedKmh: Double?,
+    val gustKmh: Double?, val qnhHpa: Double?) {
+    fun current(now: Instant) = !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..300
+}
+data class AerodromeStatus(val state: String, val reason: String, val fetchedAt: Instant?,
+    val observations: List<AerodromeObservation>) {
+    fun current(now: Instant) = state in setOf("CURRENT", "CURRENT_DEGRADED") && fetchedAt != null &&
+        !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..300
 }
 
 data class NationalCemadenAlert(val id: String, val ibge: Int, val municipality: String,
@@ -137,6 +148,7 @@ data class PublicRjStatus(
     val sourceProducts: List<PublicRjSourceProduct> = emptyList(),
     val warningInventories: List<PublicWarningInventory> = emptyList(),
     val nationalAlerts: NationalCemadenStatus? = null,
+    val aerodromeObservations: AerodromeStatus? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -149,7 +161,7 @@ data class PublicRjStatus(
         } })
         require(marine == null || marine.warnings.size <= 16 &&
             marine.warnings.map { it.id }.distinct().size == marine.warnings.size)
-        require(sourceProducts.size <= 3 &&
+        require(sourceProducts.size <= 4 &&
             sourceProducts.map { it.id }.distinct().size == sourceProducts.size)
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) &&
@@ -176,6 +188,34 @@ sealed interface PublicRjStatusResult {
 }
 
 object PublicRjStatusParser {
+    fun parseAerodromes(root: JSONObject): AerodromeStatus? =
+        if (root.isNull("aerodromeObservations")) null else root.getJSONObject("aerodromeObservations").let { info ->
+            require(info.getString("sourceUrl") == "https://redemet.decea.mil.br/")
+            val state = info.getString("state")
+            require(state in setOf("CURRENT", "CURRENT_DEGRADED", "STALE", "UNAVAILABLE"))
+            val rows = info.getJSONArray("observations")
+            require(rows.length() <= 2)
+            val observations = (0 until rows.length()).map { index ->
+                val row = rows.getJSONObject(index)
+                val code = row.getString("stationId")
+                require(code in setOf("SBGL", "SBRJ") && row.getString("ibge") == "3304557")
+                require(row.getString("sourceUrl") == "https://redemet.decea.mil.br/" &&
+                    row.getString("scope") == "AERODROME_POINT_NOT_MUNICIPAL_MEAN")
+                require(!row.getBoolean("providesRainfallAccumulation") && !row.getBoolean("providesHydrologicalRisk") &&
+                    !row.getBoolean("providesMarineMeasurement"))
+                fun optionalNumber(key: String, min: Double, max: Double): Double? =
+                    if (row.isNull(key)) null else row.getDouble(key).also { require(it.isFinite() && it in min..max) }
+                val name = row.getString("stationName")
+                require(name == if (code == "SBGL") "Galeão" else "Santos Dumont")
+                AerodromeObservation(code, name, 3304557, Instant.parse(row.getString("observedAt")),
+                    optionalNumber("airTemperatureC", -80.0, 60.0), optionalNumber("windSpeedKmh", 0.0, 400.0),
+                    optionalNumber("gustKmh", 0.0, 500.0), optionalNumber("qnhHpa", 850.0, 1100.0))
+            }
+            require(observations.map { it.stationId }.distinct().size == observations.size)
+            AerodromeStatus(state, info.getString("reason").also { require(it.length <= 96) },
+                if (info.isNull("fetchedAt")) null else Instant.parse(info.getString("fetchedAt")), observations)
+        }
+
     fun parseNational(root: JSONObject): NationalCemadenStatus? {
         return if (root.isNull("nationalAlerts")) null else root.getJSONObject("nationalAlerts").let { info ->
             require(info.getString("sourceUrl") == "https://painelalertas.cemaden.gov.br/wsAlertas2")
@@ -243,7 +283,7 @@ object PublicRjStatusParser {
         // Older deployments omit "sources": never infer that a worker is
         // connected just because the enclosing HTTP response is fresh.
         val products = root.optJSONArray("sources")?.let { rows ->
-            require(rows.length() <= 3)
+            require(rows.length() <= 4)
             (0 until rows.length()).map { idx ->
                 val item = rows.getJSONObject(idx)
                 val product=if(item.isNull("connectedProduct")) null
@@ -284,7 +324,7 @@ object PublicRjStatusParser {
         } ?: emptyList()
         val national = parseNational(root)
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products,inventories,national)
+            municipalities,warnings,marine,products,inventories,national,parseAerodromes(root))
     }
 }
 
