@@ -1,11 +1,8 @@
-import { createPnboiaObservationProvider, createPnboiaHttpHandler } from './pnboia-observations.mjs';
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
-import { createChmTideValuesCache } from './chm-tide-cache.mjs';
-import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createRjLiveSourceAudit } from './rj-live-source-audit.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
@@ -149,7 +146,7 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
-  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined });
+  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined, BLAISE_CHM_WARNINGS_ENABLED: 'false' });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
@@ -165,7 +162,6 @@ async function main() {
     : null;
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
-  const chmTideCache = createChmTideValuesCache();
   const readiness = createReadinessState();
 
   let publishInmetP0 = null;
@@ -195,12 +191,7 @@ async function main() {
     replayGuard,
     p0ReplayGuard,
   });
-  const paidDataHandler = createChmTideHttpHandler(coreHandler, {
-    config,
-    gateway,
-    chmTideCache,
-    metrics,
-  });
+  const paidDataHandler = coreHandler;
   const dashboardDataHandler = createPaidDashboardDataHttpHandler(paidDataHandler, {
     config,
     gateway,
@@ -217,13 +208,7 @@ async function main() {
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
-  const buoyHandler = createPnboiaHttpHandler(publicStatusHandler, {
-    provider: createPnboiaObservationProvider({
-      token: process.env.BLAISE_PNBOIA_TOKEN || '',
-      usageApproved: process.env.BLAISE_PNBOIA_DISPLAY_TERMS_APPROVED === 'true',
-    }),
-  });
-  const sourceReadinessHandler = createRjSourceReadinessHandler(buoyHandler, {
+  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
