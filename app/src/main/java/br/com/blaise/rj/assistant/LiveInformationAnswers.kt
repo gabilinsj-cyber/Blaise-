@@ -35,11 +35,8 @@ fun liveInformationAnswer(status: PublicRjStatus?, news: NewsSnapshot?, seismic:
         }
     }
     if (q.contains("deslizamento")) pieces += "Risco de deslizamento sem produto validado nesta consulta; não é deduzido do risco hidrológico."
-    if (listOf("onda", "ressaca", "marinha").any(q::contains)) {
-        val marine = current?.marine?.takeIf { it.current(now) }
-        val warnings = marine?.warnings?.filter { it.current(now) }.orEmpty()
-        pieces += if (warnings.isEmpty()) "Sem aviso marítimo vigente confirmado nesta consulta; isso não confirma ausência de risco."
-            else warnings.joinToString(" ") { "Marinha/CHM: ${it.warningType}, áreas ${it.areas.joinToString()}; emitido ${time(it.issuedAt)}, válido até ${time(it.validUntil)}. Aviso regional, sem atribuição automática à praia escolhida." }
+    if (listOf("onda", "ressaca", "swell", "mare").any(q::contains)) {
+        pieces += "Sem produto marítimo atual validado nesta consulta; isso não confirma ausência de risco. Base: NOAA, Copernicus Marine e EUMETSAT por produto; CPTEC/INPE como previsão complementar em validação."
     }
     if (listOf("abalo", "sismo", "terremoto").any(q::contains)) {
         val events = seismic?.largestRecent(now).orEmpty()
