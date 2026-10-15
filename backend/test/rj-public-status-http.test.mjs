@@ -232,3 +232,36 @@ test('a freshly generated wrapper cannot revive old or future hydrological bulle
     assert.ok(buildRjPublicStatusSnapshot(w,{nowMillis:now}).municipalities.every(r=>r.risk===null));
   }
 });
+
+test('individual approval exposes INMET only and never leaks CEMADEN data', async () => {
+  const w = worker();
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:w, enabled:true,
+    licensingApproved:true, productApprovals:{inmetWarnings:true}, clock:()=>now });
+  const res = fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.warnings.length,1);
+  assert.ok(res.body.municipalities.every(city => city.risk === null));
+  assert.equal(res.body.nationalAlerts,null);
+  assert.equal(res.body.aerodromeObservations,null);
+  assert.equal(res.body.marine,null);
+  assert.ok(res.body.sources.filter(s=>s.id!=='inmet').every(s=>s.state==='NOT_CONNECTED'));
+});
+test('CEMADEN-RJ approval never releases INMET warnings or inventories', async () => {
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:worker(), enabled:true,
+    productApprovals:{cemadenRjRisk:true}, clock:()=>now });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.warnings.length,0);
+  assert.equal(res.body.warningInventories.length,0);
+  assert.ok(res.body.municipalities.some(city=>city.risk!==null));
+});
+test('legacy global approval cannot bypass explicit product denials', async () => {
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:worker(), enabled:true,
+    licensingApproved:true, productApprovals:{inmetWarnings:false}, clock:()=>now });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'source_terms_not_approved');
+});

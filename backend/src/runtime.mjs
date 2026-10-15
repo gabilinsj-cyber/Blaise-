@@ -222,7 +222,14 @@ async function main() {
   const publicStatusHandler = createRjPublicStatusHandler(dashboardDataHandler, {
     sourceWorker,
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
-    licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
+    // Explicit product gates: the legacy global approval cannot release other feeds.
+    productApprovals: {
+      inmetWarnings: process.env.BLAISE_PUBLIC_INMET_WARNINGS_APPROVED === 'true',
+      cemadenNational: process.env.BLAISE_PUBLIC_CEMADEN_NATIONAL_APPROVED === 'true',
+      cemadenRjRisk: process.env.BLAISE_PUBLIC_CEMADEN_RJ_RISK_APPROVED === 'true',
+      redemet: process.env.BLAISE_PUBLIC_REDEMET_APPROVED === 'true',
+      chm: process.env.BLAISE_PUBLIC_CHM_APPROVED === 'true',
+    },
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.

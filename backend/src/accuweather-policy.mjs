@@ -11,6 +11,9 @@ export const ACCUWEATHER_RJ_POLICY = Object.freeze({
   ingestion: 'NOT_CONNECTED',
   requires: Object.freeze(['SERVER_API_KEY', 'PRODUCT_TERMS', 'PLAN', 'LOCAL_COVERAGE', 'VALID_TIME']),
   automaticAlertAuthority: false,
+  consultationPolicy: 'ON_DEMAND_LAST_RESORT_AFTER_COMPATIBLE_PRIMARY_AND_TABLE2_SOURCES',
+  dailyRequestLimit: 0, // Disabled until an explicit quota and API plan are configured.
+  blendForecastWithObservedMeasurements: false,
 });
 
 // Missing quantities stay missing. An intensity category/dBZ is not an amount.

@@ -181,17 +181,35 @@ function respond(res,code,body) {
   res.setHeader('Content-Type','application/json; charset=utf-8');
   res.end(value);
 }
+export function restrictPublicProducts(worker, approved) {
+  const allowed = new Set([
+    ['inmetWarnings', 'inmet-cap-warnings'],
+    ['cemadenNational', 'cemaden-national-open-alerts'],
+    ['cemadenRjRisk', 'cemaden-rj-hydrological-risk'],
+    ['redemet', 'redemet-rj-metar'],
+    ['chm', 'chm-marine-warnings'],
+  ].filter(([product]) => approved[product] === true).map(([, task]) => task));
+  return {
+    status: () => {
+      const status = worker.status();
+      return {...status, sources: (status.sources ?? []).filter(item => allowed.has(item.sourceId))};
+    },
+    readSource: task => allowed.has(task) ? worker.readSource(task) : null,
+  };
+}
 export function createRjPublicStatusHandler(delegate, {
-  sourceWorker,enabled=false,licensingApproved=false,clock=()=>Date.now(),
+  sourceWorker,enabled=false,licensingApproved=false,productApprovals=null,clock=()=>Date.now(),
 }={}) {
   if(typeof delegate!=='function')throw new TypeError('rj_public_delegate_required');
   if(!sourceWorker || typeof sourceWorker.status!=='function'
     || typeof sourceWorker.readSource!=='function')throw new TypeError('rj_public_worker_required');
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
+  const publicationWorker = productApprovals === null ? sourceWorker : restrictPublicProducts(sourceWorker, productApprovals);
+  const termsReady = productApprovals === null ? licensingApproved : Object.values(productApprovals).some(value => value === true);
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
     if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
-    if(!enabled || !licensingApproved) {
+    if(!enabled || !termsReady) {
       respond(res,503,{error:!enabled?'official_status_not_enabled':'source_terms_not_approved'});
       return;
     }
@@ -199,7 +217,7 @@ export function createRjPublicStatusHandler(delegate, {
       respond(res,405,{error:'method_not_allowed'});return;
     }
     try {
-      const status=buildRjPublicStatusSnapshot(sourceWorker,{nowMillis:clock()});
+      const status=buildRjPublicStatusSnapshot(publicationWorker,{nowMillis:clock()});
       if(!status || !status.usableOfficialProducts) {
         respond(res,503,{error:'official_sources_not_validated'});return;
       }
