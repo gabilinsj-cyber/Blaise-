@@ -89,3 +89,14 @@ REDEMET exibe boletim de até 60 minutos com horário original e descrição de 
 ## Configuração segura da candidata — 16/10/2026
 
 backend/scripts/configure-redemet-candidate.sh solicita chave em terminal oculto, grava por stdin no Secret Manager, fixa a versão exata e concede acesso somente à conta do serviço no segredo. Implanta candidata com --no-traffic e tag validacao-rj, ativando coleta REDEMET autorizada pelo operador sem habilitar publicação pública. Nenhuma chave é gravada no repositório ou impressa. Execução requer a sessão Cloud Shell do operador; ainda não executado pela assistência.
+
+
+## Estado comprovado e pendências — 16/10/2026
+
+A candidata 00050 publicou separadamente os avisos INMET, alertas CEMADEN nacional e boletins REDEMET, conforme liberação do operador. Consulta direta em 16/10/2026 às 11:03:28 BRT confirmou REDEMET CURRENT (SBGL/SBRJ, observações 11h), CEMADEN nacional CURRENT (painel 11:02:01 BRT), INMET CURRENT_DEGRADED (avisos, inventário parcial). Isso é evidência daquele horário, não disponibilidade permanente. CEMADEN-RJ hidrológico permanece sem registros atuais validados; 92 códigos municipais não significam 92 sensores.
+
+Android CI 969 e 970 aprovados. APK debug usa candidata validacao-rj; release mantém produção. CI 970 disponibiliza artefato separado blaise-v6-rj-validacao-apk, aproximadamente 400 MB; não confundir com pacote completo de evidências de 1,18 GB. Instalação e teste no aparelho ainda não comprovados.
+
+Tabelas 1/2: catálogo e seletor existem; seletor ainda não ligado ao fluxo de múltiplas observações reais. Não publicar média até existir par independente compatível, mesma variável/unidade/janela/localidade, pesos justificados e timestamps originais. Sem Tabela 1, aplicar Tabela 2 somente com dados comparáveis válidos; uma fonte isolada é leitura identificada, não média. Não converter previsão em observação, aviso em sensor, dado ausente em zero ou republicação em fonte independente.
+
+Produtos NOAA/Copernicus/EUMETSAT/CPTEC, Windy, OpenWeatherMap e AccuWeather não foram comprovados como coletores completos nesta auditoria. Fontes marítimas permanecem pendentes de adaptadores/produtos e validação de cobertura e horários. Não declarar todas as fontes ativas nem todas as cidades cobertas. Chaves permanecem no servidor.

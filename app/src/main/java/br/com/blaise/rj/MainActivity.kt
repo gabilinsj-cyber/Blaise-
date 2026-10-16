@@ -2578,7 +2578,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                     modifier = Modifier.testTag("rj-show-all-dispute-rules"),
                 ) {
                     Text(if (showAllCriteria) "Mostrar só critérios deste fenômeno"
-                        else "Ver os 13 critérios completos", color = Gold)
+                        else "Ver os ${RjMeteorologicalTables.table2.size} critérios completos", color = Gold)
                 }
             }
             val applicable = if (showAllCriteria || chosenPhenomenon == null)
