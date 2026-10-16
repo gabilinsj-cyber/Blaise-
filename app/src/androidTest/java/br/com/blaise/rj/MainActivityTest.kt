@@ -157,44 +157,14 @@ class MainActivityTest {
         rule.onNodeWithTag("ten-agents-panel").assertDoesNotExist()
     }
 
-    @Test fun officialMeteorologicalTablesAreNamedAndAvailableInsideExistingMoreScreen() {
-        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
-        assertTextDisplayed("BLAISE-RJ-METEO-HOMOLOG-01")
-        rule.onNodeWithTag("rj-meteo-homologation-status").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-table-1-content").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-source-RAIOS").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-dispute-04").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-dispute-05").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-table-1-tab").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-source-CHUVA_ACUMULADA").performScrollTo().assertIsDisplayed()
-    }
 
-    @Test fun sourceConnectionStatesAreVisibleWithoutInventingThirdPartyLiveFeeds() {
+    @Test fun customerSettingsHideOperationalConfiguration() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-public-status-connection")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-public-status-last-attempt")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-public-status-refresh")
-            .performScrollTo().assertIsDisplayed()
-        if (BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL.isBlank()) {
-            rule.onNodeWithTag("rj-public-status-refresh")
-                .assertIsNotEnabled()
-        }
-        rule.onNodeWithTag("rj-live-source-evidence-count")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-live-source-evidence-toggle")
-            .performScrollTo().performClick()
-        rule.onNodeWithTag("rj-live-source-evidence-6")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-live-source-evidence-10")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-live-source-evidence-toggle")
-            .performScrollTo().performClick()
+        rule.onNodeWithTag("settings-power-toggle").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("settings-silent-toggle").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-homologation-panel").assertDoesNotExist()
+        rule.onNodeWithTag("five-weather-sources-status").assertDoesNotExist()
+        rule.onNodeWithTag("ten-agents-panel").assertDoesNotExist()
         rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
         rule.onNodeWithTag("rj-marine-public-connection")
             .performScrollTo().assertIsDisplayed()
@@ -210,17 +180,6 @@ class MainActivityTest {
             .performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun tappingTableOneLinksDirectlyToMatchingTableTwoWeightedCalculationRules() {
-        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA")
-            .performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-table-2-content").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-linked-phenomenon").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-linked-weighted-eligibility").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-dispute-11").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-show-all-dispute-rules").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
-    }
 
     @Test fun marineSectionDisplaysIndependentSourceAndDataTableWithFiveRows() {
         rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
@@ -237,17 +196,6 @@ class MainActivityTest {
             .performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun maritimeMatrixLinksTsunamiToAuthorityChecksNotWeightedAverage() {
-        rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-table-3-tab").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-marine-matrix-content").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-marine-source-ONDAS_SWELL")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-marine-source-TSUNAMI")
-            .performScrollTo().performClick()
-        rule.onNodeWithTag("rj-linked-weighted-eligibility").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-dispute-12").performScrollTo().assertIsDisplayed()
-    }
 
     @Test fun supplementalMapOverlaysDoNotInventTrafficSeismicOrRadarLayers() {
         rule.onNodeWithTag("map-extra-Cidades").performScrollTo().performClick()

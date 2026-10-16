@@ -105,3 +105,8 @@ Produtos NOAA/Copernicus/EUMETSAT/CPTEC, Windy, OpenWeatherMap e AccuWeather nã
 ## Correções Android — 16/10/2026, revisão de voz e fontes
 
 Painel dos agentes removido da navegação do cliente (não cria autenticação administrativa). Evidência de conexão passa a incluir CEMADEN nacional e REDEMET com município e horários validados; contador de fontes dinâmico. Dora usa PCM 16 bits e volume de mídia para compatibilidade; a reprodução no aparelho ainda precisa ser comprovada. Nenhuma fonte marítima ou média passa a ser considerada ativa por essa alteração.
+
+
+## Configuração operacional restrita — 16/10/2026
+
+Diretriz do operador: configurações de operação, agentes, critérios internos de desempate e homologação são exclusivos da administração. Removidas da navegação do cliente; preservados controles pessoais, resultados, origem e horário. Não foi criado login administrativo nem atalho secreto: enquanto não existir autenticação administrativa validada, esses controles não são expostos pelo aplicativo. Essa mudança de navegação não altera autorização do servidor nem habilita fontes.

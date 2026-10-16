@@ -2320,19 +2320,9 @@ private fun MoreScreen(
             modifier = Modifier.testTag("redemet-source-policy"))
         val sourceBrowser = androidx.compose.ui.platform.LocalUriHandler.current
         TextButton(onClick = { runCatching { sourceBrowser.openUri(RjMeteorologicalTables.REDEMET_URL) } }) { Text("REDEMET / DECEA ›", color = Gold) }
-        Text("Desempate Tabela 2: " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
-            ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET possui observações por estação; CEMADEN depende do produto (medição ou boletim). Previsão e observação não são misturadas.",
-            color = Muted, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.testTag("five-weather-sources-status"))
-        Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
-            "SGB/SACE e NOAA conforme fenômeno. " +
-            "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
-            color = Muted, style = MaterialTheme.typography.labelSmall)
+
     }
     Spacer(Modifier.height(10.dp))
-    RjMeteorologicalTablesPanel(city)
     Spacer(Modifier.height(10.dp))
 }
 
