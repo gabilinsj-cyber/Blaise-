@@ -167,6 +167,7 @@ export function createCemadenRjHydrologicalRiskCache({ now = () => Date.now() } 
     const refreshDue = nextRefreshDueAtMs === null || atMs >= nextRefreshDueAtMs;
     const base = {
       sourceId: CEMADEN_RJ_SOURCE_ID,
+      timestampMeaning: 'OFFICIAL_STATUS_LAST_UPDATE_NOT_SENSOR_OBSERVATION',
       mode,
       refreshIntervalMs,
       refreshDue,
@@ -202,6 +203,18 @@ export function createCemadenRjHydrologicalRiskCache({ now = () => Date.now() } 
       });
     }
 
+    // Coverage diagnostics do not relax freshness or turn a status update into a measurement.
+    const coverage = {
+      totalRecordCount: entry.snapshot.records.length,
+      currentRecordCount: entry.snapshot.records.filter(record => {
+        const age = atMs - Date.parse(record.observedAt);
+        return age >= 0 && age <= CEMADEN_RJ_MAX_DATA_AGE_MS;
+      }).length,
+      oldestUpdatedAt: new Date(entry.oldestObservedMs).toISOString(),
+      latestUpdatedAt: new Date(entry.latestObservedMs).toISOString(),
+      oldestDataAgeMs: Math.max(0, atMs - entry.oldestObservedMs),
+    };
+    coverage.excludedRecordCount = coverage.totalRecordCount - coverage.currentRecordCount;
     const dataAgeMs = Math.max(0, atMs - entry.oldestObservedMs);
     const cacheAgeMs = Math.max(0, atMs - entry.fetchedAtMs);
     const fresh = dataAgeMs <= CEMADEN_RJ_MAX_DATA_AGE_MS
@@ -213,6 +226,7 @@ export function createCemadenRjHydrologicalRiskCache({ now = () => Date.now() } 
     if (!fresh) {
       return Object.freeze({
         ...base,
+        ...coverage,
         state: 'STALE',
         reason: dataAgeMs > CEMADEN_RJ_MAX_DATA_AGE_MS
           ? 'observation_age_exceeded'
@@ -227,6 +241,7 @@ export function createCemadenRjHydrologicalRiskCache({ now = () => Date.now() } 
 
     return Object.freeze({
       ...base,
+      ...coverage,
       state: failedAfterSnapshot ? 'CURRENT_DEGRADED' : 'CURRENT',
       reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache' : 'fresh_snapshot',
       fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
