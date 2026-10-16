@@ -110,3 +110,10 @@ Painel dos agentes removido da navegação do cliente (não cria autenticação 
 ## Configuração operacional restrita — 16/10/2026
 
 Diretriz do operador: configurações de operação, agentes, critérios internos de desempate e homologação são exclusivos da administração. Removidas da navegação do cliente; preservados controles pessoais, resultados, origem e horário. Não foi criado login administrativo nem atalho secreto: enquanto não existir autenticação administrativa validada, esses controles não são expostos pelo aplicativo. Essa mudança de navegação não altera autorização do servidor nem habilita fontes.
+
+
+## Validade das médias e verificação externa — 16/10/2026, após 13h BRT
+
+weightedOfficialMean passa a representar o horário da contribuição mais antiga, impedindo renovação aparente por outra leitura mais nova. Regressão prova expiração conjunta; 36 testes específicos passaram. Isso não comprova conexão dos adaptadores ao fluxo Android.
+
+Consultas desta sessão: CPTEC /XML/cidade/241/todos/tempos/ondas.xml respondeu HTTP 403; catálogo INMET /estacoes/T respondeu HTTP 502; NOAA ERDDAP NOAA_DHW respondeu HTTP 200, mas a célula consultada trouxe timestamp 2026-10-14T12:00:00Z. Produto diário/satélite não equivale a sensor marítimo instantâneo. Não publicar esse registro como atual nem concluir indisponibilidade global com base em um endpoint. Ondas, swell, correntes e marés continuam sem coleta operacional completa comprovada.

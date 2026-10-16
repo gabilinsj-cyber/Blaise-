@@ -80,7 +80,8 @@ export function weightedOfficialMean({
     ibge: first.ibge,
     sourceCount: observations.length,
     sourceIds: Object.freeze([...new Set(observations.map(o => o.sourceId))]),
-    observedAt: new Date(Math.max(...times)).toISOString(),
+    // A combined value expires with its oldest contributing observation.
+    observedAt: new Date(Math.min(...times)).toISOString(),
     caution: 'ESTIMATIVA_LOCAL_NAO_MEDICAO_MUNICIPAL_NEM_ALERTA_OFICIAL',
   });
 }

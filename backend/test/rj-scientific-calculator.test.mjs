@@ -111,3 +111,15 @@ test('all 92 municipalities are eligible for isolated calculations, never for fa
   assert.equal(dewPointCelsius({ temperatureC: 20, humidityPercent: 60,
     ibge: '4106902', observedAt: at, now: NOW }).reason, 'MUNICIPALITY_NOT_CONFIRMED');
 });
+
+
+test('weighted result preserves oldest contributor time and expires with it', () => {
+  const readings = [
+    {...observation('INMET-1', 28), observedAt: new Date(NOW - 299000).toISOString()},
+    {...observation('DC-2', 29), observedAt: new Date(NOW - 1000).toISOString()},
+  ];
+  const result = weightedOfficialMean({observations: readings, now: NOW});
+  assert.equal(result.observedAt, readings[0].observedAt);
+  assert.equal(result.value, 28.5);
+  assert.equal(weightedOfficialMean({observations: readings, now: NOW + 2000}).state, 'DADOS_INSUFICIENTES');
+});
