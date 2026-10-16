@@ -84,3 +84,8 @@ Consulta direta à candidata validacao-rj: HTTP 200, generatedAt 2026-10-15T22:5
 Consulta autenticada às 19:59:48 BRT: HTTP 200, SBGL e SBRJ com METAR válido das 19h BRT. CEMADEN nacional retornou atualizado 19:59:02 BRT, zero alertas abertos RJ; não significa ausência de risco. Chave não foi gravada nem exibida. Adaptador passa a enviar X-Api-Key, removendo segredo da URL.
 
 REDEMET exibe boletim de até 60 minutos com horário original e descrição de ciclo horário/SPECI eventual. Consulta do cache continua limitada a 5 minutos; boletim com observação acima de 5 minutos é CURRENT_DEGRADED, nunca apresentado como medição minuto a minuto. Após 60 minutos, remove valores mesmo havendo nova consulta. Não entra automaticamente na média observacional que exige 5 minutos. Credencial, configuração Cloud Run e autorização de publicação continuam pendentes; teste de acesso não equivale a autorização comercial.
+
+
+## Configuração segura da candidata — 16/10/2026
+
+backend/scripts/configure-redemet-candidate.sh solicita chave em terminal oculto, grava por stdin no Secret Manager, fixa a versão exata e concede acesso somente à conta do serviço no segredo. Implanta candidata com --no-traffic e tag validacao-rj, ativando coleta REDEMET autorizada pelo operador sem habilitar publicação pública. Nenhuma chave é gravada no repositório ou impressa. Execução requer a sessão Cloud Shell do operador; ainda não executado pela assistência.
