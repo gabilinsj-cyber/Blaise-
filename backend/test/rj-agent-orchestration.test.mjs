@@ -67,6 +67,7 @@ test('Sentinel-Fusion-Vector consultation uses first compatible hierarchy pair a
   const record=(sourceId,stationId,value)=>({
     origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
     variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
+    weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-qc',independenceVerified:true,underlyingProviderId:sourceId,upstreamMeasurementId:sourceId+'-'+stationId,
     observedAt:'2026-10-10T17:59:00Z',
     latitude:-22.9,longitude:-43.2,
     sourceUrl:'https://apitempo.inmet.gov.br/estacao/synthetic-test-fixture',

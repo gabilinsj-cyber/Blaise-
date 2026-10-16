@@ -11,6 +11,8 @@ const NOW=Date.parse('2026-10-10T18:00:00Z');
 const obs=(id,value,change={})=>({
   origin:'OFFICIAL_OBSERVATION',
   sourceId:id==='A652'?'INMET':'DEFESA_CIVIL',
+  weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-qc',independenceVerified:true,
+  underlyingProviderId:id==='A652'?'INMET':'DEFESA_CIVIL',upstreamMeasurementId:'fixture-'+id,
   stationId:id, ibge:'3304557',variable:'TEMPERATURA_C',unit:'°C',value,
   weight:1,observedAt:'2026-10-10T17:59:00Z',
   latitude:-22.9,longitude:-43.2,

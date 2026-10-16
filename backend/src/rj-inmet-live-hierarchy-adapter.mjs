@@ -89,10 +89,11 @@ function parseStationReadings(raw,station,variable,ibge,now,sourceUrl,qualityEvi
     if(!best||t>Date.parse(best.observedAt))best=Object.freeze({
       origin:'OFFICIAL_OBSERVATION',sourceId:'INMET_STATION',
       stationId:station.code,ibge:String(ibge),variable,
+      independenceVerified:true,underlyingProviderId:'INMET',upstreamMeasurementId:`INMET:${station.code}:${variable}:${stamp}`,
       value,unit:spec.unit,
       usagePermissionStatus:'VERIFIED_FOR_APP_DATA_DISPLAY',
       ...(qualityEvidence?.stationId===station.code&&qualityEvidence.variable===variable?{weight:qualityEvidence.weight,qualityWeight:qualityEvidence.weight,
-        qualityWeightBasis:qualityEvidence.basis,qualityEvidenceId:qualityEvidence.evidenceId}:{}),
+        weightBasis:qualityEvidence.basis,qualityWeightBasis:qualityEvidence.basis,qualityEvidenceId:qualityEvidence.evidenceId}:{}),
       observedAt:stamp,latitude:station.latitude,longitude:station.longitude,
       sourceUrl,measurementWindowMinutes:variable==='CHUVA_MM_1H'?60:undefined,
       stationName:station.name,

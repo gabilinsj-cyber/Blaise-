@@ -2795,17 +2795,21 @@ private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = nu
 
 @Composable
 private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
+    val now = LocalObservationClock.current
+    val oceanForecast = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+        ?.takeIf { it.current(now) }?.oceanWaveForecast?.takeIf { it.current(now) }
     DashboardSection(
         title = "MAR E ONDAS • RJ / ATLÂNTICO",
         subtitle = "Maré • ondas altas • vento • ressaca",
         modifier = modifier.testTag("marine-conditions-card"),
     ) {
+        RjOceanWaveForecastPanel(oceanForecast, now)
         Text("Maré prevista e nível observado • produtos separados",
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas previstas", "NOAA / Copernicus Marine • ingestão e validade ainda não confirmadas")
-        StatusLine("Swell", "NOAA / Copernicus Marine • altura, período e direção ainda não recebidos")
+        StatusLine("Ondas previstas", if(oceanForecast != null) "WW3 / PacIOOS via NOAA • ponto oceânico no quadro acima" else "NOAA / Copernicus Marine • ingestão e validade ainda não confirmadas")
+        StatusLine("Swell", if(oceanForecast != null) "WW3 / PacIOOS • previsão no quadro de ponto oceânico" else "NOAA / Copernicus Marine • altura, período e direção ainda não recebidos")
         StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
         StatusLine("Temperatura do mar", "NOAA / Copernicus Marine • — °C; sem leitura validada")
         StatusLine("Vento", "NOAA / Copernicus / EUMETSAT por produto • direção e velocidade pendentes")

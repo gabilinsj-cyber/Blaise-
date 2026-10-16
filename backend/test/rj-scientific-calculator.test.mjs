@@ -10,6 +10,8 @@ const at = '2026-10-10T17:59:00Z';
 const observation = (stationId, value, weight = 1) => ({
   origin: 'OFFICIAL_OBSERVATION',
   sourceId: stationId === 'INMET-1' ? 'INMET' : 'DEFESA_CIVIL',
+  weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-qc',independenceVerified:true,
+  underlyingProviderId:stationId==='INMET-1'?'INMET':'DEFESA_CIVIL',upstreamMeasurementId:'fixture-'+stationId,
   stationId, ibge: '3304557',
   variable: 'TEMPERATURA_C', unit: '°C', value, weight,
   observedAt: at, latitude: -22.90, longitude: -43.18,
@@ -122,4 +124,12 @@ test('weighted result preserves oldest contributor time and expires with it', ()
   assert.equal(result.observedAt, readings[0].observedAt);
   assert.equal(result.value, 28.5);
   assert.equal(weightedOfficialMean({observations: readings, now: NOW + 2000}).state, 'DADOS_INSUFICIENTES');
+});
+
+
+test('weights and independent upstream records require explicit QC evidence, never convenient defaults',()=>{
+ const a=observation('INMET-1',30),b=observation('DC-2',31);
+ assert.equal(weightedOfficialMean({observations:[a,{...b,qualityEvidenceId:null}],now:NOW}).reason,'UNVERIFIED_STATION_QUALITY_WEIGHTS');
+ for(const change of [{independenceVerified:false},{underlyingProviderId:a.underlyingProviderId},{upstreamMeasurementId:a.upstreamMeasurementId}])
+  assert.equal(weightedOfficialMean({observations:[a,{...b,...change}],now:NOW}).reason,'SOURCE_INDEPENDENCE_NOT_PROVEN');
 });
