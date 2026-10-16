@@ -166,18 +166,11 @@ class MainActivityTest {
         rule.onNodeWithTag("five-weather-sources-status").assertDoesNotExist()
         rule.onNodeWithTag("ten-agents-panel").assertDoesNotExist()
         rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-marine-public-connection")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-marine-manual-refresh")
-            .performScrollTo().assertIsDisplayed()
-        if (BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL.isBlank()) {
-            rule.onNodeWithTag("rj-marine-manual-refresh")
-                .assertIsNotEnabled()
-        }
-        rule.onNodeWithTag("rj-marine-product-connection")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-marine-unconnected-products")
-            .performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("marine-ocean-sources").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-unconnected-products").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-marine-public-connection").assertDoesNotExist()
+        rule.onNodeWithTag("rj-marine-manual-refresh").assertDoesNotExist()
+
     }
 
 
@@ -242,16 +235,14 @@ class MainActivityTest {
         assertTextDisplayed("MAPA PRÓPRIO • BLAISE V6 RJ")
     }
 
-    @Test fun meteorologicalMatrixContainsThirtyPhenomenaAndSupplementaryOceanSources() {
+    @Test fun customerKeepsOperationalMatrixPrivateAndCanInspectPublicOceanSources() {
         rule.onNodeWithTag("nav-Mais").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-homologation-panel").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-openweather-complement").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-ocean-eumetsat-complement").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-extra-source-integration-status").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-source-TEMPERATURA_MAR").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-source-CHUVA_ATUAL").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("rj-meteo-table-2-tab").performScrollTo().performClick()
-        rule.onNodeWithTag("rj-meteo-dispute-13").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-meteo-homologation-panel").assertDoesNotExist()
+        rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
+        rule.onNodeWithTag("rj-marine-source-priority").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("rj-cptec-marine-status").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("coastal-mission-LANDSAT").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("coastal-mission-SENTINEL").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun geographicMapNeverClaimsToBeOfficialRadar() {

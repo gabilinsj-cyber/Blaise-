@@ -46,3 +46,7 @@ Consulta real: catálogo Landsat retornou cena de 10/10/2026; catálogo Sentinel
 CI Android 981: backend aprovado; Android compilou, mas 13 testes falharam devido à inicialização da Tabela 1 exigir três fontes após sua ampliação para quatro. Corrigida a invariável para quatro e adicionado teste de regressão. Ordem de desempate da interface alinhada ao backend: INPE/CPTEC, INMET, CEMADEN, Windy, NOAA. Nova validação necessária; não declarar APK validado antes de resultado completo.
 
 Referências oficiais: https://hls.gsfc.nasa.gov/data-access-and-tools/ ; https://www.esa.int/Enabling_Support/Operations/Copernicus_Sentinels ; https://www.usgs.gov/faqs/what-are-acquisition-schedules-landsat-satellites ; https://documentation.v1.dataspace.copernicus.eu/Applications/Browser.html
+
+## Resultado intermediário CI 987 / emulador 393
+
+Backend aprovado; compilação Android, lint, testes unitários, APK/AAB e SBOM aprovados. O emulador executou 42 testes: 39 passaram, incluindo os cartões de duas missões, e três testes legados falharam. Esses testes ainda esperavam painel operacional no cliente e dados CHM aceitos. Atualizados para exigir matriz operacional oculta, fontes oceânicas públicas acessíveis e payload CHM ignorado sem perder avisos municipais válidos. Não foi reativada Marinha nem removida a proteção de administrador. Revisão visual completa ainda depende da nova execução.
