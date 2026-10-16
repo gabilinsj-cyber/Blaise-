@@ -67,7 +67,14 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // The validation APK must read the same candidate that passed source checks.
+            val candidateStatusUrl = System.getenv("BLAISE_RJ_PUBLIC_STATUS_BASE_URL").orEmpty().trim()
+                .ifEmpty { "https://validacao-rj---blaise-v6-rj-backend-4bl6iadyua-rj.a.run.app" }
+            buildConfigField("String", "BLAISE_RJ_PUBLIC_STATUS_BASE_URL", buildConfigString(candidateStatusUrl))
+        }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
