@@ -18,7 +18,10 @@ staging=$(mktemp -d)
 cleanup(){ unset owm_key; rm -rf "$staging"; }
 trap cleanup EXIT
 git -C "$repo_dir" archive "$commit" backend | tar -x -C "$staging"
-test -s "$staging/backend/Dockerfile"
+if [[ ! -s "$staging/backend/Dockerfile" ]]; then
+ printf '%s\n' 'Dockerfile ausente no código baixado; implantação interrompida antes de solicitar a chave.' >&2
+ exit 1
+fi
 printf '%s\n' "Código candidato: $commit"
 IFS= read -r -s -p 'Cole a API key OpenWeatherMap do e-mail e pressione Enter (entrada oculta): ' owm_key
 printf '\n'
