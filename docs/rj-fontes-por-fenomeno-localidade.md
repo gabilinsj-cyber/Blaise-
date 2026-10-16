@@ -117,3 +117,8 @@ Diretriz do operador: configurações de operação, agentes, critérios interno
 weightedOfficialMean passa a representar o horário da contribuição mais antiga, impedindo renovação aparente por outra leitura mais nova. Regressão prova expiração conjunta; 36 testes específicos passaram. Isso não comprova conexão dos adaptadores ao fluxo Android.
 
 Consultas desta sessão: CPTEC /XML/cidade/241/todos/tempos/ondas.xml respondeu HTTP 403; catálogo INMET /estacoes/T respondeu HTTP 502; NOAA ERDDAP NOAA_DHW respondeu HTTP 200, mas a célula consultada trouxe timestamp 2026-10-14T12:00:00Z. Produto diário/satélite não equivale a sensor marítimo instantâneo. Não publicar esse registro como atual nem concluir indisponibilidade global com base em um endpoint. Ondas, swell, correntes e marés continuam sem coleta operacional completa comprovada.
+
+
+## Integração do assistente com produtos recebidos — 16/10/2026
+
+Respostas de deslizamento/risco/avisos passam a consultar nationalAlerts do mesmo snapshot público da interface, por IBGE e validade de painel. Preservam nível, texto e abertura original sem inferir fuso nem nível hidrológico. Respostas atuais de temperatura/vento/pressão podem acrescentar boletins REDEMET do município como referência de aeródromo, nunca leitura do Centro, média municipal ou previsão. Não cria série histórica nem ponto de gráfico inexistente. Testes cobrem isolamento municipal, expiração, localidade e rejeição como previsão.

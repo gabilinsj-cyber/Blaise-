@@ -20,4 +20,32 @@ class LiveInformationAnswersTest {
         assertTrue(liveInformationAnswer(null, null, null, request("alerta amanhã", LocalDate.parse("2026-10-15")), now)!!.contains("Não há previsão validada"))
         assertNull(liveInformationAnswer(null, null, null, request("temperatura"), now))
     }
+    private fun official() = PublicRjStatus(now,
+        br.com.blaise.rj.cities.RioMunicipalities.all.map {
+            PublicRjMunicipality(it.ibgeCode, it.name, null, emptyList(), "EXACT_IBGE_ONLY")
+        }, emptyList(), nationalAlerts = NationalCemadenStatus(now, now.minusSeconds(30), listOf(
+            NationalCemadenAlert("real-shape-fixture", 3303302, "Niterói", "Movimentos de Massa - Moderado", "Moderado", "2026-10-14 12:00:00")
+        )), aerodromeObservations = AerodromeStatus("CURRENT_DEGRADED", "hourly", now, listOf(
+            AerodromeObservation("SBGL", "Galeão", 3304557, now.minusSeconds(1800), 27.0, 11.0, null, 1010.0)
+        )))
+
+    @Test fun nationalAlertsAreAnsweredFromTheMunicipalLiveSnapshot() {
+        val answer = liveInformationAnswer(official(), null, null, request("risco de deslizamento"), now)!!
+        assertTrue(answer.contains("Movimentos de Massa"))
+        assertTrue(answer.contains("CEMADEN nacional"))
+        assertFalse(answer.contains("sem produto validado"))
+        assertFalse(liveInformationAnswer(official(), null, null, request("deslizamento"), now.plusSeconds(301))!!.contains("Movimentos de Massa"))
+    }
+
+    @Test fun airportBulletinsNeverBecomeAnotherCityOrForecastOrCentreMeasurement() {
+        assertNull(liveInformationAnswer(official(), null, null, request("temperatura"), now))
+        val rio = WeatherRequest(City("Rio de Janeiro",3304557), "temperatura e vento", LocalDate.parse("2026-10-14"), "Centro do Rio")
+        val answer = liveInformationAnswer(official(), null, null, rio, now)!!
+        assertTrue(answer.contains("27.0 °C"))
+        assertTrue(answer.contains("nem medição específica de Centro do Rio"))
+        assertTrue(answer.contains("Galeão"))
+        assertFalse(answer.contains("rajada 0"))
+        assertNull(liveInformationAnswer(official(), null, null, rio.copy(question="previsão de temperatura"), now))
+        assertNull(liveInformationAnswer(official(), null, null, rio, now.plusSeconds(301)))
+    }
 }
