@@ -1,7 +1,7 @@
 name: Blaise RJ UI visual and functional review
 on:
   pull_request:
-    branches: [main]
+    branches: [main, codex/rj-pnboia-catalog]
     paths:
       - 'app/**'
       - 'scripts/rj-interface-emulator-review.sh'
