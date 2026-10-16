@@ -63,7 +63,18 @@ object RjSourceConnectionEvidence {
         val localRisk = freshStatus?.municipality(municipalityIbge, now)?.risk
             ?.takeIf { it.current(now) }
 
+        val national = freshStatus?.nationalAlerts?.takeIf { it.current(now) }
+        val aerodromes = freshStatus?.aerodromeObservations?.takeIf { it.current(now) }
+        val points = aerodromes?.observations.orEmpty().filter {
+            it.ibge == municipalityIbge && it.current(now)
+        }
         val items = listOf(
+            RjSourceConnectionRow("CEMADEN nacional", "Inventário de alertas abertos por município",
+                if (national != null) "Painel consultado; ${national.alerts.count { it.ibge == municipalityIbge }} alerta(s) aberto(s). Não comprova ausência de risco."
+                else OFFLINE, national?.sourceUpdatedAt, national != null),
+            RjSourceConnectionRow("REDEMET / DECEA", "Boletins dos aeródromos; não média municipal",
+                if (points.isNotEmpty()) "${points.size} boletim(ns) válido(s); ciclo horário e SPECI eventual"
+                else OFFLINE, points.minOfOrNull { it.observedAt }, points.isNotEmpty()),
             RjSourceConnectionRow("Alerta Rio", "Estação meteorológica • somente cidade do Rio",
                 when {
                     newestRio != null -> "Leitura pontual recente de estação fluminense"

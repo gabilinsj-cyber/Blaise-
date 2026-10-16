@@ -100,3 +100,8 @@ Android CI 969 e 970 aprovados. APK debug usa candidata validacao-rj; release ma
 Tabelas 1/2: catálogo e seletor existem; seletor ainda não ligado ao fluxo de múltiplas observações reais. Não publicar média até existir par independente compatível, mesma variável/unidade/janela/localidade, pesos justificados e timestamps originais. Sem Tabela 1, aplicar Tabela 2 somente com dados comparáveis válidos; uma fonte isolada é leitura identificada, não média. Não converter previsão em observação, aviso em sensor, dado ausente em zero ou republicação em fonte independente.
 
 Produtos NOAA/Copernicus/EUMETSAT/CPTEC, Windy, OpenWeatherMap e AccuWeather não foram comprovados como coletores completos nesta auditoria. Fontes marítimas permanecem pendentes de adaptadores/produtos e validação de cobertura e horários. Não declarar todas as fontes ativas nem todas as cidades cobertas. Chaves permanecem no servidor.
+
+
+## Correções Android — 16/10/2026, revisão de voz e fontes
+
+Painel dos agentes removido da navegação do cliente (não cria autenticação administrativa). Evidência de conexão passa a incluir CEMADEN nacional e REDEMET com município e horários validados; contador de fontes dinâmico. Dora usa PCM 16 bits e volume de mídia para compatibilidade; a reprodução no aparelho ainda precisa ser comprovada. Nenhuma fonte marítima ou média passa a ser considerada ativa por essa alteração.

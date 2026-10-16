@@ -1125,7 +1125,6 @@ private fun HomeScreen(
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
     }
     Spacer(Modifier.height(10.dp))
-    AgentStatusPanel()
 }
 @Composable
 private fun CompactServicesRow(onNavigate: (String) -> Unit) {
@@ -2335,7 +2334,6 @@ private fun MoreScreen(
     Spacer(Modifier.height(10.dp))
     RjMeteorologicalTablesPanel(city)
     Spacer(Modifier.height(10.dp))
-    AgentStatusPanel()
 }
 
 /** Tables of registered source priorities; they make no live-data claims. */
@@ -2413,8 +2411,8 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             onClick = { showSourceEvidence = !showSourceEvidence },
             modifier = Modifier.testTag("rj-live-source-evidence-toggle"),
         ) {
-            Text(if(showSourceEvidence) "Recolher estado das 13 fontes e produtos"
-                else "Ver estado das 13 fontes e produtos", color = Gold)
+            Text(if(showSourceEvidence) "Recolher estado das ${sourceEvidence.size} fontes e produtos"
+                else "Ver estado das ${sourceEvidence.size} fontes e produtos", color = Gold)
         }
         if(showSourceEvidence) {
             sourceEvidence.forEachIndexed { index, line ->

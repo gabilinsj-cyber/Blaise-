@@ -66,13 +66,17 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
                     job.ensureActive()
                     check(!closed.get() && ticket == generation.get()) { "Fala interrompida" }
                     check(audio.samples.isNotEmpty()) { "Dora não produziu áudio" }
-                    val minimum = AudioTrack.getMinBufferSize(audio.sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
+                    val pcm = ShortArray(audio.samples.size) { index ->
+                        val sample = audio.samples[index]
+                        if (sample.isFinite()) (sample.coerceIn(-1f, 1f) * 32767f).toInt().toShort() else 0
+                    }
+                    val minimum = AudioTrack.getMinBufferSize(audio.sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
                     check(minimum > 0) { "Formato de áudio indisponível" }
                     track = AudioTrack.Builder()
-                        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                         .setAudioFormat(AudioFormat.Builder().setSampleRate(audio.sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build())
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
                         .setBufferSizeInBytes(maxOf(minimum, 8192))
                         .setTransferMode(AudioTrack.MODE_STREAM).build()
                     check(track.state == AudioTrack.STATE_INITIALIZED) { "Reprodução indisponível" }
@@ -87,7 +91,7 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
                         job.ensureActive()
                         check(!closed.get() && ticket == generation.get()) { "Fala interrompida" }
                         check(android.os.SystemClock.elapsedRealtime() < deadline) { "Tempo de reprodução excedido" }
-                        val count = track.write(audio.samples, offset, minOf(2048, audio.samples.size - offset), AudioTrack.WRITE_NON_BLOCKING)
+                        val count = track.write(pcm, offset, minOf(2048, pcm.size - offset), AudioTrack.WRITE_NON_BLOCKING)
                         check(count >= 0) { "Falha ao reproduzir a voz" }
                         offset += count
                         if (count == 0) delay(10)

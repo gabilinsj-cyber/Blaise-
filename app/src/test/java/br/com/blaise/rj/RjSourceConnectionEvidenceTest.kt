@@ -55,7 +55,7 @@ class RjSourceConnectionEvidenceTest {
             rioStations=listOf(station(3304557,"Alerta Rio")),
             status=public(),now=now,
         )
-        assertEquals(12,rows.size)
+        assertEquals(14,rows.size)
         assertTrue(rows.first { it.source=="Alerta Rio" }.verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="INMET" && "Medição" in it.product }
             .verifiedCurrentProduct)
