@@ -120,7 +120,16 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   // A CHM inventory never becomes a municipal warning or a safe-sea claim.
   const marine=projectRjPublicMarineWarnings(worker,nowMillis);
   let waveForecast=null;try{const reading=worker.readSource(CPTEC_MARINE_TASK_ID);if(reading?.state==='CURRENT_FORECAST')waveForecast=reading.snapshot;}catch{}
-  const active=waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
+  let complement=null;
+  try {
+    const reading=worker.readSource(OPENWEATHER_TASK_ID), s=reading?.snapshot;
+    if(reading?.state==='CURRENT' && s?.ibge==='3304557'
+      && s.sourceUrl==='https://openweathermap.org/' && s.kind==='BLENDED_CURRENT_WEATHER'
+      && s.independentStationProven===false && s.mayIssueWarning===false
+      && [s.calculatedAt,s.fetchedAt].every(t=>Number.isFinite(Date.parse(t))
+        && nowMillis-Date.parse(t)>=0 && nowMillis-Date.parse(t)<=300000)) complement=s;
+  } catch {}
+  const active=complement!==null||waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
     || marine!==null;
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
@@ -159,7 +168,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     warnings:Object.freeze(warnings),
     marine,
     marineForecast:waveForecast,
-    openWeatherComplement: (()=>{let r;try{r=worker.readSource(OPENWEATHER_TASK_ID);}catch{return null;}return r?.state==='CURRENT'&&r.snapshot&&nowMillis-Date.parse(r.snapshot.calculatedAt)>=0&&nowMillis-Date.parse(r.snapshot.calculatedAt)<=300000&&nowMillis-Date.parse(r.snapshot.fetchedAt)>=0&&nowMillis-Date.parse(r.snapshot.fetchedAt)<=300000?r.snapshot:null;})(),
+    openWeatherComplement:complement,
     nationalAlerts: source.nationalAlerts,
     aerodromeObservations: source.aerodromeObservations,
     sources:Object.freeze(sourceSummaries),

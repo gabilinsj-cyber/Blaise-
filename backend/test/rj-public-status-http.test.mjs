@@ -265,3 +265,22 @@ test('legacy global approval cannot bypass explicit product denials', async () =
   assert.equal(res.statusCode,503);
   assert.equal(res.body.error,'source_terms_not_approved');
 });
+
+
+test('a sole current approved OpenWeather complement is available without inventing official measurements',()=>{
+  const w=worker({stale:true}), original=w.readSource;
+  const product={ibge:'3304557',sourceUrl:'https://openweathermap.org/',kind:'BLENDED_CURRENT_WEATHER',
+    independentStationProven:false,mayIssueWarning:false,calculatedAt:stamp,fetchedAt:stamp,temperatureC:26};
+  w.readSource=id=>id==='openweather-rio-complement'?{state:'CURRENT',snapshot:product}:original(id);
+  let result=buildRjPublicStatusSnapshot(w,{nowMillis:now});
+  assert.equal(result.usableOfficialProducts,true);
+  assert.equal(result.openWeatherComplement.temperatureC,26);
+  assert.ok(result.municipalities.every(c=>c.risk===null));
+  assert.deepEqual(result.warnings,[]);
+  product.calculatedAt=new Date(now-300001).toISOString();
+  result=buildRjPublicStatusSnapshot(w,{nowMillis:now});
+  assert.equal(result.openWeatherComplement,null);
+  assert.equal(result.usableOfficialProducts,false);
+  product.calculatedAt=stamp;product.ibge='3303302';
+  assert.equal(buildRjPublicStatusSnapshot(w,{nowMillis:now}).openWeatherComplement,null);
+});
