@@ -1,0 +1,61 @@
+name: Defesa Civil Rio Map Assets Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_live_probe:
+        description: 'Query the public Prefeitura do Rio Defesa Civil ArcGIS siren and support-point layers'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: defesa-civil-rio-assets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Record external probe not requested
+        if: ${{ !inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/defesa-civil-rio-assets
+          cat > evidence/defesa-civil-rio-assets/gate.json <<'JSON'
+          {
+            "sourceId": "defesa-civil-rio-map-assets",
+            "status": "BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED",
+            "execution": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "sirens": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED",
+            "supportPoints": "NOT_RUN_EXPLICIT_APPROVAL_REQUIRED"
+          }
+          JSON
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v5
+        if: ${{ inputs.execute_live_probe }}
+        with:
+          node-version: '24.20.0'
+
+      - name: Probe official municipal emergency map assets
+        if: ${{ inputs.execute_live_probe }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.20.0"
+          node backend/scripts/probe-defesa-civil-rio-assets.mjs
+
+      - name: Upload Defesa Civil Rio evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-defesa-civil-rio-assets-evidence
+          if-no-files-found: error
+          path: evidence/defesa-civil-rio-assets/

@@ -1,0 +1,74 @@
+package br.com.blaise.rj
+
+/**
+ * Canonical product/UI contract for the approved Blaise V6 RJ dashboard.
+ * This file deliberately contains no sample weather values: production UI must
+ * render only timestamped source data supplied by the runtime adapters.
+ */
+object FinalDashboardSpec {
+    const val STORE_GOOGLE_PLAY = "GOOGLE_PLAY"
+    const val STORE_SAMSUNG = "SAMSUNG_GALAXY_STORE"
+    const val STORE_AMAZON = "AMAZON_APPSTORE"
+    const val PRODUCT = "Blaise V6 RJ"
+    const val TAGLINE = "Clima e Tempo"
+    const val DEFAULT_POWER_STATE = "LIGADO"
+    const val ASSISTANT_PROMPT = "Como posso ajudar?"
+    const val RADAR_WINDOW_MINUTES = 30
+    const val MAX_INLINE_ALERTS_PER_CITY = 3
+    const val HOME_LOCAL_NEWS_COUNT = 2
+    const val HOME_INTERNATIONAL_NEWS_COUNT = 1
+    const val HOME_SEISMIC_EVENT_COUNT = 2
+    const val SEISMIC_NOTIFICATION_MIN_MAGNITUDE = 7.0
+
+    val primaryNavigation = listOf(
+        "Início", "Cidades", "Mapa", "Alertas", "Trânsito",
+        "Mar e Ondas", "Qualidade do Ar", "Notícias", "Histórico", "Mais"
+    )
+
+    val trafficEvents = listOf(
+        "Interdições", "Acidentes", "Bolsões d’água", "Alagamentos",
+        "Queda de árvore/poste", "Túneis fechados", "Deslizamentos", "Obras", "Rotas alternativas"
+    )
+
+    val officialSources = listOf(
+        "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
+        "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
+        "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
+    )
+
+    // Five situational weather channels; Windy and INPE/CPTEC provide
+    // forecast context, not interchangeable measured station reports.
+    val fiveSituationalWeatherSources = listOf(
+        "INPE/CPTEC", "INMET", "Windy", "CEMADEN", "NOAA"
+    )
+
+    // Supplementary provider catalog: visible configuration, NOT live status.
+    // The OpenWeatherMap "third source" in the reference image means third
+    // complementary CONSULTATION, not the third official alert authority.
+    val tenVariableOpenWeatherMap = listOf(
+        "Temperatura", "Sensação térmica", "Chuva atual", "Chuva acumulada",
+        "Temporais", "Vento sustentado", "Rajadas", "Pressão atmosférica",
+        "Umidade relativa", "Granizo"
+    )
+    val oceanSatelliteSources = listOf(
+        "Marinha do Brasil/CHM", "NOAA", "Copernicus Marine",
+        "EUMETSAT", "INMET", "INPE/CPTEC", "Windy"
+    )
+    const val EXPANDED_METEO_PHENOMENA_COUNT = 30
+    const val EXTRA_DISPUTE_CHECKS = 5
+    const val SUPPLEMENTAL_SOURCE_STATUS = "Cadastrada • ingestão de dados ainda não validada"
+
+    val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Nacional", "Internacional")
+
+    fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
+        alertCount > MAX_INLINE_ALERTS_PER_CITY
+
+    fun shouldNotifySeismicEvent(magnitude: Double, feltInBrazil: Boolean): Boolean =
+        magnitude >= SEISMIC_NOTIFICATION_MIN_MAGNITUDE && feltInBrazil
+
+    fun storeDisplayName(channel: String): String = when (channel) {
+        STORE_SAMSUNG -> "Samsung Galaxy Store"
+        STORE_AMAZON -> "Amazon Appstore"
+        else -> "Google Play"
+    }
+}

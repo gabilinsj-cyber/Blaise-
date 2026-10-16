@@ -202,7 +202,8 @@ export function resolveRjTable12FiveSourceDispute({
       // A Table 2 reference must match AT LEAST ONE of the initial
       // Table 1 observations. Agreement between two comparator providers
       // alone does not resolve the original primary-source discrepancy.
-      const primaryCandidates=RJ_TABLE2_FIVE.includes(id)
+      const hasPrimary = validated.some(old=>primary.includes(SOURCE_ORIGIN[old.sourceId]));
+      const primaryCandidates=RJ_TABLE2_FIVE.includes(id) && hasPrimary
         ?validated.filter(old=>primary.includes(SOURCE_ORIGIN[old.sourceId]))
         :validated;
       const candidate=primaryCandidates.filter(old=>independent(old,row)
@@ -232,7 +233,7 @@ export function resolveRjTable12FiveSourceDispute({
       const pair=gather(id);
       if(pair)return observedPair(pair,spec,{
         stage:'TABLE_2_OBSERVED_DISPUTE_RESOLVED',
-        step:'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY',
+        step:initial.length?'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY':'TWO_TABLE2_OBSERVATIONS_WITHOUT_PRIMARY',
         consultedSources:checked,allPrimary:initial,
       });
     } else {

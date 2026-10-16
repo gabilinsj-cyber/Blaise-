@@ -1824,6 +1824,16 @@ private fun PublicMunicipalStatusLine(ibge: Int) {
             if (alerts.isEmpty()) Text("Nenhum alerta aberto publicado para este município nesta consulta. Não indica ausência de risco.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
+        val waves = snapshot?.cptecMarineForecast?.takeIf { ibge == 3304557 && it.current(now) }
+        if (waves != null) {
+            val point = waves.points.filter { !it.validAt.isBefore(now) }.minByOrNull { it.validAt }
+            Text("CPTEC/INPE • previsão de ondas para o Rio • publicação ${waves.publicationDate}",
+                color = Gold, style = MaterialTheme.typography.labelSmall)
+            if (point != null) Text(listOfNotNull(point.waveHeightM?.let { "ondas $it m" },
+                point.waveDirection, point.windKmh?.let { "vento previsto $it km/h" }).joinToString(" • ") +
+                " • válido " + formatInformationTime(point.validAt) + " • previsão, não medição do mar",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
         val complement = snapshot?.openWeatherComplement?.takeIf { ibge == 3304557 && it.current(now) }
         if(complement != null) {
             Text("OpenWeatherMap • complemento do ponto Rio, não estação independente", color = Gold,

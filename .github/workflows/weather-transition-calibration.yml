@@ -1,0 +1,219 @@
+name: Weather Transition Historical Calibration Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_backtest:
+        description: 'Download a reviewed historical dataset from GCS and require the production-confidence calibration gate to pass'
+        required: true
+        default: false
+        type: boolean
+      dataset_gcs_uri:
+        description: 'gs:// URI of the immutable/reviewed historical observed JSON dataset (required when execute_backtest=true)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: weather-transition-calibration-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  calibration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    env:
+      BLAISE_GCP_PROJECT_ID: ${{ vars.BLAISE_GCP_PROJECT_ID }}
+      BLAISE_GCP_WIF_PROVIDER: ${{ vars.BLAISE_GCP_WIF_PROVIDER }}
+      BLAISE_GCP_CALIBRATION_SERVICE_ACCOUNT: ${{ vars.BLAISE_GCP_CALIBRATION_SERVICE_ACCOUNT }}
+      BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI: ${{ inputs.dataset_gcs_uri }}
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Record external historical backtest not requested
+        if: ${{ !inputs.execute_backtest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/weather-transition-calibration
+          printf '%s\n' \
+            'WEATHER_TRANSITION_HISTORICAL_CALIBRATION_GATE=BLOCKED_EXTERNAL_EXECUTION_NOT_REQUESTED' \
+            'historical_backtest=NOT_RUN_EXPLICIT_APPROVAL_REQUIRED' \
+            'production_confidence_label=BLOCKED' \
+            > evidence/weather-transition-calibration/gate.txt
+
+      - name: Fail closed on calibration configuration and dataset URI
+        if: ${{ inputs.execute_backtest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${BLAISE_GCP_PROJECT_ID:?missing repository variable BLAISE_GCP_PROJECT_ID}"
+          : "${BLAISE_GCP_WIF_PROVIDER:?missing repository variable BLAISE_GCP_WIF_PROVIDER}"
+          : "${BLAISE_GCP_CALIBRATION_SERVICE_ACCOUNT:?missing repository variable BLAISE_GCP_CALIBRATION_SERVICE_ACCOUNT}"
+          : "${BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI:?dataset_gcs_uri is required when execute_backtest=true}"
+          uri="$BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI"
+          [[ "$uri" == gs://* ]] || { echo 'BLOCKED: dataset_gcs_uri must use gs://' >&2; exit 2; }
+          [[ "$uri" == *.json ]] || { echo 'BLOCKED: dataset_gcs_uri must identify a JSON object' >&2; exit 2; }
+          (( ${#uri} <= 1024 )) || { echo 'BLOCKED: dataset_gcs_uri too long' >&2; exit 2; }
+          if [[ "$uri" == *$'\n'* || "$uri" == *$'\r'* || "$uri" == *$'\t'* || "$uri" == *' '* ]]; then
+            echo 'BLOCKED: dataset_gcs_uri contains whitespace/control characters' >&2
+            exit 2
+          fi
+
+      - name: Authenticate to Google Cloud with OIDC WIF
+        if: ${{ inputs.execute_backtest }}
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ env.BLAISE_GCP_WIF_PROVIDER }}
+          service_account: ${{ env.BLAISE_GCP_CALIBRATION_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Install pinned Google Cloud CLI
+        if: ${{ inputs.execute_backtest }}
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '583.0.0'
+          project_id: ${{ env.BLAISE_GCP_PROJECT_ID }}
+
+      - name: Acquire immutable historical dataset with provenance guard
+        if: ${{ inputs.execute_backtest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/weather-transition-calibration
+          dataset="$RUNNER_TEMP/weather-transition-history.json"
+          before="$RUNNER_TEMP/weather-transition-object-before.json"
+          after="$RUNNER_TEMP/weather-transition-object-after.json"
+
+          gcloud version | tee evidence/weather-transition-calibration/gcloud-version.txt
+          grep -F 'Google Cloud SDK 583.0.0' evidence/weather-transition-calibration/gcloud-version.txt
+
+          gcloud storage objects describe "$BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --format=json > "$before"
+          gcloud storage cp "$BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI" "$dataset" --quiet
+          gcloud storage objects describe "$BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI" \
+            --project="$BLAISE_GCP_PROJECT_ID" \
+            --format=json > "$after"
+
+          test -s "$dataset"
+          size="$(stat -c '%s' "$dataset")"
+          (( size > 0 && size <= 52428800 )) || { echo 'BLOCKED: historical dataset must be 1..52428800 bytes' >&2; exit 2; }
+
+          DATASET_PATH="$dataset" BEFORE_PATH="$before" AFTER_PATH="$after" \
+          PROVENANCE_OUT=evidence/weather-transition-calibration/storage-provenance.json \
+          DATASET_URI="$BLAISE_WEATHER_TRANSITION_DATASET_GCS_URI" \
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          before = json.loads(Path(os.environ['BEFORE_PATH']).read_text())
+          after = json.loads(Path(os.environ['AFTER_PATH']).read_text())
+          dataset_path = Path(os.environ['DATASET_PATH'])
+          raw = dataset_path.read_bytes()
+
+          before_generation = str(before.get('generation') or '')
+          after_generation = str(after.get('generation') or '')
+          if not before_generation or not after_generation:
+              raise SystemExit('object_generation_missing')
+          if before_generation != after_generation:
+              raise SystemExit('generation_changed_during_copy')
+
+          before_size = str(before.get('size') or '')
+          after_size = str(after.get('size') or '')
+          if not before_size or before_size != after_size:
+              raise SystemExit('object_size_metadata_unstable')
+          if int(before_size) != len(raw):
+              raise SystemExit('downloaded_size_mismatch')
+
+          uri = os.environ['DATASET_URI'].encode('utf-8')
+          sanitized = {
+              'schemaVersion': 1,
+              'uriSha256': hashlib.sha256(uri).hexdigest(),
+              'generation': before_generation,
+              'metageneration': str(after.get('metageneration') or ''),
+              'sizeBytes': len(raw),
+              'crc32c': after.get('crc32c'),
+              'md5Hash': after.get('md5Hash'),
+              'localSha256': hashlib.sha256(raw).hexdigest(),
+              'generationStableAcrossCopy': True,
+          }
+          Path(os.environ['PROVENANCE_OUT']).write_text(json.dumps(sanitized, indent=2) + '\n')
+          print('WEATHER_TRANSITION_DATASET_PROVENANCE=PASS')
+          PY
+          printf 'BLAISE_WEATHER_TRANSITION_DATASET_PATH=%s\n' "$dataset" >> "$GITHUB_ENV"
+
+      - name: Run fail-closed historical calibration backtest
+        if: ${{ inputs.execute_backtest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/weather-transition-calibration
+          report="$GITHUB_WORKSPACE/evidence/weather-transition-calibration/report.json"
+          stderr_file="$GITHUB_WORKSPACE/evidence/weather-transition-calibration/backtest.stderr.txt"
+
+          set +e
+          (
+            cd backend
+            node scripts/backtest-rj-weather-transition.mjs \
+              "$BLAISE_WEATHER_TRANSITION_DATASET_PATH" \
+              "$report" \
+              --require-production-pass
+          ) 2> "$stderr_file"
+          rc=$?
+          set -e
+
+          REPORT_PATH="$report" RUNNER_EXIT_CODE="$rc" \
+          GATE_OUT=evidence/weather-transition-calibration/gate.txt \
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path(os.environ['REPORT_PATH'])
+          rc = int(os.environ['RUNNER_EXIT_CODE'])
+          if not report_path.is_file() or report_path.stat().st_size == 0:
+              Path(os.environ['GATE_OUT']).write_text(
+                  'WEATHER_TRANSITION_HISTORICAL_CALIBRATION_GATE=BLOCKED\n'
+                  f'runner_exit_code={rc}\n'
+                  'reason=backtest_report_missing\n'
+                  'production_confidence_label=BLOCKED\n'
+              )
+              raise SystemExit(rc or 2)
+
+          report = json.loads(report_path.read_text())
+          allowed = report.get('productionConfidenceLabelAllowed') is True
+          status = str(report.get('calibrationStatus') or 'UNKNOWN')
+          statistical = report.get('statisticalGatePass') is True
+          evidence = report.get('evidenceGatePass') is True
+          digest = str(report.get('inputSha256') or '')
+          gate = 'PASS' if rc == 0 and allowed else 'BLOCKED'
+          lines = [
+              f'WEATHER_TRANSITION_HISTORICAL_CALIBRATION_GATE={gate}',
+              f'runner_exit_code={rc}',
+              f'calibration_status={status}',
+              f'statistical_gate_pass={str(statistical).lower()}',
+              f'evidence_gate_pass={str(evidence).lower()}',
+              f'production_confidence_label_allowed={str(allowed).lower()}',
+              f'dataset_sha256={digest}',
+          ]
+          Path(os.environ['GATE_OUT']).write_text('\n'.join(lines) + '\n')
+          if gate != 'PASS':
+              raise SystemExit(rc or 2)
+          print('WEATHER_TRANSITION_HISTORICAL_CALIBRATION_GATE=PASS')
+          PY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-weather-transition-calibration-evidence
+          if-no-files-found: error
+          path: evidence/weather-transition-calibration/

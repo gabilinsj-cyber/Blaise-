@@ -153,6 +153,36 @@ data class OpenWeatherComplement(val calculatedAt: Instant, val fetchedAt: Insta
         rainRateMmPerHour?.let { "taxa de chuva $it mm/h" }).joinToString(" • ")
 }
 
+data class CptecMarineForecastPoint(val validAt: Instant, val waveHeightM: Double?, val waveDirection: String?, val windKmh: Double?)
+data class CptecMarineForecast(val fetchedAt: Instant, val publicationDate: java.time.LocalDate, val points: List<CptecMarineForecastPoint>) {
+    fun current(now: Instant) = !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..300 &&
+        Duration.between(publicationDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), now).seconds in 0..172800 &&
+        points.any { !it.validAt.isBefore(now) }
+}
+private fun parseCptecMarine(root: JSONObject): CptecMarineForecast? = runCatching {
+    val row = root.optJSONObject("marineForecast") ?: return null
+    require(row.getString("sourceId") == "cptec-rj-wave-forecast" && row.getString("ibge") == "3304557")
+    require(row.getString("sourceUrl") == "https://servicos.cptec.inpe.br/XML/cidade/241/todos/tempos/ondas.xml")
+    require(row.getString("kind") == "MODEL_FORECAST_NOT_OBSERVATION" && !row.getBoolean("publicationTimeKnown"))
+    val rows = row.getJSONArray("forecasts")
+    require(rows.length() in 1..56)
+    val points = (0 until rows.length()).map { index ->
+        val point = rows.getJSONObject(index)
+        fun number(key: String, max: Double): Double? {
+            if (point.isNull(key)) return null
+            val value = point.getDouble(key)
+            require(value.isFinite() && value in 0.0..max)
+            return value
+        }
+        val direction = if(point.isNull("waveDirection")) null else point.getString("waveDirection").also {
+            require(it in setOf("N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"))
+        }
+        CptecMarineForecastPoint(Instant.parse(point.getString("validAt")), number("waveHeightM",30.0), direction, number("windKmh",400.0))
+    }
+    require(points.map { it.validAt }.distinct().size == points.size)
+    CptecMarineForecast(Instant.parse(row.getString("fetchedAt")), java.time.LocalDate.parse(row.getString("publicationDate")), points)
+}.getOrNull()
+
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
@@ -163,6 +193,7 @@ data class PublicRjStatus(
     val nationalAlerts: NationalCemadenStatus? = null,
     val aerodromeObservations: AerodromeStatus? = null,
     val openWeatherComplement: OpenWeatherComplement? = null,
+    val cptecMarineForecast: CptecMarineForecast? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -352,7 +383,7 @@ object PublicRjStatusParser {
         } ?: emptyList()
         val national = parseNational(root)
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products,inventories,national,parseAerodromes(root),parseOpenWeather(root))
+            municipalities,warnings,marine,products,inventories,national,parseAerodromes(root),parseOpenWeather(root),parseCptecMarine(root))
     }
 }
 

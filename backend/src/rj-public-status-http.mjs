@@ -1,3 +1,4 @@
+import {CPTEC_MARINE_TASK_ID} from './cptec-rj-marine.mjs';
 import {OPENWEATHER_TASK_ID} from './openweather-complement.mjs';
 import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
@@ -118,7 +119,8 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   // INMET CAP and CEMADEN hydrological risk are momentarily unavailable.
   // A CHM inventory never becomes a municipal warning or a safe-sea claim.
   const marine=projectRjPublicMarineWarnings(worker,nowMillis);
-  const active=sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
+  let waveForecast=null;try{const reading=worker.readSource(CPTEC_MARINE_TASK_ID);if(reading?.state==='CURRENT_FORECAST')waveForecast=reading.snapshot;}catch{}
+  const active=waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
     || marine!==null;
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
@@ -156,6 +158,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     marine,
+    marineForecast:waveForecast,
     openWeatherComplement: (()=>{let r;try{r=worker.readSource(OPENWEATHER_TASK_ID);}catch{return null;}return r?.state==='CURRENT'&&r.snapshot&&nowMillis-Date.parse(r.snapshot.calculatedAt)>=0&&nowMillis-Date.parse(r.snapshot.calculatedAt)<=300000&&nowMillis-Date.parse(r.snapshot.fetchedAt)>=0&&nowMillis-Date.parse(r.snapshot.fetchedAt)<=300000?r.snapshot:null;})(),
     nationalAlerts: source.nationalAlerts,
     aerodromeObservations: source.aerodromeObservations,
@@ -190,6 +193,7 @@ export function restrictPublicProducts(worker, approved) {
     ['cemadenRjRisk', 'cemaden-rj-hydrological-risk'],
     ['redemet', 'redemet-rj-metar'],
     ['openWeather', OPENWEATHER_TASK_ID],
+    ['cptecMarine', CPTEC_MARINE_TASK_ID],
     ['chm', 'chm-marine-warnings'],
   ].filter(([product]) => approved[product] === true).map(([, task]) => task));
   return {

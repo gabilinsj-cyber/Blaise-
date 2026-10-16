@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name="br.com.blaise.rj.debug.RuntimeDebugReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="br.com.blaise.rj.debug.RUNTIME_P0" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

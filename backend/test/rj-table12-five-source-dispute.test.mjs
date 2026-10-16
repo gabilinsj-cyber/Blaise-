@@ -265,3 +265,12 @@ test('fourth primary REDEMET confirms independent reading without Table 2',()=>{
  const rejected=resolveRjTable12FiveSourceDispute(input({observations:[O('REDEMET_METAR',28,{stationId:'UNKNOWN'})]}));
  assert.equal(rejected.weighted,false);
 });
+test('Table 2 alone resolves rain when all primary measurements are missing or expired',()=>{
+ const observations=['INMET_STATION','CEMADEN_RJ'].map((id,i)=>O(id,10+i,{
+  variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60}));
+ observations.push(O('ALERTA_RIO',99,{variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60,observedAt:new Date(NOW-300001).toISOString()}));
+ const decision=resolveRjTable12FiveSourceDispute(input({variable:'CHUVA_MM_1H',observations}));
+ assert.equal(decision.weighted,true);assert.equal(decision.estimatedValue,10.5);
+ assert.deepEqual(decision.selectedSources,['INMET_STATION','CEMADEN_RJ']);
+ assert.equal(decision.decisionStep,'TWO_TABLE2_OBSERVATIONS_WITHOUT_PRIMARY');
+});

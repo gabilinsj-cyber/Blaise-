@@ -1,3 +1,4 @@
+import {CPTEC_MARINE_TASK_ID,probeCptecRioWaves,createCptecMarineCache} from './cptec-rj-marine.mjs';
 import {OPENWEATHER_TASK_ID,probeOpenWeatherRio,createOpenWeatherCache} from './openweather-complement.mjs';
 import { REDEMET_TASK_ID, probeRedemetRjMetar, createRedemetCache } from './redemet-source.mjs';
 import { probeInmetWis2Warnings } from './inmet-wis2-source.mjs';
@@ -224,6 +225,7 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== '') {
     config.defesaCivilRioAssetsEnabled = defesaCivilRioAssetsEnabled;
   }
+  if(env.BLAISE_CPTEC_MARINE_ENABLED!==undefined)config.cptecMarineEnabled = parseBoolean(env.BLAISE_CPTEC_MARINE_ENABLED,{defaultValue:false,code:'invalid_cptec_marine_flag'});
   return Object.freeze(config);
 }
 
@@ -286,6 +288,7 @@ export function createOfficialSourceWorker({
   if (String(config.ineaStationUrl ?? '').trim() !== '') {
     throw new OfficialSourceWorkerError('official_source_worker_retired_source_inea');
   }
+  const cptecMarineCache=config.cptecMarineEnabled===true?createCptecMarineCache({now}):null;
   const openWeatherCache = config.openWeatherEnabled === true ? createOpenWeatherCache({now}) : null;
   const redemetEnabled = config.redemetEnabled ?? false;
   if (typeof redemetEnabled !== 'boolean' || typeof (config.redemetUsageApproved ?? false) !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
@@ -367,6 +370,7 @@ export function createOfficialSourceWorker({
     try {openWeatherCache.recordSuccess(await probeOpenWeatherRio({fetchImpl,now,apiKey:config.openWeatherApiKey??'',usageApproved:config.openWeatherUsageApproved===true}));}
     catch(error){openWeatherCache.recordFailure(safeSourceErrorCode(error));throw error;}
   }});
+  if(cptecMarineCache)tasks.push({id:CPTEC_MARINE_TASK_ID,run:async()=>{try{cptecMarineCache.recordSuccess(await probeCptecRioWaves({fetchImpl,now}));}catch(error){cptecMarineCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
   if (redemetEnabled) tasks.push({
     id: REDEMET_TASK_ID,
     run: async () => {
@@ -566,6 +570,7 @@ export function createOfficialSourceWorker({
 
   function readSource(taskId) {
     reconcileCadence();
+    if(taskId===CPTEC_MARINE_TASK_ID&&cptecMarineCache)return cptecMarineCache.read();
     if(taskId===OPENWEATHER_TASK_ID && openWeatherCache)return openWeatherCache.read();
     if (taskId === REDEMET_TASK_ID && redemetCache) return redemetCache.read();
     if (taskId === CEMADEN_NATIONAL_TASK_ID && nationalCache) return nationalCache.read();
@@ -593,6 +598,7 @@ export function createOfficialSourceWorker({
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
+    if(cptecMarineCache)sourceStates.push(sourceStateWithoutPayload(cptecMarineCache.read()));
     if(openWeatherCache)sourceStates.push(sourceStateWithoutPayload(openWeatherCache.read()));
     if (redemetCache) sourceStates.push(sourceStateWithoutPayload(redemetCache.read()));
     if (nationalCache) sourceStates.push(sourceStateWithoutPayload(nationalCache.read()));

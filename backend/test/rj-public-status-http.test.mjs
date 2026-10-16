@@ -1,0 +1,267 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
+import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from '../src/inmet-source.mjs';
+import {
+  RJ_PUBLIC_STATUS_PATH,RJ_PUBLIC_STATUS_CONTRACT,
+  buildRjPublicStatusSnapshot,createRjPublicStatusHandler,
+  projectWarningInventories,
+} from '../src/rj-public-status-http.mjs';
+
+const now=Date.parse('2026-10-10T18:00:00Z');
+const stamp=new Date(now-60_000).toISOString();
+const until=new Date(now+3_600_000).toISOString();
+function worker({running=true, stale=false, allUnresolved=false}={}) {
+  const age=stale?new Date(now-4_000_000).toISOString():stamp;
+  const hydro={sourceId:'cemaden-rj-hydrological-risk',state:stale?'STALE':'CURRENT',fetchedAt:age,
+    snapshot:{sourceId:'cemaden-rj-hydrological-risk',records:RJ_MUNICIPALITIES.map(c=>({
+      ...c,observedAt:age,priority:c.ibge==='3304557'?4:1,
+      risk:c.ibge==='3304557'?'ALTO':'MUITO BAIXO',redec:'Fixture',
+    }))}};
+  const cap={sourceId:INMET_SOURCE_ID,state:stale?'STALE':'CURRENT',fetchedAt:age,
+    snapshot:{sourceId:INMET_SOURCE_ID,sourceUrl:INMET_CAP_RSS_URL,
+      rjWarnings:[{
+        identifier:'inmet-fixture-warning',msgType:'Alert',status:'Actual',
+        sent:stamp,onset:stamp,expires:until,event:'Chuva intensa',severity:'Severe',
+        rjMunicipalityIbges:allUnresolved?[]:['3304557'],
+      }]}};
+  return {
+    status:()=>({enabled:running,started:running,sources:[hydro,cap]}),
+    readSource: id=> id===hydro.sourceId?hydro:id===cap.sourceId?cap:null,
+  };
+}
+function fakeResponse(){
+  const headers={};
+  return {headers,statusCode:null,body:null,
+    setHeader(k,v){headers[k]=v;},end(v){this.body=JSON.parse(v);},
+  };
+}
+test('withdrawal evidence requires a complete recent successful source collection', () => {
+  const w = worker();
+  const cap = w.readSource(INMET_SOURCE_ID);
+  cap.snapshot.warnings = [];
+  cap.snapshot.feedShape = 'RSS_INDEX_RESOLVED_CAP';
+  cap.snapshot.identityValidation = 'INMET_SENDER_DOMAIN+OFFICIAL_OID_PREFIX';
+  cap.snapshot.temporalValidityValidation = 'BOUNDED_CAP_ONSET_EXPIRES_MAX_7D';
+  cap.snapshot.activeWarningCount = 0;
+  let evidence = projectWarningInventories(w, now);
+  assert.equal(evidence.find(item => item.sourceId === 'inmet').complete, true);
+  cap.state = 'CURRENT_DEGRADED';
+  assert.equal(projectWarningInventories(w, now).length, 0);
+  cap.state = 'CURRENT';
+  cap.fetchedAt = new Date(now - 300001).toISOString();
+  assert.equal(projectWarningInventories(w, now).length, 0);
+  cap.fetchedAt = stamp;
+  cap.snapshot.feedShape = 'CAP_ALERT';
+  assert.equal(projectWarningInventories(w, now).find(item => item.sourceId === 'inmet').complete, false);
+});
+test('a fresh HTTP snapshot cannot revive a warning whose official emission is 12h old', () => {
+  const w = worker();
+  const warning = w.readSource(INMET_SOURCE_ID).snapshot.rjWarnings[0];
+  warning.sent = new Date(now - 43_200_000).toISOString();
+  warning.onset = warning.sent;
+  const result = buildRjPublicStatusSnapshot(w, { nowMillis: now });
+  assert.equal(result.warnings.length, 0);
+  assert.ok(result.municipalities.every(city => city.warningIds.length === 0));
+});
+test('public endpoint projects exactly 92 RJ official risk entries without credentials or premium fields',()=>{
+  const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
+  assert.equal(result.contract,RJ_PUBLIC_STATUS_CONTRACT);
+  assert.equal(result.municipalities.length,92);
+  assert.equal(result.municipalities.find(c=>c.ibge==='3304557').risk.level,4);
+  assert.equal(result.municipalities.find(c=>c.ibge==='3303302').warningIds.length,0);
+  assert.equal(result.warnings.length,1);
+  assert.deepEqual(result.warnings[0].municipalityIbges,['3304557']);
+  assert.equal(result.thirdPartyImagesIncluded,false);
+  assert.equal(result.subscriberDataIncluded,false);
+  assert.equal(JSON.stringify(result).includes('purchaseToken'),false);
+  assert.equal(JSON.stringify(result).includes('entitlement'),false);
+  assert.equal(JSON.stringify(result).includes('INEA'),false);
+});
+test('ambiguous INMET statewide warning remains unassigned and cannot be displayed in every city',()=>{
+  const result=buildRjPublicStatusSnapshot(worker({allUnresolved:true}),{nowMillis:now});
+  assert.equal(result.warnings.length,0);
+  assert.ok(result.municipalities.every(c=>c.warningIds.length===0));
+});
+test('stale or disabled source worker has no fake municipal risk or freshness',()=>{
+  const stale=buildRjPublicStatusSnapshot(worker({stale:true}),{nowMillis:now});
+  assert.equal(stale.usableOfficialProducts,false);
+  assert.ok(stale.municipalities.every(c=>c.risk===null));
+  assert.equal(stale.warnings.length,0);
+  assert.equal(buildRjPublicStatusSnapshot(worker({running:false}),{nowMillis:now}),null);
+});
+test('public API defaults off and requires independent operator data-usage approval, never billing',async()=>{
+  let delegated=0;const delegate=()=>{delegated++};
+  const res=fakeResponse();
+  const disabled=createRjPublicStatusHandler(delegate,{sourceWorker:worker()});
+  await disabled({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(delegated,0);
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'official_status_not_enabled');
+  const unlicensed=createRjPublicStatusHandler(delegate,{
+    enabled:true,licensingApproved:false,sourceWorker:worker(),
+  });
+  await unlicensed({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(delegated,0);
+  const enabled=createRjPublicStatusHandler(delegate,{
+    enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:worker(),
+  });
+  await enabled({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.headers['Cache-Control'],'no-store');
+  assert.equal(res.body.contract,RJ_PUBLIC_STATUS_CONTRACT);
+  assert.equal(res.body.municipalities.length,92);
+  assert.equal(delegated,0);
+});
+test('fresh CHM warnings expose regional facts and waves, never municipal P0',()=>{
+  const baseline=worker();
+  const maritime={
+    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+    snapshot:{
+      sourceId:'chm-marine',
+      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
+      warnings:[{
+        id:'321/2026',warningType:'AVISO DE RESSACA',issuedAt:stamp,validUntil:until,
+        rjRouting:{
+          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
+          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
+          marineSignal:{explicitWaveHeight:true,waveMinMeters:3.5,waveMaxMeters:4.2,
+            waveDirection:'SE',officialRessacaLabel:true,waveHeightThresholdExceeded:true},
+        },
+      },{
+        id:'322/2026',warningType:'AVISO DE MAU TEMPO',issuedAt:stamp,validUntil:until,
+        rjRouting:{route:'NOT_DIRECT_RJ',canExposeRjMarineWarning:false,
+          canPromoteMunicipalityP0:false,directRjAreas:[]},
+      }],
+    },
+  };
+  const withMarine={
+    status:()=>baseline.status(),
+    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
+  };
+  const result=buildRjPublicStatusSnapshot(withMarine,{nowMillis:now});
+  assert.equal(result.marine.scope,'METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL');
+  assert.equal(result.marine.warningCount,1);
+  assert.deepEqual(result.marine.warnings[0].areas,['CHARLIE']);
+  assert.equal(result.marine.warnings[0].waveMaxMeters,4.2);
+  assert.equal(result.marine.warnings[0].officialRessacaLabel,true);
+  assert.equal(result.marine.warnings[0].mayIssueMunicipalP0,false);
+  assert.equal(result.marine.municipalityGeofenceValidated,false);
+  assert.equal(result.municipalities[0].warningIds.includes('321/2026'),false);
+  const expired={...maritime,fetchedAt:new Date(now-31*60_000).toISOString()};
+  const staleWorker={...withMarine,readSource:id=>id==='chm-marine-warnings'?
+    expired:baseline.readSource(id)};
+  assert.equal(buildRjPublicStatusSnapshot(staleWorker,{nowMillis:now}).marine,null);
+});
+
+test('fresh licensed CHM bulletin remains available when INMET CAP and CEMADEN are stale',async()=>{
+  const baseline=worker({stale:true});
+  const maritime={
+    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+    snapshot:{
+      sourceId:'chm-marine',
+      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
+      warnings:[{
+        id:'432/2026',warningType:'AVISO DE RESSACA',
+        issuedAt:stamp,validUntil:until,
+        rjRouting:{
+          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
+          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
+          marineSignal:{
+            explicitWaveHeight:true,waveMinMeters:3.0,waveMaxMeters:4.0,
+            waveDirection:'SE',officialRessacaLabel:true,
+            waveHeightThresholdExceeded:true,
+          },
+        },
+      }],
+    },
+  };
+  const onlyChm={
+    status:()=>baseline.status(),
+    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
+  };
+  const snapshot=buildRjPublicStatusSnapshot(onlyChm,{nowMillis:now});
+  assert.equal(snapshot.usableOfficialProducts,true);
+  assert.equal(snapshot.marine.warningCount,1);
+  assert.equal(snapshot.marine.warnings[0].warningType,'AVISO DE RESSACA');
+  assert.equal(snapshot.warnings.length,0);
+  assert.ok(snapshot.municipalities.every(c=>c.risk===null&&c.warningIds.length===0));
+  assert.ok(snapshot.marine.warnings.every(x=>x.mayIssueMunicipalP0===false));
+  const handler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:onlyChm,
+  });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.marine.warningCount,1);
+
+  const denied=createRjPublicStatusHandler(
+    (req,response)=>{response.statusCode=404},{
+      enabled:true,licensingApproved:false,clock:()=>now,sourceWorker:onlyChm,
+    });
+  const blocked=fakeResponse();
+  await denied({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},blocked);
+  assert.equal(blocked.statusCode,503);
+  assert.equal(blocked.body.error,'source_terms_not_approved');
+});
+
+test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{
+  const result=buildRjPublicStatusSnapshot(worker(),{nowMillis:now});
+  assert.equal(result.marine,null);
+  assert.equal(result.usableOfficialProducts,true);
+});
+
+test('public endpoint only supports GET and blocks stale status without claiming absence of danger',async()=>{
+  const res=fakeResponse();
+  const handler=createRjPublicStatusHandler(()=>{},{
+    enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:worker({stale:true}),
+  });
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'official_sources_not_validated');
+  const other=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'POST'},other);
+  assert.equal(other.statusCode,405);
+});
+
+test('a freshly generated wrapper cannot revive old or future hydrological bulletins',()=>{
+  for(const observedAt of [new Date(now-301_000).toISOString(),new Date(now+1000).toISOString()]){
+    const w=worker(),read=w.readSource;
+    w.readSource=id=>{const feed=read(id);return feed?.snapshot?.records
+      ?{...feed,snapshot:{...feed.snapshot,records:feed.snapshot.records.map(r=>({...r,observedAt}))}}:feed;};
+    assert.ok(buildRjPublicStatusSnapshot(w,{nowMillis:now}).municipalities.every(r=>r.risk===null));
+  }
+});
+
+test('individual approval exposes INMET only and never leaks CEMADEN data', async () => {
+  const w = worker();
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:w, enabled:true,
+    licensingApproved:true, productApprovals:{inmetWarnings:true}, clock:()=>now });
+  const res = fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.warnings.length,1);
+  assert.ok(res.body.municipalities.every(city => city.risk === null));
+  assert.equal(res.body.nationalAlerts,null);
+  assert.equal(res.body.aerodromeObservations,null);
+  assert.equal(res.body.marine,null);
+  assert.ok(res.body.sources.filter(s=>s.id!=='inmet').every(s=>s.state==='NOT_CONNECTED'));
+});
+test('CEMADEN-RJ approval never releases INMET warnings or inventories', async () => {
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:worker(), enabled:true,
+    productApprovals:{cemadenRjRisk:true}, clock:()=>now });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.body.warnings.length,0);
+  assert.equal(res.body.warningInventories.length,0);
+  assert.ok(res.body.municipalities.some(city=>city.risk!==null));
+});
+test('legacy global approval cannot bypass explicit product denials', async () => {
+  const handler = createRjPublicStatusHandler(() => {}, { sourceWorker:worker(), enabled:true,
+    licensingApproved:true, productApprovals:{inmetWarnings:false}, clock:()=>now });
+  const res=fakeResponse();
+  await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'source_terms_not_approved');
+});

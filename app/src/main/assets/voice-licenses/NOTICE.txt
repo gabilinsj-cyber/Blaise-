@@ -1,0 +1,18 @@
+Blaise V6 RJ — offline voice components
+
+Kokoro v1.0 / pf_dora (Brazilian Portuguese, speaker 42): hexgrad/Kokoro-82M,
+Apache License 2.0. Converted model package: k2-fsa/sherpa-onnx tts-models,
+kokoro-multi-lang-v1_0. The package's original LICENSE is retained under dora/.
+https://huggingface.co/hexgrad/Kokoro-82M
+
+sherpa-onnx v1.13.8: Copyright Xiaomi and contributors, Apache License 2.0.
+https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8
+
+The phonemization pipeline uses eSpeak NG data/code, GPL version 3 or later.
+https://github.com/espeak-ng/espeak-ng
+License texts accompany this notice. Distribution obligations for linked native
+components, corresponding source and the application's licensing must be resolved
+before distributing store packages; including notices alone is not sufficient.
+
+VoicePronunciation changes only synthesis input (Blaise -> Bleiss).
+No meteorological data are added by the speech engine.

@@ -1,0 +1,144 @@
+package br.com.blaise.rj.data
+
+import br.com.blaise.rj.cities.RioMunicipalities
+import java.time.Instant
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import androidx.test.ext.junit.runners.AndroidJUnit4
+
+@RunWith(AndroidJUnit4::class)
+class PublicRjOfficialStatusTest {
+    private val now = Instant.parse("2026-10-10T18:00:00Z")
+    private val before = "2026-10-10T17:59:00Z"
+    private val after = "2026-10-10T19:00:00Z"
+    private fun fixture(): JSONObject {
+        val rowList=JSONArray()
+        RioMunicipalities.all.forEach { city ->
+            val risk=if(city.ibgeCode==3304557) JSONObject()
+                .put("level",4).put("label","ALTO")
+                .put("sourceName","CEMADEN-RJ / Defesa Civil RJ")
+                .put("observedAt",before)
+                .put("sourceUrl",
+                    "https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/municipio/?action=hidro")
+                else JSONObject.NULL
+            rowList.put(JSONObject()
+                .put("ibge",city.ibgeCode.toString())
+                .put("name",city.name)
+                .put("seaFacing",false)
+                .put("risk",risk)
+                .put("warningIds",
+                    if(city.ibgeCode==3304557) JSONArray().put("inmet-fixture") else JSONArray())
+                .put("warningCoverage","EXACT_IBGE_ONLY"))
+        }
+        val warning=JSONObject()
+            .put("id","inmet-fixture").put("event","Tempestade")
+            .put("severity","Severe").put("sent",before)
+            .put("onset",before).put("expires",after)
+            .put("sourceUrl","https://apiprevmet3.inmet.gov.br/avisos/rss")
+            .put("municipalityIbges",JSONArray().put("3304557"))
+            .put("attribution","EXACT_IBGE")
+        return JSONObject()
+            .put("contract",PUBLIC_RJ_STATUS_CONTRACT)
+            .put("scope","RJ_92_MUNICIPALITIES")
+            .put("generatedAt",before)
+            .put("workerActive",true).put("usableOfficialProducts",true)
+            .put("thirdPartyImagesIncluded",false).put("subscriberDataIncluded",false)
+            .put("municipalities",rowList).put("warnings",JSONArray().put(warning))
+    }
+    @Test fun parsesOnlyExactOfficialMunicipalityAndRecentWarnings() {
+        val result=PublicRjStatusParser.parse(fixture())
+        assertEquals(92,result.municipalities.size)
+        assertTrue(result.current(now))
+        assertEquals(4,result.municipality(3304557,now)?.risk?.level)
+        assertEquals(1,result.warningsFor(3304557,now).size)
+        assertTrue(result.warningsFor(3303302,now).isEmpty())
+        assertFalse(result.current(now.plusSeconds(180)))
+        assertNull(result.municipality(3304557,now.plusSeconds(180)))
+        assertTrue(result.warningsFor(3304557,now.plusSeconds(180)).isEmpty())
+    }
+    @Test fun rejectsFakeMunicipalityAssignmentAndUnknownContract() {
+        val root=fixture()
+        root.put("contract","ANOTHER_CONTRACT")
+        assertTrue(runCatching { PublicRjStatusParser.parse(root) }.isFailure)
+        val invalid=fixture()
+        invalid.getJSONArray("municipalities").getJSONObject(0)
+            .put("name","Other city")
+        assertTrue(runCatching { PublicRjStatusParser.parse(invalid) }.isFailure)
+    }
+    @Test fun acceptsBoundedCHMRegionalWarningsWithoutInventingMunicipalAlerts() {
+        val chm=JSONObject()
+            .put("sourceId","chm-marine")
+            .put("sourceUrl",
+                "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo")
+            .put("scope","METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL")
+            .put("fetchedAt",before)
+            .put("warningCount",1)
+            .put("municipalityGeofenceValidated",false)
+            .put("noWarningsDoesNotMeanSafe",true)
+            .put("warnings",JSONArray().put(JSONObject()
+                .put("id","321/2026").put("warningType","AVISO DE RESSACA")
+                .put("issuedAt",before).put("validUntil",after)
+                .put("areas",JSONArray().put("CHARLIE"))
+                .put("waveMinMeters",3.5).put("waveMaxMeters",4.2)
+                .put("waveDirection","SE")
+                .put("waveThresholdExceeded",true)
+                .put("officialRessacaLabel",true)
+                .put("municipalityGeofenceValidated",false)
+                .put("mayIssueMunicipalP0",false)))
+        val root=fixture().put("marine",chm)
+        val parsed=PublicRjStatusParser.parse(root)
+        assertNotNull(parsed.marine)
+        assertEquals(1,parsed.marine?.warnings?.size)
+        assertEquals(4.2,parsed.marine!!.warnings[0].waveMaxMeters!!,0.001)
+        assertTrue(parsed.marine!!.warnings[0].officialRessacaLabel)
+        assertTrue(parsed.marine!!.warnings[0].current(now))
+        val wrong=root.put("marine",JSONObject(chm.toString())
+            .put("municipalityGeofenceValidated",true))
+        assertTrue(runCatching { PublicRjStatusParser.parse(wrong) }.isFailure)
+    }
+
+    @Test fun parsedWorkerSourceProductsDistinguishCurrentWarningsAndHydroRiskFromWholeAgencyCoverage() {
+        val sources=JSONArray()
+            .put(JSONObject().put("id","inmet").put("name","INMET")
+                .put("state","CURRENT").put("connectedProduct","avisos")
+                .put("scope","RJ_POR_COBERTURA_VALIDADA"))
+            .put(JSONObject().put("id","cemaden-rj")
+                .put("name","CEMADEN-RJ / Defesa Civil")
+                .put("state","NOT_CONNECTED")
+                .put("connectedProduct",JSONObject.NULL)
+                .put("scope","RJ_92_MUNICIPIOS"))
+        val parsed=PublicRjStatusParser.parse(fixture().put("sources",sources))
+        assertEquals(2,parsed.sourceProducts.size)
+        assertTrue(parsed.sourceProducts.first().currentlyConnected())
+        assertFalse(parsed.sourceProducts.last().currentlyConnected())
+        assertEquals("avisos",parsed.sourceProducts.first().connectedProduct)
+        val older=PublicRjStatusParser.parse(fixture())
+        assertTrue(older.sourceProducts.isEmpty())
+
+        val faked=fixture().put("sources",JSONArray().put(JSONObject()
+            .put("id","openweathermap").put("name","OpenWeatherMap")
+            .put("state","CURRENT").put("connectedProduct","temperatura")
+            .put("scope","RJ_92_MUNICIPIOS")))
+        assertTrue(runCatching { PublicRjStatusParser.parse(faked) }.isFailure)
+        val spoofed=fixture().put("sources",JSONArray().put(JSONObject()
+            .put("id","inmet").put("name","INMET")
+            .put("state","CURRENT").put("connectedProduct","temperatura")
+            .put("scope","RJ_92_MUNICIPIOS")))
+        assertTrue(runCatching { PublicRjStatusParser.parse(spoofed) }.isFailure)
+    }
+
+    @Test fun publicStatusClientRejectsHttpAndNeverNeedsPurchaseId() {
+        assertNull(PublicRjStatusHttpsClient.create(""))
+        assertNull(PublicRjStatusHttpsClient.create("http://example.test"))
+        assertNull(PublicRjStatusHttpsClient.create("https://user:pass@example.test"))
+        assertNull(PublicRjStatusHttpsClient.create("https://example.test/path"))
+        assertNotNull(PublicRjStatusHttpsClient.create("https://example.test/"))
+    }
+}
