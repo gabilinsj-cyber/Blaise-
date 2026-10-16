@@ -28,9 +28,9 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-15.v13"
+    const val VERSION = "2026-10-16.v14"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
-    const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão consultar a Tabela 2 em ordem; sem primárias válidas, selecionar par compatível da Tabela 2"
+    const val METHOD = "Duas das quatro primárias convergentes: média ponderada somente com pesos verificados; senão consultar a Tabela 2 em ordem; sem primárias válidas, selecionar par compatível da Tabela 2"
     const val NO_INEA = "INEA excluído"
     const val PHENOMENA_COUNT = 30
     const val ADDITIONAL_TIEBREAK_CHECKS = 7
@@ -41,7 +41,7 @@ object RjMeteorologicalTables {
     const val CPTEC_MARINE_URL = "https://servicos.cptec.inpe.br/XML/"
     const val CPTEC_MARINE_STATUS = "CPTEC/INPE: previsão de ondas e vento documentada; serviço indisponível na verificação. Sem dados atuais validados. Não fornece maré local nem confirmação de tsunami."
     const val REDEMET_URL = "https://redemet.decea.mil.br/"
-    const val REDEMET_STATUS = "REDEMET/DECEA • alternativa da Tabela 2 para temperatura, vento, rajadas e QNH de aeródromos. Coleta exige chave no servidor, autorização e validação do horário. Não fornece risco hidrológico nem média municipal."
+    const val REDEMET_STATUS = "REDEMET/DECEA • quarta fonte da Tabela 1 para temperatura, vento, rajadas e QNH de aeródromos. Coleta exige chave no servidor, autorização e validação do horário. Não fornece risco hidrológico nem média municipal."
     const val SIMCOSTA_URL = "https://www.simcosta.furg.br/"
     const val SIMCOSTA_STATUS = "SiMCosta/FURG • complemento marítimo observacional por estação e sensor. Validar atividade, horário, acesso e termos; ainda sem ingestão automática. Não substitui aviso de ressaca ou tsunami."
     const val STORMSURF_URL = "https://www.stormsurf.com/page2/links/satla72hr.shtml"
@@ -49,7 +49,7 @@ object RjMeteorologicalTables {
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
     val primaryTable1Sources = listOf(
-        "Alerta Rio", "Defesa Civil RJ", "OpenWeatherMap (3ª consulta complementar)"
+        "Alerta Rio", "Defesa Civil RJ", "OpenWeatherMap (3ª consulta complementar)", "REDEMET/DECEA (4ª fonte, aeródromos)"
     )
     val disputeTable2FiveSources = listOf(
         "INPE/CPTEC", "INMET", "Windy", "CEMADEN", "NOAA"
@@ -89,12 +89,12 @@ object RjMeteorologicalTables {
         RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine"),
         RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "NOAA + Copernicus Marine; medição e modelo identificados"),
     )
-    const val RECONCILIATION_POLICY = "Tabela 1: três consultas compatíveis. Duas convergentes permitem média com pesos verificados. Havendo divergência, basta uma confirmação compatível da Tabela 2. Sem dados válidos na Tabela 1, buscar duas fontes da Tabela 2 em ordem: INPE/CPTEC → INMET → Windy → demais fontes por fenômeno; AccuWeather por último, sob demanda e cota diária. Uma fonte isolada não é média. Temperatura em °C; acumulados em mm com período informado. Previsões e observações separadas; avisos e risco oficial não entram em média."
+    const val RECONCILIATION_POLICY = "Tabela 1: quatro fontes elegíveis conforme variável e cobertura. Duas convergentes permitem média com pesos verificados. Havendo divergência, basta uma confirmação compatível da Tabela 2. Sem dados válidos na Tabela 1, buscar duas fontes da Tabela 2 em ordem: INPE/CPTEC → INMET → Windy → demais fontes por fenômeno; AccuWeather por último, sob demanda e cota diária. Uma fonte isolada não é média. Temperatura em °C; acumulados em mm com período informado. Previsões e observações separadas; avisos e risco oficial não entram em média."
     val table2 = listOf(
         RjMeteoDisputeRow("15", "Tabela 1 indisponível", "Sem dados válidos na Tabela 1, selecionar duas fontes atuais, independentes e próximas somente da Tabela 2, na ordem hierárquica. Média com pesos verificados, mesma variável, município, unidade e período. Uma fonte: mostrar valor e origem sem chamar de média. Previsões e observações ficam separadas; divergência inconclusiva permanece visível."),
         RjMeteoDisputeRow("14", "AccuWeather complementar — 92 municípios RJ", "Temperatura em °C e chuva em mm quando fornecidas pelo produto. MinuteCast: previsão de precipitação minuto a minuto por até 120 min, não medição observada. Cobertura por localidade, plano, chave no servidor e termos ainda precisam de validação. Sem quantidade numérica, mostrar indisponível; não converter intensidade ou dBZ em mm. Não substitui avisos oficiais ou risco CEMADEN."),
         RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média ponderada somente com pesos verificados."),
-        RjMeteoDisputeRow("02", "Convergência 2 de 3", "Duas observações independentes e comparáveis entre as três primeiras bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
+        RjMeteoDisputeRow("02", "Convergência 2 de 4", "Duas observações independentes e comparáveis entre as quatro fontes bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
         RjMeteoDisputeRow("03", "Se não houver convergência", "Consultar INPE/CPTEC → INMET → Windy → demais fontes compatíveis; AccuWeather somente como último recurso. Parar na primeira confirmação compatível de uma leitura primária."),
         RjMeteoDisputeRow("04", "INPE e INMET", "INPE/CPTEC é a 1ª consulta; INMET é a 2ª. Se o INPE oferecer apenas previsão, apresentar previsão e medição separadas; uma estação INMET pode validar uma medição existente."),
         RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "CEMADEN e NOAA entram conforme o produto e fenômeno, após as primeiras consultas hierárquicas. Aplicar somente dados atuais e compatíveis; modelos não substituem medições."),

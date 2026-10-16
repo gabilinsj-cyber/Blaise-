@@ -122,3 +122,8 @@ Consultas desta sessão: CPTEC /XML/cidade/241/todos/tempos/ondas.xml respondeu 
 ## Integração do assistente com produtos recebidos — 16/10/2026
 
 Respostas de deslizamento/risco/avisos passam a consultar nationalAlerts do mesmo snapshot público da interface, por IBGE e validade de painel. Preservam nível, texto e abertura original sem inferir fuso nem nível hidrológico. Respostas atuais de temperatura/vento/pressão podem acrescentar boletins REDEMET do município como referência de aeródromo, nunca leitura do Centro, média municipal ou previsão. Não cria série histórica nem ponto de gráfico inexistente. Testes cobrem isolamento municipal, expiração, localidade e rejeição como previsão.
+
+
+## Tabela 1 com quatro fontes — definição do operador, 16/10/2026
+
+Ordem: Alerta Rio, Defesa Civil RJ, OpenWeatherMap, REDEMET/DECEA (quarta fonte, retirada da fila secundária do seletor). Não contar republicações como independentes. Cadastro Android e cascata backend atualizados. REDEMET somente variáveis efetivamente fornecidas: temperatura, vento e rajada numérica para comparação; QNH/visibilidade permanecem produtos pontuais com referência própria, não pressão de estação intercambiável. Cobertura validada SBGL/SBRJ, município Rio de Janeiro; não representa Centro nem os outros 91 municípios. Boletim horário continua visível até a validade específica, porém não entra em média que exige observação de até 5 minutos. Pesos e par independente permanecem exigidos. Novo teste confirma seleção da quarta fonte e rejeição de aeródromo desconhecido; 662 testes backend aprovados. Integração integral das médias no fluxo e dos produtos marítimos ainda pendente; Android desta revisão precisa de CI.

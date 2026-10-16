@@ -16,7 +16,7 @@ import { weightedOfficialMean } from './rj-scientific-calculator.mjs';
 const CODES = new Set(RJ_MUNICIPALITIES.map(c => c.ibge));
 const OFFICIAL_OBSERVERS = new Set([
   'INMET','INMET_STATION','ALERTA_RIO','CEMADEN','CEMADEN_RJ',
-  'DEFESA_CIVIL','DEFESA_CIVIL_RJ_REGIONAL','MARINHA_CHM',
+  'DEFESA_CIVIL','DEFESA_CIVIL_RJ_REGIONAL','MARINHA_CHM','REDEMET_METAR',
 ]);
 const FORECAST_PROVIDERS = new Set(['INPE_CPTEC_FORECAST','NOAA','WINDY_MODELO']);
 const THRESHOLDS = Object.freeze({
@@ -44,6 +44,7 @@ function validatedObserved(observations,{ibge,variable,now}) {
   const threshold=THRESHOLDS[variable];
   return observations.filter(o=>o&&o.origin==='OFFICIAL_OBSERVATION'
     &&OFFICIAL_OBSERVERS.has(o.sourceId)
+    &&(o.sourceId!=='REDEMET_METAR'||String(ibge)==='3304557'&&['SBGL','SBRJ'].includes(o.stationId)&&['TEMPERATURA_C','VENTO_KMH','RAJADA_KMH'].includes(variable))
     &&String(o.ibge)===String(ibge)&&o.variable===variable&&o.unit===threshold.unit
     &&numeric(o.value,threshold.minimum,threshold.maximum)
     &&fresh(o.observedAt,now,300_000)
@@ -349,11 +350,11 @@ export function weightedComparableForecastMean({forecasts=[],ibge,variable,
   });
 }
 
-export const RJ_TABLE2_ORDER = Object.freeze(['INPE_CPTEC_FORECAST','INMET','INMET_STATION','WINDY_MODELO','CEMADEN','CEMADEN_RJ','NOAA','REDEMET_METAR','ACCUWEATHER_API']);
+export const RJ_TABLE2_ORDER = Object.freeze(['INPE_CPTEC_FORECAST','INMET','INMET_STATION','WINDY_MODELO','CEMADEN','CEMADEN_RJ','NOAA','ACCUWEATHER_API']);
 /** Pure selection over validated inputs. No network request or invented weight. */
 export function reconcileRjTables({table1=[],table2=[],ibge,variable,kind='OBSERVATION',now=Date.now()}={}) {
   if(!CODES.has(String(ibge))||!Object.hasOwn(THRESHOLDS,variable))throw TypeError('rj_invalid_reconciliation_scope');
-  if(!Array.isArray(table1)||table1.length>3||!Array.isArray(table2)||table2.length>20||!['OBSERVATION','FORECAST'].includes(kind)||!Number.isFinite(now))throw TypeError('rj_invalid_reconciliation_inputs');
+  if(!Array.isArray(table1)||table1.length>4||!Array.isArray(table2)||table2.length>20||!['OBSERVATION','FORECAST'].includes(kind)||!Number.isFinite(now))throw TypeError('rj_invalid_reconciliation_inputs');
   const validate=rows=>kind==='OBSERVATION'?validatedObserved(rows,{ibge,variable,now}):validatedForecast(rows,{ibge,variable,now});
   const primary=validate(table1), secondary=validate(table2).filter(r=>RJ_TABLE2_ORDER.includes(r.sourceId)).sort((a,b)=>RJ_TABLE2_ORDER.indexOf(a.sourceId)-RJ_TABLE2_ORDER.indexOf(b.sourceId));
   function pair(a,b,mode) {
