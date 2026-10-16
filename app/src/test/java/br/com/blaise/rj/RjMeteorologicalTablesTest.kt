@@ -6,6 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RjMeteorologicalTablesTest {
+    @Test fun fourPrimarySourcesInitializeAndDisputeOrderMatchesBackend() {
+        assertEquals(4, RjMeteorologicalTables.primaryTable1Sources.size)
+        assertTrue(RjMeteorologicalTables.primaryTable1Sources.last().contains("REDEMET"))
+        assertEquals(listOf("INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"),
+            RjMeteorologicalTables.disputeTable2FiveSources)
+    }
     @Test fun firstTenReproduceApprovedReferenceOrder() {
         val expected = listOf(
             "TEMPERATURA", "SENSACAO_TERMICA", "CHUVA_ATUAL",

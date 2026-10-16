@@ -36,3 +36,13 @@ Escopo exclusivo: 92 municípios do Rio de Janeiro e Atlântico adjacente. Este 
 ## Consulta real à candidata em 16/10/2026 às 19:17:55 (Brasília)
 
 A rota pública respondeu HTTP 200. OpenWeather calculado às 19:15:02, coletado às 19:17:32: 23,91 °C; sensação informada 24,81 °C; umidade 94%; vento 9,25 km/h. Trata-se de complemento combinado, não média municipal ou observação independente. CEMADEN nacional publicou atualização de consulta às 19:17:01; isso não altera a hora de abertura de cada alerta. REDEMET trouxe boletins de 19:00, classificados como degradados. `marine` e `marineForecast` vieram nulos. Estes valores são evidência histórica desta consulta, não dados permanentemente atuais.
+
+## Inclusão solicitada: satélites da costa RJ
+
+NASA Worldview / Earthdata, NASA/USGS Landsat e ESA/Copernicus Sentinel-2 incorporados ao painel marítimo no código Android. Duas missões HLS: HLSL30 (Landsat 8/9) e HLSS30 (Sentinel-2). Consultar metadados públicos NASA CMR ao entrar na tela e a cada cinco minutos, limitados ao retângulo RJ (-44,8/-23,6/-40,8/-20,8). Cada cena é parcial; não representa todo o litoral ou Atlântico. Preservar aquisição e consulta separadas; não chamar cena antiga de tempo real. Prévia apenas sob toque, no máximo 2 MB, sem GeoTIFF ou chave de acesso. Visualizadores NASA Worldview e Copernicus Browser permitem explorar a região e escolher outras cenas; USGS EarthExplorer e NASA Earthdata para catálogo. Sentinel-2 é óptico; radar é Sentinel-1. O Playground indicado pelo usuário foi encaminhado ao Copernicus Browser para exploração pública atual.
+
+Consulta real: catálogo Landsat retornou cena de 10/10/2026; catálogo Sentinel-2 retornou cena de 11/10/2026. A prévia Landsat respondeu HTTP 200 (184.427 bytes, MIME binary/octet-stream com assinatura JPEG). Sentinel-2 não forneceu link de prévia pública nessa resposta; nenhum link foi inventado. São imagens orbitais históricas/recentes, não vídeo em tempo real e não medição de ondas, marés ou balneabilidade.
+
+CI Android 981: backend aprovado; Android compilou, mas 13 testes falharam devido à inicialização da Tabela 1 exigir três fontes após sua ampliação para quatro. Corrigida a invariável para quatro e adicionado teste de regressão. Ordem de desempate da interface alinhada ao backend: INPE/CPTEC, INMET, CEMADEN, Windy, NOAA. Nova validação necessária; não declarar APK validado antes de resultado completo.
+
+Referências oficiais: https://hls.gsfc.nasa.gov/data-access-and-tools/ ; https://www.esa.int/Enabling_Support/Operations/Copernicus_Sentinels ; https://www.usgs.gov/faqs/what-are-acquisition-schedules-landsat-satellites ; https://documentation.v1.dataspace.copernicus.eu/Applications/Browser.html

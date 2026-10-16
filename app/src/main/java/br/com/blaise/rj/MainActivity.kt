@@ -2126,6 +2126,8 @@ private fun MarineScreen() {
     Spacer(Modifier.height(10.dp))
     RjMarineSourceMatrixPanel()
     Spacer(Modifier.height(14.dp))
+    RjCoastalSatellitePanel()
+    Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
         subtitle = "NOAA • Copernicus Marine • EUMETSAT • CPTEC/INPE",
