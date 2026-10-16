@@ -181,6 +181,13 @@ class MainActivityTest {
     }
 
 
+    @Test fun coastalSatellitePanelShowsBothMissionsAndKeepsOperationalControlsHidden() {
+        rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
+        rule.onNodeWithTag("coastal-mission-LANDSAT").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("coastal-mission-SENTINEL").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("ten-agents-panel").assertDoesNotExist()
+    }
+
     @Test fun marineSectionDisplaysIndependentSourceAndDataTableWithFiveRows() {
         rule.onNodeWithTag("nav-Mar e Ondas").performScrollTo().performClick()
         rule.onNodeWithTag("rj-marine-screen-table").performScrollTo().assertIsDisplayed()

@@ -23,7 +23,7 @@ jobs:
     # No subscription or production store-release PR can consume emulator time.
     if: >-
       github.event_name == 'pull_request' &&
-      (github.event.pull_request.head.ref == 'fix/rj-freshness-seven-day-history' || github.event.pull_request.head.ref == 'codex/rj-unified-city-evidence-20261014' || github.event.pull_request.head.ref == 'codex/rj-live-integration-fix-20261014' || github.event.pull_request.head.ref == 'codex/rj-alert-hourly-validity' ||
+      (github.event.pull_request.head.ref == 'codex/rj-marine-primary-sources' || github.event.pull_request.head.ref == 'fix/rj-freshness-seven-day-history' || github.event.pull_request.head.ref == 'codex/rj-unified-city-evidence-20261014' || github.event.pull_request.head.ref == 'codex/rj-live-integration-fix-20261014' || github.event.pull_request.head.ref == 'codex/rj-alert-hourly-validity' ||
        github.event.pull_request.head.ref == 'codex/rj-current-weighted-sources-20261014' ||
        github.event.pull_request.head.ref == 'codex/rj-final-reference-dashboard-20261010' ||
        github.event.pull_request.head.ref == 'codex/rj-continuous-sources-radar-paid-validation-20261011' ||
