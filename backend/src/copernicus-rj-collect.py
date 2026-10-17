@@ -58,6 +58,6 @@ if __name__ == '__main__':
     try:
         print(json.dumps(collect(), allow_nan=False, separators=(',', ':')))
     except Exception as error:
-        code = str(error) if isinstance(error, ValueError) and str(error).startswith('copernicus_') else 'copernicus_collection_failed'
+        code = str(error) if isinstance(error, ValueError) and str(error).startswith('copernicus_') else 'copernicus_collection_failed_' + type(error).__name__.lower()
         print(json.dumps({'errorCode': code}))
         sys.exit(1)

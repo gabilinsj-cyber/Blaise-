@@ -38,7 +38,12 @@ export async function probeCopernicusRjOcean({now=Date.now,env=process.env,run=r
  if(!env.COPERNICUSMARINE_SERVICE_USERNAME||!env.COPERNICUSMARINE_SERVICE_PASSWORD)fail('copernicus_credentials_missing');
  let stdout;
  try{({stdout}=await run(env.BLAISE_COPERNICUS_PYTHON||'/opt/copernicus/bin/python',[fileURLToPath(new URL('./copernicus-rj-collect.py',import.meta.url))],{env,timeout:55000,maxBuffer:65536,killSignal:'SIGKILL'}));}
- catch{fail('copernicus_collection_failed');}
+ catch(error){
+  // Only a bounded machine code from the child JSON; never stderr/message/token URLs.
+  let code;try{code=JSON.parse(error.stdout).errorCode;}catch{}
+  if(typeof code==='string'&&/^copernicus_[a-z_]{1,100}$/.test(code))fail(code);
+  fail('copernicus_collection_failed');
+ }
  let raw;try{raw=JSON.parse(stdout);}catch{fail('copernicus_response_invalid');}
  return parseCopernicusRjOcean(raw,{now:now()});
 }
