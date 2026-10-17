@@ -224,6 +224,7 @@ async function main() {
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
     // Explicit product gates: the legacy global approval cannot release other feeds.
     productApprovals: {
+      alertaRioMeteorology: process.env.BLAISE_PUBLIC_ALERTA_RIO_METEOROLOGY_APPROVED === 'true',
       noaaWaves: process.env.BLAISE_PUBLIC_NOAA_WAVES_APPROVED === 'true',
       cptecMarine: process.env.BLAISE_PUBLIC_CPTEC_MARINE_APPROVED === 'true',
       inmetWarnings: process.env.BLAISE_PUBLIC_INMET_WARNINGS_APPROVED === 'true',

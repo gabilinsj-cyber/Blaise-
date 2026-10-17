@@ -195,6 +195,7 @@ data class PublicRjStatus(
     val openWeatherComplement: OpenWeatherComplement? = null,
     val cptecMarineForecast: CptecMarineForecast? = null,
     val oceanWaveForecast: OceanWaveForecast? = null,
+    val stationMeteorology: StationMeteorology? = null,
 ) {
     init {
         require(municipalities.size == 92)
@@ -384,7 +385,7 @@ object PublicRjStatusParser {
         } ?: emptyList()
         val national = parseNational(root)
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products,inventories,national,parseAerodromes(root),parseOpenWeather(root),parseCptecMarine(root),parseOceanWaveForecast(root))
+            municipalities,warnings,marine,products,inventories,national,parseAerodromes(root),parseOpenWeather(root),parseCptecMarine(root),parseOceanWaveForecast(root),parseStationMeteorology(root))
     }
 }
 

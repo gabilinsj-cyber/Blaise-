@@ -2329,6 +2329,9 @@ private fun MoreScreen(
             row.updatedAt?.let { Text("Consulta/registro: ${formatInformationTime(it)}", color = Muted,
                 style = MaterialTheme.typography.labelSmall) }
         }
+        if (city.ibgeCode.toString() == "3304557") {
+            RjStationMeteorologyPanel(status?.takeIf { it.current(clock) }?.stationMeteorology, clock)
+        }
         val seismic = LocalSeismic.current?.takeIf { it.current(clock) }
         StatusLine("USGS • sismos globais", seismic?.let { "Feed validado • ${formatInformationTime(it.generatedAt)}" }
             ?: "Sem feed atual confirmado")
