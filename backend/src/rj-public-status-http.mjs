@@ -1,3 +1,4 @@
+import {COPERNICUS_RJ_TASK,parseCopernicusRjOcean} from './copernicus-rj-ocean.mjs';
 import { ALERTA_RIO_METEOROLOGY_TASK } from './alerta-rio-meteorology-live.mjs';
 import {NOAA_RJ_WAVE_TASK} from './noaa-rj-wave-forecast.mjs';
 import {CPTEC_MARINE_TASK_ID} from './cptec-rj-marine.mjs';
@@ -131,6 +132,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     }
   } catch {}
   let waveForecast=null;try{const reading=worker.readSource(CPTEC_MARINE_TASK_ID);if(reading?.state==='CURRENT_FORECAST')waveForecast=reading.snapshot;}catch{}
+  let oceanTidesCurrents=null;try{const r=worker.readSource(COPERNICUS_RJ_TASK);if(r?.state==='FORECAST_VALID_TIME_ISSUANCE_UNKNOWN'&&r.snapshot)oceanTidesCurrents=parseCopernicusRjOcean(r.snapshot,{now:nowMillis});}catch{}
   let oceanWaveForecast=null;try{const r=worker.readSource(NOAA_RJ_WAVE_TASK);if(r?.state==='FORECAST_VALID_TIME_ISSUANCE_UNKNOWN'&&r.snapshot&&nowMillis-Date.parse(r.snapshot.fetchedAt)>=0&&nowMillis-Date.parse(r.snapshot.fetchedAt)<=300000)oceanWaveForecast=r.snapshot;}catch{}
   let complement=null;
   try {
@@ -141,7 +143,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
       && [s.calculatedAt,s.fetchedAt].every(t=>Number.isFinite(Date.parse(t))
         && nowMillis-Date.parse(t)>=0 && nowMillis-Date.parse(t)<=300000)) complement=s;
   } catch {}
-  const active=stationMeteorology!==null||oceanWaveForecast!==null||complement!==null||waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
+  const active=oceanTidesCurrents!==null||stationMeteorology!==null||oceanWaveForecast!==null||complement!==null||waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
     || marine!==null;
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
@@ -181,6 +183,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     marine,
     marineForecast:waveForecast,
     oceanWaveForecast,
+    oceanTidesCurrents,
     stationMeteorology,
     openWeatherComplement:complement,
     nationalAlerts: source.nationalAlerts,
@@ -218,6 +221,7 @@ export function restrictPublicProducts(worker, approved) {
     ['openWeather', OPENWEATHER_TASK_ID],
     ['cptecMarine', CPTEC_MARINE_TASK_ID],
     ['noaaWaves', NOAA_RJ_WAVE_TASK],
+    ['copernicusOcean', COPERNICUS_RJ_TASK],
     ['alertaRioMeteorology', ALERTA_RIO_METEOROLOGY_TASK],
     ['chm', 'chm-marine-warnings'],
   ].filter(([product]) => approved[product] === true).map(([, task]) => task));

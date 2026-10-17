@@ -2807,13 +2807,16 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         modifier = modifier.testTag("marine-conditions-card"),
     ) {
         RjOceanWaveForecastPanel(oceanForecast, now)
+        val tidesCurrents = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
+            ?.takeIf { it.current(now) }?.oceanTidesCurrents?.takeIf { it.current(now) }
+        RjOceanTidesCurrentsPanel(tidesCurrents, now)
         Text("Maré prevista e nível observado • produtos separados",
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
         StatusLine("Ondas previstas", if(oceanForecast != null) "WW3 / PacIOOS via NOAA • ponto oceânico no quadro acima" else "NOAA / Copernicus Marine • ingestão e validade ainda não confirmadas")
         StatusLine("Swell", if(oceanForecast != null) "WW3 / PacIOOS • previsão no quadro de ponto oceânico" else "NOAA / Copernicus Marine • altura, período e direção ainda não recebidos")
-        StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
+        StatusLine("Correntes", if(tidesCurrents != null) "Previsão Copernicus no quadro acima" else "Sem previsão validada")
         StatusLine("Temperatura do mar", "NOAA / Copernicus Marine • — °C; sem leitura validada")
         StatusLine("Vento", "NOAA / Copernicus / EUMETSAT por produto • direção e velocidade pendentes")
         StatusLine("Ressaca", "Sem aviso local validado; ausência de dados não significa ausência de risco")

@@ -1,3 +1,4 @@
+import {COPERNICUS_RJ_TASK,probeCopernicusRjOcean,createCopernicusRjCache} from './copernicus-rj-ocean.mjs';
 import { ALERTA_RIO_METEOROLOGY_TASK, probeAlertaRioMeteorology, createAlertaRioMeteorologyCache } from './alerta-rio-meteorology-live.mjs';
 import {NOAA_RJ_WAVE_TASK,probeNoaaRjWaves,createNoaaRjWaveCache} from './noaa-rj-wave-forecast.mjs';
 import {CPTEC_MARINE_TASK_ID,probeCptecRioWaves,createCptecMarineCache} from './cptec-rj-marine.mjs';
@@ -227,6 +228,7 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== '') {
     config.defesaCivilRioAssetsEnabled = defesaCivilRioAssetsEnabled;
   }
+  if(env.BLAISE_COPERNICUS_OCEAN_ENABLED!==undefined)config.copernicusOceanEnabled=parseBoolean(env.BLAISE_COPERNICUS_OCEAN_ENABLED,{defaultValue:false,code:'invalid_copernicus_ocean_flag'});
   if(env.BLAISE_NOAA_WAVES_ENABLED!==undefined)config.noaaWavesEnabled=parseBoolean(env.BLAISE_NOAA_WAVES_ENABLED,{defaultValue:false,code:'invalid_noaa_waves_flag'});
   if(env.BLAISE_ALERTA_RIO_METEOROLOGY_ENABLED!==undefined)config.alertaRioMeteorologyEnabled=parseBoolean(env.BLAISE_ALERTA_RIO_METEOROLOGY_ENABLED,{defaultValue:false,code:'invalid_alerta_rio_meteorology_flag'});
   if(env.BLAISE_CPTEC_MARINE_ENABLED!==undefined)config.cptecMarineEnabled = parseBoolean(env.BLAISE_CPTEC_MARINE_ENABLED,{defaultValue:false,code:'invalid_cptec_marine_flag'});
@@ -294,6 +296,7 @@ export function createOfficialSourceWorker({
   }
   if (typeof (config.alertaRioMeteorologyEnabled ?? false) !== 'boolean') throw new OfficialSourceWorkerError('invalid_alerta_rio_meteorology_flag');
   const meteoCache = config.alertaRioMeteorologyEnabled === true ? createAlertaRioMeteorologyCache({now}) : null;
+  const copernicusOceanCache=config.copernicusOceanEnabled===true?createCopernicusRjCache({now}):null;
   const noaaWaveCache=config.noaaWavesEnabled===true?createNoaaRjWaveCache({now}):null;
   const cptecMarineCache=config.cptecMarineEnabled===true?createCptecMarineCache({now}):null;
   const openWeatherCache = config.openWeatherEnabled === true ? createOpenWeatherCache({now}) : null;
@@ -381,6 +384,7 @@ export function createOfficialSourceWorker({
     try {openWeatherCache.recordSuccess(await probeOpenWeatherRio({fetchImpl,now,apiKey:config.openWeatherApiKey??'',usageApproved:config.openWeatherUsageApproved===true}));}
     catch(error){openWeatherCache.recordFailure(safeSourceErrorCode(error));throw error;}
   }});
+  if(copernicusOceanCache)tasks.push({id:COPERNICUS_RJ_TASK,run:async()=>{try{copernicusOceanCache.recordSuccess(await probeCopernicusRjOcean({now}));}catch(error){copernicusOceanCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
   if(noaaWaveCache)tasks.push({id:NOAA_RJ_WAVE_TASK,run:async()=>{try{noaaWaveCache.recordSuccess(await probeNoaaRjWaves({fetchImpl,now}));}catch(error){noaaWaveCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
   if(cptecMarineCache)tasks.push({id:CPTEC_MARINE_TASK_ID,run:async()=>{try{cptecMarineCache.recordSuccess(await probeCptecRioWaves({fetchImpl,now}));}catch(error){cptecMarineCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
   if (redemetEnabled) tasks.push({
@@ -583,6 +587,7 @@ export function createOfficialSourceWorker({
   function readSource(taskId) {
     reconcileCadence();
     if(taskId===ALERTA_RIO_METEOROLOGY_TASK && meteoCache)return meteoCache.read();
+    if(taskId===COPERNICUS_RJ_TASK&&copernicusOceanCache)return copernicusOceanCache.read();
     if(taskId===NOAA_RJ_WAVE_TASK&&noaaWaveCache)return noaaWaveCache.read();
     if(taskId===CPTEC_MARINE_TASK_ID&&cptecMarineCache)return cptecMarineCache.read();
     if(taskId===OPENWEATHER_TASK_ID && openWeatherCache)return openWeatherCache.read();
@@ -613,6 +618,7 @@ export function createOfficialSourceWorker({
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
     if(meteoCache)sourceStates.push(sourceStateWithoutPayload(meteoCache.read()));
+    if(copernicusOceanCache)sourceStates.push(sourceStateWithoutPayload(copernicusOceanCache.read()));
     if(noaaWaveCache)sourceStates.push(sourceStateWithoutPayload(noaaWaveCache.read()));
     if(cptecMarineCache)sourceStates.push(sourceStateWithoutPayload(cptecMarineCache.read()));
     if(openWeatherCache)sourceStates.push(sourceStateWithoutPayload(openWeatherCache.read()));
