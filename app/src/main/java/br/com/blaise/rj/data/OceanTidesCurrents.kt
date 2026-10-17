@@ -34,7 +34,7 @@ internal fun parseOceanTidesCurrents(root: JSONObject): OceanTidesCurrents? = ru
         val lat=p.getDouble("latitude");val lon=p.getDouble("longitude")
         require(lat.isFinite() && lat in -23.55..-23.45 && lon.isFinite() && lon in -43.05..-42.95)
         val depth=if(p.isNull("depthM")) null else p.getDouble("depthM")
-        require(if(key=="currents") depth != null && depth.isFinite() && depth in 0.0..1.0 else depth==null)
+        require(if(key=="currents") (depth == null || depth.isFinite() && depth in 0.0..1.0) else depth==null)
         require(variables.all { p.getJSONObject("units").getString(it)==unit })
         val array=p.getJSONArray("rows");require(array.length() in 1..8)
         val rows=(0 until array.length()).map { i ->

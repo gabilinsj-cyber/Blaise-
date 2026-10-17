@@ -15,7 +15,7 @@ export function parseCopernicusRjOcean(raw,{now=Date.now()}={}){
  for(const [key,spec] of Object.entries(specs)){
   const p=raw.products?.[key];
   if(p?.datasetId!==spec.id||!finite(p.latitude,-23.55,-23.45)||!finite(p.longitude,-43.05,-42.95)||!Array.isArray(p.rows)||p.rows.length<1||p.rows.length>8||spec.vars.some(v=>p.units?.[v]!==spec.unit))fail('copernicus_schema_invalid');
-  if(key==='currents'&&!finite(p.depthM,0,1))fail('copernicus_depth_invalid');
+  if(key==='currents'&&p.depthM!==null&&!finite(p.depthM,0,1))fail('copernicus_depth_invalid');
   if(key==='seaLevel'&&p.depthM!==null)fail('copernicus_depth_invalid');
   const rows=p.rows.map(r=>{
    const valid=Date.parse(r.validAt);

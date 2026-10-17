@@ -33,7 +33,7 @@ def collect():
             try:
                 if ds.sizes.get('latitude') != 1 or ds.sizes.get('longitude') != 1 or not 1 <= ds.sizes.get('time', 0) <= 8:
                     raise ValueError('copernicus_dimensions_invalid')
-                if key == 'currents' and ('depth' not in ds.coords or ds.sizes.get('depth') != 1):
+                if key == 'currents' and 'depth' in ds.coords and ds.sizes.get('depth') != 1:
                     raise ValueError('copernicus_depth_invalid')
                 lat, lon = float(ds.latitude.values[0]), float(ds.longitude.values[0])
                 depth = float(ds.depth.values[0]) if 'depth' in ds.coords else None
