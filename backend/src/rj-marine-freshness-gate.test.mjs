@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { reviewRjMarineSample } from './rj-marine-freshness-gate.mjs';
+const now = Date.parse('2026-10-17T12:00:00Z');
+const sample = { sourceId:'COPERNICUS_MARINE', productId:'GLOBAL_TEST_001', licenseVerified:true, redistributionAuthorized:true, kind:'OBSERVATION', variable:'WAVE_HEIGHT', unit:'m', value:1.5, latitude:-22.9, longitude:-42.9, validTimeUtc:'2026-10-17T11:50:00Z', receivedAtUtc:'2026-10-17T11:55:00Z', qualityFlag:'VALIDATED' };
+test('valid metadata never proves live production ingestion',()=>assert.deepEqual(reviewRjMarineSample(sample,{nowMs:now}).status,'CURRENT_OBSERVATION'));
+test('expired observations are stale',()=>assert.equal(reviewRjMarineSample({...sample,validTimeUtc:'2026-10-17T08:00:00Z'},{nowMs:now}).status,'STALE'));
+test('forecasts never count as live observations',()=>assert.equal(reviewRjMarineSample({...sample,kind:'FORECAST'},{nowMs:now}).status,'FORECAST'));
+test('unverified licensing blocks use',()=>assert.equal(reviewRjMarineSample({...sample,redistributionAuthorized:false},{nowMs:now}).status,'REJECTED'));
+test('bad units and missing quality are rejected',()=>{assert.equal(reviewRjMarineSample({...sample,unit:'km/h'},{nowMs:now}).status,'REJECTED');assert.equal(reviewRjMarineSample({...sample,qualityFlag:null},{nowMs:now}).status,'REJECTED')});
