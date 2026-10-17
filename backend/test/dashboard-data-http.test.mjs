@@ -260,3 +260,16 @@ test('statewide route requires the same active purchase and never exposes creden
     assert.equal((await response.text()).includes('municipalities'), false);
   });
 });
+
+test('dashboard accepts validated partial rainfall coverage and never restores excluded stations', () => {
+  const base = currentWorker();
+  const reading = structuredClone(base.readSource());
+  reading.state = 'CURRENT_DEGRADED';
+  reading.reason = 'partial_current_station_coverage';
+  reading.snapshot.stations = reading.snapshot.stations.filter(s => s.code !== 4);
+  reading.snapshot.currentStationCount = 32;
+  const result = buildPaidDashboardSnapshot({...base, readSource: () => reading}, {nowMillis: NOW});
+  assert.equal(result.rainfall.currentStationCount, 32);
+  assert.equal(result.rainfall.stationCount, 33);
+  assert.equal(result.rainfall.max15mMm, 1.2);
+});

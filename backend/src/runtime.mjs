@@ -1,11 +1,8 @@
-import { createPnboiaObservationProvider, createPnboiaHttpHandler } from './pnboia-observations.mjs';
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
 import { pathToFileURL } from 'node:url';
 import { createFcmGateway } from './fcm.mjs';
-import { createChmTideValuesCache } from './chm-tide-cache.mjs';
-import { createChmTideHttpHandler } from './chm-tide-http.mjs';
 import { createRjLiveSourceAudit } from './rj-live-source-audit.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
@@ -149,7 +146,7 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
-  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined });
+  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined, BLAISE_CHM_WARNINGS_ENABLED: 'false' });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
@@ -165,7 +162,6 @@ async function main() {
     : null;
   const replayGuard = createRtdnReplayGuard();
   const p0ReplayGuard = createRtdnReplayGuard();
-  const chmTideCache = createChmTideValuesCache();
   const readiness = createReadinessState();
 
   let publishInmetP0 = null;
@@ -178,6 +174,24 @@ async function main() {
   }
 
   const sourceWorker = createOfficialSourceWorker({
+    onEvent: e => {
+      if (e.type !== 'task_finished') return;
+      const source = sourceWorker.readSource(e.taskId);
+      console.log('blaise_source_collection:' + JSON.stringify({
+        source: e.taskId, outcome: e.outcome, errorCode: e.errorCode,
+        finishedAt: e.finishedAt, runCount: e.runCount,
+        state: source?.state, reason: source?.reason,
+        fetchedAt: source?.fetchedAt, observedAt: source?.observedAt,
+        timestampMeaning: source?.timestampMeaning,
+        oldestUpdatedAt: source?.oldestUpdatedAt,
+        latestUpdatedAt: source?.latestUpdatedAt,
+        dataAgeMs: source?.dataAgeMs,
+        totalRecordCount: source?.totalRecordCount,
+        currentRecordCount: source?.currentRecordCount,
+        excludedRecordCount: source?.excludedRecordCount,
+        oldestDataAgeMs: source?.oldestDataAgeMs,
+      }));
+    },
     config: sourceWorkerConfig,
     publishInmetP0,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
@@ -195,12 +209,7 @@ async function main() {
     replayGuard,
     p0ReplayGuard,
   });
-  const paidDataHandler = createChmTideHttpHandler(coreHandler, {
-    config,
-    gateway,
-    chmTideCache,
-    metrics,
-  });
+  const paidDataHandler = coreHandler;
   const dashboardDataHandler = createPaidDashboardDataHttpHandler(paidDataHandler, {
     config,
     gateway,
@@ -213,17 +222,23 @@ async function main() {
   const publicStatusHandler = createRjPublicStatusHandler(dashboardDataHandler, {
     sourceWorker,
     enabled: process.env.BLAISE_RJ_PUBLIC_STATUS_ENABLED === 'true',
-    licensingApproved: process.env.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED === 'true',
+    // Explicit product gates: the legacy global approval cannot release other feeds.
+    productApprovals: {
+      alertaRioMeteorology: process.env.BLAISE_PUBLIC_ALERTA_RIO_METEOROLOGY_APPROVED === 'true',
+      copernicusOcean: process.env.BLAISE_PUBLIC_COPERNICUS_OCEAN_APPROVED === 'true',
+      noaaWaves: process.env.BLAISE_PUBLIC_NOAA_WAVES_APPROVED === 'true',
+      cptecMarine: process.env.BLAISE_PUBLIC_CPTEC_MARINE_APPROVED === 'true',
+      inmetWarnings: process.env.BLAISE_PUBLIC_INMET_WARNINGS_APPROVED === 'true',
+      cemadenNational: process.env.BLAISE_PUBLIC_CEMADEN_NATIONAL_APPROVED === 'true',
+      cemadenRjRisk: process.env.BLAISE_PUBLIC_CEMADEN_RJ_RISK_APPROVED === 'true',
+      redemet: process.env.BLAISE_PUBLIC_REDEMET_APPROVED === 'true',
+      openWeather: process.env.BLAISE_PUBLIC_OPENWEATHER_APPROVED === 'true',
+      chm: process.env.BLAISE_PUBLIC_CHM_APPROVED === 'true',
+    },
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
-  const buoyHandler = createPnboiaHttpHandler(publicStatusHandler, {
-    provider: createPnboiaObservationProvider({
-      token: process.env.BLAISE_PNBOIA_TOKEN || '',
-      usageApproved: process.env.BLAISE_PNBOIA_DISPLAY_TERMS_APPROVED === 'true',
-    }),
-  });
-  const sourceReadinessHandler = createRjSourceReadinessHandler(buoyHandler, {
+  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });

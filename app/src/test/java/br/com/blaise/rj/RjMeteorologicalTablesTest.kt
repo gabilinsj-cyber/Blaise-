@@ -6,6 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RjMeteorologicalTablesTest {
+    @Test fun fourPrimarySourcesInitializeAndDisputeOrderMatchesBackend() {
+        assertEquals(4, RjMeteorologicalTables.primaryTable1Sources.size)
+        assertTrue(RjMeteorologicalTables.primaryTable1Sources.last().contains("REDEMET"))
+        assertEquals(listOf("INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"),
+            RjMeteorologicalTables.disputeTable2FiveSources)
+    }
     @Test fun firstTenReproduceApprovedReferenceOrder() {
         val expected = listOf(
             "TEMPERATURA", "SENSACAO_TERMICA", "CHUVA_ATUAL",
@@ -22,9 +28,9 @@ class RjMeteorologicalTablesTest {
         assertEquals(30, RjMeteorologicalTables.PHENOMENA_COUNT)
         assertEquals(30, RjMeteorologicalTables.table1.size)
         assertEquals(30, RjMeteorologicalTables.table1.map { it.code }.distinct().size)
-        assertEquals(5, RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS)
-        assertEquals(13, RjMeteorologicalTables.table2.size)
-        assertEquals((1..13).map { "%02d".format(it) },
+        assertEquals(7, RjMeteorologicalTables.ADDITIONAL_TIEBREAK_CHECKS)
+        assertEquals(15, RjMeteorologicalTables.table2.size)
+        assertEquals((1..15).map { "%02d".format(it) },
             RjMeteorologicalTables.table2.map { it.code })
     }
 
@@ -53,6 +59,14 @@ class RjMeteorologicalTablesTest {
             .any { it.code == "11" })
     }
 
+    @Test fun weightedPhenomenaExposeFallbackAndAccuWeatherCriteria() {
+        for (code in listOf("TEMPERATURA", "UMIDADE", "VENTO", "RAJADA", "CHUVA_ATUAL", "CHUVA_ACUMULADA", "PRESSAO_ATMOSFERICA")) {
+            val ids = RjMeteorologicalTables.table2ForPhenomenon(code).map { it.code }
+            assertTrue(ids.containsAll(listOf("14", "15")))
+        }
+        assertFalse(RjMeteorologicalTables.table2ForPhenomenon("TSUNAMI").any { it.code == "14" })
+    }
+
     @Test fun theTwoTablesNeverAverageWarningCategoriesOrPhenomenaWithoutObservedNumericInputs() {
         for (code in listOf("TEMPORAL","GRANIZO","TEMPESTADE","SISMO",
             "TSUNAMI","RESSACA","SENSACAO_TERMICA")) {
@@ -76,4 +90,13 @@ class RjMeteorologicalTablesTest {
         assertFalse(by.getValue("TSUNAMI").sources.contains("EUMETSAT"))
     }
 
+    @Test fun marineDataPriorityIsIndependentOfNavyAndWarningAuthority() {
+        assertTrue(RjMeteorologicalTables.MARINE_PRIORITY.startsWith("NOAA"))
+        assertTrue(RjMeteorologicalTables.MARINE_AUTHORITY.contains("órgão competente"))
+        val by = RjMeteorologicalTables.marineTable.associateBy { it.code }
+        assertTrue(by.getValue("ONDAS_SWELL").sources.startsWith("NOAA"))
+        assertTrue(by.getValue("ONDAS_SWELL").sources.contains("CPTEC/INPE"))
+        assertFalse(by.getValue("TSUNAMI").sources.contains("EUMETSAT"))
+        assertTrue(RjMeteorologicalTables.LIVE_STATUS.contains("não confirmada"))
+    }
 }

@@ -1,141 +1,136 @@
-# Blaise V6 RJ — matriz de fontes por fenômeno e localidade
+package br.com.blaise.rj
 
-**Regra do projeto (10/10/2026).** Escopo exclusivo do estado do Rio de Janeiro, seus 92 municípios, litoral adjacente e fenômenos do Atlântico capazes de afetar o RJ. **INEA retirado**, inclusive de coletores opcionais e de sondagens operacionais. Esta matriz é uma especificação de roteamento; **não atesta que todas as integrações já estejam operantes**.
+/**
+ * Canonical product/UI contract for the approved Blaise V6 RJ dashboard.
+ * This file deliberately contains no sample weather values: production UI must
+ * render only timestamped source data supplied by the runtime adapters.
+ */
+object FinalDashboardSpec {
+    const val STORE_GOOGLE_PLAY = "GOOGLE_PLAY"
+    const val STORE_SAMSUNG = "SAMSUNG_GALAXY_STORE"
+    const val STORE_AMAZON = "AMAZON_APPSTORE"
+    const val PRODUCT = "Blaise V6 RJ"
+    const val TAGLINE = "Clima e Tempo"
+    const val DEFAULT_POWER_STATE = "LIGADO"
+    const val ASSISTANT_PROMPT = "Como posso ajudar?"
+    const val RADAR_WINDOW_MINUTES = 30
+    const val MAX_INLINE_ALERTS_PER_CITY = 3
+    const val HOME_LOCAL_NEWS_COUNT = 2
+    const val HOME_INTERNATIONAL_NEWS_COUNT = 1
+    const val HOME_SEISMIC_EVENT_COUNT = 2
+    const val SEISMIC_NOTIFICATION_MIN_MAGNITUDE = 7.0
 
-## Cartografia e imagens: mapa próprio Blaise
+    val primaryNavigation = listOf(
+        "Início", "Cidades", "Mapa", "Alertas", "Trânsito",
+        "Mar e Ondas", "Qualidade do Ar", "Notícias", "Histórico", "Mais"
+    )
 
-A interface **renderiza seu próprio mapa** com código Android/Canvas do Blaise V6 RJ (`RioGeographicBase.kt`). As malhas de limites municipais têm como base cartográfica um conjunto derivado de dados do IBGE, redistribuído como **CC0** por geodata-br; não são imagens meteorológicas, mosaicos, imagens de radar, tiles ou mapas copiados de um prestador meteorológico.
+    val trafficEvents = listOf(
+        "Interdições", "Acidentes", "Bolsões d’água", "Alagamentos",
+        "Queda de árvore/poste", "Túneis fechados", "Deslizamentos", "Obras", "Rotas alternativas"
+    )
 
-**Dados de fonte ≠ imagem de fonte.** Dados observados (chuva por estação, temperatura, vento, rajada, avisos, etc.) podem ser representados graficamente de modo original pelo Blaise, respeitando origem, unidade, data, coordenadas, cobertura e condições de uso dos dados. Não precisamos copiar imagens ou o mapa dos provedores. A utilização comercial de *cada base de dados*, inclusive redistribuição por API/produto, continua sujeita a sua licença/termos específicos, diferentemente da geometria CC0 usada como fundo.
+    val officialSources = listOf(
+        "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
+        "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
+        "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
+    )
 
-A matriz meteorológica principal tem **cinco fontes**, selecionadas conforme a situação: **Alerta Rio** (somente município do Rio), **Defesa Civil regional**, **INMET** (estações de observação e avisos), **Windy** (comparação de modelos, não medição oficial) e **INPE/CPTEC** (previsões, monitoramento e produtos meteorológicos oficiais conforme cobertura, não estação INMET). CEMADEN, ANA, SGB/SACE, Marinha, NOAA e USGS seguem como fontes adicionais por categoria; o nome de uma fonte na lista não afirma que sua API, dados ou licença foram confirmados. O contrato `backend/src/rj-own-map-observations.mjs` somente prepara **pontos de estação oficiais recentes georreferenciados**, exigindo autorização de apresentação verificada. Não gera mapa de radar, chuva interpolada, imagens copiadas ou média municipal fictícia.
+    // Five situational weather channels; Windy and INPE/CPTEC provide
+    // forecast context, not interchangeable measured station reports.
+    val fiveSituationalWeatherSources = listOf(
+        "INPE/CPTEC", "INMET", "Windy", "CEMADEN", "NOAA"
+    )
 
-Uma **imagem própria com núcleos coloridos de chuva** exige *campos espacializados reais* (por exemplo, células/grade de radar ou satélite com resolução, hora, refletividade/intensidade e georreferenciamento) devidamente autorizados; quatro leituras pontuais **não permitem deduzir esses pixels**. Até existir a entrada, a camada permanece indisponível.
+    // Supplementary provider catalog: visible configuration, NOT live status.
+    // The OpenWeatherMap "third source" in the reference image means third
+    // complementary CONSULTATION, not the third official alert authority.
+    val tenVariableOpenWeatherMap = listOf(
+        "Temperatura", "Sensação térmica", "Chuva atual", "Chuva acumulada",
+        "Temporais", "Vento sustentado", "Rajadas", "Pressão atmosférica",
+        "Umidade relativa", "Granizo"
+    )
+    val oceanSatelliteSources = listOf(
+        "Marinha do Brasil/CHM", "NOAA", "Copernicus Marine",
+        "EUMETSAT", "INMET", "INPE/CPTEC", "Windy"
+    )
+    const val EXPANDED_METEO_PHENOMENA_COUNT = 30
+    const val EXTRA_DISPUTE_CHECKS = 5
+    const val SUPPLEMENTAL_SOURCE_STATUS = "Cadastrada • ingestão de dados ainda não validada"
 
-## Revisão de 12/10/2026 — ampliação para 30 fenômenos e complementos
+    val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Nacional", "Internacional")
 
-**Situação de validação:** o cadastro anterior continha **25 categorias**. Cinco categorias adicionais foram registradas para atingir **30 no código** (`CHUVA_ATUAL`, `MARE`, `SWELL`, `CORRENTES_MARINHAS`, `TEMPERATURA_MAR`), com **cinco novas verificações de desempate** na interface (treze critérios ao todo). Esta é uma reconciliação técnica com os requisitos recuperados; **as duas capturas apresentadas exibem somente os dez primeiros fenômenos e o quadro marítimo**, logo não comprovam que estes sejam exatamente os dois itens adicionais da tabela original de 28. Não declarar correspondência histórica exata sem a tabela integral.
+    fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
+        alertCount > MAX_INLINE_ALERTS_PER_CITY
 
-### Tabela 1, itens 1–10 — prioridade P1 e terceiro complemento OpenWeatherMap
+    fun shouldNotifySeismicEvent(magnitude: Double, feltInBrazil: Boolean): Boolean =
+        magnitude >= SEISMIC_NOTIFICATION_MIN_MAGNITUDE && feltInBrazil
 
-| Fenômeno | Prioridade P1 (por disponibilidade do produto) | Terceiro complemento |
-| --- | --- | --- |
-| Temperatura | Alerta Rio (cidade do Rio) + Defesa Civil local/RJ | OpenWeatherMap |
-| Sensação térmica | Alerta Rio + Defesa Civil, com T/UR/vento válidos; cálculo Blaise | OpenWeatherMap |
-| Chuva atual | Alerta Rio + Defesa Civil, por estação e horário | OpenWeatherMap |
-| Chuva acumulada | Alerta Rio + Defesa Civil, mesma janela (1h, 24h etc.) | OpenWeatherMap, se a janela existir |
-| Chuva intensa / temporal | Alerta Rio + Defesa Civil, avisos confirmados | OpenWeatherMap, contexto não oficial |
-| Vento sustentado | Alerta Rio + Defesa Civil, se houver observação | OpenWeatherMap |
-| Rajadas fortes | Alerta Rio + Defesa Civil, se houver medição da rajada | OpenWeatherMap |
-| Pressão atmosférica | Alerta Rio + Defesa Civil, se houver produto | OpenWeatherMap |
-| Umidade relativa | Alerta Rio + Defesa Civil, se houver produto | OpenWeatherMap |
-| Granizo | Alerta Rio + Defesa Civil por aviso oficial | OpenWeatherMap, somente se o produto suportar |
+    fun storeDisplayName(channel: String): String = when (channel) {
+        STORE_SAMSUNG -> "Samsung Galaxy Store"
+        STORE_AMAZON -> "Amazon Appstore"
+        else -> "Google Play"
+    }
+}
 
-**P1 conjunta** significa consulta e autoridade dos avisos conforme competência, **não** presumir dois sensores independentes quando um órgão apenas republica o dado de outro. INMET segue como terceira *fonte oficial observacional* de verificação pela hierarquia estabelecida; OpenWeatherMap é a **terceira fonte de consulta complementar**, função diferente. Havendo divergência entre observações oficiais, INPE/CPTEC é a primeira previsão comparativa e Windy é consultado somente se INPE inconclusivo. Não ponderar aviso, perigo ou previsão com medição pontual. O cálculo Blaise verifica fonte, variável, janela, estação, município, hora e independência antes de atribuir pesos. Alerta Rio **não** representa os outros 91 municípios.
 
-OpenWeatherMap oferece APIs conforme plano e exige atribuição/licença correspondente, a exemplo de [seu FAQ](https://openweathermap.org/faq). Produtos meteorológicos combinam estações, satélites e modelos e podem reutilizar observações já presentes em outras fontes: **proibido contá-los automaticamente como nova medição independente**. Cada produto, nível do plano, API, autorização comercial, taxa de uso e atribuição devem ser configurados e testados antes de apresentar dados na interface.
+## Verificação operacional — 15/10/2026 19:55 BRT
 
-### Complemento marítimo — Marinha, NOAA, Copernicus e EUMETSAT
+Consulta direta à candidata validacao-rj: HTTP 200, generatedAt 2026-10-15T22:55:17.490Z, workerActive true, 92 municípios, zero avisos municipais elegíveis. INMET CURRENT_DEGRADED (produto avisos); CEMADEN nacional, CEMADEN-RJ e REDEMET ausentes da publicação. Ausência de avisos não é garantia de segurança; cadastro de 92 cidades não comprova medições para todas. CI 965 backend aprovado e Android ainda em andamento no momento da consulta. Corrigida ligação dos critérios 14/15 à seleção de fenômenos numéricos no Android; não disponibilizar AccuWeather como critério de tsunami.
 
-| Categoria | Fontes específicas | Papel / restrição |
-| --- | --- | --- |
-| Ciclones oceânicos e extratropicais | Marinha/CHM + NOAA + EUMETSAT + Copernicus Marine | Evolução atmosférica e efeitos oceânicos; avisos brasileiros prevalecem |
-| Tempestades no Atlântico | Marinha/CHM + NOAA + EUMETSAT | Nuvens/sistemas intensos por satélite; não chamar nuvem de radar de chuva |
-| Ondas e swell | Marinha/CHM + NOAA + Copernicus Marine | Altura, período, direção, grade/estação e horário |
-| Ressaca no litoral RJ | Marinha/CHM + boias competentes + Copernicus Marine + NOAA | Previsão oceânica complementa o aviso costeiro oficial |
-| Correntes, marés e temperatura do mar | Marinha/CHM + Copernicus Marine + NOAA | Separar nível real, maré prevista e estimativa de modelo |
-| Tsunami e maremoto | NOAA + Marinha + autoridades brasileiras; USGS para origem sísmica | **Nunca** inferir tsunami só por magnitude, imagem satelital ou altura de onda |
 
-O [Copernicus Marine](https://help.marine.copernicus.eu/en/articles/4220332-how-to-register-for-copernicus-marine-service) informa que os produtos podem ser usados inclusive comercialmente sem tarifa, com **créditos/citação e termos aplicáveis**; cada produto precisa de identificador/DOI e atribuição. [EUMETSAT](https://www.eumetsat.int/legal-framework/data-policy) tem **regimes de licenciamento por produto/latência**; não assumir que um canal recente para redistribuição comercial esteja automaticamente liberado. Algumas categorias como OSI SAF possuem licença CC-BY 4.0, que exige atribuição. Os serviços não estão conectados ao vivo só porque constam desta tabela.
+## REDEMET: ciclo horário solicitado e proteção da chave — 15/10/2026
 
-**Contrato técnico auditável:** `backend/src/rj-phenomenon-source-policy.mjs` (`RJ_PHENOMENA` com 30 categorias e `RJ_SUPPLEMENTAL_PRODUCTS`), `app/src/main/java/br/com/blaise/rj/RjMeteorologicalTables.kt` (tabelas visíveis) e testes respectivos. O mapa RJ permanece desenhado pela Blaise; imagens externas só são reproduzidas dentro dos termos do produto e com aprovação técnica.
+Consulta autenticada às 19:59:48 BRT: HTTP 200, SBGL e SBRJ com METAR válido das 19h BRT. CEMADEN nacional retornou atualizado 19:59:02 BRT, zero alertas abertos RJ; não significa ausência de risco. Chave não foi gravada nem exibida. Adaptador passa a enviar X-Api-Key, removendo segredo da URL.
 
-## Classes de origem
-- **Medição/aviso oficial:** só quando for do órgão competente, identificando produto, coordenada ou município coberto, valor e unidade, observação/emissão em data válida e URL de origem. NOAA é agência oficial para seus produtos, mas previsões numéricas não são medições locais.
-- **Contexto de modelo e comparação:** INPE/CPTEC (produtos oficiais de previsão meteorológica e satélite) e Windy (visualização/consulta de modelos); registrar tipo de produto, execução, validade, resolução espacial e autoria. Windy e as previsões do INPE não são automaticamente estações de observação. Registrar modelo, execução, horário previsto, região e licença. **Não usar como confirmação oficial**, nem criar aviso ou valor observado apenas com esse contexto.
-- **Cálculo Blaise:** derivação física e matemática sobre entradas identificadas, distinguida de medição. Não preencher lacunas sem dados ou estimar falsa precisão.
-- **Indisponível:** falha de rede, HTTP 204, medição antiga, sem licença, fora da cobertura, variável ausente, georreferenciamento desconhecido ou divergência inconclusiva.
+REDEMET exibe boletim de até 60 minutos com horário original e descrição de ciclo horário/SPECI eventual. Consulta do cache continua limitada a 5 minutos; boletim com observação acima de 5 minutos é CURRENT_DEGRADED, nunca apresentado como medição minuto a minuto. Após 60 minutos, remove valores mesmo havendo nova consulta. Não entra automaticamente na média observacional que exige 5 minutos. Credencial, configuração Cloud Run e autorização de publicação continuam pendentes; teste de acesso não equivale a autorização comercial.
 
-## Divisas territoriais e os 92 municípios fluminenses
 
-O Blaise V6 RJ inclui **todos os 92 municípios do RJ, inclusive os localizados nas divisas estaduais**. A localização é identificada por código IBGE do município do RJ, latitude/longitude da observação e cobertura da fonte. Uma estação de outro estado pode ser consultada para contexto regional de frentes, ventos ou massas de ar, **mas nunca apresentada como medição de uma cidade fluminense**.
+## Configuração segura da candidata — 16/10/2026
 
-A seleção das fontes varia conforme o evento e o município. Alerta Rio só cobre a cidade do Rio; Defesa Civil local/estadual e INMET seguem as respectivas áreas e estações; INPE/CPTEC e Windy oferecem contexto de previsão para análise, não números automaticamente observados em cada município. **92 localidades selecionáveis não equivalem a 92 estações ativas**. Temperatura, sensação térmica, rajada, vento, chuva acumulada e temporal somente exibem dados reais quando há produto e intervalo adequados.
+backend/scripts/configure-redemet-candidate.sh solicita chave em terminal oculto, grava por stdin no Secret Manager, fixa a versão exata e concede acesso somente à conta do serviço no segredo. Implanta candidata com --no-traffic e tag validacao-rj, ativando coleta REDEMET autorizada pelo operador sem habilitar publicação pública. Nenhuma chave é gravada no repositório ou impressa. Execução requer a sessão Cloud Shell do operador; ainda não executado pela assistência.
 
-No conflito entre medições oficiais, o Blaise compara horário, unidade, tipo de sensor, distância e consistência antes de qualquer média. **INPE e Windy são consultados EM SEQUÊNCIA no desempate de proximidade: INPE primeiro, Windy somente se o INPE não permitir destaque fundamentado**. Um modelo pode apoiar a apresentação de uma medição oficial, com ambas as entradas identificadas separadamente e demais leituras preservadas; não certifica a correção do sensor. A média ponderada entre observações exige que as medições sejam compatíveis; uma média entre modelos, quando justificada, deve ser rotulada como **estimativa de previsão**, nunca medição oficial.
 
-## Hierarquia exata — 3 fontes oficiais, INPE primeiro, Windy somente se necessário
+## Estado comprovado e pendências — 16/10/2026
 
-**Temperatura, sensação térmica, vento/rajadas e chuva/temporal no RJ:** o Blaise tenta, nesta ordem, **1. Alerta Rio (somente cidade do Rio) → 2. Defesa Civil competente → 3. INMET**. Nos outros 91 municípios, Alerta Rio não é usado artificialmente e a consulta começa na Defesa Civil, seguindo para INMET conforme cobertura. Sensação térmica é **cálculo físico derivado** de temperatura, umidade e vento válidos, não uma medição fictícia. Gravidade de tempestade e risco não são grandezas numéricas intercambiáveis para média ponderada.
+A candidata 00050 publicou separadamente os avisos INMET, alertas CEMADEN nacional e boletins REDEMET, conforme liberação do operador. Consulta direta em 16/10/2026 às 11:03:28 BRT confirmou REDEMET CURRENT (SBGL/SBRJ, observações 11h), CEMADEN nacional CURRENT (painel 11:02:01 BRT), INMET CURRENT_DEGRADED (avisos, inventário parcial). Isso é evidência daquele horário, não disponibilidade permanente. CEMADEN-RJ hidrológico permanece sem registros atuais validados; 92 códigos municipais não significam 92 sensores.
 
-- Se houver **duas medições oficiais independentes e compatíveis** entre as três primeiras, usar a média ponderada tecnicamente justificada, sem consultar os modelos para desempate.
-- Se as três primeiras não apresentarem dupla compatível, tentar **4. INPE/CPTEC** como **primeiro desempate de previsão**. Se sua previsão válida estiver significativamente mais próxima de **uma** medição entre as fontes oficiais, apresentar um **par de entradas**: medição oficial destacada + previsão do INPE (com fonte, horário, variável e rótulos diferentes). Manter também as demais medições oficiais divergentes na trilha de evidência. Isso não prova que um sensor esteja certo ou errado.
-- Somente **se o INPE não fornecer comparação conclusiva**, tentar **5. Windy**. Caso seu modelo atenda aos mesmos requisitos de localidade, horário, licença e habilidade histórica e aponte claramente para uma medição oficial, apresentar o par **medição oficial + previsão Windy**, mantendo os demais dados oficiais acessíveis.
-- Quando nenhum dos dois modelos oferecer desempate seguro, **apresentar uma medição oficial identificada e uma previsão válida identificada como contexto, sem valor final ponderado**, além de preservar as demais leituras oficiais. Se nenhum modelo estiver disponível, expor as leituras oficiais existentes; **não inventar duas fontes**.
-- **Não fazer média ponderada entre medição real e previsão.** Uma média *separada* entre dois modelos independentes, historicamente calibrados e temporalmente equivalentes pode existir como previsão experimental, nunca como medição municipal nem confirmação de alerta.
-- Chuva horária exige a mesma janela de acumulação de 60 minutos. Temporais exigem avisos oficiais com vigência e categoria — não se calcula média de níveis de alerta.
+Android CI 969 e 970 aprovados. APK debug usa candidata validacao-rj; release mantém produção. CI 970 disponibiliza artefato separado blaise-v6-rj-validacao-apk, aproximadamente 400 MB; não confundir com pacote completo de evidências de 1,18 GB. Instalação e teste no aparelho ainda não comprovados.
 
-Para a comparação de proximidade de previsão, usar apenas leituras oficiais da mesma variável/unidade, estações dentro de **25 km** e horários que diferem em até **15 minutos**. A grade do modelo precisa representar a mesma região (distância até 25 km de cada estação, resolução conhecida), e o horário de validade da previsão deve estar a até **1 hora** das medições. O modelo precisa ter metadados de habilidade verificada. São filtros iniciais conservadores, não certificação de precisão local.
+Tabelas 1/2: catálogo e seletor existem; seletor ainda não ligado ao fluxo de múltiplas observações reais. Não publicar média até existir par independente compatível, mesma variável/unidade/janela/localidade, pesos justificados e timestamps originais. Sem Tabela 1, aplicar Tabela 2 somente com dados comparáveis válidos; uma fonte isolada é leitura identificada, não média. Não converter previsão em observação, aviso em sensor, dado ausente em zero ou republicação em fonte independente.
 
-Implementado no contrato de backend `backend/src/rj-hierarchical-weather-resolution.mjs`: `resolveRjCompatibleSources`, `consultRjSourcesUntilTwo`, com `sourcePairForDisplay`, `officialReadings` e `inpeConsultation` para a interface futura. Não existem adaptadores meteorológicos ao vivo implantados só por essa alteração. Não autoriza sirenes, alertas ou publicação.
+Produtos NOAA/Copernicus/EUMETSAT/CPTEC, Windy, OpenWeatherMap e AccuWeather não foram comprovados como coletores completos nesta auditoria. Fontes marítimas permanecem pendentes de adaptadores/produtos e validação de cobertura e horários. Não declarar todas as fontes ativas nem todas as cidades cobertas. Chaves permanecem no servidor.
 
-## Regra de decisão — duas primeiras fontes compatíveis na ordem hierárquica
 
-**Objetivo operacional do Blaise V6 RJ:** evitar encerrar a análise só porque as primeiras duas fontes discordam. O **Sentinel RJ** consulta fontes na prioridade definida por fenômeno e cidade (no município do Rio, por exemplo: Alerta Rio → Defesa Civil → INMET → INPE/CPTEC → Windy para temperatura; chuva pode requerer também CEMADEN). O **Fusion RJ** usa a **primeira dupla de provedores independentes com observações oficiais atuais e compatíveis**; o Vector RJ calcula a estimativa derivada com a fórmula e proveniência. Não é necessário esperar que as cinco fontes respondam após validar a dupla.
+## Correções Android — 16/10/2026, revisão de voz e fontes
 
-A compatibilidade exige: mesma variável/unidade/intervalo; município do RJ comprovado; fontes independentes; data/hora válida e sincronizada; estações próximas o bastante para comparação; valores físicos plausíveis; pesos de qualidade documentados. A discordância entre fontes 1 e 2 não encerra a busca: o aplicativo tenta fontes 3, 4 e 5 conforme o tipo de dado, evitando comparar uma previsão com uma medição de estação. Comparações de modelos do INPE e Windy só são usadas como **previsões**, nunca como segundo sensor para validar observação.
+Painel dos agentes removido da navegação do cliente (não cria autenticação administrativa). Evidência de conexão passa a incluir CEMADEN nacional e REDEMET com município e horários validados; contador de fontes dinâmico. Dora usa PCM 16 bits e volume de mídia para compatibilidade; a reprodução no aparelho ainda precisa ser comprovada. Nenhuma fonte marítima ou média passa a ser considerada ativa por essa alteração.
 
-**Soluções prioritárias conforme as evidências recuperadas:**
-- **Duas medições oficiais compatíveis:** mostrar valor derivado pelo Blaise, fontes/estações e hora; não chamar a estimativa de média de todo o município ou aviso.
-- **Medições em conflito, sem dupla compatível:** exibir ao menos a medição individual validada com sua fonte/estação e horário, e sinalizar a discordância; não inventar uma média que esconda diferença importante.
-- **Sem medições oficiais, mas duas previsões independentes compatíveis e com pesos de habilidade histórica demonstrados:** apresentar **previsão ponderada**, separada de medição oficial.
-- **Uma previsão validada apenas:** apresentar como previsão individual, sem inventar concordância de uma segunda fonte.
-- **Nenhuma leitura verificável:** continuar retentativas conforme acesso/frescor da fonte e indicar o último dado oficial com o horário real, quando houver cache ainda permitido. **Não existe fórmula que crie medições reais inexistentes**; o sistema deve evitar concluir ou emitir alerta meteorológico sem evidência.
 
-Implementação: `backend/src/rj-hierarchical-weather-resolution.mjs`, `backend/src/rj-agent-orchestration.mjs` e testes `backend/test/rj-hierarchical-weather-resolution.test.mjs`. A função `consultRjSourcesUntilTwo` **recebe adapters explicitamente configurados**; por si só, não é uma integração de rede ou uma coleta continuamente implantada. O código rejeita uma fonte tentando se passar por duas independentes.
+## Configuração operacional restrita — 16/10/2026
 
-## Divergências entre as cinco fontes meteorológicas
+Diretriz do operador: configurações de operação, agentes, critérios internos de desempate e homologação são exclusivos da administração. Removidas da navegação do cliente; preservados controles pessoais, resultados, origem e horário. Não foi criado login administrativo nem atalho secreto: enquanto não existir autenticação administrativa validada, esses controles não são expostos pelo aplicativo. Essa mudança de navegação não altera autorização do servidor nem habilita fontes.
 
-1. Uma leitura recente do **INMET**, Alerta Rio ou Defesa Civil (conforme estação e competência) permanece observação/aviso oficial; uma previsão do **INPE/CPTEC** ou modelo visualizado no **Windy** permanece previsão, mesmo que coincida numericamente com uma estação.
-2. Se duas medições oficiais discordarem, verificar município, coordenadas, distância entre estações, mesmo intervalo/unidade, carimbo de tempo, calibração e qualidade. Após tentar a terceira fonte oficial **INMET**, consultar **INPE/CPTEC primeiro**; só quando o INPE não permitir comparar adequadamente as leituras, recorrer ao **Windy**. São referências de previsão, não sensores, e nenhum modelo prevalece sobre aviso oficial.
-3. **Média ponderada de observações**: somente após validar variáveis, horários, distâncias, pesos tecnicamente justificados e uma divergência abaixo do limiar de investigação. Diferença relevante => destacar divergência e não calcular média destinada a ocultá-la.
-4. **Média ponderada de previsões**: grupo separado, nunca misturar previsões com observações. Exigir mesmo fenômeno, município/célula, prazo, unidade, modelos/produtos independentes e pesos derivados de verificação histórica documentada. Sem calibração, indisponível.
-5. O diagnóstico está em `backend/src/rj-weather-source-reconciliation.mjs` e `backend/test/rj-weather-source-reconciliation.test.mjs`. **É algoritmo local e roteamento, ainda não comprova acesso vivo ou licença de API do INPE.** Todos os resultados derivados permanecem não oficiais e não autorizam alertas automáticos.
-6. **CPTEC/INPE**: a documentação técnica contém o serviço de dados por localidade em [XML](https://servicos.cptec.inpe.br/XML/), mas a [página oficial do CPTEC](https://www.cptec.inpe.br/) avisa que determinados produtos não podem ser usados para fins comerciais ou reprodução sem autorização expressa. Solicitar ou confirmar licença/autorizações aplicáveis antes de integrar dados à assinatura do Blaise, mesmo que o mapa e seus gráficos sejam desenhados pelo próprio aplicativo. Identificar sempre a origem **CPTEC/INPE** e a data/modelo de emissão. Não presumir que XML público seja automaticamente licenciado para a exploração comercial.
 
-## Fontes por região e fenômeno
+## Validade das médias e verificação externa — 16/10/2026, após 13h BRT
 
-| Região / fenômeno | Prioridade de origem | Complementares / critérios |
-|---|---|---|
-| Rio de Janeiro (município): chuva, radar, acumulados, alertas | Alerta Rio e avisos locais da Defesa Civil; CEMADEN conforme cobertura | INMET para amostra pontual de estação; não chamar estação de radar nem interpolar municípios |
-| Demais 91 municípios: chuva/temporal/risco | Defesa Civil competente e CEMADEN; INMET para observações nas estações disponíveis | Comparar Windy apenas como contexto, nunca afirmar que Alerta Rio cobre todo o estado |
-| Todos os 92 municípios: temperatura, sensação térmica, umidade, vento/rajadas | INMET e redes oficiais municipais/Defesa Civil **onde houver observações**, com local, horário e qualidade | Sensação térmica calculada quando temperatura, umidade/vento e fórmula se aplicarem; INPE/CPTEC e Windy oferecem previsão complementar; Windy é critério comparativo subsidiário, não desempate autoritativo |
-| Nível de rios, cota e vazão | ANA (HidroWeb / serviços hidrológicos) | CEMADEN e SGB/SACE para contexto e situação de cheia; conferir identificação da estação e atualização |
-| Risco hidrológico/inundação | CEMADEN, Defesa Civil e SGB/SACE segundo competência | Cruzar com ANA quando disponível; risco não é substituível por vazão isolada |
-| Mar, ressaca, ondas, vento marítimo, avisos à navegação | Marinha do Brasil/CHM | NOAA para produtos oficiais pertinentes; INMET costeiro e Windy apenas complemento com tipo de dado explicitado |
-| Ciclone extratropical/temporal no Atlântico Sul | Marinha do Brasil e produtos pertinentes NOAA; INMET para observações/avisos nacionais | Windy para comparação de modelos e trajetória estimada; ao ameaçar RJ, priorizar avisos Marinha, INMET, Alerta Rio e Defesa Civil conforme área |
-| Acumulado de chuva oceânica, nuvens, frentes e massas de ar quente/fria | NOAA e produtos oficiais pertinentes da Marinha/INMET; satélites/modelos conforme licenciamento | Windy como referência de previsão e visualização, **não como medidor no oceano** |
-| Interação oceano–litoral RJ / impactos locais | Marinha do Brasil + INMET + Defesa Civil local/estadual + Alerta Rio (somente município do Rio) | Windy complementar; confirmar distância, direção, horário provável e alcance, sem regra artificial de limite de 1 km quando não houver dados |
+weightedOfficialMean passa a representar o horário da contribuição mais antiga, impedindo renovação aparente por outra leitura mais nova. Regressão prova expiração conjunta; 36 testes específicos passaram. Isso não comprova conexão dos adaptadores ao fluxo Android.
 
-## Calculadora científica Blaise V6 RJ — cálculos suplementares
+Consultas desta sessão: CPTEC /XML/cidade/241/todos/tempos/ondas.xml respondeu HTTP 403; catálogo INMET /estacoes/T respondeu HTTP 502; NOAA ERDDAP NOAA_DHW respondeu HTTP 200, mas a célula consultada trouxe timestamp 2026-10-14T12:00:00Z. Produto diário/satélite não equivale a sensor marítimo instantâneo. Não publicar esse registro como atual nem concluir indisponibilidade global com base em um endpoint. Ondas, swell, correntes e marés continuam sem coleta operacional completa comprovada.
 
-A implementação inicial está em `backend/src/rj-scientific-calculator.mjs` e seu primeiro teste em `backend/test/rj-scientific-calculator.test.mjs`. **Não é validação de previsão meteorológica, nem substitui alertas oficiais.**
 
-- **Média ponderada:** \(\bar{x}=\sum_i w_i x_i / \sum_i w_i\). Só comparar **observações oficiais da mesma variável, unidade e município**, registradas em até 15 minutos de diferença, atuais e de estações a no máximo 25 km de distância entre si; exige no mínimo 2 pontos distintos e pesos de qualidade documentados. Valores Windy/modelo, níveis de alerta e fenômenos diferentes não entram na média.
-- **Ponto de orvalho:** aproximação termodinâmica de Magnus, quando temperatura e umidade relativa estiverem medidas e dentro do domínio válido, com carimbo de horário recente.
-- **Sensação térmica:** fórmula Rothfusz/NOAA para calor e vento-frio para temperaturas baixas e ventos adequados; fora da faixa da fórmula, mostrar **indisponível**, não a temperatura ambiente como se fosse sensação calculada.
-- **Acumulado de chuva:** não somar amostras sem intervalo, horário, duração e unidades comparáveis. Para 5/10/15/30 min, 1h e 24h, usar apenas observações oficiais com janela demonstrável; sem janela completa, não inferir acumulado.
-- **Outros diagnósticos atmosféricos** (advecção, tendência de pressão, vorticidade, estabilidade convectiva, cisalhamento, movimento radar) seguem **pendentes de dados verticais/espaciais autorizados e testes de unidade físicos**. A presença da fórmula em uma especificação não prova execução.
-- Identificar toda saída como **“Cálculo experimental Blaise — não é medição oficial”**, informar fontes, local, horário, fórmula e limites. Nenhum cálculo isolado aciona P0/voz/sirene.
+## Integração do assistente com produtos recebidos — 16/10/2026
 
-## Política de divergências, cobertura e cadastro
-1. Restringir primeiro **localidade + fenômeno + variável + tempo**. Não combinar medições de escalas temporais distintas ou pontos distantes.
-2. Comparar observações oficiais contemporâneas, métodos, precisão, estação, qualificação e unidade; quando não houver acordo, exibir a divergência e bloquear conclusão automática. **Windy pode ajudar a investigar, mas não prevalece sobre medição ou aviso oficial.**
-3. A cobertura dos **92 municípios** significa que todos podem ser selecionados; **não** significa que cada município tenha estação INMET, radar, alerta local ou medição atual. Mostrar explicitamente cobertura, origem e horário para cada valor.
-4. Em situação severa, a cadência desejada é coleta e recálculo de até 30 segundos **quando a fonte oferecer dados novos e a licença/limite permitir**. Repetir requisições não torna a fonte mais atual.
-5. Aviso nível 5 só aciona som e voz conforme regra específica de confirmação e elegibilidade do projeto. Dados de terceiros ou cálculos experimentais não são substitutos de avisos oficiais.
-6. Radar real requer fonte licenciada, prova de data do frame, projeção e georreferenciamento; caso contrário a camada permanece **indisponível**.
-7. Capturar falhas de autorização, domínios e mudanças de API, com auditoria; nunca alterar origem automaticamente para página não autorizada.
-8. Conectores INPE/CPTEC, ANA, SGB/SACE, NOAA e Windy devem ser implementados e comprovados separadamente. A presença nesta matriz não equivale a ingestão funcional.
+Respostas de deslizamento/risco/avisos passam a consultar nationalAlerts do mesmo snapshot público da interface, por IBGE e validade de painel. Preservam nível, texto e abertura original sem inferir fuso nem nível hidrológico. Respostas atuais de temperatura/vento/pressão podem acrescentar boletins REDEMET do município como referência de aeródromo, nunca leitura do Centro, média municipal ou previsão. Não cria série histórica nem ponto de gráfico inexistente. Testes cobrem isolamento municipal, expiração, localidade e rejeição como previsão.
 
-**Situação atual de validação:** o INMET já possui modelo de leitura pontual e testes; última consulta externa reportou HTTP 204 em quatro estações do Rio, portanto **dados horários recentes não comprovados**. As camadas oceânicas, radar espacial, assinatura Google Play e voz física permanecem sujeitas à validação e/ou à autorização aplicável.
+
+## Tabela 1 com quatro fontes — definição do operador, 16/10/2026
+
+Ordem: Alerta Rio, Defesa Civil RJ, OpenWeatherMap, REDEMET/DECEA (quarta fonte, retirada da fila secundária do seletor). Não contar republicações como independentes. Cadastro Android e cascata backend atualizados. REDEMET somente variáveis efetivamente fornecidas: temperatura, vento e rajada numérica para comparação; QNH/visibilidade permanecem produtos pontuais com referência própria, não pressão de estação intercambiável. Cobertura validada SBGL/SBRJ, município Rio de Janeiro; não representa Centro nem os outros 91 municípios. Boletim horário continua visível até a validade específica, porém não entra em média que exige observação de até 5 minutos. Pesos e par independente permanecem exigidos. Novo teste confirma seleção da quarta fonte e rejeição de aeródromo desconhecido; 662 testes backend aprovados. Integração integral das médias no fluxo e dos produtos marítimos ainda pendente; Android desta revisão precisa de CI.
+
+
+## OpenWeatherMap validado em acesso real e coletor implementado — 16/10/2026
+
+Chave recuperada do e-mail oficial de cadastro, sem impressão ou gravação no repositório. Consulta autenticada ao Current Weather respondeu HTTP 200 para coordenada -22.9068,-43.1729, Rio de Janeiro, cálculo 2026-10-16T16:43:51Z. É prova daquele acesso, não cobertura permanente nem prova de estação independente. Implementado coletor do ponto Rio, cache de 5 min com horário de cálculo preservado, worker opt-in, publicação individual e parser/exibição Android + assistente. units=metric; vento m/s convertido em km/h; rain.1h preservado como taxa mm/h, nunca preenchido como acumulado mm. Valores ausentes permanecem null. Produto BLENDED_CURRENT_WEATHER não entra automaticamente em média observacional.
+
+Implantação ainda requer secret BLAISE_OPENWEATHER_API_KEY e flags BLAISE_OPENWEATHER_ENABLED, BLAISE_OPENWEATHER_USAGE_APPROVED e BLAISE_PUBLIC_OPENWEATHER_APPROVED. Chave não incorporada ao APK. Coletor limita-se ao ponto validado do Rio; nenhum dos outros 91 municípios é declarado coberto. Testes backend anteriores à adição do teste de gate: 666 aprovados. Nova validação completa executada em seguida. Fontes marítimas e médias no fluxo completo continuam pendentes.

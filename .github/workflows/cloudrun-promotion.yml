@@ -52,6 +52,8 @@ jobs:
       BLAISE_CLOUDRUN_CANDIDATE_REVISION: ${{ inputs.candidate_revision }}
       BLAISE_CLOUDRUN_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
       BLAISE_CLOUDRUN_TARGET_PERCENT: ${{ inputs.target_percent }}
+      BLAISE_RJ_PUBLIC_STATUS_ENABLED: ${{ vars.BLAISE_RJ_PUBLIC_STATUS_ENABLED || 'false' }}
+      BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED: ${{ vars.BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED || 'false' }}
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -188,6 +190,15 @@ jobs:
             | tee evidence/cloudrun-promotion/candidate-readyz-before.json
           grep -F '"status":"ok"' evidence/cloudrun-promotion/candidate-healthz-before.json
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-before.json
+          public_http="$(curl --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $token" \
+            --output evidence/cloudrun-promotion/public-status-before.json --write-out '%{http_code}' \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/v1/public/rj-status")"
+          python3 scripts/validate-public-status.py \
+            --file evidence/cloudrun-promotion/public-status-before.json --http-status "$public_http" \
+            --enabled "$BLAISE_RJ_PUBLIC_STATUS_ENABLED" \
+            --approved "$BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED"
+
 
       - name: Advance one canary stage with automatic rollback
         if: ${{ inputs.execute_promotion }}
@@ -293,6 +304,15 @@ jobs:
           grep -F '"status":"ready"' evidence/cloudrun-promotion/candidate-readyz-after.json
           grep -F '"status":"ok"' evidence/cloudrun-promotion/service-healthz-after.json
           grep -F '"status":"ready"' evidence/cloudrun-promotion/service-readyz-after.json
+          public_http="$(curl --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $token" \
+            --output evidence/cloudrun-promotion/public-status-after.json --write-out '%{http_code}' \
+            "$BLAISE_CLOUDRUN_CANDIDATE_URL/v1/public/rj-status")"
+          python3 scripts/validate-public-status.py \
+            --file evidence/cloudrun-promotion/public-status-after.json --http-status "$public_http" \
+            --enabled "$BLAISE_RJ_PUBLIC_STATUS_ENABLED" \
+            --approved "$BLAISE_RJ_PUBLIC_SOURCE_TERMS_APPROVED"
+
 
           trap - ERR
           printf '%s\n' \

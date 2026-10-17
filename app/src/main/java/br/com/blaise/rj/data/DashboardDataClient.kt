@@ -44,6 +44,7 @@ data class DashboardRainfallSummary(
     val max15mMm: Double?,
     val max1hMm: Double?,
     val max24hMm: Double?,
+    val currentStationCount: Int? = null,
 )
 
 data class DashboardOfficialSourceState(
@@ -130,20 +131,23 @@ object DashboardDataParser {
         val currentSourceCount = boundedInt(payload["currentSourceCount"], 1, sourceCount)
 
         val rainfallMap = stringMap(payload["rainfall"])
-        require(rainfallMap.keys == rainfallKeys)
+        require(rainfallMap.keys == rainfallKeys || rainfallMap.keys == rainfallKeys + "currentStationCount")
         require(rainfallMap["sourceId"] == DASHBOARD_DATA_RAINFALL_SOURCE_ID)
         require(rainfallMap["coverage"] == DASHBOARD_DATA_RAINFALL_COVERAGE)
         val rainfallState = string(rainfallMap["state"], 3, 32)
         require(rainfallState == "CURRENT" || rainfallState == "CURRENT_DEGRADED")
         string(rainfallMap["reason"], 1, 96)
         val stationCount = boundedInt(rainfallMap["stationCount"], DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT, DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT)
-        val wetStationCount = boundedInt(rainfallMap["wetStationCount"], 0, stationCount)
+        val currentStationCount = if (rainfallMap.containsKey("currentStationCount"))
+            boundedInt(rainfallMap["currentStationCount"], 1, stationCount) else null
+        val wetStationCount = boundedInt(rainfallMap["wetStationCount"], 0, currentStationCount ?: stationCount)
         val missingValueCount = nullableBoundedInt(rainfallMap["missingValueCount"], 0, stationCount * 14)
         val rainfall = DashboardRainfallSummary(
             state = rainfallState,
             observedAt = instant(rainfallMap["observedAt"]),
             fetchedAt = nullableInstant(rainfallMap["fetchedAt"]),
             stationCount = stationCount,
+            currentStationCount = currentStationCount,
             wetStationCount = wetStationCount,
             missingValueCount = missingValueCount,
             max15mMm = nullableRainMm(rainfallMap["max15mMm"]),

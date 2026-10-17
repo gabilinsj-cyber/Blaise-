@@ -1,7 +1,7 @@
 name: Android CI
 on:
   push:
-    branches: [main]
+    branches: [main, codex/rj-marine-primary-sources]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -197,6 +197,12 @@ jobs:
           echo "BUNDLETOOL_JAR=$RUNNER_TEMP/bundletool.jar" >> "$GITHUB_ENV"
       - name: Verify, test, build and SBOM
         run: ./scripts/ci.sh
+      - name: Upload only the validation APK for mobile installation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-v6-rj-validacao-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

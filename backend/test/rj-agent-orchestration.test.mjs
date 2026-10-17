@@ -25,7 +25,7 @@ test('litoral/Atlantic cyclone, marine and earthquake cases select the relevant 
   const cyclone=planRjPhenomenonCase({region:'ATLANTICO',phenomenon:'CICLONE_EXTRATROPICAL',level:5});
   assert.ok(cyclone.agents.some(a=>a.number===4));
   assert.ok(cyclone.agents.some(a=>a.number===6));
-  assert.ok(cyclone.eligibleSources.some(a=>a.id==='MARINHA_CHM'));
+  assert.equal(cyclone.eligibleSources.some(a=>a.id==='MARINHA_CHM'),false);
   assert.equal(cyclone.cadence.observationUpdateMs,30000);
   assert.equal(cyclone.audibleAlert,false);
   const seismic=planRjPhenomenonCase({region:'ATLANTICO',phenomenon:'SISMO',level:4});
@@ -67,6 +67,7 @@ test('Sentinel-Fusion-Vector consultation uses first compatible hierarchy pair a
   const record=(sourceId,stationId,value)=>({
     origin:'OFFICIAL_OBSERVATION',sourceId,stationId,ibge:'3304557',
     variable:'TEMPERATURA_C',unit:'°C',value,weight:1,
+    weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-qc',independenceVerified:true,underlyingProviderId:sourceId,upstreamMeasurementId:sourceId+'-'+stationId,
     observedAt:'2026-10-10T17:59:00Z',
     latitude:-22.9,longitude:-43.2,
     sourceUrl:'https://apitempo.inmet.gov.br/estacao/synthetic-test-fixture',

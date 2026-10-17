@@ -63,6 +63,17 @@ export function weightedOfficialMean({
   if (new Set(observations.map(o => `${o.sourceId}:${o.stationId}`)).size !== observations.length) {
     return insufficient('DUPLICATE_STATION');
   }
+  if (!observations.every(o => o.weightBasis === 'VERIFIED_STATION_QC_AND_LOCAL_SKILL'
+      && typeof o.qualityEvidenceId === 'string' && o.qualityEvidenceId.length >= 4)) {
+    return insufficient('UNVERIFIED_STATION_QUALITY_WEIGHTS');
+  }
+  if (!observations.every(o => o.independenceVerified === true
+      && typeof o.underlyingProviderId === 'string' && o.underlyingProviderId.length >= 3
+      && typeof o.upstreamMeasurementId === 'string' && o.upstreamMeasurementId.length >= 3)
+      || new Set(observations.map(o => o.underlyingProviderId)).size !== observations.length
+      || new Set(observations.map(o => o.upstreamMeasurementId)).size !== observations.length) {
+    return insufficient('SOURCE_INDEPENDENCE_NOT_PROVEN');
+  }
   const times = observations.map(o => Date.parse(o.observedAt));
   if (Math.max(...times) - Math.min(...times) > Math.min(maxSkewMs,300_000)) {
     return insufficient('OBSERVATION_TIMES_NOT_COMPARABLE');
@@ -79,8 +90,12 @@ export function weightedOfficialMean({
     variable: first.variable,
     ibge: first.ibge,
     sourceCount: observations.length,
+    qualityEvidenceIds:Object.freeze(observations.map(o=>o.qualityEvidenceId)),
+    underlyingProviderIds:Object.freeze(observations.map(o=>o.underlyingProviderId)),
+    upstreamMeasurementIds:Object.freeze(observations.map(o=>o.upstreamMeasurementId)),
     sourceIds: Object.freeze([...new Set(observations.map(o => o.sourceId))]),
-    observedAt: new Date(Math.max(...times)).toISOString(),
+    // A combined value expires with its oldest contributing observation.
+    observedAt: new Date(Math.min(...times)).toISOString(),
     caution: 'ESTIMATIVA_LOCAL_NAO_MEDICAO_MUNICIPAL_NEM_ALERTA_OFICIAL',
   });
 }

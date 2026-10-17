@@ -39,7 +39,7 @@ object FinalDashboardSpec {
     // Five situational weather channels; Windy and INPE/CPTEC provide
     // forecast context, not interchangeable measured station reports.
     val fiveSituationalWeatherSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+        "INPE/CPTEC", "INMET", "Windy", "CEMADEN", "NOAA"
     )
 
     // Supplementary provider catalog: visible configuration, NOT live status.

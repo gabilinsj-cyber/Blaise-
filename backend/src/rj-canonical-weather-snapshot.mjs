@@ -9,7 +9,9 @@ export function canonicalRjWeatherSnapshot(decision,{ibge,variable,now=Date.now(
     throw TypeError('canonical_city_or_variable_mismatch');
   const ids=decision?.selectedSources??[];
   const secondary=ids.filter(id=>RJ_TABLE2_FIVE.includes(id));
-  if(secondary.length>1||secondary.length===1&&!ids.some(id=>RJ_TABLE1_THREE.includes(id)))
+  const hasPrimary=ids.some(id=>RJ_TABLE1_THREE.includes(id));
+  const secondaryOnlyPair=ids.length===2&&secondary.length===2&&new Set(ids).size===2;
+  if(hasPrimary?secondary.length>1:secondary.length>0&&!secondaryOnlyPair)
     throw TypeError('canonical_requires_table1_and_at_most_one_table2');
   const weighted=decision?.weighted===true&&decision.state==='TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS';
   const observations=readings.filter(r=>r.type==='OBSERVED_STATION');
@@ -28,7 +30,9 @@ export function canonicalRjWeatherSnapshot(decision,{ibge,variable,now=Date.now(
     ...identity,sourceIds:Object.freeze(identity.sourceIds),provenance:Object.freeze(provenance),
     asOf:new Date(now).toISOString(),
     nature:value!==null?'WEIGHTED_OBSERVATIONS':'READINGS_OR_MODEL_CONTEXT_NOT_WEIGHTED',
-    selectedTable2Source:secondary[0]??null,
+    selectedTable2Source:secondary.length===1?secondary[0]:null,
+    selectedTable2Sources:Object.freeze([...secondary]),
+    resolutionMode:hasPrimary?(secondary.length?'TABLE1_PLUS_ONE_TABLE2':'TABLE1'):'TABLE2_ONLY',
     formula:value!==null?decision.formula:null,
     connectorFailures:Object.freeze([...(decision.connectorFailures??[])]),
     sourceTimestampsNeverRenewed:true,

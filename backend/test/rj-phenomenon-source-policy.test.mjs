@@ -24,7 +24,7 @@ test('OpenWeatherMap is third complementary consultation for first ten categorie
 test('Copernicus Marine and EUMETSAT are category-specialized, not default tsunami alarms or radar frames',()=>{
   for(const category of ['ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','RESSACA']){
     const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});
-    assert.ok(route.sources.some(s=>s.id==='MARINHA_CHM'));
+    assert.equal(route.sources.some(s=>s.id==='MARINHA_CHM'),false);
     assert.ok(route.sources.some(s=>s.id==='COPERNICUS_MARINE'));
     assert.equal(route.liveData,'NOT_CONFIRMED');
   }
@@ -117,3 +117,39 @@ test('unknown municipality or phenomenon is blocked rather than treated as Rio',
   assert.throws(() => rjSourceRouting({ ibge: '3304557', phenomenon: 'FURACAO' }));
   assert.equal(RJ_PHENOMENA.includes('CICLONE_EXTRATROPICAL'), true);
 });
+
+test('marine data prioritizes NOAA Copernicus and EUMETSAT with excluded legacy marine sources',()=>{
+ for(const phenomenon of ['ONDAS','SWELL','RESSACA','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA','TSUNAMI']){
+  const route=rjSourceRouting({region:'ATLANTICO',phenomenon});
+  assert.equal(route.sources[0].id,'NOAA');
+  assert.equal(route.sources.some(s=>s.id==='MARINHA_CHM'),false);
+  assert.equal(route.marinePriority.navyRequiredForPrimaryProducts,false);
+  assert.equal(route.marinePriority.tsunamiFromWavesOrSatellite,false);
+  assert.equal(route.liveData,'NOT_CONFIRMED');
+ }
+ const wind=rjSourceRouting({ibge:'3304557',phenomenon:'VENTO'});
+ assert.equal(wind.marinePriority,null);
+ assert.equal(wind.sources[0].id,'ALERTA_RIO');
+});
+
+test('Stormsurf is an external reference and NOAA republication cannot become an independent observation',()=>{
+ const reference=RJ_SUPPLEMENTAL_PRODUCTS.stormsurf;
+ assert.equal(reference.ingestion,'EXTERNAL_LINK_ONLY');
+ assert.deepEqual(reference.upstreamSourceIds,['NOAA']);
+ assert.equal(reference.neverCountsAsIndependentRepublishedStation,true);
+ assert.equal(reference.automaticAlertAuthority,false);
+ assert.equal(reference.providesValidatedLocalTides,false);
+ assert.equal(rjSourceRouting({region:'ATLANTICO',phenomenon:'ONDAS'}).sources.some(s=>s.id===reference.sourceId),false);
+ assert.equal(Object.values(RJ_SUPPLEMENTAL_PRODUCTS).some(s=>s.sourceId==='ZOOM_EARTH'),false);
+});
+
+ test('CPTEC marine remains forecast only and excluded sources never route',()=>{
+ const p=RJ_SUPPLEMENTAL_PRODUCTS.cptecMarine;
+ assert.equal(p.ingestion,'NOT_CONNECTED');
+ assert.equal(p.providesValidatedLocalTides,false);
+ assert.equal(p.automaticAlertAuthority,false);
+ for(const phenomenon of RJ_PHENOMENA){
+  const r=rjSourceRouting({ibge:'3304557',phenomenon});
+  assert.equal(r.sources.some(x=>['MARINHA_CHM','PNBOIA_REMOBS'].includes(x.id)),false);
+ }
+ });

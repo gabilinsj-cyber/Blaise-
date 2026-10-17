@@ -53,12 +53,12 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['Integrações ANA e SGB/SACE por estação','Medições hidrológicas atuais com licença']),
   create(6, 'Blaise Ocean RJ',
     'Mar, ondas, ventos marítimos, ressaca, ciclone extratropical e Atlântico adjacente, sem extrapolação indevida.',
-    ['MARINHA_CHM','NOAA','INMET','INPE_CPTEC_FORECAST','WINDY_COMPARISON_ONLY'],
-    ['chm-source.mjs','blaise-marine-kernels.mjs'],
+    ['NOAA','INMET','INPE_CPTEC_FORECAST','WINDY_COMPARISON_ONLY'],
+    ['blaise-marine-kernels.mjs'],
     ['Frame/campo oceânico georreferenciado e vigente','Validação de produtos NOAA e condições de uso']),
   create(7, 'Blaise Seismo RJ',
     'Abalos recentes, Atlântico, avaliação de potencial impacto RJ e tsunami somente após avisos de autoridade competente.',
-    ['USGS','NOAA','MARINHA_CHM','DEFESA_CIVIL_RJ'],
+    ['USGS','NOAA','DEFESA_CIVIL_RJ'],
     ['MainActivity.kt_seismology_panel'],
     ['Integração sísmica oficial ao backend','Confirmação independente de risco de tsunami']),
   create(8, 'Blaise Audit RJ',
@@ -116,7 +116,7 @@ export function rjCadenceForLevel(level, { independentOfficialLevel5Alerts = 0, 
   });
 }
 
-const AUTHORITIES = new Set(['INMET','DEFESA_CIVIL_RJ','CEMADEN','ALERTA_RIO','MARINHA_CHM','NOAA','SGB_SACE','ANA']);
+const AUTHORITIES = new Set(['INMET','DEFESA_CIVIL_RJ','CEMADEN','ALERTA_RIO','NOAA','SGB_SACE','ANA']);
 const IBGE = new Set(RJ_MUNICIPALITIES.map(x => x.ibge));
 export function evaluateExtremeAudioGate({ alerts, diagnostic, now = Date.now() } = {}) {
   const unavailable = reason => Object.freeze({ state: 'NOT_AUTHORIZED', reason,

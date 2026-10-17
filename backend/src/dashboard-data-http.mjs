@@ -110,7 +110,11 @@ function summarizeAlertaRioRainfall(reading, nowMillis) {
   if (snapshot.sourceId !== ALERTA_RIO_LIVE_SOURCE_ID
       || !Array.isArray(snapshot.stations)
       || snapshot.stationCount !== ALERTA_RIO_EXPECTED_ACTIVE_STATIONS
-      || snapshot.stations.length !== ALERTA_RIO_EXPECTED_ACTIVE_STATIONS
+      || snapshot.stations.length < 1
+      || snapshot.stations.length > ALERTA_RIO_EXPECTED_ACTIVE_STATIONS
+      || (snapshot.stations.length !== ALERTA_RIO_EXPECTED_ACTIVE_STATIONS
+        && (reading.state !== 'CURRENT_DEGRADED'
+          || snapshot.currentStationCount !== snapshot.stations.length))
       || typeof snapshot.freshestObservedAt !== 'string'
       || !Number.isFinite(Date.parse(snapshot.freshestObservedAt))) {
     return null;
