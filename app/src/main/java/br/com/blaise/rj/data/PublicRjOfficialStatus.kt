@@ -83,15 +83,7 @@ data class PublicRjMarineWarning(
     fun retainHistory(now: Instant) = now.isBefore(localActiveUntil().plusSeconds(br.com.blaise.rj.core.AlertValidityPolicy.HISTORY_SECONDS))
 }
 
-data class PublicRjMarine(
-    val fetchedAt: Instant,
-    val sourceUrl: String,
-    val warnings: List<PublicRjMarineWarning>,
-) {
-    fun current(now: Instant): Boolean =
-        sourceUrl == "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo" &&
-        !fetchedAt.isAfter(now) && Duration.between(fetchedAt, now).seconds in 0..300
-}
+data class PublicRjMarine(val fetchedAt: Instant, val sourceUrl: String, val warnings: List<PublicRjMarineWarning>) { fun current(now: Instant): Boolean = false }
 
 /**
  * Verified worker state for one SPECIFIC official product, never a claim that
@@ -370,10 +362,8 @@ object PublicRjStatusParser {
             if (rows.length() > 2) emptyList() else (0 until rows.length()).mapNotNull { index -> runCatching {
                 val row = rows.getJSONObject(index)
                 val source = row.getString("sourceId")
-                require(source in setOf("inmet", "chm"))
-                require(row.getString("sourceUrl") in if (source == "inmet")
-                    setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/") else
-                    setOf("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo"))
+                require(source == "inmet")
+            require(row.getString("sourceUrl") in setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/"))
                 val keys = row.getJSONArray("recordKeys")
                 val cancellations = row.getJSONArray("cancelledIds")
                 require(keys.length() <= 64 && cancellations.length() <= 64)
