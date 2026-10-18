@@ -30,13 +30,15 @@ def collect():
                 minimum_longitude=-43.0, maximum_longitude=-43.0,
                 start_datetime=start, end_datetime=start + dt.timedelta(hours=6),
                 coordinates_selection_method='nearest', raise_if_updating=True)
+            if key == 'currents' and 'depth' in ds.dims:
+                ds = ds.sel(depth=[0], method='nearest')
             try:
                 if ds.sizes.get('latitude') != 1 or ds.sizes.get('longitude') != 1 or not 1 <= ds.sizes.get('time', 0) <= 8:
                     raise ValueError('copernicus_dimensions_invalid')
                 if key == 'currents' and 'depth' in ds.coords and ds.sizes.get('depth') != 1:
                     raise ValueError('copernicus_depth_invalid')
                 lat, lon = float(ds.latitude.values[0]), float(ds.longitude.values[0])
-                depth = float(ds.depth.values[0]) if 'depth' in ds.coords else None
+                depth = float(ds.depth.values[0]) if key == 'currents' and 'depth' in ds.coords else None
                 for variable in variables:
                     if ds[variable].attrs.get('units') != unit:
                         raise ValueError('copernicus_units_invalid')
