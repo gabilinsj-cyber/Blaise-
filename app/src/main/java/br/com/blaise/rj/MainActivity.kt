@@ -3125,6 +3125,9 @@ private fun CityPanel(
         border = BorderStroke(1.dp, Color(0xFF2777B0)),
     ) {
         Column(Modifier.fillMaxWidth().padding(9.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedButton(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
+                Text(chooseLabel, style = MaterialTheme.typography.labelSmall)
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(label, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f))
@@ -3188,9 +3191,6 @@ private fun CityPanel(
                     Text("⚠ Alertas da cidade • ver todos ›",
                         color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                 }
-            }
-            OutlinedButton(onClick = onChoose, modifier = Modifier.fillMaxWidth()) {
-                Text(chooseLabel, style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (details) "Ocultar detalhes" else "Ver detalhes")
