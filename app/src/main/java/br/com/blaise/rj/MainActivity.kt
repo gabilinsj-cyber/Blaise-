@@ -2198,7 +2198,7 @@ private fun RjMarineSourceMatrixPanel() {
                         color = Muted, style = MaterialTheme.typography.labelSmall)
                     val evidence=RjLiveTableEvidence.marine(item.linkedPhenomena.first(),null,LocalObservationClock.current)
                     Text("Dados/avisos regionais: ${evidence.description}",
-                        color = if(evidence.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                        color = WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.testTag("rj-marine-current-${item.code}"))
                     if(evidence.source!=null) Text("Fonte: ${evidence.source} • " +
@@ -2642,7 +2642,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                             style = MaterialTheme.typography.labelSmall)
                         val live = RjLiveTableEvidence.marine(item.linkedPhenomena.first(),null,LocalObservationClock.current)
                         Text("Aviso marítimo regional: ${live.description}",
-                            color = if(live.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                            color = WarningAmber,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.testTag("rj-marine-live-${item.code}"))
                         Text("Critério: " +
