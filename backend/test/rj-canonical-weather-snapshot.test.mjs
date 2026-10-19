@@ -45,3 +45,9 @@ test('invalid, future and expired measurements cannot produce a current mean',()
  assert.throws(()=>ledger.read('3304557','TEMPERATURA_C',NaN),/clock_invalid/);
  assert.throws(()=>ledger.auditHourly(NaN),/clock_invalid/);
 });
+test('canonical accepts two Table 2 sources without primary and preserves their timestamps',()=>{
+ const d={...decision,selectedSources:['INMET_STATION','CEMADEN_RJ'],measurementPair:decision.measurementPair.map((r,i)=>({...r,sourceId:i?'CEMADEN_RJ':'INMET_STATION'}))};
+ const s=canonicalRjWeatherSnapshot(d,input);
+ assert.equal(s.value,28.5);assert.equal(s.resolutionMode,'TABLE2_ONLY');
+ assert.deepEqual(s.selectedTable2Sources,['INMET_STATION','CEMADEN_RJ']);
+});

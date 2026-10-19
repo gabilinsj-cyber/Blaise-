@@ -30,9 +30,9 @@ const M=(sourceId,value,change={})=>({
   skillEvidenceId:sourceId+'-backtest',...change,
 });
 const input=(extra={})=>({ibge:'3304557',variable:'TEMPERATURA_C',now:NOW,...extra});
-test('Table 1 has three; dispute Table 2 has FIVE in priority order INPE INMET CEMADEN Windy NOAA',()=>{
+test('Table 1 has four; dispute Table 2 has FIVE in priority order INPE INMET CEMADEN Windy NOAA',()=>{
   assert.deepEqual(RJ_TABLE1_THREE,[
-    'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API']);
+    'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API','REDEMET_METAR']);
   assert.deepEqual(RJ_TABLE2_FIVE,[
     'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA']);
 });
@@ -255,4 +255,22 @@ test('measurement selection continues past INPE model and stops after first comp
  assert.deepEqual(calls,['ALERTA_RIO','DEFESA_CIVIL','INPE','INMET']);
  assert.deepEqual(r.selectedSources,['ALERTA_RIO','INMET_STATION']); assert.equal(r.estimatedValue,22.5);assert.equal(r.weighted,true);
  assert.ok(r.measurementPair.every(o=>o.ibge==='3304557'&&o.variable==='TEMPERATURA_C'));
+});
+
+
+test('fourth primary REDEMET confirms independent reading without Table 2',()=>{
+ const decision=resolveRjTable12FiveSourceDispute(input({observations:[O('ALERTA_RIO',27),O('REDEMET_METAR',28,{stationId:'SBGL'})]}));
+ assert.equal(decision.state,'TWO_INDEPENDENT_COMPARABLE_OBSERVATIONS');
+ assert.deepEqual(decision.selectedSources,['ALERTA_RIO','REDEMET_METAR']);
+ const rejected=resolveRjTable12FiveSourceDispute(input({observations:[O('REDEMET_METAR',28,{stationId:'UNKNOWN'})]}));
+ assert.equal(rejected.weighted,false);
+});
+test('Table 2 alone resolves rain when all primary measurements are missing or expired',()=>{
+ const observations=['INMET_STATION','CEMADEN_RJ'].map((id,i)=>O(id,10+i,{
+  variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60}));
+ observations.push(O('ALERTA_RIO',99,{variable:'CHUVA_MM_1H',unit:'mm',measurementWindowMinutes:60,observedAt:new Date(NOW-300001).toISOString()}));
+ const decision=resolveRjTable12FiveSourceDispute(input({variable:'CHUVA_MM_1H',observations}));
+ assert.equal(decision.weighted,true);assert.equal(decision.estimatedValue,10.5);
+ assert.deepEqual(decision.selectedSources,['INMET_STATION','CEMADEN_RJ']);
+ assert.equal(decision.decisionStep,'TWO_TABLE2_OBSERVATIONS_WITHOUT_PRIMARY');
 });

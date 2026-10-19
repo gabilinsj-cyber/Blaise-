@@ -34,12 +34,45 @@ fun liveInformationAnswer(status: PublicRjStatus?, news: NewsSnapshot?, seismic:
             }
         }
     }
-    if (q.contains("deslizamento")) pieces += "Risco de deslizamento sem produto validado nesta consulta; não é deduzido do risco hidrológico."
-    if (listOf("onda", "ressaca", "marinha").any(q::contains)) {
-        val marine = current?.marine?.takeIf { it.current(now) }
-        val warnings = marine?.warnings?.filter { it.current(now) }.orEmpty()
-        pieces += if (warnings.isEmpty()) "Sem aviso marítimo vigente confirmado nesta consulta; isso não confirma ausência de risco."
-            else warnings.joinToString(" ") { "Marinha/CHM: ${it.warningType}, áreas ${it.areas.joinToString()}; emitido ${time(it.issuedAt)}, válido até ${time(it.validUntil)}. Aviso regional, sem atribuição automática à praia escolhida." }
+    if (listOf("alerta", "aviso", "risco", "deslizamento").any(q::contains)) {
+        val national = current?.nationalAlerts?.takeIf { it.current(now) }
+        if (national != null) {
+            val localAlerts = national.alerts.filter { it.ibge == request.city.ibgeCode }
+            pieces += if (localAlerts.isEmpty())
+                "CEMADEN nacional: nenhum alerta aberto publicado para ${request.city.name} nesta consulta; não comprova ausência de risco. Painel ${time(national.sourceUpdatedAt)}."
+            else localAlerts.joinToString(" ") {
+                "CEMADEN nacional: ${it.event}, nível oficial ${it.officialLevel}, município ${it.municipality}. Painel consultado ${time(national.sourceUpdatedAt)}; abertura original ${it.openedAtRaw} (fuso não informado no registro)."
+            }
+        } else if (q.contains("deslizamento")) {
+            pieces += "Alertas de deslizamento indisponíveis nesta consulta; não são deduzidos do risco hidrológico."
+        }
+    }
+    val aviationQuestion = listOf("temperatura", "vento", "rajada", "pressao", "aeroporto", "aerodromo", "galeao", "santos dumont").any(q::contains)
+    val forecastQuestion = listOf("amanha", "previsao", "vai ", "fim de semana").any(q::contains)
+    if (aviationQuestion && !forecastQuestion && request.date == now.atZone(zone).toLocalDate()) {
+        val complement = current?.openWeatherComplement?.takeIf { request.city.ibgeCode == 3304557 && it.current(now) }
+        if(complement != null) pieces += "OpenWeatherMap, complemento do ponto Rio, não estação independente" +
+            (request.localScope?.let { "; não é medição específica de $it" } ?: "") +
+            ": ${complement.summary()}. Horário de cálculo ${time(complement.calculatedAt)}."
+
+        val feed = current?.aerodromeObservations?.takeIf { it.current(now) }
+        val points = feed?.observations.orEmpty().filter { it.ibge == request.city.ibgeCode && it.current(now) }
+        if (points.isNotEmpty()) {
+            pieces += "Referência complementar de aeródromos; não é média municipal" +
+                (request.localScope?.let { ", nem medição específica de $it" } ?: "") + "."
+            points.forEach { point ->
+                val values = listOfNotNull(
+                    point.airTemperatureC?.let { "temperatura $it °C" },
+                    point.windSpeedKmh?.let { "vento $it km/h" },
+                    point.gustKmh?.let { "rajada $it km/h" },
+                    point.qnhHpa?.let { "QNH $it hPa" },
+                ).joinToString(", ")
+                if (values.isNotEmpty()) pieces += "REDEMET / DECEA, ${point.stationName} (${point.stationId}): $values. Observação ${time(point.observedAt)}. Ciclo horário; SPECI pode antecipar atualização."
+            }
+        }
+    }
+    if (listOf("onda", "ressaca", "swell", "mare").any(q::contains)) {
+        pieces += "Sem produto marítimo atual validado nesta consulta; isso não confirma ausência de risco. Base: NOAA, Copernicus Marine e EUMETSAT por produto; CPTEC/INPE como previsão complementar em validação."
     }
     if (listOf("abalo", "sismo", "terremoto").any(q::contains)) {
         val events = seismic?.largestRecent(now).orEmpty()

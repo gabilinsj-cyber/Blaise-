@@ -7,6 +7,7 @@ RUN test "$(npm --version)" = "11.19.0" \
  && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
  && rm -f package-lock.sha256
 COPY src ./src
+RUN node --input-type=module -e "await import('./src/runtime.mjs')"
 RUN chown -R node:node /app
 
 USER node

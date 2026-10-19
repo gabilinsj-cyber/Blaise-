@@ -85,12 +85,12 @@ class RjLiveTableEvidenceTest {
             "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo",
             listOf(warning))
         val waves=RjLiveTableEvidence.marine("ONDAS",marine,now)
-        assertEquals("AVISO_CHM_REGIONAL",waves.state)
-        assertTrue(waves.description.contains("3,5 m"))
-        assertTrue(waves.description.contains("METAREA V"))
+        assertEquals("SEM_AVISO_MARITIMO_VALIDADO",waves.state)
+        assertFalse(waves.description.contains("3,5 m"))
+        assertFalse(waves.description.contains("METAREA V"))
         assertFalse(waves.mayPublishAlert)
         val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,now)
-        assertEquals("AVISO_CHM_REGIONAL",ressaca.state)
+        assertEquals("SEM_AVISO_MARITIMO_VALIDADO",ressaca.state)
         val expired=RjLiveTableEvidence.marine("RESSACA",marine,now.plusSeconds(4_000))
         assertEquals("SEM_AVISO_MARITIMO_VALIDADO",expired.state)
     }

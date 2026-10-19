@@ -1,3 +1,4 @@
+import { INMET_WIS2_HOST, INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertRetainHistory, RJ_ALERT_HISTORY_MS } from './rj-alert-retention.mjs';
 import { createHash } from 'node:crypto';
 
@@ -24,6 +25,7 @@ const CAP_CERTAINTIES = new Set(['Observed', 'Likely', 'Possible', 'Unlikely', '
 const CAP_MESSAGE_TYPES = new Set(['Alert', 'Update']);
 const RJ_MATCH_METHODS = new Set([
   'CAP_GEOCODE_IBGE_33',
+  'CAP_PARAMETER_MUNICIPIOS_IBGE_33',
   'CAP_GEOCODE_BR_RJ',
   'CAP_AREA_DESC_RIO_DE_JANEIRO',
 ]);
@@ -177,7 +179,7 @@ function validateWarning(warning, seenIdentifiers) {
   if (warning.affectsRioDeJaneiro !== Boolean(warning.rjMatchMethod)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_rj_scope_mismatch');
   }
-  if (warning.rjMunicipalityIbges.length > 0 && warning.rjMatchMethod !== 'CAP_GEOCODE_IBGE_33') {
+  if (warning.rjMunicipalityIbges.length > 0 && !['CAP_GEOCODE_IBGE_33', 'CAP_PARAMETER_MUNICIPIOS_IBGE_33'].includes(warning.rjMatchMethod)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_rj_municipality_scope_mismatch');
   }
 }
@@ -186,12 +188,13 @@ function validateSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_invalid_snapshot');
   }
+  const wis2 = snapshot.feedShape === 'WIS2_ARCHIVE_WINDOW_CAP' && snapshot.inventoryComplete === false;
   if (snapshot.sourceId !== INMET_SOURCE_ID
-      || snapshot.sourceHost !== INMET_HOST
-      || snapshot.sourceUrl !== INMET_CAP_RSS_URL) {
+      || snapshot.sourceHost !== (wis2 ? INMET_WIS2_HOST : INMET_HOST)
+      || snapshot.sourceUrl !== (wis2 ? INMET_WIS2_URL : INMET_CAP_RSS_URL)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_source_contract_invalid');
   }
-  if (!['CAP_ALERT', 'RSS_ITEM', 'ATOM_ENTRY', 'RSS_INDEX_RESOLVED_CAP'].includes(snapshot.feedShape)) {
+  if (!['CAP_ALERT', 'RSS_ITEM', 'ATOM_ENTRY', 'RSS_INDEX_RESOLVED_CAP', 'WIS2_ARCHIVE_WINDOW_CAP'].includes(snapshot.feedShape)) {
     throw new InmetWarningsCacheError('inmet_warnings_cache_feed_shape_invalid');
   }
   if (!Number.isInteger(snapshot.activeWarningCount)
@@ -362,8 +365,9 @@ export function createInmetCapWarningsCache({ now = () => Date.now() } = {}) {
       && lastAttemptAtMs > entry.fetchedAtMs;
     return Object.freeze({
       ...base,
-      state: failedAfterSnapshot ? 'CURRENT_DEGRADED' : 'CURRENT',
-      reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache' : 'fresh_cap_inventory',
+      state: failedAfterSnapshot || entry.snapshot.inventoryComplete === false ? 'CURRENT_DEGRADED' : 'CURRENT',
+      reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache'
+        : entry.snapshot.inventoryComplete === false ? 'verified_cap_archive_partial_inventory' : 'fresh_cap_inventory',
       fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
       cacheAgeMs,
       snapshot: entry.snapshot,

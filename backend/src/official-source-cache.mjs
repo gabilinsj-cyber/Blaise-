@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   ALERTA_RIO_EXPECTED_ACTIVE_STATIONS,
   ALERTA_RIO_LIVE_SOURCE_ID,
@@ -191,10 +192,22 @@ export function createAlertaRioRainfallCache({ now = () => Date.now() } = {}) {
       });
     }
 
-    const dataAgeMs = Math.max(0, atMs - entry.oldestObservedMs);
+    const currentStations = entry.snapshot.stations.filter(station => {
+      const age = atMs - Date.parse(station.observedAt);
+      return age >= 0 && age <= OFFICIAL_SOURCE_MAX_DATA_AGE_MS;
+    });
+    const partial = currentStations.length < entry.snapshot.stationCount;
+    const dataAgeMs = currentStations.length
+      ? atMs - Math.min(...currentStations.map(s => Date.parse(s.observedAt)))
+      : Math.max(0, atMs - entry.oldestObservedMs);
     const cacheAgeMs = Math.max(0, atMs - entry.fetchedAtMs);
-    const fresh = dataAgeMs <= OFFICIAL_SOURCE_MAX_DATA_AGE_MS
-      && cacheAgeMs <= OFFICIAL_SOURCE_MAX_DATA_AGE_MS;
+    const fresh = currentStations.length > 0 && cacheAgeMs <= OFFICIAL_SOURCE_MAX_DATA_AGE_MS;
+    const coverage = {
+      totalRecordCount: entry.snapshot.stationCount,
+      currentRecordCount: fresh ? currentStations.length : 0,
+      excludedRecordCount: fresh ? entry.snapshot.stationCount - currentStations.length : entry.snapshot.stationCount,
+      oldestDataAgeMs: Math.max(0, atMs - entry.oldestObservedMs),
+    };
     const failedAfterSnapshot = lastErrorCode !== null
       && lastAttemptAtMs !== null
       && lastAttemptAtMs > entry.fetchedAtMs;
@@ -202,6 +215,7 @@ export function createAlertaRioRainfallCache({ now = () => Date.now() } = {}) {
     if (!fresh) {
       return Object.freeze({
         ...base,
+        ...coverage,
         state: 'STALE',
         reason: dataAgeMs > OFFICIAL_SOURCE_MAX_DATA_AGE_MS
           ? 'observation_age_exceeded'
@@ -215,12 +229,26 @@ export function createAlertaRioRainfallCache({ now = () => Date.now() } = {}) {
 
     return Object.freeze({
       ...base,
-      state: failedAfterSnapshot ? 'CURRENT_DEGRADED' : 'CURRENT',
-      reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache' : 'fresh_snapshot',
+      ...coverage,
+      observedAt: new Date(Math.min(...currentStations.map(s => Date.parse(s.observedAt)))).toISOString(),
+      state: failedAfterSnapshot || partial ? 'CURRENT_DEGRADED' : 'CURRENT',
+      reason: failedAfterSnapshot ? 'latest_refresh_failed_using_current_cache'
+        : partial ? 'partial_current_station_coverage' : 'fresh_snapshot',
       fetchedAt: new Date(entry.fetchedAtMs).toISOString(),
       dataAgeMs,
       cacheAgeMs,
-      snapshot: entry.snapshot,
+      snapshot: partial ? Object.freeze({
+        ...entry.snapshot,
+        // stationCount is catalog coverage; stations contains eligible readings only.
+        stations: Object.freeze(currentStations),
+        currentStationCount: currentStations.length,
+        oldestObservedAt: new Date(Math.min(...currentStations.map(s => Date.parse(s.observedAt)))).toISOString(),
+        freshestObservedAt: new Date(Math.max(...currentStations.map(s => Date.parse(s.observedAt)))).toISOString(),
+        originalSnapshotSha256: entry.snapshot.snapshotSha256,
+        snapshotSha256: createHash('sha256').update(JSON.stringify(currentStations)).digest('hex'),
+        missingValueCount: currentStations.reduce((n, s) => n + Object.entries(s)
+          .filter(([key, value]) => key.startsWith('rain') && value === null).length, 0),
+      }) : entry.snapshot,
     });
   }
 

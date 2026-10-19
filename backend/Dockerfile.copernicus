@@ -1,0 +1,21 @@
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv \
+ && python3 -m venv /opt/copernicus \
+ && /opt/copernicus/bin/pip install --no-cache-dir copernicusmarine==2.5.0 \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY package.json package-lock.json package-lock.sha256 ./
+RUN test "$(npm --version)" = "11.19.0" \
+ && sha256sum -c package-lock.sha256 \
+ && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+ && rm -f package-lock.sha256
+COPY src ./src
+RUN node --input-type=module -e "await import('./src/runtime.mjs')"
+RUN chown -R node:node /app
+
+USER node
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "src/runtime.mjs"]

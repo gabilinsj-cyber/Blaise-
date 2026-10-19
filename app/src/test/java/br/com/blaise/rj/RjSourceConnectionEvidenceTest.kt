@@ -48,23 +48,20 @@ class RjSourceConnectionEvidenceTest {
         )
     }
 
-    @Test fun freshStationAndCHMConsultAreShownOnlyForTheirActualProducts() {
+    @Test fun freshStationProductsExcludeRemovedMarineProvider() {
         val rows=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,
             observation=station(3304557,"INMET"),
             rioStations=listOf(station(3304557,"Alerta Rio")),
             status=public(),now=now,
         )
-        assertEquals(13,rows.size)
+        assertEquals(14,rows.size)
         assertTrue(rows.first { it.source=="Alerta Rio" }.verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="INMET" && "Medição" in it.product }
             .verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="INMET" && "CAP" in it.product }
             .verifiedCurrentProduct)
-        val sea=rows.first { it.source=="Marinha do Brasil / CHM" }
-        assertTrue(sea.verifiedCurrentProduct)
-        assertEquals(recently,sea.updatedAt)
-        assertTrue(sea.status.contains("não é previsão por praia"))
+        assertFalse(rows.any { it.source.contains("Marinha") })
         assertFalse(rows.first { it.source=="OpenWeatherMap" }.verifiedCurrentProduct)
         assertFalse(rows.first { it.source=="Copernicus Marine" }.verifiedCurrentProduct)
         assertFalse(rows.first { it.source=="EUMETSAT" }.verifiedCurrentProduct)
@@ -105,9 +102,7 @@ class RjSourceConnectionEvidenceTest {
             status=public(status="STALE"),now=now)
         assertFalse(staleProducts.first { it.source=="INMET" && "CAP" in it.product }
             .verifiedCurrentProduct)
-        // CHM inventory has its own freshness and is independent of INMET.
-        assertTrue(staleProducts.first { it.source=="Marinha do Brasil / CHM" }
-            .verifiedCurrentProduct)
+        assertFalse(staleProducts.any { it.source.contains("Marinha") })
         val stale=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,observation=null,
             status=public(stamp=now.minusSeconds(300)),now=now)

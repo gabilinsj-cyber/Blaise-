@@ -1,3 +1,11 @@
+import {COPERNICUS_RJ_TASK,probeCopernicusRjOcean,createCopernicusRjCache} from './copernicus-rj-ocean.mjs';
+import { ALERTA_RIO_METEOROLOGY_TASK, probeAlertaRioMeteorology, createAlertaRioMeteorologyCache } from './alerta-rio-meteorology-live.mjs';
+import {NOAA_RJ_WAVE_TASK,probeNoaaRjWaves,createNoaaRjWaveCache} from './noaa-rj-wave-forecast.mjs';
+import {CPTEC_MARINE_TASK_ID,probeCptecRioWaves,createCptecMarineCache} from './cptec-rj-marine.mjs';
+import {OPENWEATHER_TASK_ID,probeOpenWeatherRio,createOpenWeatherCache} from './openweather-complement.mjs';
+import { REDEMET_TASK_ID, probeRedemetRjMetar, createRedemetCache } from './redemet-source.mjs';
+import { probeInmetWis2Warnings } from './inmet-wis2-source.mjs';
+import { CEMADEN_NATIONAL_TASK_ID, probeCemadenNationalAlerts, createCemadenNationalCache } from './cemaden-national-source.mjs';
 import { rjAlertActiveUntil, rjAlertIsActive } from './rj-alert-retention.mjs';
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
 import { createCemadenRjHydrologicalRiskCache } from './cemaden-rj-cache.mjs';
@@ -184,7 +192,14 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     code: 'official_source_worker_invalid_defesa_civil_rio_assets_enabled_flag',
   });
 
+  const alternativeFlags = {};
+  for (const [key, envKey] of [['openWeatherEnabled','BLAISE_OPENWEATHER_ENABLED'],['openWeatherUsageApproved','BLAISE_OPENWEATHER_USAGE_APPROVED'],['inmetWis2Enabled', 'BLAISE_INMET_WIS2_ENABLED'], ['cemadenNationalEnabled', 'BLAISE_CEMADEN_NATIONAL_ENABLED'], ['redemetEnabled', 'BLAISE_REDEMET_ENABLED'], ['redemetUsageApproved', 'BLAISE_REDEMET_USAGE_APPROVED']]) {
+    if (env[envKey] != null && env[envKey] !== '') alternativeFlags[key] = parseBoolean(env[envKey], { defaultValue: false, code: 'official_source_worker_invalid_alternative_flag' });
+  }
   const config = {
+    ...alternativeFlags,
+    ...(env.BLAISE_OPENWEATHER_API_KEY ? {openWeatherApiKey:env.BLAISE_OPENWEATHER_API_KEY}:{}),
+    ...(env.BLAISE_REDEMET_API_KEY ? { redemetApiKey: env.BLAISE_REDEMET_API_KEY } : {}),
     enabled,
     initialMode: severe ? 'severe' : 'normal',
   };
@@ -213,6 +228,10 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
       && env.BLAISE_DEFESA_CIVIL_RIO_ASSETS_ENABLED !== '') {
     config.defesaCivilRioAssetsEnabled = defesaCivilRioAssetsEnabled;
   }
+  if(env.BLAISE_COPERNICUS_OCEAN_ENABLED!==undefined)config.copernicusOceanEnabled=parseBoolean(env.BLAISE_COPERNICUS_OCEAN_ENABLED,{defaultValue:false,code:'invalid_copernicus_ocean_flag'});
+  if(env.BLAISE_NOAA_WAVES_ENABLED!==undefined)config.noaaWavesEnabled=parseBoolean(env.BLAISE_NOAA_WAVES_ENABLED,{defaultValue:false,code:'invalid_noaa_waves_flag'});
+  if(env.BLAISE_ALERTA_RIO_METEOROLOGY_ENABLED!==undefined)config.alertaRioMeteorologyEnabled=parseBoolean(env.BLAISE_ALERTA_RIO_METEOROLOGY_ENABLED,{defaultValue:false,code:'invalid_alerta_rio_meteorology_flag'});
+  if(env.BLAISE_CPTEC_MARINE_ENABLED!==undefined)config.cptecMarineEnabled = parseBoolean(env.BLAISE_CPTEC_MARINE_ENABLED,{defaultValue:false,code:'invalid_cptec_marine_flag'});
   return Object.freeze(config);
 }
 
@@ -229,8 +248,15 @@ function sourceStateWithoutPayload(reading) {
     lastErrorCode: reading.lastErrorCode,
     fetchedAt: reading.fetchedAt,
     observedAt: reading.observedAt ?? null,
+    totalRecordCount: reading.totalRecordCount ?? null,
+    currentRecordCount: reading.currentRecordCount ?? null,
+    excludedRecordCount: reading.excludedRecordCount ?? null,
+    oldestDataAgeMs: reading.oldestDataAgeMs ?? null,
     dataAgeMs: reading.dataAgeMs,
     cacheAgeMs: reading.cacheAgeMs,
+    timestampMeaning: reading.timestampMeaning ?? null,
+    oldestUpdatedAt: reading.oldestUpdatedAt ?? null,
+    latestUpdatedAt: reading.latestUpdatedAt ?? null,
     semanticValidity: reading.semanticValidity ?? null,
     payloadExposed: false,
   });
@@ -245,6 +271,9 @@ export function createOfficialSourceWorker({
   refreshIntervalsMs = null,
   cadenceMode = 'after_completion',
   onEvent = () => {},
+  probeRedemet = probeRedemetRjMetar,
+  probeInmetWis2 = probeInmetWis2Warnings,
+  probeCemadenNational = probeCemadenNationalAlerts,
   probeAlertaRio = probeAlertaRioLiveRainfall,
   probeCemadenRj = probeCemadenRjHydrologicalRisk,
   probeChmWarningsLive = probeChmWarnings,
@@ -265,6 +294,19 @@ export function createOfficialSourceWorker({
   if (String(config.ineaStationUrl ?? '').trim() !== '') {
     throw new OfficialSourceWorkerError('official_source_worker_retired_source_inea');
   }
+  if (typeof (config.alertaRioMeteorologyEnabled ?? false) !== 'boolean') throw new OfficialSourceWorkerError('invalid_alerta_rio_meteorology_flag');
+  const meteoCache = config.alertaRioMeteorologyEnabled === true ? createAlertaRioMeteorologyCache({now}) : null;
+  const copernicusOceanCache=config.copernicusOceanEnabled===true?createCopernicusRjCache({now}):null;
+  const noaaWaveCache=config.noaaWavesEnabled===true?createNoaaRjWaveCache({now}):null;
+  const cptecMarineCache=config.cptecMarineEnabled===true?createCptecMarineCache({now}):null;
+  const openWeatherCache = config.openWeatherEnabled === true ? createOpenWeatherCache({now}) : null;
+  const redemetEnabled = config.redemetEnabled ?? false;
+  if (typeof redemetEnabled !== 'boolean' || typeof (config.redemetUsageApproved ?? false) !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
+  const redemetCache = redemetEnabled ? createRedemetCache({ now }) : null;
+  const cemadenNationalEnabled = config.cemadenNationalEnabled ?? false;
+  const inmetWis2Enabled = config.inmetWis2Enabled ?? false;
+  if (typeof cemadenNationalEnabled !== 'boolean' || typeof inmetWis2Enabled !== 'boolean') throw new OfficialSourceWorkerError('official_source_worker_invalid_alternative_flag');
+  const nationalCache = cemadenNationalEnabled ? createCemadenNationalCache({ now }) : null;
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = config.chmWarningsEnabled ?? false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
@@ -334,6 +376,42 @@ export function createOfficialSourceWorker({
     },
   }];
 
+  if (meteoCache) tasks.push({id: ALERTA_RIO_METEOROLOGY_TASK, run: async () => {
+    try { meteoCache.recordSuccess(await probeAlertaRioMeteorology({fetchImpl,now})); }
+    catch (error) { meteoCache.recordFailure(safeSourceErrorCode(error)); throw error; }
+  }});
+  if (openWeatherCache) tasks.push({id:OPENWEATHER_TASK_ID,run:async()=>{
+    try {openWeatherCache.recordSuccess(await probeOpenWeatherRio({fetchImpl,now,apiKey:config.openWeatherApiKey??'',usageApproved:config.openWeatherUsageApproved===true}));}
+    catch(error){openWeatherCache.recordFailure(safeSourceErrorCode(error));throw error;}
+  }});
+  if(copernicusOceanCache)tasks.push({id:COPERNICUS_RJ_TASK,run:async()=>{try{copernicusOceanCache.recordSuccess(await probeCopernicusRjOcean({now}));}catch(error){copernicusOceanCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
+  if(noaaWaveCache)tasks.push({id:NOAA_RJ_WAVE_TASK,run:async()=>{try{noaaWaveCache.recordSuccess(await probeNoaaRjWaves({fetchImpl,now}));}catch(error){noaaWaveCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
+  if(cptecMarineCache)tasks.push({id:CPTEC_MARINE_TASK_ID,run:async()=>{try{cptecMarineCache.recordSuccess(await probeCptecRioWaves({fetchImpl,now}));}catch(error){cptecMarineCache.recordFailure(safeSourceErrorCode(error));throw error;}}});
+  if (redemetEnabled) tasks.push({
+    id: REDEMET_TASK_ID,
+    run: async () => {
+      try {
+        redemetCache.recordSuccess(await probeRedemet({ fetchImpl, now,
+          apiKey: config.redemetApiKey ?? '', usageApproved: config.redemetUsageApproved ?? false }));
+      } catch (error) {
+        redemetCache.recordFailure(safeSourceErrorCode(error)); throw error;
+      }
+    },
+  });
+  if (cemadenNationalEnabled) tasks.push({
+    id: CEMADEN_NATIONAL_TASK_ID,
+    run: async ({ startedAt }) => {
+      try {
+        const snapshot = await probeCemadenNational({ fetchImpl, now });
+        nationalCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        reconcileCadence();
+      } catch (error) {
+        nationalCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
+        reconcileCadence();
+        throw error;
+      }
+    },
+  });
   if (cemadenRjEnabled) {
     tasks.push({
       id: CEMADEN_RJ_TASK_ID,
@@ -374,7 +452,10 @@ export function createOfficialSourceWorker({
       run: async ({ startedAt }) => {
         let snapshot;
         try {
-          snapshot = await probeInmetWarningsLive({ fetchImpl });
+          if (inmetWis2Enabled) {
+            try { snapshot = await probeInmetWis2({ fetchImpl, now }); }
+            catch { snapshot = await probeInmetWarningsLive({ fetchImpl }); }
+          } else snapshot = await probeInmetWarningsLive({ fetchImpl });
           inmetWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
         reconcileCadence();
         } catch (error) {
@@ -483,7 +564,9 @@ export function createOfficialSourceWorker({
       return ['CURRENT', 'CURRENT_DEGRADED'].includes(hydro.state) && [4, 5].includes(row.priority)
         && observed <= at && at - observed <= 300_000;
     }) === true;
-    return scheduler.setMode(highHydro || at < heldCriticalUntil ? 'severe' : 'normal');
+    const national = nationalCache?.read();
+    const highNational = national?.snapshot?.alerts?.some(alert => ['Alto', 'Muito Alto'].includes(alert.officialLevel)) === true;
+    return scheduler.setMode(highHydro || highNational || at < heldCriticalUntil ? 'severe' : 'normal');
   }
 
   function start() {
@@ -503,6 +586,13 @@ export function createOfficialSourceWorker({
 
   function readSource(taskId) {
     reconcileCadence();
+    if(taskId===ALERTA_RIO_METEOROLOGY_TASK && meteoCache)return meteoCache.read();
+    if(taskId===COPERNICUS_RJ_TASK&&copernicusOceanCache)return copernicusOceanCache.read();
+    if(taskId===NOAA_RJ_WAVE_TASK&&noaaWaveCache)return noaaWaveCache.read();
+    if(taskId===CPTEC_MARINE_TASK_ID&&cptecMarineCache)return cptecMarineCache.read();
+    if(taskId===OPENWEATHER_TASK_ID && openWeatherCache)return openWeatherCache.read();
+    if (taskId === REDEMET_TASK_ID && redemetCache) return redemetCache.read();
+    if (taskId === CEMADEN_NATIONAL_TASK_ID && nationalCache) return nationalCache.read();
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
     }
@@ -527,6 +617,13 @@ export function createOfficialSourceWorker({
     const sourceStates = [
       sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
     ];
+    if(meteoCache)sourceStates.push(sourceStateWithoutPayload(meteoCache.read()));
+    if(copernicusOceanCache)sourceStates.push(sourceStateWithoutPayload(copernicusOceanCache.read()));
+    if(noaaWaveCache)sourceStates.push(sourceStateWithoutPayload(noaaWaveCache.read()));
+    if(cptecMarineCache)sourceStates.push(sourceStateWithoutPayload(cptecMarineCache.read()));
+    if(openWeatherCache)sourceStates.push(sourceStateWithoutPayload(openWeatherCache.read()));
+    if (redemetCache) sourceStates.push(sourceStateWithoutPayload(redemetCache.read()));
+    if (nationalCache) sourceStates.push(sourceStateWithoutPayload(nationalCache.read()));
     if (cemadenRjCache) {
       sourceStates.push(sourceStateWithoutPayload(cemadenRjCache.read({ mode: schedulerStatus.mode })));
     }

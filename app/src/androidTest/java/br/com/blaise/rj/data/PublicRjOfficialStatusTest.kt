@@ -72,7 +72,7 @@ class PublicRjOfficialStatusTest {
             .put("name","Other city")
         assertTrue(runCatching { PublicRjStatusParser.parse(invalid) }.isFailure)
     }
-    @Test fun acceptsBoundedCHMRegionalWarningsWithoutInventingMunicipalAlerts() {
+    @Test fun excludedChmPayloadCannotReturnToCustomerMarineData() {
         val chm=JSONObject()
             .put("sourceId","chm-marine")
             .put("sourceUrl",
@@ -94,14 +94,13 @@ class PublicRjOfficialStatusTest {
                 .put("mayIssueMunicipalP0",false)))
         val root=fixture().put("marine",chm)
         val parsed=PublicRjStatusParser.parse(root)
-        assertNotNull(parsed.marine)
-        assertEquals(1,parsed.marine?.warnings?.size)
-        assertEquals(4.2,parsed.marine!!.warnings[0].waveMaxMeters!!,0.001)
-        assertTrue(parsed.marine!!.warnings[0].officialRessacaLabel)
-        assertTrue(parsed.marine!!.warnings[0].current(now))
-        val wrong=root.put("marine",JSONObject(chm.toString())
-            .put("municipalityGeofenceValidated",true))
-        assertTrue(runCatching { PublicRjStatusParser.parse(wrong) }.isFailure)
+        assertNull(parsed.marine)
+        assertEquals(4, parsed.municipality(3304557, now)?.risk?.level)
+        assertEquals(1, parsed.warningsFor(3304557, now).size)
+        val legacy = root.put("marine", JSONObject(chm.toString())
+            .put("municipalityGeofenceValidated", true))
+        assertNull(PublicRjStatusParser.parse(legacy).marine)
+
     }
 
     @Test fun parsedWorkerSourceProductsDistinguishCurrentWarningsAndHydroRiskFromWholeAgencyCoverage() {

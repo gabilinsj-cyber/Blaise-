@@ -58,7 +58,7 @@ class OfficialWarningHistory(context: Context) {
 
     private fun valid(w: PublicRjWarning, now: Instant) =
         w.id.length in 1..256 && w.event.length in 1..512 && w.severity.length in 1..64 &&
-        w.sourceUrl == "https://apiprevmet3.inmet.gov.br/avisos/rss" &&
+        w.sourceUrl in setOf("https://apiprevmet3.inmet.gov.br/avisos/rss", "https://wis2bra.inmet.gov.br/data/") &&
         (w.localClosedAt == null || !w.localClosedAt.isBefore(w.sent) && !w.localClosedAt.isAfter(now)) &&
         !w.sent.isAfter(now) && w.expires.isAfter(w.onset) && w.expires.isAfter(w.sent) &&
         w.municipalityIbges.isNotEmpty() && w.municipalityIbges.size <= 92 &&

@@ -161,6 +161,7 @@ test('adapter is a real data bridge into the existing prioritized two-source Bla
       fetchImpl:api.fetchImpl}),
     DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[{
       origin:'OFFICIAL_OBSERVATION',sourceId:'DEFESA_CIVIL',
+      weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-dc-qc',independenceVerified:true,underlyingProviderId:'DEFESA_CIVIL',upstreamMeasurementId:'fixture-dc-measurement',
       stationId:'DC-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
       value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:59:00.000Z',
       latitude:-22.905,longitude:-43.205,
@@ -182,6 +183,7 @@ test('Blaise agent executor uses live INMET adapter on demand, with Defender inp
     sourceAdapters:{
       DEFESA_CIVIL_RJ_REGIONAL:async()=>({observations:[{
         origin:'OFFICIAL_OBSERVATION',sourceId:'DEFESA_CIVIL',
+        weightBasis:'VERIFIED_STATION_QC_AND_LOCAL_SKILL',qualityEvidenceId:'fixture-dc-qc',independenceVerified:true,underlyingProviderId:'DEFESA_CIVIL',upstreamMeasurementId:'fixture-dc-measurement',
         stationId:'DC-TEST-1',ibge:'3304557',variable:'TEMPERATURA_C',
         value:28,unit:'°C',weight:1,observedAt:'2026-10-12T11:59:00.000Z',
         latitude:-22.905,longitude:-43.205,

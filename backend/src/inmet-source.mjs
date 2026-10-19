@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { findRjMunicipality } from './rio-municipalities.mjs';
 import { fetchXmlContract, SourceContractError } from './source-contract.mjs';
@@ -172,7 +173,29 @@ function normalizeRecord(block) {
   }
 
   const areaDescriptions = normalizeAreaDescriptions(areaBlocks);
-  const { rjMatchMethod, rjMunicipalityIbges } = normalizeRjScopeFromAreas(areaBlocks);
+  let { rjMatchMethod, rjMunicipalityIbges } = normalizeRjScopeFromAreas(areaBlocks);
+  // WIS2 CAP lists exact municipalities in an official info/parameter, not geocode.
+  const parameters = tagBlocks(info, 'parameter').filter(p => tagText(p, 'valueName') === 'Municipios');
+  if (parameters.length > 1) throw new InmetSourceContractError('inmet_duplicate_municipal_parameter');
+  if (parameters.length === 1) {
+    const value = requiredText(parameters[0], 'value', 'inmet_municipal_parameter_missing', 128 * 1024);
+    const entries = [...value.matchAll(/([^,]+?) - ([A-Z]{2}) \((\d{7})\)/g)];
+    const residual = value.replace(/([^,]+?) - ([A-Z]{2}) \((\d{7})\)/g, '').replace(/[,\s]/g, '');
+    if (!entries.length || residual || entries.length > 5570) throw new InmetSourceContractError('inmet_municipal_parameter_invalid');
+    const codes = new Set();
+    for (const [, name, uf, ibge] of entries) {
+      if (uf !== 'RJ' && !ibge.startsWith('33')) continue;
+      const city = findRjMunicipality(ibge);
+      if (uf !== 'RJ' || !city || fold(city.name) !== fold(name.trim())) throw new InmetSourceContractError('inmet_municipal_parameter_untrusted');
+      if (codes.has(ibge)) throw new InmetSourceContractError('inmet_municipal_parameter_duplicate');
+      codes.add(ibge);
+    }
+    if (codes.size) {
+      if (rjMunicipalityIbges.some(code => !codes.has(code))) throw new InmetSourceContractError('inmet_municipal_parameter_conflict');
+      rjMatchMethod = 'CAP_PARAMETER_MUNICIPIOS_IBGE_33';
+      rjMunicipalityIbges = Object.freeze([...codes].sort());
+    }
+  }
 
   return Object.freeze({
     identifier,
@@ -264,7 +287,29 @@ export function validateInmetCapFeedXml(xml) {
   });
 }
 
+// Retry transient transport/server failures once, within the original request timeout.
+// A failed CAP document still fails the inventory: absence never means withdrawal.
+function retryTransientInmetFetch(fetchImpl) {
+  return async (url, options) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      options.signal.throwIfAborted();
+      let response;
+      try {
+        response = await fetchImpl(url, options);
+      } catch (error) {
+        if (attempt === 1 || options.signal.aborted || !(error instanceof TypeError)) throw error;
+        await delay(250, undefined, { signal: options.signal });
+        continue;
+      }
+      if (attempt === 1 || ![500, 502, 503, 504].includes(response.status)) return response;
+      try { await response.body?.cancel(); } catch {}
+      await delay(250, undefined, { signal: options.signal });
+    }
+  };
+}
+
 export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {}) {
+  fetchImpl = retryTransientInmetFetch(fetchImpl);
   let xml;
   try {
     xml = await fetchXmlContract(INMET_CAP_RSS_URL, {
@@ -298,7 +343,7 @@ export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {
     let totalBytes = 0;
     const deadline = Date.now() + 90_000;
     let failed = false;
-    await Promise.all(Array.from({length: Math.min(6, links.length)}, async () => {
+    const resolutions = await Promise.allSettled(Array.from({length: Math.min(6, links.length)}, async () => {
       while (!failed && cursor < links.length) {
         if (Date.now() > deadline) throw new InmetSourceContractError('inmet_cap_resolution_deadline');
         const index = cursor++;
@@ -312,6 +357,10 @@ export async function probeInmetCapWarnings({ fetchImpl = globalThis.fetch } = {
         documents[index] = document.replace(/<\?xml[^?]*\?>/gi, '');
       }
     }));
+    // Drain bounded in-flight requests before completing the failed collection.
+    // This prevents overlapping orphan requests and incomplete HTTP diagnostics.
+    const rejected = resolutions.find(result => result.status === 'rejected');
+    if (rejected) throw rejected.reason;
     const result = validateInmetCapFeedXml(`<feed>${documents.join('')}</feed>`);
     return Object.freeze({...result, feedShape: 'RSS_INDEX_RESOLVED_CAP'});
   }

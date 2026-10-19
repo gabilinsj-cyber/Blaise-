@@ -12,9 +12,10 @@
  */
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 
-export const RJ_TABLE1_THREE=Object.freeze([
-  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API',
+export const RJ_TABLE1_FOUR=Object.freeze([
+  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','OPENWEATHERMAP_API','REDEMET_METAR',
 ]);
+export const RJ_TABLE1_THREE=RJ_TABLE1_FOUR; // compatibility export
 export const RJ_TABLE2_FIVE=Object.freeze([
   'INPE_CPTEC_FORECAST','INMET_STATION','CEMADEN_RJ','WINDY_MODELO','NOAA',
 ]);
@@ -33,13 +34,14 @@ const SOURCE_ORIGIN=Object.freeze({
   DEFESA_CIVIL_RJ_REGIONAL:'DEFESA_CIVIL_RJ_REGIONAL',
   DEFESA_CIVIL:'DEFESA_CIVIL_RJ_REGIONAL',
   OPENWEATHERMAP_API:'OPENWEATHERMAP_API',
+  REDEMET_METAR:'REDEMET_METAR',
   INMET_STATION:'INMET_STATION',
   INMET:'INMET_STATION',
   CEMADEN_RJ:'CEMADEN_RJ',
   CEMADEN:'CEMADEN_RJ',
 });
 const STATIONS=new Set([
-  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','CEMADEN_RJ',
+  'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','CEMADEN_RJ','REDEMET_METAR',
 ]);
 const MODELS=new Set(['INPE_CPTEC_FORECAST','WINDY_MODELO','NOAA','OPENWEATHERMAP_API']);
 const CEMADEN_VARIABLES=new Set(['CHUVA_MM_1H']);
@@ -75,6 +77,7 @@ function provenanceValid(row,{sourceId,ibge,variable,spec,now}) {
 function readingAllowed(row,opts){
   if(!provenanceValid(row,opts))return false;
   if(opts.sourceId==='CEMADEN_RJ'&&!CEMADEN_VARIABLES.has(opts.variable))return false;
+  if(opts.sourceId==='REDEMET_METAR' && (String(opts.ibge)!=='3304557'||!['SBGL','SBRJ'].includes(row.stationId)||!['TEMPERATURA_C','VENTO_KMH','RAJADA_KMH'].includes(opts.variable)))return false;
   if(typeof row.stationId!=='string'||row.stationId.length<2)return false;
   if(STATIONS.has(opts.sourceId))
     return row.origin==='OFFICIAL_OBSERVATION';
@@ -199,7 +202,8 @@ export function resolveRjTable12FiveSourceDispute({
       // A Table 2 reference must match AT LEAST ONE of the initial
       // Table 1 observations. Agreement between two comparator providers
       // alone does not resolve the original primary-source discrepancy.
-      const primaryCandidates=RJ_TABLE2_FIVE.includes(id)
+      const hasPrimary = validated.some(old=>primary.includes(SOURCE_ORIGIN[old.sourceId]));
+      const primaryCandidates=RJ_TABLE2_FIVE.includes(id) && hasPrimary
         ?validated.filter(old=>primary.includes(SOURCE_ORIGIN[old.sourceId]))
         :validated;
       const candidate=primaryCandidates.filter(old=>independent(old,row)
@@ -229,7 +233,7 @@ export function resolveRjTable12FiveSourceDispute({
       const pair=gather(id);
       if(pair)return observedPair(pair,spec,{
         stage:'TABLE_2_OBSERVED_DISPUTE_RESOLVED',
-        step:'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY',
+        step:initial.length?'INDEPENDENT_OBSERVATION_CONFIRMS_ONE_PRIMARY':'TWO_TABLE2_OBSERVATIONS_WITHOUT_PRIMARY',
         consultedSources:checked,allPrimary:initial,
       });
     } else {

@@ -1,3 +1,9 @@
+import {COPERNICUS_RJ_TASK,parseCopernicusRjOcean} from './copernicus-rj-ocean.mjs';
+import { ALERTA_RIO_METEOROLOGY_TASK } from './alerta-rio-meteorology-live.mjs';
+import {NOAA_RJ_WAVE_TASK} from './noaa-rj-wave-forecast.mjs';
+import {CPTEC_MARINE_TASK_ID} from './cptec-rj-marine.mjs';
+import {OPENWEATHER_TASK_ID} from './openweather-complement.mjs';
+import { INMET_WIS2_URL } from './inmet-wis2-source.mjs';
 import { rjAlertIsActive } from './rj-alert-retention.mjs';
 import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { CHM_WARNINGS_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
@@ -17,8 +23,10 @@ export function projectWarningInventories(worker, nowMillis) {
     let feed;
     try { feed = worker.readSource(task); } catch { return []; }
     const checked = Date.parse(feed?.fetchedAt), snapshot = feed?.snapshot;
-    if (feed?.state !== 'CURRENT' || !Number.isFinite(checked) || checked > nowMillis || nowMillis - checked > 300_000 ||
-        snapshot?.sourceId !== expectedId || snapshot.sourceUrl !== sourceUrl ||
+    const wis2 = sourceId === 'inmet' && snapshot?.sourceUrl === INMET_WIS2_URL
+      && snapshot.feedShape === 'WIS2_ARCHIVE_WINDOW_CAP' && snapshot.inventoryComplete === false;
+    if (!(feed?.state === 'CURRENT' || wis2 && feed?.state === 'CURRENT_DEGRADED') || !Number.isFinite(checked) || checked > nowMillis || nowMillis - checked > 300_000 ||
+        snapshot?.sourceId !== expectedId || snapshot.sourceUrl !== (wis2 ? INMET_WIS2_URL : sourceUrl) ||
         !Array.isArray(snapshot.warnings) || snapshot.warnings.length > 64) return [];
     if (sourceId === 'inmet' ?
         snapshot.identityValidation !== 'INMET_SENDER_DOMAIN+OFFICIAL_OID_PREFIX' ||
@@ -33,7 +41,7 @@ export function projectWarningInventories(worker, nowMillis) {
     const cancelledIds = sourceId === 'inmet' ? [...new Set((snapshot.cancellations ?? [])
       .filter(w => Date.parse(w.sent) <= nowMillis && w.msgType === 'Cancel')
       .flatMap(w => w.cancelledIdentifiers ?? []))].slice(0, 64) : [];
-    return [{sourceId, sourceUrl, checkedAt: new Date(checked).toISOString(), complete, recordKeys: keys, cancelledIds}];
+    return [{sourceId, sourceUrl: snapshot.sourceUrl, checkedAt: new Date(checked).toISOString(), complete, recordKeys: keys, cancelledIds}];
   });
 }
 /** Regional METAREA V is not a coastal municipality polygon. */
@@ -102,7 +110,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
   const source=buildStatewideDashboardSnapshot(worker,{nowMillis});
   if(!source.workerActive) return null;
-  const permittedSourceIds=['inmet','cemaden-rj'];
+  const permittedSourceIds=['inmet','cemaden-rj','cemaden-national','redemet'];
   const sourceSummaries=source.sources
     .filter(s=>permittedSourceIds.includes(s.id))
     .map(s=>Object.freeze({
@@ -114,7 +122,28 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
   // INMET CAP and CEMADEN hydrological risk are momentarily unavailable.
   // A CHM inventory never becomes a municipal warning or a safe-sea claim.
   const marine=projectRjPublicMarineWarnings(worker,nowMillis);
-  const active=sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
+  let stationMeteorology=null;
+  try { const r=worker.readSource(ALERTA_RIO_METEOROLOGY_TASK);
+    if(r?.state==='CURRENT_STATION_OBSERVATIONS' && r.snapshot?.sourceId==='alerta-rio-meteorology-live'
+      && r.snapshot.sourceUrl==='https://websempre.rio.rj.gov.br/estacoes/'
+      && nowMillis-Date.parse(r.snapshot.fetchedAt)>=0 && nowMillis-Date.parse(r.snapshot.fetchedAt)<=300000) {
+      const stations=r.snapshot.stations.filter(s=>nowMillis-Date.parse(s.observedAt)>=0 && nowMillis-Date.parse(s.observedAt)<=300000);
+      if(stations.length)stationMeteorology={...r.snapshot,stations};
+    }
+  } catch {}
+  let waveForecast=null;try{const reading=worker.readSource(CPTEC_MARINE_TASK_ID);if(reading?.state==='CURRENT_FORECAST')waveForecast=reading.snapshot;}catch{}
+  let oceanTidesCurrents=null;try{const r=worker.readSource(COPERNICUS_RJ_TASK);if(r?.state==='FORECAST_VALID_TIME_ISSUANCE_UNKNOWN'&&r.snapshot)oceanTidesCurrents=parseCopernicusRjOcean(r.snapshot,{now:nowMillis});}catch{}
+  let oceanWaveForecast=null;try{const r=worker.readSource(NOAA_RJ_WAVE_TASK);if(r?.state==='FORECAST_VALID_TIME_ISSUANCE_UNKNOWN'&&r.snapshot&&nowMillis-Date.parse(r.snapshot.fetchedAt)>=0&&nowMillis-Date.parse(r.snapshot.fetchedAt)<=300000)oceanWaveForecast=r.snapshot;}catch{}
+  let complement=null;
+  try {
+    const reading=worker.readSource(OPENWEATHER_TASK_ID), s=reading?.snapshot;
+    if(reading?.state==='CURRENT' && s?.ibge==='3304557'
+      && s.sourceUrl==='https://openweathermap.org/' && s.kind==='BLENDED_CURRENT_WEATHER'
+      && s.independentStationProven===false && s.mayIssueWarning===false
+      && [s.calculatedAt,s.fetchedAt].every(t=>Number.isFinite(Date.parse(t))
+        && nowMillis-Date.parse(t)>=0 && nowMillis-Date.parse(t)<=300000)) complement=s;
+  } catch {}
+  const active=oceanTidesCurrents!==null||stationMeteorology!==null||oceanWaveForecast!==null||complement!==null||waveForecast!==null||sourceSummaries.some(s=>['CURRENT','CURRENT_DEGRADED'].includes(s.state))
     || marine!==null;
   const municipalities=source.municipalities.map(row=>Object.freeze({
     ibge:row.ibge,name:row.name,seaFacing:row.seaFacing,
@@ -152,6 +181,13 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     marine,
+    marineForecast:waveForecast,
+    oceanWaveForecast,
+    oceanTidesCurrents,
+    stationMeteorology,
+    openWeatherComplement:complement,
+    nationalAlerts: source.nationalAlerts,
+    aerodromeObservations: source.aerodromeObservations,
     sources:Object.freeze(sourceSummaries),
     warningInventories: Object.freeze(projectWarningInventories(worker, nowMillis)),
     thirdPartyImagesIncluded:false,
@@ -176,17 +212,40 @@ function respond(res,code,body) {
   res.setHeader('Content-Type','application/json; charset=utf-8');
   res.end(value);
 }
+export function restrictPublicProducts(worker, approved) {
+  const allowed = new Set([
+    ['inmetWarnings', 'inmet-cap-warnings'],
+    ['cemadenNational', 'cemaden-national-open-alerts'],
+    ['cemadenRjRisk', 'cemaden-rj-hydrological-risk'],
+    ['redemet', 'redemet-rj-metar'],
+    ['openWeather', OPENWEATHER_TASK_ID],
+    ['cptecMarine', CPTEC_MARINE_TASK_ID],
+    ['noaaWaves', NOAA_RJ_WAVE_TASK],
+    ['copernicusOcean', COPERNICUS_RJ_TASK],
+    ['alertaRioMeteorology', ALERTA_RIO_METEOROLOGY_TASK],
+    ['chm', 'chm-marine-warnings'],
+  ].filter(([product]) => approved[product] === true).map(([, task]) => task));
+  return {
+    status: () => {
+      const status = worker.status();
+      return {...status, sources: (status.sources ?? []).filter(item => allowed.has(item.sourceId))};
+    },
+    readSource: task => allowed.has(task) ? worker.readSource(task) : null,
+  };
+}
 export function createRjPublicStatusHandler(delegate, {
-  sourceWorker,enabled=false,licensingApproved=false,clock=()=>Date.now(),
+  sourceWorker,enabled=false,licensingApproved=false,productApprovals=null,clock=()=>Date.now(),
 }={}) {
   if(typeof delegate!=='function')throw new TypeError('rj_public_delegate_required');
   if(!sourceWorker || typeof sourceWorker.status!=='function'
     || typeof sourceWorker.readSource!=='function')throw new TypeError('rj_public_worker_required');
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
+  const publicationWorker = productApprovals === null ? sourceWorker : restrictPublicProducts(sourceWorker, productApprovals);
+  const termsReady = productApprovals === null ? licensingApproved : Object.values(productApprovals).some(value => value === true);
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
     if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
-    if(!enabled || !licensingApproved) {
+    if(!enabled || !termsReady) {
       respond(res,503,{error:!enabled?'official_status_not_enabled':'source_terms_not_approved'});
       return;
     }
@@ -194,7 +253,7 @@ export function createRjPublicStatusHandler(delegate, {
       respond(res,405,{error:'method_not_allowed'});return;
     }
     try {
-      const status=buildRjPublicStatusSnapshot(sourceWorker,{nowMillis:clock()});
+      const status=buildRjPublicStatusSnapshot(publicationWorker,{nowMillis:clock()});
       if(!status || !status.usableOfficialProducts) {
         respond(res,503,{error:'official_sources_not_validated'});return;
       }
