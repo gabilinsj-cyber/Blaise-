@@ -420,7 +420,6 @@ private fun BlaiseDashboard(
                             )
 
                         }
-                        FooterSources()
                     }
                     Surface(color = NavyRaised, modifier = Modifier.fillMaxWidth()) {
                         Box(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
@@ -1023,7 +1022,7 @@ private fun MarineScreen() {
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
-        subtitle = "Marinha do Brasil / CHM",
+        subtitle = "Condições marítimas do litoral do RJ",
     ) {
         StatusLine("Ressaca", "Regra destacada para ondas > 3,5 m quando houver aviso oficial")
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
@@ -1108,12 +1107,6 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
-    DashboardSection(
-        title = "FONTES OFICIAIS",
-        subtitle = "Prioridade local e origem preservada",
-    ) {
-        FinalDashboardSpec.officialSources.forEach { source -> StatusLine(source, "Monitoramento/configuração por adapter") }
-    }
 }
 
 @Composable
@@ -1254,13 +1247,13 @@ private fun MarineAndRiskRow(wide: Boolean) {
 @Composable
 private fun MarinePanel(modifier: Modifier) {
     DashboardSection(
-        title = "MARINHA • OCEANO ATLÂNTICO",
+        title = "MAR • OCEANO ATLÂNTICO",
         subtitle = "Maré, ondas, vento e ressaca",
         modifier = modifier,
     ) {
-        StatusLine("Ondas", "Aguardando dado oficial CHM")
-        StatusLine("Ressaca > 3,5 m", "Aguardando dado oficial CHM")
-        StatusLine("Maré", "Aguardando dado oficial CHM")
+        StatusLine("Ondas", "Aguardando medição validada")
+        StatusLine("Ressaca > 3,5 m", "Aguardando medição validada")
+        StatusLine("Maré", "Aguardando medição validada")
         StatusLine("Direção do vento", "Aguardando consolidação")
     }
 }

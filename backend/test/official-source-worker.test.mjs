@@ -197,7 +197,7 @@ test('source failures are contained and exposed only as bounded error codes', as
   assert.equal(JSON.stringify(status).includes('upstream body'), false);
 });
 
-test('optional INEA station task is explicit and honors severe cadence', async () => {
+test('INEA remains blocked when explicitly enabled', async () => {
   const stationUrl = 'https://alertadecheias.inea.rj.gov.br/alertadecheias/12345678.html';
   let ineaCalls = 0;
   const worker = createOfficialSourceWorker({
@@ -215,14 +215,12 @@ test('optional INEA station task is explicit and honors severe cadence', async (
 
   worker.start();
   const launched = await worker.tick();
-  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, INEA_STATION_TASK_ID].sort());
-  assert.equal(ineaCalls, 1);
-  assert.equal(worker.status().mode, 'severe');
-  assert.equal(worker.status().scheduler.refreshIntervalMs, 60_000);
-  assert.equal(worker.readSource(INEA_STATION_TASK_ID).state, 'CURRENT');
+  assert.deepEqual(launched, [ALERTA_RIO_RAINFALL_TASK_ID]);
+  assert.equal(ineaCalls, 0);
+  worker.stop();
 });
 
-test('optional CHM warnings task exposes only validated RJ regional routing and never municipality P0', async () => {
+test('CHM remains blocked when explicitly enabled', async () => {
   let chmCalls = 0;
   const worker = createOfficialSourceWorker({
     config: {
@@ -243,27 +241,9 @@ test('optional CHM warnings task exposes only validated RJ regional routing and 
 
   worker.start();
   const launched = await worker.tick();
-  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, CHM_WARNINGS_TASK_ID].sort());
-  assert.equal(chmCalls, 1);
-
-  const reading = worker.readSource(CHM_WARNINGS_TASK_ID);
-  assert.equal(reading.state, 'CURRENT');
-  assert.equal(reading.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
-  assert.equal(reading.snapshot.activeWarningCount, 1);
-  assert.equal(reading.snapshot.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
-  assert.equal(reading.snapshot.rjZoneRoutingValidation, CHM_RJ_ALERT_ROUTING_CONTRACT);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.route, 'RJ_MARINE_REGIONAL');
-  assert.equal(reading.snapshot.warnings[0].rjRouting.canExposeRjMarineWarning, true);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.municipalityGeofenceValidated, false);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.canPromoteMunicipalityP0, false);
-  assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
-
-  const status = worker.status();
-  assert.equal(status.chmWarningsConfigured, true);
-  const chmStatus = status.sources.find((source) => source.sourceId === CHM_SOURCE_ID);
-  assert.equal(chmStatus.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
-  assert.equal(chmStatus.payloadExposed, false);
-  assert.equal(JSON.stringify(status).includes('AVISO DE VENTO FORTE'), false);
+  assert.deepEqual(launched, [ALERTA_RIO_RAINFALL_TASK_ID]);
+  assert.equal(chmCalls, 0);
+  worker.stop();
 });
 
 test('unknown source reads fail closed', () => {

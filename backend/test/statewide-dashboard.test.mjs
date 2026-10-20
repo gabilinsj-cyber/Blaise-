@@ -47,5 +47,5 @@ test('inactive worker and unconnected products never claim operational coverage'
   assert.equal(STATEWIDE_SOURCE_RESPONSIBILITIES.some(source => source.id.includes('inea')), false);
   const current = buildStatewideDashboardSnapshot(worker(), { nowMillis: now });
   assert.equal(current.sources.find(source => source.id === 'inmet').connectedProduct, 'avisos');
-  assert.equal(current.sources.find(source => source.id === 'ww3').connectedProduct, null);
+  assert.equal(result.sources.some(source => ['chm', 'ww3', 'pnboia'].includes(source.id)), false);
 });

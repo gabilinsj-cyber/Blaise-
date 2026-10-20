@@ -272,9 +272,9 @@ export function createOfficialSourceWorker({
   if (!['normal', 'severe'].includes(config.initialMode)) {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_mode');
   }
-  const ineaStationUrl = validateIneaStationUrl(config.ineaStationUrl);
+  const ineaStationUrl = null;
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
-  const chmWarningsEnabled = config.chmWarningsEnabled ?? false;
+  const chmWarningsEnabled = false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
   const inmetP0PublishEnabled = config.inmetP0PublishEnabled ?? false;
   const defesaCivilRioAssetsEnabled = config.defesaCivilRioAssetsEnabled ?? false;
