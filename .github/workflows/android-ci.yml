@@ -49,6 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           docker build --tag blaise-entitlement-backend:ci backend
+          docker run --rm blaise-entitlement-backend:ci grib_get -V
           mkdir -p backend/evidence
           docker image inspect blaise-entitlement-backend:ci --format '{{.Config.User}}' > backend/evidence/container-user.txt
           test "$(cat backend/evidence/container-user.txt)" = "node"
