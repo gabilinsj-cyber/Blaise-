@@ -30,8 +30,13 @@ data class StatewideMunicipality(val ibge: Int, val name: String, val seaFacing:
 data class StatewideSource(val id: String, val name: String, val products: List<String>, val scope: String,
     val state: String, val connectedProduct: String?)
 data class StatewideSnapshot(val generatedAt: Instant, val workerActive: Boolean,
-    val municipalities: List<StatewideMunicipality>, val warnings: List<StatewideWarning>, val sources: List<StatewideSource>) {
+    val municipalities: List<StatewideMunicipality>, val warnings: List<StatewideWarning>, val sources: List<StatewideSource>, val marine: List<MarineReading> = emptyList()) {
     init {
+        require(marine.all { reading ->
+            municipalities.any {
+                it.ibge == reading.cityIbge && it.seaFacing
+            }
+        })
         require(municipalities.size == 92 && municipalities.map { it.ibge }.toSet().size == 92)
         require(municipalities.all { RioMunicipalities.byIbgeCode(it.ibge)?.name == it.name })
         require(warnings.size <= 64 && warnings.map { it.id }.toSet().size == warnings.size)
@@ -75,7 +80,7 @@ object StatewideDataParser {
         }
         val sources = map(root.getJSONArray("sources")) { row -> StatewideSource(row.getString("id"), row.getString("name"),
             strings(row.getJSONArray("products")), row.getString("scope"), row.getString("state"), optional(row, "connectedProduct")) }
-        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources)
+        return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources, MarineDataParser.parse(root.optJSONArray("marine")))
     }
 }
 

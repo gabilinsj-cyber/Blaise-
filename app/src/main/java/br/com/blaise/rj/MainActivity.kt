@@ -1246,22 +1246,36 @@ private fun MarineAndRiskRow(wide: Boolean) {
 
 @Composable
 private fun MarinePanel(modifier: Modifier) {
+    val clock = LocalObservationClock.current
+    val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
+
+    val readings = snapshot?.marine.orEmpty().filter { !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
+    fun marineTime(t: java.time.Instant): String = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+        .withZone(java.time.ZoneId.of("America/Sao_Paulo")).format(t)
+    fun marineValue(v: Double?, unit: String): String = v?.let { String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f %s", it, unit) } ?: "Não informado"
     DashboardSection(
         title = "MAR • OCEANO ATLÂNTICO",
         subtitle = "Maré, ondas, vento e ressaca",
         modifier = modifier,
     ) {
-        StatusLine("Ondas", "Aguardando medição validada")
-        StatusLine("Ressaca > 3,5 m", "Aguardando medição validada")
-        StatusLine("Maré", "Aguardando medição validada")
-        StatusLine("Direção do vento", "Aguardando consolidação")
-    StatusLine("Fonte utilizada", "Aguardando dados válidos")
-    StatusLine("Atualização da fonte", "Aguardando dados válidos")
-    StatusLine("Período e direção das ondas", "Aguardando dados válidos")
-    StatusLine("Início e possível término", "Aguardando dados válidos")
-    StatusLine("Região afetada", "Aguardando dados válidos")
-    StatusLine("Escala Blaise", "Aguardando dados válidos")
-    StatusLine("Resumo do perigo", "Aguardando dados válidos")
+if (readings.isEmpty()) StatusLine("Mar e ondas", "Sem dados marítimos válidos recebidos")
+readings.forEach { r ->
+    StatusLine("Tipo", if (r.nature == "MODELO") "Previsão de modelo" else "Observação")
+    StatusLine("Município", snapshot?.municipalities?.firstOrNull { it.ibge == r.cityIbge }?.name ?: r.cityIbge.toString())
+    StatusLine("Ondas", marineValue(r.waveHeightM, "m"))
+    StatusLine("Fonte", r.sourceName)
+    StatusLine("Término previsto (RJ)", r.endsAt?.let { marineTime(it) } ?: "Não informado")
+    StatusLine("Início (RJ)", r.startsAt?.let { marineTime(it) } ?: "Não informado")
+    StatusLine("Escala Blaise", r.blaiseScale?.toString() ?: "Não informada")
+    StatusLine("Resumo do perigo", r.dangerSummary ?: "Não informado")
+    StatusLine("Região afetada", r.affectedRegion ?: "Não informada")
+    StatusLine("Referência do dado (RJ)", marineTime(r.validAt))
+    StatusLine("Emissão da fonte (RJ)", marineTime(r.issuedAt))
+    StatusLine("Vento", marineValue(r.windSpeedKmh, "km/h"))
+    StatusLine("Período das ondas", marineValue(r.wavePeriodS, "s"))
+    StatusLine("Direção das ondas", marineValue(r.waveDirectionDeg, "°"))
+}
+
     }
 }
 
