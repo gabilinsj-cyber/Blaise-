@@ -1,3 +1,6 @@
+import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
+import { createScientificStore } from './blaise-scientific-store.mjs';
+import { createScientificAccess } from './blaise-scientific-access.mjs';
 // healthz-cloudrun-fix-v2
 import http from 'node:http';
 import { createBlaiseVectorRjAgent } from './blaise-vector-rj.mjs';
@@ -209,12 +212,27 @@ async function main() {
     metrics,
     subscriberVerifier,
   });
-  const server = http.createServer(createDrainingHandler(dashboardDataHandler, readiness));
+  const scientificStore = createScientificStore();
+  const canReadReports = createScientificAccess({
+    verifyIdentity: subscriberVerifier || (
+      config.firebaseProjectId
+        ? createFirebaseSubscriberVerifier({projectId: config.firebaseProjectId})
+        : null
+    ),
+    allowedUids: (process.env.BLAISE_SCIENTIFIC_ADMIN_UIDS || '')
+      .split(',').map(uid => uid.trim()).filter(Boolean)
+  });
+  const scientificHandler = createScientificHttpHandler(
+    dashboardDataHandler, { canReadReports, store: scientificStore }
+  );
+  const server = http.createServer(createDrainingHandler(scientificHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
 
-  const vectorAgent = createBlaiseVectorRjAgent();
+  const vectorAgent = createBlaiseVectorRjAgent({
+    onResult: report => scientificStore.add(report)
+  });
   if (sourceWorkerConfig.enabled) {
     vectorAgent.setSeverity(sourceWorkerConfig.initialMode === 'severe' ? 5 : 1);
     vectorAgent.start();
@@ -232,7 +250,7 @@ async function main() {
       if (outcome !== 'graceful') process.exitCode = 1;
     },
   });
-  const shutdown = createCoordinatedShutdown(serverShutdown, { stop() { vectorAgent.stop(); sourceWorker.stop(); } });
+  const shutdown = createCoordinatedShutdown(serverShutdown, { stop() { vectorAgent.stop(); sourceWorker.stop(); scientificStore.stop(); } });
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
 
