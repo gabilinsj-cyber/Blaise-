@@ -1,5 +1,6 @@
 FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 
+RUN apt-get update && apt-get install -y --no-install-recommends libeccodes-tools && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json package-lock.sha256 ./
 RUN test "$(npm --version)" = "11.19.0" \
