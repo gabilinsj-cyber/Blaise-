@@ -13,7 +13,7 @@ export function evaluateScientificJobs(jobs,{now=Date.now()}={}) {
       for(const source of job.sources){
         if(!source.sourceId||source.scopeId!==job.scopeId||source.quality!=='VALIDATED'||!['OBSERVADO','MODELO'].includes(source.nature))throw TypeError('validated_comparable_source_required');
         const url=new URL(source.sourceUrl);if(url.protocol!=='https:'||url.username||url.password)throw TypeError('https_source_required');
-        const at=Date.parse(source.observedAt);if(!Number.isFinite(at)||at>now||now-at>job.maxAgeMs)throw RangeError('stale_source');
+        const at=Date.parse(source.observedAt);if(!Number.isFinite(at)||at>now||now-at>(['significantWaveSpectrum','linearWaveDispersion','conditionalMarineTravelTime'].includes(job.method)?Math.min(job.maxAgeMs,3600000):job.maxAgeMs))throw RangeError('stale_source');
         if(!source.validAt||!Number.isFinite(Date.parse(source.validAt))||source.validAt!==job.validAt)throw TypeError('same_valid_time_required');
       }
       if(['calibratedMos','calibratedKdpRainRate','calibratedTurbulentGust'].includes(job.method)&&job.inputs?.policy?.scopeId!==job.scopeId)throw TypeError('calibration_scope_mismatch');
