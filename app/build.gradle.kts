@@ -72,7 +72,11 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            ndk { abiFilters += "arm64-v8a" }
+        }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
