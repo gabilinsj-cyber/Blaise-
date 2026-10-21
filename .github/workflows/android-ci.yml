@@ -212,3 +212,15 @@ jobs:
           name: blaise-rj-apk-teste
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Medir tamanho do APK
+        run: |
+          python3 - <<'PYAPK'
+          from pathlib import Path
+          from zipfile import ZipFile
+          p = Path("app/build/outputs/apk/debug/app-debug.apk")
+          print(f"APK total: {p.stat().st_size / 1000000:.2f} MB")
+          with ZipFile(p) as z:
+              for f in sorted(z.infolist(), key=lambda f: f.compress_size, reverse=True)[:15]:
+                  print(f"{f.compress_size / 1000000:.2f} MB | {f.filename}")
+          PYAPK
