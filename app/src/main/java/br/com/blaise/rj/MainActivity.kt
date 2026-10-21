@@ -992,8 +992,8 @@ private fun AlertsScreen(city1: City, city2: City) {
         subtitle = "Formação oceânica, proximidade e rota prevista",
     ) {
         StatusLine("Formação", "Aguardando fonte meteorológica válida")
-        StatusLine("Rota prevista", "Exibida apenas quando sustentada por fonte válida")
-        StatusLine("Impacto em solo", "P0 quando houver orientação oficial aplicável")
+        StatusLine("Rota prevista", "Previsão indisponível")
+        StatusLine("Impacto em solo", "Dados indisponíveis")
     }
 }
 
@@ -1024,7 +1024,7 @@ private fun MarineScreen() {
         title = "RESSACA • TSUNAMI • MAREMOTO",
         subtitle = "Condições marítimas do litoral do RJ",
     ) {
-        StatusLine("Ressaca", "Regra destacada para ondas > 3,5 m quando houver aviso oficial")
+        StatusLine("Ressaca", "Dados indisponíveis")
         StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
@@ -1255,6 +1255,13 @@ private fun MarinePanel(modifier: Modifier) {
         StatusLine("Ressaca > 3,5 m", "Aguardando medição validada")
         StatusLine("Maré", "Aguardando medição validada")
         StatusLine("Direção do vento", "Aguardando consolidação")
+    StatusLine("Fonte utilizada", "Aguardando dados válidos")
+    StatusLine("Atualização da fonte", "Aguardando dados válidos")
+    StatusLine("Período e direção das ondas", "Aguardando dados válidos")
+    StatusLine("Início e possível término", "Aguardando dados válidos")
+    StatusLine("Região afetada", "Aguardando dados válidos")
+    StatusLine("Escala Blaise", "Aguardando dados válidos")
+    StatusLine("Resumo do perigo", "Aguardando dados válidos")
     }
 }
 
