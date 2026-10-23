@@ -10,3 +10,10 @@ if (result.issuedAt !== "2026-10-22T06:00:00.000Z") throw new Error("noaa_issue_
 if (result.validAt !== "2026-10-22T06:00:00.000Z") throw new Error("noaa_validity_mismatch");
 console.log("NOAA fixture OK", JSON.stringify(result));
 NOAA_TEST
+node --input-type=module <<\NOAA_LIVE
+import { readMarineGribPoint } from "./src/marine-grib-reader.mjs";
+const live = await readMarineGribPoint("/fixtures/noaa-wave-live.grib2", -23.5, -43);
+if (live.issuedAt !== "2026-10-23T06:00:00.000Z") throw new Error("noaa_live_issue_mismatch");
+if (live.validAt !== live.issuedAt) throw new Error("noaa_live_validity_mismatch");
+console.log("NOAA GRIB baixado OK", JSON.stringify(live));
+NOAA_LIVE
