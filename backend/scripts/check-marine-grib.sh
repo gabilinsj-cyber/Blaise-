@@ -17,3 +17,21 @@ if (live.issuedAt !== "2026-10-23T06:00:00.000Z") throw new Error("noaa_live_iss
 if (live.validAt !== live.issuedAt) throw new Error("noaa_live_validity_mismatch");
 console.log("NOAA GRIB baixado OK", JSON.stringify(live));
 NOAA_LIVE
+node --input-type=module <<\NOAA_COLLECT
+import { collectNoaaWave } from "./src/noaa-wave-collector.mjs";
+import { readFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+const fixture = await readFile(
+"/fixtures/noaa-wave-live.grib2");
+const fakeFetch = async () => new Response(fixture);
+const now = Date.UTC(2026, 9, 23, 7);
+const result = await collectNoaaWave(
+-23.5, -43, now, fakeFetch);
+assert.equal(result.nature, "MODELO");
+assert.ok(Math.abs(result.waveHeightM - 1.77) < 0.001);
+assert.equal(result.expiresAt, "2026-10-23T18:00:00.000Z");
+assert.equal(Date.parse(result.checkedAt), now);
+const collectAt = t => collectNoaaWave(-23.5, -43, t, fakeFetch);
+await assert.rejects(() => collectAt(now+21600000), /noaa_cycle_mismatch/);
+console.log("NOAA coletor OK");
+NOAA_COLLECT
