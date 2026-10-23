@@ -18,5 +18,19 @@ export async function readMarineGribPoint(file, latitude, longitude) {
   const raw = stdout.trim();
   const waveHeightM = Number(raw);
   if (!raw || !Number.isFinite(waveHeightM) || waveHeightM < 0) throw new Error("marine_wave_invalid");
-  return { waveHeightM, units, dataDate, dataTime, validityDate, validityTime };
+  const issuedAt = marineGribUtc(dataDate, dataTime);
+  const validAt = marineGribUtc(validityDate, validityTime);
+  if (validAt < issuedAt) throw new Error("marine_validity_before_issue");
+  return { waveHeightM, units, issuedAt, validAt, dataDate, dataTime, validityDate, validityTime };
+}
+export function marineGribUtc(date, time) {
+  const clock = String(time).padStart(4, "0");
+  if (!/^\d{8}$/.test(date) || !/^\d{4}$/.test(clock)) throw new Error("marine_time_invalid");
+  const day = String(date);
+  const parts = [day.slice(0, 4), day.slice(4, 6), day.slice(6, 8)];
+  const iso = parts.join("-") + "T" + clock.slice(0, 2) + ":" + clock.slice(2) + ":00.000Z";
+  const stamp = Date.parse(iso);
+  if (!Number.isFinite(stamp)) throw new Error("marine_time_invalid");
+  if (new Date(stamp).toISOString() !== iso) throw new Error("marine_time_invalid");
+  return iso;
 }

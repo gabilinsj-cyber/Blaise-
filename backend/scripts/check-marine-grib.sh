@@ -6,5 +6,7 @@ node --input-type=module <<\NOAA_TEST
 import { readMarineGribPoint } from "./src/marine-grib-reader.mjs";
 const result = await readMarineGribPoint("/fixtures/noaa-wave-20261022-06.grib2", -23.5, -43);
 if (Math.abs(result.waveHeightM - 1.64) > 0.001) throw new Error("noaa_fixture_height_mismatch");
+if (result.issuedAt !== "2026-10-22T06:00:00.000Z") throw new Error("noaa_issue_mismatch");
+if (result.validAt !== "2026-10-22T06:00:00.000Z") throw new Error("noaa_validity_mismatch");
 console.log("NOAA fixture OK", JSON.stringify(result));
 NOAA_TEST
