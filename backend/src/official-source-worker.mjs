@@ -1,3 +1,5 @@
+import { collectNoaaWave } from "./noaa-wave-collector.mjs";
+import { createNoaaWaveCache } from "./noaa-wave-cache.mjs";
 import { probeAlertaRioLiveRainfall } from './alerta-rio-source.mjs';
 import { createCemadenRjHydrologicalRiskCache } from './cemaden-rj-cache.mjs';
 import { probeCemadenRjHydrologicalRisk } from './cemaden-rj-source.mjs';
@@ -18,6 +20,7 @@ import { createOfficialSourceScheduler } from './official-source-scheduler.mjs';
 
 export const OFFICIAL_SOURCE_WORKER_CONTRACT = 'OFFICIAL_SOURCE_FAIL_CLOSED_WORKER';
 export const INMET_P0_RUNTIME_STATUS_CONTRACT = 'INMET_P0_RUNTIME_EVALUATION_V1';
+export const NOAA_WAVE_TASK_ID = "noaa-gfs-wave";
 export const ALERTA_RIO_RAINFALL_TASK_ID = 'alerta-rio-rainfall';
 export const INEA_STATION_TASK_ID = 'inea-station';
 export const CEMADEN_RJ_TASK_ID = 'cemaden-rj-hydrological-risk';
@@ -254,6 +257,8 @@ export function createOfficialSourceWorker({
   refreshIntervalsMs = null,
   cadenceMode = 'after_completion',
   onEvent = () => {},
+  noaaPoint = null,
+  collectNoaa = collectNoaaWave,
   probeAlertaRio = probeAlertaRioLiveRainfall,
   probeIneaStation = probeIneaStationSnapshot,
   probeCemadenRj = probeCemadenRjHydrologicalRisk,
@@ -273,6 +278,10 @@ export function createOfficialSourceWorker({
     throw new OfficialSourceWorkerError('official_source_worker_invalid_mode');
   }
   const ineaStationUrl = null;
+  const noaaWaveEnabled = config.noaaWaveEnabled ?? false;
+  if (typeof noaaWaveEnabled !== "boolean") throw new OfficialSourceWorkerError("invalid_noaa_enabled_flag");
+  if (noaaWaveEnabled && !noaaPoint) throw new OfficialSourceWorkerError("noaa_point_required");
+  if (noaaWaveEnabled && typeof collectNoaa !== "function") throw new OfficialSourceWorkerError("noaa_collector_invalid");
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
@@ -316,6 +325,7 @@ export function createOfficialSourceWorker({
   }
 
   const alertaRioCache = createAlertaRioRainfallCache({ now });
+  const noaaWaveCache = noaaWaveEnabled ? createNoaaWaveCache({ now }) : null;
   const ineaCache = ineaStationUrl ? createIneaHydrometStationCache({ now }) : null;
   const cemadenRjCache = cemadenRjEnabled ? createCemadenRjHydrologicalRiskCache({ now }) : null;
   const chmWarningsCache = chmWarningsEnabled ? createChmWarningsInventoryCache({ now }) : null;
@@ -468,6 +478,26 @@ export function createOfficialSourceWorker({
     });
   }
 
+  if (noaaWaveEnabled) {
+    tasks.push({
+      id: NOAA_WAVE_TASK_ID,
+      run: async ({ startedAt: iso }) => {
+        const startedAt = Date.parse(iso);
+        try {
+          const snapshot = await collectNoaa(
+            noaaPoint.latitude, noaaPoint.longitude, startedAt, fetchImpl
+          );
+          noaaWaveCache.recordSuccess(snapshot, { fetchedAt: startedAt });
+        } catch (error) {
+          noaaWaveCache.recordFailure(safeSourceErrorCode(error),
+
+            { attemptedAt: startedAt });
+          throw error;
+        }
+      },
+    });
+  }
+
   const scheduler = createOfficialSourceScheduler({
     tasks,
     now,
@@ -493,6 +523,9 @@ export function createOfficialSourceWorker({
   }
 
   function readSource(taskId) {
+    if (taskId === NOAA_WAVE_TASK_ID && noaaWaveCache) {
+      return noaaWaveCache.read({ mode: scheduler.snapshot().mode });
+    }
     if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
     }

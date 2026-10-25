@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import {
   ALERTA_RIO_RAINFALL_TASK_ID,
+  NOAA_WAVE_TASK_ID,
   CHM_WARNINGS_TASK_ID,
   createOfficialSourceWorker,
   INEA_STATION_TASK_ID,
@@ -274,4 +275,56 @@ test('runtime cadence override preserves source timestamps and requests 60s norm
     assert.equal(worker.status().scheduler.refreshIntervalMs, 30_000);
     assert.equal(worker.readSource(ALERTA_RIO_RAINFALL_TASK_ID).snapshot.freshestObservedAt, before);
   } finally { worker.stop(); }
+});
+
+test('NOAA worker: coleta e falha', async () => {
+  let clock = NOW;
+  let fail = false;
+  let calls = 0;
+  const point = { latitude: -23.5, longitude: -43 };
+  const sample = {
+    ...point,
+    waveHeightM: 2,
+    units: 'm',
+    nature: 'MODELO',
+    issuedAt: new Date(NOW).toISOString(),
+    validAt: new Date(NOW).toISOString(),
+    expiresAt: new Date(NOW + 43200000).toISOString(),
+    checkedAt: new Date(NOW).toISOString(),
+    sourceUrl: 'https://nomads.ncep.noaa.gov/',
+  };
+
+  const worker = createOfficialSourceWorker({
+    config: { enabled: true, initialMode: 'normal', noaaWaveEnabled: true },
+    now: () => clock,
+    autoSchedule: false, refreshIntervalsMs: { normal: 300000, severe: 30000 },
+    noaaPoint: point,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    collectNoaa: async (lat, lon, at) => {
+      calls += 1;
+      assert.equal(lat, point.latitude);
+      assert.equal(lon, point.longitude);
+      assert.equal(at, clock);
+      if (fail) throw Object.assign(new Error('test'), { code: 'noaa_test_failure' });
+      return { ...sample, checkedAt: new Date
+
+(at).toISOString() };
+    },
+  });
+  assert.equal(worker.start(), true);
+  await worker.tick();
+  assert.equal(calls, 1);
+  const reading = worker.readSource(NOAA_WAVE_TASK_ID);
+  assert.equal(reading.state, 'CURRENT');
+  assert.equal(reading.snapshot.waveHeightM, 2);
+  assert.equal(reading.snapshot.issuedAt, sample.issuedAt);
+  fail = true;
+  clock += 300000;
+  await worker.tick();
+  assert.equal(calls, 2);
+  const degraded = worker.readSource(NOAA_WAVE_TASK_ID);
+  assert.equal(degraded.state, 'CURRENT_DEGRADED');
+  assert.equal(degraded.snapshot.waveHeightM, 2);
+  assert.equal(degraded.lastErrorCode, 'noaa_test_failure');
+  worker.stop();
 });
