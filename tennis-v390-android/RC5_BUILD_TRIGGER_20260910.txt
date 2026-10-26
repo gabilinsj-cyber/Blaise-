@@ -1,0 +1,4 @@
+Blaise Open Tennis v3.9.0 RC.5 Android verification trigger
+Scope: authoritative MEMORABLE_CONFIRMED presentation, 1.2 s overlay, standing ovation, camera badge, replay gated to set break/match end.
+Requested verification: compile signed CI APK/AAB and Android API 35 runtime gate.
+Date: 2026-09-10
