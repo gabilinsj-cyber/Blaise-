@@ -245,3 +245,39 @@ export function createCemadenRjHydrologicalRiskCache({ now = () => Date.now() } 
 
   return Object.freeze({ recordSuccess, recordFailure, read, clear });
 }
+
+
+function projectFreshnessReading(reading) {
+  return Object.freeze({
+    state: reading.state,
+    reason: reading.reason,
+    refreshIntervalMs: reading.refreshIntervalMs,
+    refreshDue: reading.refreshDue,
+    nextRefreshDueAt: reading.nextRefreshDueAt,
+    fetchedAt: reading.fetchedAt,
+    observedAt: reading.observedAt,
+    dataAgeMs: reading.dataAgeMs,
+    cacheAgeMs: reading.cacheAgeMs,
+  });
+}
+
+export function evaluateCemadenRjOperationalFreshness(
+  snapshot,
+  { checkedAt = Date.now() } = {},
+) {
+  const checkedAtMs = epochMs(checkedAt, 'cemaden_rj_cache_freshness_checked_at_invalid');
+  const cache = createCemadenRjHydrologicalRiskCache({ now: () => checkedAtMs });
+  cache.recordSuccess(snapshot, { fetchedAt: checkedAtMs });
+
+  const normal = cache.read({ at: checkedAtMs, mode: 'normal' });
+  const severe = cache.read({ at: checkedAtMs, mode: 'severe' });
+  const pass = normal.state === 'CURRENT' && severe.state === 'CURRENT';
+
+  return Object.freeze({
+    status: pass ? 'PASS_CURRENT_AT_CHECK_TIME' : 'BLOCKED_STALE_OR_UNAVAILABLE',
+    checkedAt: new Date(checkedAtMs).toISOString(),
+    normal: projectFreshnessReading(normal),
+    severe: projectFreshnessReading(severe),
+    payloadExposed: false,
+  });
+}
