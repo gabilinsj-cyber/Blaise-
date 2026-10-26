@@ -36,6 +36,54 @@ function ready(reading, now, limit) {
   return reading && currentStates.has(reading.state) && reading.snapshot && freshStamp(reading.fetchedAt, now, limit);
 }
 
+
+function buildNoaaMarine(worker, nowMillis) {
+  let reading;
+  try {
+    reading = worker.readSource("noaa-gfs-wave");
+  } catch {
+    return [];
+  }
+
+  if (!["CURRENT", "CURRENT_DEGRADED"].includes(reading?.state))
+    return [];
+
+  const s = reading.snapshot;
+  if (!s || s.municipalityGeoVerified !== true)
+    return [];
+
+  if (!Number.isInteger(s.cityIbge) ||
+      !RJ_SEAFRONT_MUNICIPALITIES.some(
+        c => Number(c.ibge) === s.cityIbge
+      ))
+    return [];
+
+  const issued = Date.parse(s.issuedAt);
+  const valid = Date.parse(s.validAt);
+  const expires = Date.parse(s.expiresAt);
+
+  if (![issued, valid, expires].every(Number.isFinite) ||
+      issued > valid || valid > expires ||
+      expires <= nowMillis ||
+      valid > nowMillis ||
+      !Number.isFinite(s.waveHeightM) ||
+      s.waveHeightM < 0 ||
+      typeof s.sourceUrl !== "string" ||
+      !s.sourceUrl.startsWith("https://"))
+    return [];
+
+  return [{
+    cityIbge: s.cityIbge,
+    sourceName: "NOAA GFS Wave",
+    sourceUrl: s.sourceUrl,
+    nature: "MODELO",
+    issuedAt: s.issuedAt,
+    validAt: s.validAt,
+    expiresAt: s.expiresAt,
+    waveHeightM: s.waveHeightM
+  }];
+}
+
 export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now() } = {}) {
   if (!Number.isFinite(nowMillis) || nowMillis < 0) throw new Error('statewide_clock_invalid');
   const status = worker.status();
@@ -90,6 +138,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     workerActive: active,
     municipalities,
     warnings,
+    marine: buildNoaaMarine(worker, nowMillis),
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
       const actualId = source.taskId ? reading(worker, source.taskId)?.sourceId : null;
       const actual = active ? sourceStates.find(item => item.sourceId === source.taskId || item.sourceId === actualId
