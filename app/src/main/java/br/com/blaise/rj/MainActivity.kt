@@ -2141,7 +2141,10 @@ private fun RjMarineSourceMatrixPanel() {
             color = if(marine == null) WarningAmber else GoldSoft,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-product-connection"))
-        Text("Produtos marítimos adicionais ainda não validados para exibição em tempo real.",
+        Text("NOAA: produto oceânico ainda sem leitura validada nesta tela. " +
+            "EUMETSAT: coleção e horário da última observação pendentes. " +
+            "JAXA/GSMaP: chuva oceânica pendente de validação. " +
+            "INMET, CEMADEN e INPE/CPTEC: usar somente registros atuais e autorizados.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-unconnected-products"))
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
@@ -2308,7 +2311,7 @@ private fun MoreScreen(
         Text("Desempate Tabela 2 (cinco fontes): " +
             FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
             ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
+            "INMET/CEMADEN são observações por estação; INPE e NOAA dependem do tipo de produto.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
         Text("Para hidrologia, litoral e Atlântico, consultar dados autorizados de " +
@@ -2457,7 +2460,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
                 "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
                 "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
+                "Tabela 2: INPE → INMET → CEMADEN → REDEMET → NOAA.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
             Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
                 "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
@@ -2786,7 +2789,8 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-chm-regional-status"))
         Text("Produtos marítimos por variável, conforme disponibilidade e licença. " +
-            "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
+            "NOAA • ondas e oceano; EUMETSAT • nuvens e ciclones; JAXA/GSMaP • chuva oceânica. " +
+            "Integração ao vivo de cada produto ainda pendente.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
