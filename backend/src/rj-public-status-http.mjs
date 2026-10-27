@@ -105,7 +105,7 @@ export function projectRjPublicMarineWarnings(worker, nowMillis) {
 // Public safety notices are not tied to purchases. Source/content publication
 // must still be explicitly approved by the operator for its licensing terms.
 // No full provider payload, subscriber/purchase token or personal location.
-export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } = {}) {
+export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now(), marineObservationRecords = [] } = {}) {
   if(!worker || typeof worker.status !== 'function'
     || typeof worker.readSource !== 'function') throw new TypeError('rj_public_worker_invalid');
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
@@ -161,6 +161,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     marine,
+    marineObservations:projectRjPublicMarineObservations(marineObservationRecords,nowMillis),
     sources:Object.freeze(sourceSummaries),
     warningInventories: Object.freeze(projectWarningInventories(worker, nowMillis)),
     thirdPartyImagesIncluded:false,
@@ -187,11 +188,13 @@ function respond(res,code,body) {
 }
 export function createRjPublicStatusHandler(delegate, {
   sourceWorker,enabled=false,licensingApproved=false,clock=()=>Date.now(),
+  marineObservationProvider=()=>[],
 }={}) {
   if(typeof delegate!=='function')throw new TypeError('rj_public_delegate_required');
   if(!sourceWorker || typeof sourceWorker.status!=='function'
     || typeof sourceWorker.readSource!=='function')throw new TypeError('rj_public_worker_required');
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
+  if(typeof marineObservationProvider!=='function')throw new TypeError('rj_marine_provider_required');
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
     if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
@@ -203,7 +206,11 @@ export function createRjPublicStatusHandler(delegate, {
       respond(res,405,{error:'method_not_allowed'});return;
     }
     try {
-      const status=buildRjPublicStatusSnapshot(sourceWorker,{nowMillis:clock()});
+      const nowMillis=clock();
+      const records=await marineObservationProvider();
+      const status=buildRjPublicStatusSnapshot(sourceWorker,{
+        nowMillis,marineObservationRecords:Array.isArray(records)?records:[],
+      });
       if(!status || !status.usableOfficialProducts) {
         respond(res,503,{error:'official_sources_not_validated'});return;
       }
