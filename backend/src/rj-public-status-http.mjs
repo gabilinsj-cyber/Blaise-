@@ -3,10 +3,19 @@ import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { CHM_WARNINGS_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CHM_SOURCE_ID, CHM_WARNINGS_URL, CHM_TEMPORAL_VALIDITY_CONTRACT } from './chm-source.mjs';
 import { INMET_SOURCE_ID, INMET_CAP_RSS_URL } from './inmet-source.mjs';
+import { selectCurrentRjMarineObservation } from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
 export const RJ_PUBLIC_STATUS_MAX_BYTES = 80 * 1024;
+
+export function projectRjPublicMarineObservations(records, nowMillis = Date.now()) {
+  const phenomena = ['ONDAS', 'SWELL', 'VENTO', 'RAJADA',
+    'TEMPERATURA_MAR', 'CORRENTES_MARINHAS', 'CHUVA_ATLANTICO'];
+  return Object.fromEntries(phenomena.map(phenomenon => [
+    phenomenon, selectCurrentRjMarineObservation(records, nowMillis, { phenomenon })
+  ]));
+}
 
 const MARINE_FRESH_MS = 5 * 60_000;
 const MARINE_MAX_WARNINGS = 16;
