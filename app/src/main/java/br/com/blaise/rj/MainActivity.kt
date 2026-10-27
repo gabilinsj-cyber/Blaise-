@@ -2773,11 +2773,10 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
         StatusLine("Ondas",wave.description)
-        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
-            "— altura/período/direção • integração autorizada pendente")
-        StatusLine("Correntes", "— intensidade/direção • dados verificados indisponíveis")
-        StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
-        StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
+        StatusLine("Swell", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
+        StatusLine("Correntes", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
+        StatusLine("Temperatura do mar", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
+        StatusLine("Vento", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
         StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
         Text(if (marine==null)
@@ -2787,10 +2786,10 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
                 "Não são alertas municipais nem garantia de segurança costeira.",
             color = if(marine==null) WarningAmber else GoldSoft,
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.testTag("marine-chm-regional-status"))
+            modifier = Modifier.testTag("marine-regional-status"))
         Text("Produtos marítimos por variável, conforme disponibilidade e licença. " +
             "NOAA • ondas e oceano; EUMETSAT • nuvens e ciclones; JAXA/GSMaP • chuva oceânica. " +
-            "Integração ao vivo de cada produto ainda pendente.",
+            "Somente observações verificadas com até 30 minutos podem ser mostradas como atuais; previsões e avisos têm validade própria. Integração ao vivo ainda pendente.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
