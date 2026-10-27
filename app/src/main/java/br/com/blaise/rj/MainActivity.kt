@@ -2114,8 +2114,8 @@ private fun RjMarineSourceMatrixPanel() {
     val canRefresh = LocalPublicStatusConfigured.current
     val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
-        title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
-        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        title = "MAR E ATLÂNTICO • RJ",
+        subtitle = "Medições verificadas e última checagem",
         modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
     ) {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
@@ -2123,7 +2123,7 @@ private fun RjMarineSourceMatrixPanel() {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         Text(
             if (!canRefresh) "Canal público marítimo não configurado ou aplicativo desligado."
-            else "Consulta pública ao CHM: somente inventário regional autenticado e vigente.",
+            else "Consulta marítima: última verificação disponível abaixo.",
             color = if(canRefresh) GoldSoft else WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-public-connection"))
@@ -2141,8 +2141,7 @@ private fun RjMarineSourceMatrixPanel() {
             color = if(marine == null) WarningAmber else GoldSoft,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-product-connection"))
-        Text("NOAA, Copernicus Marine e EUMETSAT: produtos cadastrados; " +
-            "sem ingestão contínua validada no painel.",
+        Text("Produtos marítimos adicionais ainda não validados para exibição em tempo real.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-unconnected-products"))
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
