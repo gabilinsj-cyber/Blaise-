@@ -51,8 +51,8 @@ object FinalDashboardSpec {
         "Umidade relativa", "Granizo"
     )
     val oceanSatelliteSources = listOf(
-        "NOAA", "Copernicus Marine",
-        "EUMETSAT", "INMET", "INPE/CPTEC", "Windy"
+        "NOAA", "EUMETSAT",
+        "INMET", "INPE/CPTEC", "Windy"
     )
     const val EXPANDED_METEO_PHENOMENA_COUNT = 30
     const val EXTRA_DISPUTE_CHECKS = 5
