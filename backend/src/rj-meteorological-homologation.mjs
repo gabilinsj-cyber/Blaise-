@@ -152,30 +152,30 @@ export const RJ_METEO_MARINE_TABLE=Object.freeze([
   Object.freeze({
     code:'CICLONES_OCEANICOS',phenomena:Object.freeze(['CICLONE_EXTRATROPICAL']),
     label:'Ciclones oceânicos',sources:Object.freeze([
-      'NOAA','EUMETSAT_SATELLITE','NOAA']),
+      'NOAA','EUMETSAT_SATELLITE','INPE_CPTEC_FORECAST']),
     purpose:'Acompanhar evolução atmosférica, trajetória e efeitos no mar',
-    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+    alertAuthority:'DEFESA_CIVIL_E_AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'TEMPESTADES_ATLANTICO',phenomena:Object.freeze(['TEMPESTADE','CHUVA_ATLANTICO']),
     label:'Tempestades no Atlântico',sources:Object.freeze([
       'NOAA','EUMETSAT_SATELLITE']),
     purpose:'Nuvens, sistemas intensos e deslocamento; satélite não é radar medido',
-    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+    alertAuthority:'DEFESA_CIVIL_E_AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'ONDAS_SWELL',phenomena:Object.freeze(['ONDAS','SWELL']),
     label:'Ondas e swell',sources:Object.freeze([
       'NOAA']),
     purpose:'Altura, período, direção e propagação das ondas por produto',
-    alertAuthority:
+    alertAuthority:'AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'RESSACA_LITORAL',phenomena:Object.freeze(['RESSACA']),
     label:'Ressaca no litoral RJ',sources:Object.freeze([
       'BOIAS_AUTORIZADAS','NOAA']),
     purpose:'Previsão de ondas e avaliação do risco costeiro',
-    alertAuthority:
+    alertAuthority:'AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'TSUNAMI',phenomena:Object.freeze(['TSUNAMI']),
