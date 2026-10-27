@@ -36,10 +36,10 @@ object FinalDashboardSpec {
         "INMET", "CPTEC/INPE", "USGS"
     )
 
-    // Five situational weather channels; Windy and INPE/CPTEC provide
+    // Five situational weather channels; REDEMET and INPE/CPTEC provide
     // forecast context, not interchangeable measured station reports.
     val fiveSituationalWeatherSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+        "INPE/CPTEC", "INMET", "CEMADEN", "REDEMET", "NOAA"
     )
 
     // Internal supplementary provider catalog; never expose routing to customers.
@@ -52,7 +52,7 @@ object FinalDashboardSpec {
     )
     val oceanSatelliteSources = listOf(
         "NOAA", "EUMETSAT",
-        "INMET", "INPE/CPTEC", "Windy"
+        "INMET", "INPE/CPTEC", "REDEMET"
     )
     const val EXPANDED_METEO_PHENOMENA_COUNT = 30
     const val EXTRA_DISPUTE_CHECKS = 5
