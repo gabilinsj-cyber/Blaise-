@@ -186,13 +186,13 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
 export const RJ_MARINE_OBSERVATION_MAX_AGE_MS = 30 * 60 * 1000;
 export function selectCurrentRjMarineObservation(records, now = Date.now()) {
   const candidates = (Array.isArray(records) ? records : []).filter(item => {
-    if (!item || item.kind !== 'OBSERVATION' || item.verified !== true ||
+    if (!Number.isFinite(now) || !item || item.kind !== 'OBSERVATION' || item.verified !== true ||
         item.licenseVerified !== true || item.coverageVerified !== true ||
         typeof item.source !== 'string' || !item.source.trim() ||
         typeof item.unit !== 'string' || !item.unit.trim() ||
         typeof item.value !== 'number' || !Number.isFinite(item.value)) return false;
-    const observed = Date.parse(item.observedAt);
-    const collected = Date.parse(item.collectedAt);
+    const observed = typeof item.observedAt === 'string' ? Date.parse(item.observedAt) : NaN;
+    const collected = typeof item.collectedAt === 'string' ? Date.parse(item.collectedAt) : NaN;
     return Number.isFinite(observed) && Number.isFinite(collected) &&
       observed <= collected && collected <= now &&
       now - observed >= 0 && now - observed <= RJ_MARINE_OBSERVATION_MAX_AGE_MS;
