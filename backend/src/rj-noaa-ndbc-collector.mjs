@@ -28,13 +28,23 @@ export function parseNdbcStandardObservations(body,station,{now=Date.now()}={}) 
     const yr=Number(cols[year]),y=yr<100?(yr>=70?1900+yr:2000+yr):yr;
     const m=Number(cols[month]),d=Number(cols[day]),h=Number(cols[hour]);
     const min=minute>=0?Number(cols[minute]):0;
+    if(!Number.isInteger(m)||m<1||m>12||!Number.isInteger(d)||d<1||d>31||
+       !Number.isInteger(h)||h<0||h>23||!Number.isInteger(min)||min<0||min>59)continue;
     const observed=Date.UTC(y,m-1,d,h,min);
     if(!Number.isFinite(observed)||new Date(observed).getUTCFullYear()!==y||
-       new Date(observed).getUTCMonth()!==m-1||observed>now||now-observed>30*60_000)continue;
+       new Date(observed).getUTCMonth()!==m-1||
+       new Date(observed).getUTCDate()!==d||
+       new Date(observed).getUTCHours()!==h||
+       new Date(observed).getUTCMinutes()!==min||observed>now||now-observed>30*60_000)continue;
     for(const [field,[phenomenon,unit]] of Object.entries(VARIABLES)){
       const i=idx(field);if(i<0)continue;
       const raw=cols[i],value=Number(raw);
-      if(!Number.isFinite(value)||/^9{2,}(?:\.0+)?$/.test(raw))continue;
+      if(typeof raw!=='string'||!/^-?\d+(?:\.\d+)?$/.test(raw))continue;
+      if(!Number.isFinite(value)||/^9{2,}(?:\.0+)?$/.test(raw)||
+         (field==='WVHT'&&(value<0||value>30))||
+         ((field==='WSPD'||field==='GST')&&(value<0||value>120))||
+         (field==='WTMP'&&(value< -3||value>45))||
+         (field==='DPD'&&(value<=0||value>40)))continue;
       output.push({kind:'OBSERVATION',phenomenon,region:station.region,
         source:'NOAA_NDBC',stationId:station.id,latitude:station.latitude,
         longitude:station.longitude,unit,value,observedAt:new Date(observed).toISOString(),
