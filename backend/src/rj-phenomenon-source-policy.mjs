@@ -184,9 +184,12 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
 
 /** Maritime observation display gate. Forecast cycles and official alerts must be handled separately. */
 export const RJ_MARINE_OBSERVATION_MAX_AGE_MS = 30 * 60 * 1000;
-export function selectCurrentRjMarineObservation(records, now = Date.now()) {
+export function selectCurrentRjMarineObservation(records, now = Date.now(), { phenomenon, region } = {}) {
   const candidates = (Array.isArray(records) ? records : []).filter(item => {
-    if (!Number.isFinite(now) || !item || item.kind !== 'OBSERVATION' || item.verified !== true ||
+    if (!Number.isFinite(now) || !item ||
+        (phenomenon && item.phenomenon !== phenomenon) ||
+        (region && item.region !== region) ||
+        item.kind !== 'OBSERVATION' || item.verified !== true ||
         item.licenseVerified !== true || item.coverageVerified !== true ||
         typeof item.source !== 'string' || !item.source.trim() ||
         typeof item.unit !== 'string' || !item.unit.trim() ||
