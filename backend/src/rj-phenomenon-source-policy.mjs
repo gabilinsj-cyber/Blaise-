@@ -110,6 +110,8 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
  * Use buoy/satellite observations for verification, not as model duplicates.
  */
 export const RJ_VALIDATION_CANDIDATES = Object.freeze({
+  japaneseOceanRain: Object.freeze({source:'JAXA_GSMAP',role:'SATELLITE_PRECIPITATION_COMPARISON',enabled:false,requiresCurrentProductAndCommercialPermission:true}),
+  chineseSatelliteRainExcluded: true,
   marineWaves: Object.freeze({primary:'NOAA', comparison:'REMO_WW3_INDEPENDENT_RUN',
     observation:'AUTHORIZED_BUOY_OR_ALTIMETRY',
     enabled:false, requiresIndependentForcing:true, requiresLiveDatasetAndLicense:true}),
