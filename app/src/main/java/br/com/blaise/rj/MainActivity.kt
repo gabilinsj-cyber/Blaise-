@@ -2760,6 +2760,15 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
     val clock = LocalObservationClock.current
     val marine=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val observations=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }?.marineObservations.orEmpty()
+    fun observation(code: String): String {
+        val row=observations[code]?.takeIf { it.current(clock) }
+            ?: return "Ausência de dados atuais (últimos 30 minutos)"
+        return "${row.value} ${row.unit} • ${row.source} • " +
+            "observação ${RjLiveTableEvidence.localTime(row.observedAt)} • " +
+            "coleta ${RjLiveTableEvidence.localTime(row.collectedAt)}"
+    }
     val wave=RjLiveTableEvidence.marine("ONDAS",marine,clock)
     val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
     val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
@@ -2772,11 +2781,11 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas",wave.description)
-        StatusLine("Swell", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
-        StatusLine("Correntes", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
-        StatusLine("Temperatura do mar", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
-        StatusLine("Vento", "Ausência de observação atual validada (até 30 min) • última coleta indisponível")
+        StatusLine("Ondas",observation("ONDAS"))
+        StatusLine("Swell", observation("SWELL"))
+        StatusLine("Correntes", observation("CORRENTES_MARINHAS"))
+        StatusLine("Temperatura do mar", observation("TEMPERATURA_MAR"))
+        StatusLine("Vento", observation("VENTO"))
         StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
         Text(if (marine==null)
@@ -2789,7 +2798,7 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             modifier = Modifier.testTag("marine-regional-status"))
         Text("Produtos marítimos por variável, conforme disponibilidade e licença. " +
             "NOAA • ondas e oceano; EUMETSAT • nuvens e ciclones; JAXA/GSMaP • chuva oceânica. " +
-            "Somente observações verificadas com até 30 minutos podem ser mostradas como atuais; previsões e avisos têm validade própria. Integração ao vivo ainda pendente.",
+            "Somente observações verificadas com até 30 minutos podem ser mostradas como atuais; previsões e avisos têm validade própria. Integração condicionada a observações oficiais validadas.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
