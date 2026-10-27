@@ -193,7 +193,10 @@ export function selectCurrentRjMarineObservation(records, now = Date.now(), { ph
         item.licenseVerified !== true || item.coverageVerified !== true ||
         typeof item.source !== 'string' || !item.source.trim() ||
         typeof item.unit !== 'string' || !item.unit.trim() ||
-        typeof item.value !== 'number' || !Number.isFinite(item.value)) return false;
+        typeof item.value !== 'number' || !Number.isFinite(item.value) ||
+        !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude) ||
+        item.latitude < -24.5 || item.latitude > -20.0 ||
+        item.longitude < -46.0 || item.longitude > -39.0) return false;
     const observed = typeof item.observedAt === 'string' ? Date.parse(item.observedAt) : NaN;
     const collected = typeof item.collectedAt === 'string' ? Date.parse(item.collectedAt) : NaN;
     return Number.isFinite(observed) && Number.isFinite(collected) &&
@@ -206,6 +209,8 @@ export function selectCurrentRjMarineObservation(records, now = Date.now(), { ph
   });
   const selected = candidates[0];
   return Object.freeze({state:'OBSERVACAO_ATUAL',source:selected.source,
-    value:selected.value,unit:selected.unit,observedAt:selected.observedAt,
+    value:selected.value,unit:selected.unit,
+    latitude:selected.latitude,longitude:selected.longitude,
+    observedAt:selected.observedAt,
     collectedAt:selected.collectedAt,checkedAt:new Date(now).toISOString()});
 }
