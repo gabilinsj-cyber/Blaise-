@@ -104,6 +104,24 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
   }),
 });
 
+/** Official and observational candidates, not assertions of live connectivity.
+ * Compare NOAA marine forecasts against an independently driven Brazilian
+ * REMO/INPE wave product only when its actual dataset is available and licensed.
+ * Use buoy/satellite observations for verification, not as model duplicates.
+ */
+export const RJ_VALIDATION_CANDIDATES = Object.freeze({
+  marineWaves: Object.freeze({primary:'NOAA', comparison:'REMO_WW3_INDEPENDENT_RUN',
+    observation:'AUTHORIZED_BUOY_OR_ALTIMETRY',
+    enabled:false, requiresIndependentForcing:true, requiresLiveDatasetAndLicense:true}),
+  marineCyclones: Object.freeze(['NOAA','INPE_CPTEC_FORECAST','EUMETSAT_SATELLITE','INMET_STATION']),
+  weatherObservations: Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','CEMADEN_RJ']),
+  rainfall: Object.freeze(['CEMADEN_RJ','ALERTA_RIO','INMET_STATION']),
+  hydrology: Object.freeze(['ANA_HIDROWEB','SGB_SACE','CEMADEN_RJ']),
+  requireSourceTimestampStationOrGridAndLicensing:true,
+  neverRepresentForecastAsObservation:true,
+  doNotTreatPublicDashboardAsAnAuthorizedApi:true,
+});
+
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');
