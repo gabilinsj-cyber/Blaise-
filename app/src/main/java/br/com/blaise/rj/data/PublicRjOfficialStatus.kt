@@ -120,6 +120,16 @@ data class PublicRjSourceProduct(
         connectedProduct != null
 }
 
+data class PublicRjMarineObservation(
+    val source: String, val value: Double, val unit: String,
+    val observedAt: Instant, val collectedAt: Instant, val checkedAt: Instant,
+) {
+    fun current(now: Instant): Boolean =
+        source.isNotBlank() && unit.isNotBlank() && value.isFinite() &&
+        !observedAt.isAfter(collectedAt) && !collectedAt.isAfter(checkedAt) &&
+        !checkedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..1800
+}
+
 data class PublicRjStatus(
     val generatedAt: Instant,
     val municipalities: List<PublicRjMunicipality>,
@@ -127,6 +137,7 @@ data class PublicRjStatus(
     val marine: PublicRjMarine? = null,
     val sourceProducts: List<PublicRjSourceProduct> = emptyList(),
     val warningInventories: List<PublicWarningInventory> = emptyList(),
+    val marineObservations: Map<String, PublicRjMarineObservation> = emptyMap(),
 ) {
     init {
         require(municipalities.size == 92)
@@ -287,8 +298,26 @@ object PublicRjStatusParser {
                     row.getBoolean("complete"), recordKeys.toSet(), cancelled.toSet())
             }.getOrNull() }
         } ?: emptyList()
+        val marineObservations = root.optJSONObject("marineObservations")?.let { rows ->
+            val allowed = setOf("ONDAS", "SWELL", "VENTO", "RAJADA",
+                "TEMPERATURA_MAR", "CORRENTES_MARINHAS", "CHUVA_ATLANTICO")
+            val entries = mutableMapOf<String, PublicRjMarineObservation>()
+            for (key in allowed) {
+                val item = rows.optJSONObject(key) ?: continue
+                if (item.optString("state") != "OBSERVACAO_ATUAL") continue
+                runCatching {
+                    PublicRjMarineObservation(
+                        item.getString("source"), item.getDouble("value"),
+                        item.getString("unit"), Instant.parse(item.getString("observedAt")),
+                        Instant.parse(item.getString("collectedAt")),
+                        Instant.parse(item.getString("checkedAt"))
+                    )
+                }.getOrNull()?.let { entries[key] = it }
+            }
+            entries.toMap()
+        } ?: emptyMap()
         return PublicRjStatus(Instant.parse(root.getString("generatedAt")),
-            municipalities,warnings,marine,products,inventories)
+            municipalities,warnings,marine,products,inventories,marineObservations)
     }
 }
 

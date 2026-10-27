@@ -3,7 +3,7 @@ import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 /**
  * Approved Blaise V6 RJ source routing policy.
  * This is a catalog of eligible sources, NOT proof of data availability.
- * A public/model viewer (Windy) cannot supersede an authoritative warning.
+ * A public/model viewer (fontes complementares autorizadas) cannot supersede an authoritative warning.
  */
 export const RJ_PHENOMENA = Object.freeze([
   'TEMPERATURA', 'SENSACAO_TERMICA', 'UMIDADE', 'VENTO', 'RAJADA',
@@ -41,54 +41,51 @@ const sources = Object.freeze({
   INPE: definition('INPE_CPTEC_FORECAST', MODEL, 'FORECAST_MODELS_AND_SATELLITE_PRODUCTS_RJ_AS_APPLICABLE'),
   ANA: definition('ANA_HIDROWEB', OFFICIAL, 'ESTACAO_HIDROLOGICA'),
   SGB: definition('SGB_SACE', OFFICIAL, 'AREA_HIDROLOGICA'),
-  MARINHA: definition('MARINHA_CHM', OFFICIAL, 'LITORAL_E_ATLANTICO_CONFORME_AVISO'),
   NOAA: definition('NOAA', MODEL, 'ATLANTICO_PRODUTOS_PERTINENTES'),
   REDE_RAIOS: definition('REDE_RAIOS_AUTORIZADA', OFFICIAL, 'DESCARGAS_ELETRICAS_REDE_TERRESTRE_COM_LICENCA'),
 
   USGS: definition('USGS_EARTHQUAKE', OFFICIAL, 'CATALOGO_SISMICO_ATLANTICO_RJ_CONFORME_EVENTO'),
-  WINDY: definition('WINDY_MODELO', COMPARE, 'CONFERENCIA_DE_MODELO_NAO_MEDICAO'),
   OPENWEATHER: definition('OPENWEATHERMAP_API', COMPARE, 'COMPLEMENTAR_10_VARIAVEIS_CONFORME_PRODUTO_LICENCA_E_LOCALIDADE'),
-  COPERNICUS: definition('COPERNICUS_MARINE', MODEL, 'DADOS_OCEANICOS_GRADE_NIVEL_CORRENTES_ONDAS_TEMPERATURA'),
   EUMETSAT: definition('EUMETSAT_SATELLITE', MODEL, 'NUVENS_TEMPESTADES_CICLONES_ATLANTICO_NAO_ALERTA_OFICIAL'),
 });
 
 function series(keys) { return Object.freeze(keys.map(k => sources[k])); }
 const ROUTES = Object.freeze({
-  TEMPERATURA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  CHUVA_ATUAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  SENSACAO_TERMICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  UMIDADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  VENTO: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  RAJADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
-  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN']),
-  TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','WINDY','CEMADEN','EUMETSAT']),
+  TEMPERATURA: series(['DEFESA_CIVIL','INMET','INPE']),
+  CHUVA_ATUAL: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN']),
+  SENSACAO_TERMICA: series(['DEFESA_CIVIL','INMET','INPE']),
+  UMIDADE: series(['DEFESA_CIVIL','INMET','INPE']),
+  VENTO: series(['DEFESA_CIVIL','INMET','INPE']),
+  RAJADA: series(['DEFESA_CIVIL','INMET','INPE']),
+  CHUVA_ACUMULADA: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN']),
+  TEMPORAL: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN']),
+  TEMPESTADE: series(['DEFESA_CIVIL','INMET','INPE','CEMADEN','EUMETSAT']),
   RISCO_HIDROLOGICO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   VAZAO_RIO: series(['ANA','SGB']),
-  RESSACA: series(['MARINHA','INMET','NOAA','COPERNICUS','INPE','WINDY']),
-  ONDAS: series(['MARINHA','NOAA','COPERNICUS','INPE','WINDY']),
-  SWELL: series(['MARINHA','NOAA','COPERNICUS','INPE','WINDY']),
-  MARE: series(['MARINHA','COPERNICUS','NOAA']),
-  CORRENTES_MARINHAS: series(['MARINHA','COPERNICUS','NOAA']),
-  TEMPERATURA_MAR: series(['MARINHA','COPERNICUS','NOAA']),
-  CICLONE_EXTRATROPICAL: series(['MARINHA','INMET','DEFESA_CIVIL','NOAA','EUMETSAT','COPERNICUS','INPE','WINDY']),
-  CHUVA_ATLANTICO: series(['MARINHA','NOAA','EUMETSAT','INPE','WINDY']),
-  MASSA_AR: series(['INMET','MARINHA','NOAA','EUMETSAT','INPE','WINDY']),
+  RESSACA: series(['INMET','NOAA','INPE']),
+  ONDAS: series(['NOAA','INPE']),
+  SWELL: series(['NOAA','INPE']),
+  MARE: series(['NOAA']),
+  CORRENTES_MARINHAS: series(['NOAA']),
+  TEMPERATURA_MAR: series(['NOAA']),
+  CICLONE_EXTRATROPICAL: series(['INMET','DEFESA_CIVIL','NOAA','EUMETSAT','INPE']),
+  CHUVA_ATLANTICO: series(['NOAA','EUMETSAT','INPE']),
+  MASSA_AR: series(['INMET','NOAA','EUMETSAT','INPE']),
   RADAR: series(['CEMADEN','DEFESA_CIVIL']),
-  GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','INPE','WINDY']),
+  GRANIZO: series(['DEFESA_CIVIL','INMET','CEMADEN','INPE']),
   DESLIZAMENTO: series(['DEFESA_CIVIL','CEMADEN','SGB','ANA']),
   ALAGAMENTO: series(['DEFESA_CIVIL','CEMADEN','ANA','SGB']),
-  FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','MARINHA','NOAA','EUMETSAT','INPE','WINDY']),
-  EL_NINO_LA_NINA: series(['INMET','NOAA','INPE','WINDY']),
-  SISMO: series(['USGS','DEFESA_CIVIL','MARINHA','NOAA']),
-  TSUNAMI: series(['MARINHA','NOAA','DEFESA_CIVIL','USGS']),
-  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','INPE','WINDY']),
+  FRENTE_FRIA: series(['INMET','DEFESA_CIVIL','NOAA','EUMETSAT','INPE']),
+  EL_NINO_LA_NINA: series(['INMET','NOAA','INPE']),
+  SISMO: series(['USGS','DEFESA_CIVIL','NOAA']),
+  TSUNAMI: series(['NOAA','DEFESA_CIVIL','USGS']),
+  PRESSAO_ATMOSFERICA: series(['DEFESA_CIVIL','INMET','INPE']),
   RAIOS: series(['REDE_RAIOS','NOAA','DEFESA_CIVIL']),
 });
 
 
 // Complementary, product-specific data channels do NOT change the primary
-// official alert hierarchy or the INPE->Windy forecast dispute cascade.
+// official alert hierarchy or the INPE forecast dispute cascade.
 export const RJ_TEN_WEATHER_COMPLEMENTS = Object.freeze([
   'TEMPERATURA','SENSACAO_TERMICA','CHUVA_ATUAL','CHUVA_ACUMULADA',
   'TEMPORAL','VENTO','RAJADA','PRESSAO_ATMOSFERICA','UMIDADE','GRANIZO',
@@ -100,17 +97,48 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
     neverCountsAsIndependentRepublishedStation:true,
   }),
-  copernicusMarine: Object.freeze({ sourceId:'COPERNICUS_MARINE',
-    role:'OCEAN_MODEL_AND_OBSERVATION_PRODUCT_WITH_PROVENANCE_BY_VARIABLE',
-    phenomena:Object.freeze(['ONDAS','SWELL','RESSACA','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL']),
-    ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
-  }),
   eumetsat: Object.freeze({ sourceId:'EUMETSAT_SATELLITE',
     role:'SATELLITE_CLOUD_STORM_CYCLONE_MONITORING_NOT_TSUNAMI_ALERT',
     phenomena:Object.freeze(['TEMPESTADE','CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA']),
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
   }),
 });
+
+/** Official and observational candidates, not assertions of live connectivity.
+ * Compare NOAA marine forecasts against an independently driven Brazilian
+ * REMO/INPE wave product only when its actual dataset is available and licensed.
+ * Use buoy/satellite observations for verification, not as model duplicates.
+ */
+export const RJ_VALIDATION_CANDIDATES = Object.freeze({
+  japaneseOceanRain: Object.freeze({source:'JAXA_GSMAP',role:'SATELLITE_PRECIPITATION_COMPARISON',enabled:false,requiresCurrentProductAndCommercialPermission:true}),
+  chineseSatelliteRainExcluded: true,
+  marineWaves: Object.freeze({primary:'NOAA', comparison:'REMO_WW3_INDEPENDENT_RUN',
+    observation:'AUTHORIZED_BUOY_OR_ALTIMETRY',
+    enabled:false, requiresIndependentForcing:true, requiresLiveDatasetAndLicense:true}),
+  eumetsatLiveValidation: Object.freeze({
+    sourceId:'EUMETSAT_SATELLITE',
+    primaryComparison:'NOAA',
+    officialCatalog:'https://data.eumetsat.int/',
+    officialApiDocumentation:'https://user.eumetsat.int/api-definitions/data-store-rest-api',
+    accessMethod:'DATA_STORE_API_OR_EUMETVIEW_BY_PRODUCT',
+    intendedProducts:Object.freeze(['ATLANTIC_CLOUDS','STORM_TRACKING','OCEAN_SURFACE_WIND_IF_COVERED']),
+    status:'OFFICIAL_SERVICE_DOCUMENTED_PRODUCT_LIVE_UNVERIFIED',
+    lastObservedProductTimestamp:null,
+    collectionId:null,
+    productLicenseVerified:false,
+    productionIngestionEnabled:false,
+    validationRequired:Object.freeze(['COLLECTION_ID','OBSERVATION_TIME','INGESTION_TIME','RJ_ATLANTIC_COVERAGE','LICENSE','DATA_QUALITY']),
+    doNotDisplayAsLiveUntilVerified:true,
+  }),
+  marineCyclones: Object.freeze(['NOAA','INPE_CPTEC_FORECAST','EUMETSAT_SATELLITE','INMET_STATION']),
+  weatherObservations: Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','INMET_STATION','CEMADEN_RJ']),
+  rainfall: Object.freeze(['CEMADEN_RJ','ALERTA_RIO','INMET_STATION']),
+  hydrology: Object.freeze(['ANA_HIDROWEB','SGB_SACE','CEMADEN_RJ']),
+  requireSourceTimestampStationOrGridAndLicensing:true,
+  neverRepresentForecastAsObservation:true,
+  doNotTreatPublicDashboardAsAnAuthorizedApi:true,
+});
+
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');
@@ -124,7 +152,7 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ? [sources.ALERTA_RIO, ...keys] : [...keys];
   const eligible = withRio.filter(s => {
     if (s.id === 'ALERTA_RIO' && !rioCity) return false;
-    if (region === 'ATLANTICO') return ['MARINHA_CHM','NOAA','WINDY_MODELO','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE','COPERNICUS_MARINE','EUMETSAT_SATELLITE'].includes(s.id);
+    if (region === 'ATLANTICO') return ['NOAA','INMET_STATION','INPE_CPTEC_FORECAST','USGS_EARTHQUAKE','EUMETSAT_SATELLITE'].includes(s.id);
     if (region === 'LITORAL' && s.id === 'ALERTA_RIO' && !rioCity) return false;
     return true;
   });
@@ -138,12 +166,12 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     complementaryThirdSource: RJ_TEN_WEATHER_COMPLEMENTS.includes(phenomenon)
       ? 'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY' : null,
     specialistSeaSources: ['RESSACA','ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','CICLONE_EXTRATROPICAL'].includes(phenomenon)
-      ? 'MARINHA_NOAA_COPERNICUS_BY_PRODUCT' : null,
+      ? 'NOAA_INPE_EUMETSAT_BY_VALIDATED_PRODUCT' : null,
     geographicScope: 'RJ_INCLUI_MUNICIPIOS_DE_DIVISA_SEM_CONFUNDIR_DADOS_DE_ESTADOS_VIZINHOS',
     locationMatching: 'VALIDATE_IBGE_STATION_COORDINATES_AND_SOURCE_COVERAGE',
     crossBorderDataPolicy: 'OUTSIDE_RJ_ONLY_AS_EXPLICITLY_LABELED_REGIONAL_CONTEXT_NOT_RJ_OBSERVATION',
     liveData: 'NOT_CONFIRMED',
-    disputePolicy: 'OBSERVATIONS_ALERARIO_DEFESACIVIL_INMET_THEN_INPE_THEN_WINDY_MODEL_REVIEW',
+    disputePolicy: 'OBSERVATIONS_ALERARIO_DEFESACIVIL_INMET_THEN_INPE_THEN_INPE_MODEL_REVIEW',
     minimumIndependentCompatibleSources: 2,
     fallthroughOnDisagreement: true,
     useWeightedMeanOnlyWhenComparable: true,
@@ -152,4 +180,37 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     inpePolicy: 'OFFICIAL_FORECAST_GUIDANCE_NOT_OBSERVATION_OR_AUTOMATIC_TIE_BREAK',
     ineaPolicy: 'EXCLUDED',
   });
+}
+
+/** Maritime observation display gate. Forecast cycles and official alerts must be handled separately. */
+export const RJ_MARINE_OBSERVATION_MAX_AGE_MS = 30 * 60 * 1000;
+export function selectCurrentRjMarineObservation(records, now = Date.now(), { phenomenon, region } = {}) {
+  const candidates = (Array.isArray(records) ? records : []).filter(item => {
+    if (!Number.isFinite(now) || !item ||
+        (phenomenon && item.phenomenon !== phenomenon) ||
+        (region && item.region !== region) ||
+        item.kind !== 'OBSERVATION' || item.verified !== true ||
+        item.licenseVerified !== true || item.coverageVerified !== true ||
+        typeof item.source !== 'string' || !item.source.trim() ||
+        typeof item.unit !== 'string' || !item.unit.trim() ||
+        typeof item.value !== 'number' || !Number.isFinite(item.value) ||
+        !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude) ||
+        item.latitude < -24.5 || item.latitude > -20.0 ||
+        item.longitude < -46.0 || item.longitude > -39.0) return false;
+    const observed = typeof item.observedAt === 'string' ? Date.parse(item.observedAt) : NaN;
+    const collected = typeof item.collectedAt === 'string' ? Date.parse(item.collectedAt) : NaN;
+    return Number.isFinite(observed) && Number.isFinite(collected) &&
+      observed <= collected && collected <= now &&
+      now - observed >= 0 && now - observed <= RJ_MARINE_OBSERVATION_MAX_AGE_MS;
+  }).sort((a,b) => Date.parse(b.observedAt)-Date.parse(a.observedAt));
+  if (!candidates.length) return Object.freeze({
+    state:'AUSENCIA_DE_DADOS_ATUAIS', value:null,
+    message:'Ausência de dados atuais (últimos 30 minutos)',
+  });
+  const selected = candidates[0];
+  return Object.freeze({state:'OBSERVACAO_ATUAL',source:selected.source,
+    value:selected.value,unit:selected.unit,
+    latitude:selected.latitude,longitude:selected.longitude,
+    observedAt:selected.observedAt,
+    collectedAt:selected.collectedAt,checkedAt:new Date(now).toISOString()});
 }

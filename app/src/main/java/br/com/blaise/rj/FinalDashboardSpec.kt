@@ -33,16 +33,16 @@ object FinalDashboardSpec {
     val officialSources = listOf(
         "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
         "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
-        "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
+        "INMET", "CPTEC/INPE", "USGS"
     )
 
-    // Five situational weather channels; Windy and INPE/CPTEC provide
+    // Five situational weather channels; REDEMET and INPE/CPTEC provide
     // forecast context, not interchangeable measured station reports.
     val fiveSituationalWeatherSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+        "INPE/CPTEC", "INMET", "CEMADEN", "REDEMET", "NOAA"
     )
 
-    // Supplementary provider catalog: visible configuration, NOT live status.
+    // Internal supplementary provider catalog; never expose routing to customers.
     // The OpenWeatherMap "third source" in the reference image means third
     // complementary CONSULTATION, not the third official alert authority.
     val tenVariableOpenWeatherMap = listOf(
@@ -51,8 +51,8 @@ object FinalDashboardSpec {
         "Umidade relativa", "Granizo"
     )
     val oceanSatelliteSources = listOf(
-        "Marinha do Brasil/CHM", "NOAA", "Copernicus Marine",
-        "EUMETSAT", "INMET", "INPE/CPTEC", "Windy"
+        "NOAA", "EUMETSAT",
+        "INMET", "INPE/CPTEC", "REDEMET"
     )
     const val EXPANDED_METEO_PHENOMENA_COUNT = 30
     const val EXTRA_DISPUTE_CHECKS = 5

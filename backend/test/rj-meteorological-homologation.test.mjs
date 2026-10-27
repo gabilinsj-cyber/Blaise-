@@ -38,13 +38,13 @@ test('Table 2 is the independent, thirteen-step data provenance and dispute crit
   assert.equal(RJ_METEO_TABLE2.length,13);
   assert.deepEqual(RJ_METEO_TABLE2.map(x=>x.code),[
     'PRIMEIRAS_TRES','DUAS_OFICIAIS','OFICIAIS_DIVERGENTES',
-    'INPE_PRIMEIRO','WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS',
+    'INPE_PRIMEIRO','COMPARADOR_AUTORIZADO','DUAS_FONTES_EXIBIDAS',
     'SEM_DADO_NOVO','CATEGORIAS_ESPECIAIS',
     'P1_CONJUNTA','OPENWEATHER_COMPLEMENTAR','PONDERACAO_COMPATIVEL',
     'MAR_SATELITE_ESPECIALIZADO','AUTORIZACAO_E_FRESCOR']);
   assert.equal(RJ_METEO_TABLE2[4].step,5);
   assert.match(RJ_METEO_TABLE2[3].decision,/INPE/);
-  assert.match(RJ_METEO_TABLE2[4].decision,/Windy/);
+  assert.doesNotMatch(RJ_METEO_TABLE2[4].decision,/Windy|Marinha|Copernicus/i);
   assert.equal(RJ_METEO_TABLE2.some(x=>/média mista de modelo e sensor/i.test(x.decision)),true);
 });
 test('Table 1 is linked to the applicable Table 2 steps for every phenomenon',()=>{
@@ -85,11 +85,11 @@ test('five maritime source categories link the relevant Table 1 ocean phenomena 
       assert.ok(by[name].linkedMarineCategories.includes(category.code));
   }
   const sea=t.marineTable.find(x=>x.code==='ONDAS_SWELL');
-  assert.deepEqual(sea.sources,['MARINHA_CHM','NOAA','COPERNICUS_MARINE']);
+  assert.deepEqual(sea.sources,['NOAA']);
   const storm=t.marineTable.find(x=>x.code==='TEMPESTADES_ATLANTICO');
   assert.ok(storm.sources.includes('EUMETSAT_SATELLITE'));
   const tsunami=t.marineTable.find(x=>x.code==='TSUNAMI');
-  assert.deepEqual(tsunami.sources,['NOAA','MARINHA_CHM','AUTORIDADES_BRASILEIRAS']);
+  assert.deepEqual(tsunami.sources,['NOAA','AUTORIDADES_BRASILEIRAS']);
   assert.equal(by.TSUNAMI.applicableToWeightedObservation,false);
   assert.ok(by.TSUNAMI.disputeStepCodes.includes('MAR_SATELITE_ESPECIALIZADO'));
 });
@@ -100,13 +100,13 @@ test('each of 92 RJ municipal selections produces source routes without fake cit
     assert.equal(table.table1.length,30);
     const temp=table.table1.find(x=>x.id==='TEMPERATURA');
     assert.equal(temp.sourceIds.includes('ALERTA_RIO'),city.ibge==='3304557');
-    assert.ok(temp.sourceIds.indexOf('INPE_CPTEC_FORECAST')<temp.sourceIds.indexOf('WINDY_MODELO'));
+    assert.equal(temp.sourceIds.includes('WINDY_MODELO'),false);
     const rain=table.table1.find(x=>x.id==='CHUVA_ACUMULADA');
     assert.ok(rain.sourceIds.includes('CEMADEN_RJ'));
     const tsunami=table.table1.find(x=>x.id==='TSUNAMI');
     assert.ok(tsunami.sourceIds.includes('DEFESA_CIVIL_RJ_REGIONAL'));
     assert.ok(tsunami.sourceIds.includes('NOAA'));
-    assert.ok(tsunami.sourceIds.includes('MARINHA_CHM'));
+    assert.equal(tsunami.sourceIds.includes('MARINHA_CHM'),false);
     assert.ok(tsunami.sourceIds.includes('USGS_EARTHQUAKE'));
   }
   assert.throws(()=>buildRjMeteorologicalHomologationTables({ibge:'4106902'}));
@@ -115,8 +115,8 @@ test('specialist tidal, seismic, cyclone, radar and lightning authorities retain
   const tables=buildRjMeteorologicalHomologationTables({ibge:'3304557'});
   const by=id=>tables.table1.find(x=>x.id===id).sourceIds;
   assert.deepEqual(by('VAZAO_RIO'),['ANA_HIDROWEB','SGB_SACE']);
-  assert.equal(by('RESSACA')[0],'MARINHA_CHM');
-  assert.equal(by('CICLONE_EXTRATROPICAL')[0],'MARINHA_CHM');
+  assert.equal(by('RESSACA').includes('MARINHA_CHM'),false);
+  assert.equal(by('CICLONE_EXTRATROPICAL').includes('MARINHA_CHM'),false);
   assert.equal(by('SISMO')[0],'USGS_EARTHQUAKE');
   assert.equal(by('RAIOS')[0],'REDE_RAIOS_AUTORIZADA');
   assert.equal(by('RADAR')[0],'ALERTA_RIO');

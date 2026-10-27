@@ -35,7 +35,7 @@ const meta=Object.freeze({
   TEMPESTADE:['Tempestade severa','92 municípios, áreas de aviso','aviso e radar calibrado, sem risco inventado'],
   RISCO_HIDROLOGICO:['Cheia / inundação','Bacias do RJ, conforme rede','cota e boletim de risco; fonte especializada'],
   VAZAO_RIO:['Vazão de rios','Estações ANA/SGB no RJ','m³/s, estação e observação'],
-  RESSACA:['Ressaca e ondas altas','Litoral do RJ','aviso Marinha/CHM vigente'],
+  RESSACA:['Ressaca e ondas altas','Litoral do RJ','aviso NOAA vigente'],
   ONDAS:['Ondas, marés e temperatura do mar','Litoral RJ e Atlântico próximo','altura/período/direção; nível de maré e TSM por produto'],
   CICLONE_EXTRATROPICAL:['Ciclone extratropical','Atlântico Sul com potencial impacto RJ','trajetória/vento/pressão e avisos marítimos'],
   CHUVA_ATLANTICO:['Precipitação no Atlântico','Atlântico adjacente ao RJ','satélite/grade espacial por produto e validade'],
@@ -51,10 +51,10 @@ const meta=Object.freeze({
   PRESSAO_ATMOSFERICA:['Pressão e tendência barométrica','92 municípios com estação adequada','hPa e tendência comparável por método'],
   RAIOS:['Raios e descargas elétricas','RJ conforme cobertura do sensor/satélite','NOAA GOES GLM e rede terrestre licenciada'],
   CHUVA_ATUAL:['Chuva atual','RJ conforme estação e cobertura','Alerta Rio + Defesa Civil P1; OpenWeatherMap complementar quando autorizado'],
-  MARE:['Marés e nível do mar','Litoral RJ conforme estação/grade','Marinha/CHM; Copernicus Marine e NOAA por produto'],
-  SWELL:['Ondulação/swell','Litoral e Atlântico próximo','Marinha, NOAA e Copernicus Marine: altura, período, direção'],
-  CORRENTES_MARINHAS:['Correntes marítimas','Litoral/Atlântico RJ conforme grade','Marinha/CHM, Copernicus Marine e NOAA'],
-  TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','Marinha/CHM, Copernicus Marine e NOAA'],
+  MARE:['Marés e nível do mar','Litoral RJ conforme estação/grade','NOAA; NOAA por produto por produto'],
+  SWELL:['Ondulação/swell','Litoral e Atlântico próximo','NOAA e INPE/CPTEC: altura, período, direção'],
+  CORRENTES_MARINHAS:['Correntes marítimas','Litoral/Atlântico RJ conforme grade','NOAA e INPE/CPTEC'],
+  TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','NOAA e INPE/CPTEC'],
 
 });
 const scope=Object.freeze({
@@ -62,7 +62,7 @@ const scope=Object.freeze({
   CHUVA_ATLANTICO:'ATLANTICO',
   MARE:'LITORAL',SWELL:'LITORAL',CORRENTES_MARINHAS:'LITORAL',TEMPERATURA_MAR:'LITORAL',
   // Keep SISMO and TSUNAMI in municipal routing when presenting the
-  // catalog so Defesa Civil is retained alongside Marinha/NOAA/USGS.
+  // catalog so Defesa Civil is retained alongside NOAA/INPE/USGS.
   // The coverage text still includes the Atlantic risk perimeter.
 });
 
@@ -74,14 +74,14 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'Aceitar a primeira dupla hierárquica; média ponderada somente com pesos e variáveis compatíveis. Parar a consulta de desempate.',
     method:'SOMA_PESOS_VEZES_VALORES_DIVIDIDA_PELA_SOMA_DOS_PESOS'}),
   Object.freeze({step:3,code:'OFICIAIS_DIVERGENTES',condition:'Não há duas leituras independentes convergentes entre as três fontes da Tabela 1',
-    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
+    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
     method:'COMPARAR_UNIDADE_JANELA_TEMPO_DISTANCIA_QUALIDADE'}),
   Object.freeze({step:4,code:'INPE_PRIMEIRO',condition:'Divergência entre as três fontes da Tabela 1',
-    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. Windy vem depois e NOAA encerra a sequência quando o produto for aplicável.',
+    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. NOAA encerra a sequência quando o produto for aplicável.',
     method:'PRIMEIRO_MATCH_COMPATIVEL_COM_UMA_DAS_TRES_PRIMARIAS'}),
-  Object.freeze({step:5,code:'WINDY_SUBSIDIARIO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
-    decision:'Windy é a quarta das cinco referências. Se inconclusivo, NOAA é a quinta/última consulta, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
-    method:'WINDY_4_NOAA_5_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
+  Object.freeze({step:5,code:'COMPARADOR_AUTORIZADO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
+    decision:'NOAA é a próxima referência aplicável, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
+    method:'COMPARADOR_APLICAVEL_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
   Object.freeze({step:6,code:'DUAS_FONTES_EXIBIDAS',condition:'Persistem valores discrepantes',
     decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico; nunca média mista de modelo e sensor. Não inventar empate ou concordância.',
     method:'EXIBICAO_COM_PROVENIENCIA_E_DIVERGENCIA_EXPLICITA'}),
@@ -101,7 +101,7 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'Sem compatibilidade ou evidência estatística, não criar média observacional ou aviso.',
     method:'MEDIA_PONDERADA_SOMENTE_DADOS_COMPATIVEIS'}),
   Object.freeze({step:12,code:'MAR_SATELITE_ESPECIALIZADO',condition:'Ondas, ressaca, swell, ciclone e tsunami',
-    decision:'Marinha/NOAA/Copernicus por produto; EUMETSAT para nuvens/ciclones; tsunami depende de autoridade competente.',
+    decision:'NOAA/INPE por produto; EUMETSAT para nuvens/ciclones; tsunami depende de autoridade competente.',
     method:'ROTEAMENTO_POR_AUTORIDADE_E_TIPO_DE_PRODUTO'}),
   Object.freeze({step:13,code:'AUTORIZACAO_E_FRESCOR',condition:'Origem e direitos de cada produto',
     decision:'Atribuição, licença, autorização, localização, horário e produto comprovados antes de publicar.',
@@ -130,10 +130,10 @@ export function linkedRjDisputeSteps(phenomenon) {
   const chosen=new Set(BASE_CODES);
   if(WEIGHTABLE.has(phenomenon)) {
     for(const key of ['DUAS_OFICIAIS','OFICIAIS_DIVERGENTES','INPE_PRIMEIRO',
-      'WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
+      'COMPARADOR_AUTORIZADO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
       'OPENWEATHER_COMPLEMENTAR'])chosen.add(key);
   } else if(DERIVED.has(phenomenon)) {
-    for(const key of ['OFICIAIS_DIVERGENTES','INPE_PRIMEIRO','WINDY_SUBSIDIARIO',
+    for(const key of ['OFICIAIS_DIVERGENTES','INPE_PRIMEIRO','COMPARADOR_AUTORIZADO',
       'DUAS_FONTES_EXIBIDAS','OPENWEATHER_COMPLEMENTAR',
       'PONDERACAO_COMPATIVEL'])chosen.add(key);
   } else if(MARITIME.has(phenomenon)) {
@@ -152,35 +152,35 @@ export const RJ_METEO_MARINE_TABLE=Object.freeze([
   Object.freeze({
     code:'CICLONES_OCEANICOS',phenomena:Object.freeze(['CICLONE_EXTRATROPICAL']),
     label:'Ciclones oceânicos',sources:Object.freeze([
-      'MARINHA_CHM','NOAA','EUMETSAT_SATELLITE','COPERNICUS_MARINE']),
+      'NOAA','EUMETSAT_SATELLITE','INPE_CPTEC_FORECAST']),
     purpose:'Acompanhar evolução atmosférica, trajetória e efeitos no mar',
-    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+    alertAuthority:'DEFESA_CIVIL_E_AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'TEMPESTADES_ATLANTICO',phenomena:Object.freeze(['TEMPESTADE','CHUVA_ATLANTICO']),
     label:'Tempestades no Atlântico',sources:Object.freeze([
-      'MARINHA_CHM','NOAA','EUMETSAT_SATELLITE']),
+      'NOAA','EUMETSAT_SATELLITE']),
     purpose:'Nuvens, sistemas intensos e deslocamento; satélite não é radar medido',
-    alertAuthority:'MARINHA_E_DEFESA_CIVIL_BRASILEIRAS',
+    alertAuthority:'DEFESA_CIVIL_E_AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'ONDAS_SWELL',phenomena:Object.freeze(['ONDAS','SWELL']),
     label:'Ondas e swell',sources:Object.freeze([
-      'MARINHA_CHM','NOAA','COPERNICUS_MARINE']),
+      'NOAA']),
     purpose:'Altura, período, direção e propagação das ondas por produto',
-    alertAuthority:'MARINHA_CHM',
+    alertAuthority:'AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'RESSACA_LITORAL',phenomena:Object.freeze(['RESSACA']),
     label:'Ressaca no litoral RJ',sources:Object.freeze([
-      'MARINHA_CHM','BOIAS_AUTORIZADAS','COPERNICUS_MARINE','NOAA']),
+      'BOIAS_AUTORIZADAS','NOAA']),
     purpose:'Previsão de ondas e avaliação do risco costeiro',
-    alertAuthority:'MARINHA_CHM',
+    alertAuthority:'AUTORIDADES_BRASILEIRAS_COMPETENTES',
   }),
   Object.freeze({
     code:'TSUNAMI',phenomena:Object.freeze(['TSUNAMI']),
     label:'Tsunami / maremoto',sources:Object.freeze([
-      'NOAA','MARINHA_CHM','AUTORIDADES_BRASILEIRAS']),
+      'NOAA','AUTORIDADES_BRASILEIRAS']),
     purpose:'Avisos oficiais, observação do nível do mar e ameaça confirmada',
     alertAuthority:'AUTORIDADES_BRASILEIRAS_E_AVISOS_COMPETENTES',
   }),
@@ -253,9 +253,9 @@ export function checkRjSourceProductEvidence({
   const eligibleIds=new Set([
     'ALERTA_RIO','DEFESA_CIVIL_RJ_REGIONAL','CEMADEN_RJ',
     'INMET_STATION','INPE_CPTEC_FORECAST','ANA_HIDROWEB',
-    'SGB_SACE','MARINHA_CHM','NOAA','USGS_EARTHQUAKE',
+    'SGB_SACE','NOAA','USGS_EARTHQUAKE',
     'WINDY_MODELO','REDE_RAIOS_AUTORIZADA',
-    'OPENWEATHERMAP_API','COPERNICUS_MARINE','EUMETSAT_SATELLITE',
+    'OPENWEATHERMAP_API','EUMETSAT_SATELLITE',
   ]);
   if(typeof sourceId!=='string'||!eligibleIds.has(sourceId))
     return invalid('SOURCE_NOT_ELIGIBLE');

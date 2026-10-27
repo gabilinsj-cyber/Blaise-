@@ -3,10 +3,19 @@ import { buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { CHM_WARNINGS_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CHM_SOURCE_ID, CHM_WARNINGS_URL, CHM_TEMPORAL_VALIDITY_CONTRACT } from './chm-source.mjs';
 import { INMET_SOURCE_ID, INMET_CAP_RSS_URL } from './inmet-source.mjs';
+import { selectCurrentRjMarineObservation } from './rj-phenomenon-source-policy.mjs';
 
 export const RJ_PUBLIC_STATUS_PATH = '/v1/public/rj-status';
 export const RJ_PUBLIC_STATUS_CONTRACT = 'BLAISE_RJ_PUBLIC_OFFICIAL_STATUS_V1';
 export const RJ_PUBLIC_STATUS_MAX_BYTES = 80 * 1024;
+
+export function projectRjPublicMarineObservations(records, nowMillis = Date.now()) {
+  const phenomena = ['ONDAS', 'SWELL', 'VENTO', 'RAJADA',
+    'TEMPERATURA_MAR', 'CORRENTES_MARINHAS', 'CHUVA_ATLANTICO'];
+  return Object.fromEntries(phenomena.map(phenomenon => [
+    phenomenon, selectCurrentRjMarineObservation(records, nowMillis, { phenomenon })
+  ]));
+}
 
 const MARINE_FRESH_MS = 5 * 60_000;
 const MARINE_MAX_WARNINGS = 16;
@@ -96,7 +105,7 @@ export function projectRjPublicMarineWarnings(worker, nowMillis) {
 // Public safety notices are not tied to purchases. Source/content publication
 // must still be explicitly approved by the operator for its licensing terms.
 // No full provider payload, subscriber/purchase token or personal location.
-export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } = {}) {
+export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now(), marineObservationRecords = [] } = {}) {
   if(!worker || typeof worker.status !== 'function'
     || typeof worker.readSource !== 'function') throw new TypeError('rj_public_worker_invalid');
   if(!Number.isFinite(nowMillis)||nowMillis<0) throw new TypeError('rj_public_clock_invalid');
@@ -152,6 +161,7 @@ export function buildRjPublicStatusSnapshot(worker, { nowMillis = Date.now() } =
     municipalities:Object.freeze(municipalities),
     warnings:Object.freeze(warnings),
     marine,
+    marineObservations:projectRjPublicMarineObservations(marineObservationRecords,nowMillis),
     sources:Object.freeze(sourceSummaries),
     warningInventories: Object.freeze(projectWarningInventories(worker, nowMillis)),
     thirdPartyImagesIncluded:false,
@@ -178,11 +188,13 @@ function respond(res,code,body) {
 }
 export function createRjPublicStatusHandler(delegate, {
   sourceWorker,enabled=false,licensingApproved=false,clock=()=>Date.now(),
+  marineObservationProvider=()=>[],
 }={}) {
   if(typeof delegate!=='function')throw new TypeError('rj_public_delegate_required');
   if(!sourceWorker || typeof sourceWorker.status!=='function'
     || typeof sourceWorker.readSource!=='function')throw new TypeError('rj_public_worker_required');
   if(typeof clock!=='function')throw new TypeError('rj_public_clock_required');
+  if(typeof marineObservationProvider!=='function')throw new TypeError('rj_marine_provider_required');
   return async (req,res)=>{
     const path=req.url?.split('?',1)[0];
     if(path!==RJ_PUBLIC_STATUS_PATH) return delegate(req,res);
@@ -194,7 +206,11 @@ export function createRjPublicStatusHandler(delegate, {
       respond(res,405,{error:'method_not_allowed'});return;
     }
     try {
-      const status=buildRjPublicStatusSnapshot(sourceWorker,{nowMillis:clock()});
+      const nowMillis=clock();
+      const records=await marineObservationProvider();
+      const status=buildRjPublicStatusSnapshot(sourceWorker,{
+        nowMillis,marineObservationRecords:Array.isArray(records)?records:[],
+      });
       if(!status || !status.usableOfficialProducts) {
         respond(res,503,{error:'official_sources_not_validated'});return;
       }

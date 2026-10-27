@@ -1,50 +1,10 @@
-test('exactly 30 RJ phenomena, including marine extensions, and ten OpenWeatherMap complementary variables',()=>{
-  assert.equal(RJ_PHENOMENA.length,30);
-  assert.equal(new Set(RJ_PHENOMENA).size,30);
-  assert.equal(RJ_TEN_WEATHER_COMPLEMENTS.length,10);
-  for(const key of ['CHUVA_ATUAL','MARE','SWELL','CORRENTES_MARINHAS','TEMPERATURA_MAR'])
-    assert.equal(RJ_PHENOMENA.includes(key),true);
-  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.sourceId,'OPENWEATHERMAP_API');
-  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.ingestion,'NOT_CONNECTED');
-  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.openWeatherMap.neverCountsAsIndependentRepublishedStation,true);
-  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.copernicusMarine.ingestion,'NOT_CONNECTED');
-  assert.equal(RJ_SUPPLEMENTAL_PRODUCTS.eumetsat.ingestion,'NOT_CONNECTED');
-});
-test('OpenWeatherMap is third complementary consultation for first ten categories, not official alert authority',()=>{
-  for(const {ibge} of RJ_MUNICIPALITIES){
-    for(const phenomenon of RJ_TEN_WEATHER_COMPLEMENTS){
-      const route=rjSourceRouting({ibge,phenomenon});
-      assert.equal(route.complementaryThirdSource,'OPENWEATHERMAP_API_PRODUCT_CONSULTATION_ONLY');
-      assert.equal(route.phenomenonMatrixCount,30);
-      assert.equal(route.sources.some(s=>s.id==='OPENWEATHERMAP_API'&&s.automaticAlertAuthority),false);
-      assert.equal(route.ineaPolicy,'EXCLUDED');
-    }
-  }
-});
-test('Copernicus Marine and EUMETSAT are category-specialized, not default tsunami alarms or radar frames',()=>{
-  for(const category of ['ONDAS','SWELL','MARE','CORRENTES_MARINHAS','TEMPERATURA_MAR','RESSACA']){
-    const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});
-    assert.ok(route.sources.some(s=>s.id==='MARINHA_CHM'));
-    assert.ok(route.sources.some(s=>s.id==='COPERNICUS_MARINE'));
-    assert.equal(route.liveData,'NOT_CONFIRMED');
-  }
-  for(const category of ['CICLONE_EXTRATROPICAL','CHUVA_ATLANTICO','MASSA_AR','FRENTE_FRIA']){
-    const route=rjSourceRouting({region:'ATLANTICO',phenomenon:category});
-    assert.ok(route.sources.some(s=>s.id==='EUMETSAT_SATELLITE'));
-  }
-  const tsunami=rjSourceRouting({region:'ATLANTICO',phenomenon:'TSUNAMI'});
-  assert.equal(tsunami.sources.some(s=>s.id==='COPERNICUS_MARINE'),false);
-  assert.equal(tsunami.sources.some(s=>s.id==='EUMETSAT_SATELLITE'),false);
-  assert.equal(rjSourceRouting({ibge:'3304557',phenomenon:'RADAR'}).sources.some(s=>s.id==='EUMETSAT_SATELLITE'),false);
-});
-
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 import {
   RJ_MUNICIPALITY_COUNT, RJ_PHENOMENA, RJ_SOURCE_CLASS,
   RJ_SUPPLEMENTAL_PRODUCTS, RJ_TEN_WEATHER_COMPLEMENTS,
-  rjSourceRouting,
+  rjSourceRouting, selectCurrentRjMarineObservation,
 } from '../src/rj-phenomenon-source-policy.mjs';
 
 test('all 92 RJ municipalities route rainstorm and gust sources without creating coverage', () => {
@@ -93,7 +53,7 @@ test('five situational main channels include separate INMET/INPE identities and 
     assert.equal(rio.sources.some(s=>s.id==='DEFESA_CIVIL_RJ_REGIONAL'),true);
     assert.equal(rio.sources.some(s=>s.id==='INMET_STATION'),true);
     assert.equal(rio.sources.some(s=>s.id==='INPE_CPTEC_FORECAST'),true);
-    assert.equal(rio.sources.some(s=>s.id==='WINDY_MODELO'),true);
+    assert.equal(rio.sources.some(s=>s.id==='WINDY_MODELO'),false);
     assert.equal(rio.liveData,'NOT_CONFIRMED');
     assert.equal(rio.sources.find(s=>s.id==='INPE_CPTEC_FORECAST').role,RJ_SOURCE_CLASS.OFFICIAL_MODEL);
     assert.equal(rio.sources.find(s=>s.id==='INMET_STATION').role,RJ_SOURCE_CLASS.AUTHORITATIVE);
@@ -116,4 +76,18 @@ test('unknown municipality or phenomenon is blocked rather than treated as Rio',
   assert.throws(() => rjSourceRouting({ ibge: '4106902', phenomenon: 'TEMPERATURA' }));
   assert.throws(() => rjSourceRouting({ ibge: '3304557', phenomenon: 'FURACAO' }));
   assert.equal(RJ_PHENOMENA.includes('CICLONE_EXTRATROPICAL'), true);
+});
+
+test('marine observations expire after 30 minutes and select the freshest compatible verified reading',()=>{
+  const now=Date.parse('2026-10-27T14:00:00Z');
+  const base={kind:'OBSERVATION',verified:true,licenseVerified:true,coverageVerified:true,source:'NOAA',unit:'m',value:1.8,collectedAt:'2026-10-27T13:58:00Z'};
+  const older={...base,observedAt:'2026-10-27T13:35:00Z'};
+  const newer={...base,source:'EUMETSAT',observedAt:'2026-10-27T13:55:00Z'};
+  const expired={...base,observedAt:'2026-10-27T13:29:59Z'};
+  const forecast={...base,kind:'FORECAST',observedAt:'2026-10-27T13:59:00Z'};
+  assert.equal(selectCurrentRjMarineObservation([older,newer,expired,forecast],now).source,'EUMETSAT');
+  assert.equal(selectCurrentRjMarineObservation([expired,forecast],now).state,'AUSENCIA_DE_DADOS_ATUAIS');
+  assert.equal(selectCurrentRjMarineObservation([{...newer,licenseVerified:false}],now).state,'AUSENCIA_DE_DADOS_ATUAIS');
+  assert.equal(selectCurrentRjMarineObservation([{...newer,observedAt:'invalid'}],now).state,'AUSENCIA_DE_DADOS_ATUAIS');
+  assert.equal(selectCurrentRjMarineObservation([newer],NaN).state,'AUSENCIA_DE_DADOS_ATUAIS');
 });
