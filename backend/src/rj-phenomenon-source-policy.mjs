@@ -181,3 +181,28 @@ export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' 
     ineaPolicy: 'EXCLUDED',
   });
 }
+
+/** Maritime observation display gate. Forecast cycles and official alerts must be handled separately. */
+export const RJ_MARINE_OBSERVATION_MAX_AGE_MS = 30 * 60 * 1000;
+export function selectCurrentRjMarineObservation(records, now = Date.now()) {
+  const candidates = (Array.isArray(records) ? records : []).filter(item => {
+    if (!item || item.kind !== 'OBSERVATION' || item.verified !== true ||
+        item.licenseVerified !== true || item.coverageVerified !== true ||
+        typeof item.source !== 'string' || !item.source.trim() ||
+        typeof item.unit !== 'string' || !item.unit.trim() ||
+        typeof item.value !== 'number' || !Number.isFinite(item.value)) return false;
+    const observed = Date.parse(item.observedAt);
+    const collected = Date.parse(item.collectedAt);
+    return Number.isFinite(observed) && Number.isFinite(collected) &&
+      observed <= collected && collected <= now &&
+      now - observed >= 0 && now - observed <= RJ_MARINE_OBSERVATION_MAX_AGE_MS;
+  }).sort((a,b) => Date.parse(b.observedAt)-Date.parse(a.observedAt));
+  if (!candidates.length) return Object.freeze({
+    state:'AUSENCIA_DE_DADOS_ATUAIS', value:null,
+    message:'Ausência de dados atuais (últimos 30 minutos)',
+  });
+  const selected = candidates[0];
+  return Object.freeze({state:'OBSERVACAO_ATUAL',source:selected.source,
+    value:selected.value,unit:selected.unit,observedAt:selected.observedAt,
+    collectedAt:selected.collectedAt,checkedAt:new Date(now).toISOString()});
+}
