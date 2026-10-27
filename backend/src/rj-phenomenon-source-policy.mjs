@@ -104,6 +104,33 @@ export const RJ_SUPPLEMENTAL_PRODUCTS = Object.freeze({
     ingestion:'NOT_CONNECTED',permission:'REQUIRES_PRODUCT_TERMS_VALIDATION',
   }),
 });
+/** Internal comparison contract: never treat Windy as the primary marine source.
+ * Only licensed, unmodified production forecasts may participate.
+ * Model identity matters: NOAA GFS and Windy GFS are not independent.
+ * No provider attribution may be hidden where contractually required.
+ */
+export const RJ_MARINE_PRIVATE_COMPARISON = Object.freeze({
+  primary: 'NOAA',
+  secondary: 'WINDY_MODELO',
+  secondaryEnabled: false, // enable only after a production API/license review
+  thirdPartyFallbackByPhenomenon: Object.freeze({
+    ONDAS: Object.freeze(['INPE_CPTEC_FORECAST']),
+    SWELL: Object.freeze(['INPE_CPTEC_FORECAST']),
+    RESSACA: Object.freeze(['INPE_CPTEC_FORECAST','DEFESA_CIVIL_RJ_REGIONAL']),
+    CICLONE_EXTRATROPICAL: Object.freeze(['INPE_CPTEC_FORECAST','INMET_STATION','EUMETSAT_SATELLITE']),
+    CHUVA_ATLANTICO: Object.freeze(['INPE_CPTEC_FORECAST','EUMETSAT_SATELLITE']),
+    TEMPERATURA_MAR: Object.freeze(['NOAA']),
+    MARE: Object.freeze([]),
+    CORRENTES_MARINHAS: Object.freeze([]),
+  }),
+  compareOnlySameVariableTimeLocationUnitsAndForecastHorizon: true,
+  requireIndependentUnderlyingModelForThirdConfirmation: true,
+  doNotAverageForecastsWithMeasurements: true,
+  failClosedWithoutLicensedFreshIndependentEvidence: true,
+  internalRoutingNotForSubscriberUI: true,
+  honorRequiredAttribution: true,
+});
+
 export function rjSourceRouting({ ibge = null, phenomenon, region = 'MUNICIPAL' } = {}) {
   if (!RJ_PHENOMENA.includes(phenomenon)) throw new TypeError('rj_unknown_phenomenon');
   if (!['MUNICIPAL','LITORAL','ATLANTICO'].includes(region)) throw new TypeError('rj_unknown_region');
