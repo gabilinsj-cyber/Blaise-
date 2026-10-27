@@ -1,7 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
 import { RJ_PHENOMENA, RJ_TEN_WEATHER_COMPLEMENTS, RJ_SUPPLEMENTAL_PRODUCTS, RJ_SOURCE_CLASS, rjSourceRouting, selectCurrentRjMarineObservation } from '../src/rj-phenomenon-source-policy.mjs';
-import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 test('exactly 30 RJ phenomena, including marine extensions, and ten OpenWeatherMap complementary variables',()=>{
   assert.equal(RJ_PHENOMENA.length,30);
   assert.equal(new Set(RJ_PHENOMENA).size,30);
@@ -47,7 +44,7 @@ import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
 import {
   RJ_MUNICIPALITY_COUNT, RJ_PHENOMENA, RJ_SOURCE_CLASS,
   RJ_SUPPLEMENTAL_PRODUCTS, RJ_TEN_WEATHER_COMPLEMENTS,
-  rjSourceRouting,
+  rjSourceRouting, selectCurrentRjMarineObservation,
 } from '../src/rj-phenomenon-source-policy.mjs';
 
 test('all 92 RJ municipalities route rainstorm and gust sources without creating coverage', () => {
