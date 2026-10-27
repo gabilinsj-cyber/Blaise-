@@ -51,10 +51,10 @@ const meta=Object.freeze({
   PRESSAO_ATMOSFERICA:['Pressão e tendência barométrica','92 municípios com estação adequada','hPa e tendência comparável por método'],
   RAIOS:['Raios e descargas elétricas','RJ conforme cobertura do sensor/satélite','NOAA GOES GLM e rede terrestre licenciada'],
   CHUVA_ATUAL:['Chuva atual','RJ conforme estação e cobertura','Alerta Rio + Defesa Civil P1; OpenWeatherMap complementar quando autorizado'],
-  MARE:['Marés e nível do mar','Litoral RJ conforme estação/grade','NOAA; NOAA e NOAA por produto'],
-  SWELL:['Ondulação/swell','Litoral e Atlântico próximo','NOAA, INPE/CPTEC e NOAA: altura, período, direção'],
-  CORRENTES_MARINHAS:['Correntes marítimas','Litoral/Atlântico RJ conforme grade','NOAA, INPE/CPTEC e NOAA'],
-  TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','NOAA, INPE/CPTEC e NOAA'],
+  MARE:['Marés e nível do mar','Litoral RJ conforme estação/grade','NOAA; NOAA por produto por produto'],
+  SWELL:['Ondulação/swell','Litoral e Atlântico próximo','NOAA e INPE/CPTEC: altura, período, direção'],
+  CORRENTES_MARINHAS:['Correntes marítimas','Litoral/Atlântico RJ conforme grade','NOAA e INPE/CPTEC'],
+  TEMPERATURA_MAR:['Temperatura do mar','Litoral/Atlântico RJ conforme produto','NOAA e INPE/CPTEC'],
 
 });
 const scope=Object.freeze({
@@ -74,14 +74,14 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'Aceitar a primeira dupla hierárquica; média ponderada somente com pesos e variáveis compatíveis. Parar a consulta de desempate.',
     method:'SOMA_PESOS_VEZES_VALORES_DIVIDIDA_PELA_SOMA_DOS_PESOS'}),
   Object.freeze({step:3,code:'OFICIAIS_DIVERGENTES',condition:'Não há duas leituras independentes convergentes entre as três fontes da Tabela 1',
-    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
+    decision:'Acionar a Tabela 2 de desempate com CINCO referências em ordem: INPE/CPTEC → INMET → CEMADEN → NOAA. Parar se uma confirmar/apoiar uma das leituras da Tabela 1 de forma verificável.',
     method:'COMPARAR_UNIDADE_JANELA_TEMPO_DISTANCIA_QUALIDADE'}),
   Object.freeze({step:4,code:'INPE_PRIMEIRO',condition:'Divergência entre as três fontes da Tabela 1',
-    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. Windy vem depois e NOAA encerra a sequência quando o produto for aplicável.',
+    decision:'INPE/CPTEC é o primeiro dos cinco comparadores; INMET e CEMADEN seguem para medição confirmatória. NOAA encerra a sequência quando o produto for aplicável.',
     method:'PRIMEIRO_MATCH_COMPATIVEL_COM_UMA_DAS_TRES_PRIMARIAS'}),
-  Object.freeze({step:5,code:'WINDY_SUBSIDIARIO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
-    decision:'Windy é a quarta das cinco referências. Se inconclusivo, NOAA é a quinta/última consulta, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
-    method:'WINDY_4_NOAA_5_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
+  Object.freeze({step:5,code:'COMPARADOR_AUTORIZADO',condition:'INPE/CPTEC, INMET e CEMADEN inconclusivos',
+    decision:'NOAA é a próxima referência aplicável, quando a variável e produto tiverem cobertura. Previsão só dá contexto, não vira sensor.',
+    method:'COMPARADOR_APLICAVEL_SEM_MEDIA_MISTA_DE_PREVISAO_E_MEDICAO'}),
   Object.freeze({step:6,code:'DUAS_FONTES_EXIBIDAS',condition:'Persistem valores discrepantes',
     decision:'Exibir duas fontes reais identificadas (duas medições ou medição oficial + previsão); preservar demais leituras no histórico; nunca média mista de modelo e sensor. Não inventar empate ou concordância.',
     method:'EXIBICAO_COM_PROVENIENCIA_E_DIVERGENCIA_EXPLICITA'}),
@@ -101,7 +101,7 @@ export const RJ_METEO_TABLE2=Object.freeze([
     decision:'Sem compatibilidade ou evidência estatística, não criar média observacional ou aviso.',
     method:'MEDIA_PONDERADA_SOMENTE_DADOS_COMPATIVEIS'}),
   Object.freeze({step:12,code:'MAR_SATELITE_ESPECIALIZADO',condition:'Ondas, ressaca, swell, ciclone e tsunami',
-    decision:'NOAA/INPE/NOAA por produto; EUMETSAT para nuvens/ciclones; tsunami depende de autoridade competente.',
+    decision:'NOAA/INPE por produto; EUMETSAT para nuvens/ciclones; tsunami depende de autoridade competente.',
     method:'ROTEAMENTO_POR_AUTORIDADE_E_TIPO_DE_PRODUTO'}),
   Object.freeze({step:13,code:'AUTORIZACAO_E_FRESCOR',condition:'Origem e direitos de cada produto',
     decision:'Atribuição, licença, autorização, localização, horário e produto comprovados antes de publicar.',
@@ -130,10 +130,10 @@ export function linkedRjDisputeSteps(phenomenon) {
   const chosen=new Set(BASE_CODES);
   if(WEIGHTABLE.has(phenomenon)) {
     for(const key of ['DUAS_OFICIAIS','OFICIAIS_DIVERGENTES','INPE_PRIMEIRO',
-      'WINDY_SUBSIDIARIO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
+      'COMPARADOR_AUTORIZADO','DUAS_FONTES_EXIBIDAS','PONDERACAO_COMPATIVEL',
       'OPENWEATHER_COMPLEMENTAR'])chosen.add(key);
   } else if(DERIVED.has(phenomenon)) {
-    for(const key of ['OFICIAIS_DIVERGENTES','INPE_PRIMEIRO','WINDY_SUBSIDIARIO',
+    for(const key of ['OFICIAIS_DIVERGENTES','INPE_PRIMEIRO','COMPARADOR_AUTORIZADO',
       'DUAS_FONTES_EXIBIDAS','OPENWEATHER_COMPLEMENTAR',
       'PONDERACAO_COMPATIVEL'])chosen.add(key);
   } else if(MARITIME.has(phenomenon)) {
