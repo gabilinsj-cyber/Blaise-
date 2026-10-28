@@ -1247,6 +1247,9 @@ private fun MarineAndRiskRow(wide: Boolean) {
 @Composable
 private fun MarinePanel(modifier: Modifier) {
     val clock = LocalObservationClock.current
+    val noaa = (LocalBackendDashboard.current as?
+        DashboardDataNetworkResult.Available)
+        ?.snapshot?.marine?.takeIf { it.current(clock) }
     val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
 
     val readings = snapshot?.marine.orEmpty().filter { !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
@@ -1258,7 +1261,17 @@ private fun MarinePanel(modifier: Modifier) {
         subtitle = "Maré, ondas, vento e ressaca",
         modifier = modifier,
     ) {
-if (readings.isEmpty()) StatusLine("Mar e ondas", "Sem dados marítimos válidos recebidos")
+if (noaa != null) {
+    StatusLine("Ondas NOAA", marineValue(noaa.waveHeightM, "m"))
+    StatusLine("Fonte", noaa.source)
+    StatusLine("Tipo", "Previsão de modelo")
+    StatusLine("Previsão válida (RJ)", marineTime(noaa.validAt))
+    StatusLine("Última checagem (RJ)", marineTime(noaa.lastCheckedAt))
+    StatusLine("Região", "Ponto oceânico do RJ")
+}
+if (readings.isEmpty() && noaa == null) {
+    StatusLine("Mar e ondas", "Sem dados marítimos válidos recebidos")
+}
 readings.forEach { r ->
     StatusLine("Tipo", if (r.nature == "MODELO") "Previsão de modelo" else "Observação")
     StatusLine("Município", snapshot?.municipalities?.firstOrNull { it.ibge == r.cityIbge }?.name ?: r.cityIbge.toString())

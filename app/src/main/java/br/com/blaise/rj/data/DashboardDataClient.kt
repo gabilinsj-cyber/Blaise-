@@ -60,6 +60,25 @@ data class DashboardOfficialSourceState(
     val semanticValidity: String?,
 )
 
+
+data class DashboardMarineReading(
+    val waveHeightM: Double,
+    val source: String,
+    val validAt: Instant,
+    val lastCheckedAt: Instant,
+    val expiresAt: Instant,
+    val latitude: Double,
+    val longitude: Double,
+) {
+    fun current(now: Instant): Boolean {
+        val age = java.time.Duration.between(validAt, now).seconds
+        val checkedAge = java.time.Duration.between(lastCheckedAt, now).seconds
+        return age in 0L..3599L &&
+            checkedAge in 0L..900L &&
+            expiresAt.isAfter(now)
+    }
+}
+
 data class DashboardDataSnapshot(
     val generatedAt: Instant,
     val mode: String,
@@ -67,6 +86,7 @@ data class DashboardDataSnapshot(
     val currentSourceCount: Int,
     val rainfall: DashboardRainfallSummary,
     val sources: List<DashboardOfficialSourceState>,
+    val marine: DashboardMarineReading? = null,
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
@@ -122,7 +142,7 @@ object DashboardDataParser {
     private val acceptedSourceStates = setOf("CURRENT", "CURRENT_DEGRADED", "STALE", "UNAVAILABLE")
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
-        require(payload.keys == topLevelKeys)
+        require(payload.keys == topLevelKeys || payload.keys == topLevelKeys + "marine")
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] == "RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL")
 
@@ -175,6 +195,43 @@ object DashboardDataParser {
         require(sources.count { it.state == "CURRENT" || it.state == "CURRENT_DEGRADED" } == currentSourceCount)
         require(sources.map { it.sourceId }.toSet().size == sources.size)
 
+
+        val marine = payload["marine"]?.let { raw ->
+            val m = stringMap(raw)
+            require(m.keys == setOf(
+                "waveHeightM", "units", "source", "nature",
+                "validAt", "lastCheckedAt", "expiresAt",
+                "latitude", "longitude"
+            ))
+            require(m["units"] == "m")
+            require(m["nature"] == "MODELO")
+            require(m["source"] == "NOAA GFS-Wave")
+
+            fun coordinate(key: String): Double =
+                (m[key] as? Number)?.toDouble()?.also {
+                    require(it.isFinite())
+                } ?: throw IllegalArgumentException("marine_coordinate_invalid")
+
+            val wave = coordinate("waveHeightM")
+            val latitude = coordinate("latitude")
+            val longitude = coordinate("longitude")
+            require(wave in 0.0..50.0)
+            require(latitude in -25.0..-21.0)
+            require(longitude in -45.0..-40.0)
+
+            val validAt = instant(m["validAt"])
+            val checkedAt = instant(m["lastCheckedAt"])
+            val expiresAt = instant(m["expiresAt"])
+            require(!validAt.isAfter(checkedAt))
+            require(expiresAt.isAfter(validAt))
+            require(java.time.Duration.between(validAt, expiresAt).seconds <= 3600)
+
+            DashboardMarineReading(
+                wave, "NOAA GFS-Wave", validAt,
+                checkedAt, expiresAt, latitude, longitude
+            )
+        }
+
         val privacy = stringMap(payload["privacy"])
         require(privacy.keys == privacyKeys)
         require(privacy["purchaseTokenExposed"] == false)
@@ -188,6 +245,7 @@ object DashboardDataParser {
             currentSourceCount = currentSourceCount,
             rainfall = rainfall,
             sources = sources,
+            marine = marine,
         )
     }
 

@@ -181,6 +181,7 @@ async function main() {
 
   const sourceWorker = createOfficialSourceWorker({
     config: sourceWorkerConfig,
+    noaaPoint: sourceWorkerConfig.noaaPoint,
     publishInmetP0,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
     cadenceMode: 'fixed_start',

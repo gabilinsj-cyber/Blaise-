@@ -115,6 +115,8 @@ test('worker configuration is disabled fail-closed by default', () => {
     enabled: false,
     initialMode: 'normal',
     ineaStationUrl: null,
+    noaaWaveEnabled: false,
+    noaaPoint: null,
   });
 
   assert.throws(
@@ -289,7 +291,7 @@ test('NOAA worker: coleta e falha', async () => {
     nature: 'MODELO',
     issuedAt: new Date(NOW).toISOString(),
     validAt: new Date(NOW).toISOString(),
-    expiresAt: new Date(NOW + 43200000).toISOString(),
+    expiresAt: new Date(NOW + 3600000).toISOString(),
     checkedAt: new Date(NOW).toISOString(),
     sourceUrl: 'https://nomads.ncep.noaa.gov/',
   };

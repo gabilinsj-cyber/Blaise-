@@ -1,7 +1,7 @@
 import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
-import { ALERTA_RIO_RAINFALL_TASK_ID } from './official-source-worker.mjs';
+import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
 import { ServiceBusyError, createConcurrencyGate } from './resilience.mjs';
 import { verifyPurchasePayload } from './server.mjs';
 import { requireSubscriberUid } from './firebase-subscriber-auth-rj.mjs';
@@ -157,6 +157,41 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
   const rainfall = summarizeAlertaRioRainfall(rainfallReading);
   if (!rainfall) return null;
 
+  let marine = null;
+  try {
+    const reading = sourceWorker.readSource(NOAA_WAVE_TASK_ID);
+    const wave = reading.snapshot;
+    const valid = Date.parse(wave?.validAt);
+    const expires = Date.parse(wave?.expiresAt);
+    const checked = Date.parse(wave?.checkedAt);
+    if (reading.state === 'CURRENT'
+        && wave?.nature === 'MODELO'
+        && wave?.units === 'm'
+        && Number.isFinite(wave.waveHeightM)
+        && wave.waveHeightM >= 0
+        && Number.isFinite(valid)
+        && valid <= nowMillis
+        && nowMillis - valid < 3600000
+        && Number.isFinite(expires)
+        && expires > nowMillis
+        && Number.isFinite(checked)
+        && checked <= nowMillis) {
+      marine = Object.freeze({
+        waveHeightM: wave.waveHeightM,
+        units: 'm',
+        source: 'NOAA GFS-Wave',
+        nature: 'MODELO',
+        validAt: wave.validAt,
+        lastCheckedAt: wave.checkedAt,
+        expiresAt: wave.expiresAt,
+        latitude: wave.latitude,
+        longitude: wave.longitude,
+      });
+    }
+  } catch {
+    // NOAA indisponivel: nao inventar valores
+  }
+
   const sources = Array.isArray(status.sources)
     ? status.sources.map(projectSourceState).filter(Boolean)
     : [];
@@ -170,6 +205,7 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
     sourceCount: sources.length,
     currentSourceCount,
     rainfall,
+    marine,
     sources: Object.freeze(sources),
     privacy: Object.freeze({
       purchaseTokenExposed: false,

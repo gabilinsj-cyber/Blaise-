@@ -171,6 +171,23 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     code: 'official_source_worker_invalid_severe_flag',
   });
   const ineaStationUrl = validateIneaStationUrl(env.BLAISE_INEA_STATION_URL);
+  const noaaWaveEnabled = parseBoolean(env.BLAISE_NOAA_WAVE_ENABLED, {
+    defaultValue: false,
+    code: "official_source_worker_invalid_noaa_enabled_flag",
+  });
+  let noaaPoint = null;
+  if (noaaWaveEnabled) {
+    const latitude = Number(env.BLAISE_NOAA_POINT_LATITUDE);
+    const longitude = Number(env.BLAISE_NOAA_POINT_LONGITUDE);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        !String(env.BLAISE_NOAA_POINT_LATITUDE ?? "").trim() ||
+        !String(env.BLAISE_NOAA_POINT_LONGITUDE ?? "").trim() ||
+        latitude < -25 || latitude > -21 ||
+        longitude < -45 || longitude > -40) {
+      throw new OfficialSourceWorkerError("invalid_noaa_point");
+    }
+    noaaPoint = Object.freeze({ latitude, longitude });
+  }
   const cemadenRjEnabled = parseBoolean(env.BLAISE_CEMADEN_RJ_ENABLED, {
     defaultValue: false,
     code: 'official_source_worker_invalid_cemaden_rj_enabled_flag',
@@ -199,6 +216,8 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     enabled,
     initialMode: severe ? 'severe' : 'normal',
     ineaStationUrl,
+    noaaWaveEnabled,
+    noaaPoint,
   };
   if (env.BLAISE_CEMADEN_RJ_ENABLED !== undefined
       && env.BLAISE_CEMADEN_RJ_ENABLED !== null
@@ -279,6 +298,7 @@ export function createOfficialSourceWorker({
   }
   const ineaStationUrl = null;
   const noaaWaveEnabled = config.noaaWaveEnabled ?? false;
+  noaaPoint = noaaPoint ?? config.noaaPoint ?? null;
   if (typeof noaaWaveEnabled !== "boolean") throw new OfficialSourceWorkerError("invalid_noaa_enabled_flag");
   if (noaaWaveEnabled && !noaaPoint) throw new OfficialSourceWorkerError("noaa_point_required");
   if (noaaWaveEnabled && typeof collectNoaa !== "function") throw new OfficialSourceWorkerError("noaa_collector_invalid");

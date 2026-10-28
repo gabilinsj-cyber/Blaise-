@@ -2,12 +2,12 @@ import { readMarineGribPoint } from "./marine-grib-reader.mjs";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-export function noaaWaveUrl(cycleMillis) {
+export function noaaWaveUrl(cycleMillis, forecastHour = 0) {
   const iso = new Date(cycleMillis).toISOString();
   const day = iso.slice(0, 10).replaceAll("-", "");
   const hour = iso.slice(11, 13);
   const url = new URL("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl");
-  const file = "gfswave.t" + hour + "z.global.0p25.f000.grib2";
+  const file = `gfswave.t${hour}z.global.0p25.f${String(forecastHour).padStart(3, "0")}.grib2`;
   url.searchParams.set("file", file);
   url.searchParams.set("dir", "/gfs." + day + "/" + hour + "/wave/gridded");
   url.searchParams.set("var_HTSGW", "on");
@@ -48,10 +48,12 @@ export function noaaWaveCycles(nowMillis = Date.now()) {
 }
 export async function fetchRecentNoaaWave(nowMillis = Date.now(), fetchImpl = fetch) {
   for (const cycleMillis of noaaWaveCycles(nowMillis)) {
-    const url = noaaWaveUrl(cycleMillis);
+    const forecastHour = Math.floor((nowMillis - cycleMillis) / 3600000);
+    if (nowMillis - cycleMillis >= 43200000) continue;
+    const url = noaaWaveUrl(cycleMillis, forecastHour);
     try {
       const data = await fetchNoaaGrib(url, fetchImpl);
-      return { data, cycleMillis, sourceUrl: url };
+      return { data, cycleMillis, forecastHour, sourceUrl: url };
     } catch (error) {
       if (error.message !== "noaa_http_404") throw error;
     }
@@ -67,7 +69,7 @@ export async function collectNoaaWave(latitude, longitude, nowMillis = Date.now(
     const point = await readMarineGribPoint(file, latitude, longitude);
     if (Date.parse(point.issuedAt) !== recent.cycleMillis)
       throw new Error("noaa_cycle_mismatch");
-    if (point.validAt !== point.issuedAt)
+    if (Date.parse(point.validAt) !== recent.cycleMillis + recent.forecastHour * 3600000)
       throw new Error("noaa_validity_mismatch");
     const age = nowMillis - recent.cycleMillis;
     if (age < 0 || age >= 43200000)
@@ -77,7 +79,7 @@ export async function collectNoaaWave(latitude, longitude, nowMillis = Date.now(
       sourceUrl: recent.sourceUrl,
       nature: "MODELO",
       checkedAt: new Date(nowMillis).toISOString(),
-expiresAt:new Date(recent.cycleMillis+43200000).toISOString(),
+expiresAt: new Date(Math.min(recent.cycleMillis + 43200000, Date.parse(point.validAt) + 3600000)).toISOString(),
       latitude, longitude };
   } finally {
     await rm(dir, {recursive:true, force:true});

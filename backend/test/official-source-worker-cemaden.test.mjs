@@ -68,6 +68,8 @@ test('CEMADEN runtime polling is opt-in and invalid flags fail closed', () => {
     enabled: false,
     initialMode: 'normal',
     ineaStationUrl: null,
+    noaaPoint: null,
+    noaaWaveEnabled: false,
   });
   assert.deepEqual(
     loadOfficialSourceWorkerConfig({ BLAISE_CEMADEN_RJ_ENABLED: 'true' }),
@@ -75,6 +77,8 @@ test('CEMADEN runtime polling is opt-in and invalid flags fail closed', () => {
       enabled: false,
       initialMode: 'normal',
       ineaStationUrl: null,
+      noaaPoint: null,
+      noaaWaveEnabled: false,
       cemadenRjEnabled: true,
     },
   );

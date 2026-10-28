@@ -9,8 +9,8 @@ test("NOAA cache: validacao e estados", () => {
   const sample = { waveHeightM: 2, units: "m", nature: "MODELO",
     latitude: -23.5, longitude: -43 };
   sample.issuedAt = new Date(clock - 3600000).toISOString();
-  sample.validAt = sample.issuedAt;
-  sample.expiresAt = new Date(clock + 39600000).toISOString();
+  sample.validAt = new Date(clock).toISOString();
+  sample.expiresAt = new Date(clock + 3600000).toISOString();
   sample.checkedAt = new Date(clock).toISOString();
   sample.sourceUrl = "https://nomads.ncep.noaa.gov/";
   cache.recordSuccess(sample);

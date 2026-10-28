@@ -3,12 +3,13 @@ export function createNoaaWaveCache({ now = Date.now } = {}) {
   let entry = null, lastAttemptAt = null, lastErrorCode = null;
   function recordSuccess(snapshot, { fetchedAt = now() } = {}) {
     const issued = Date.parse(snapshot?.issuedAt);
+    const valid = Date.parse(snapshot?.validAt);
     const expires = Date.parse(snapshot?.expiresAt);
-    if (![issued, expires, fetchedAt].every(Number.isFinite))
+    if (![issued, valid, expires, fetchedAt].every(Number.isFinite))
       throw new Error("noaa_cache_time_invalid");
     if (issued > fetchedAt || expires <= fetchedAt)
       throw new Error("noaa_cache_not_current");
-    if (expires - issued !== 43200000)
+    if (expires <= valid || expires > valid + 3600000 || expires > issued + 43200000)
       throw new Error("noaa_cache_expiry_invalid");
     if (!Number.isFinite(snapshot.waveHeightM) || snapshot.waveHeightM < 0)
       throw new Error("noaa_cache_wave_invalid");
@@ -19,7 +20,7 @@ export function createNoaaWaveCache({ now = Date.now } = {}) {
         sourceUrl.hostname !== "nomads.ncep.noaa.gov" ||
         sourceUrl.username || sourceUrl.password)
       throw new Error("noaa_cache_source_invalid");
-    if (snapshot.validAt !== snapshot.issuedAt)
+    if (valid < issued || valid > fetchedAt || fetchedAt - valid >= 3600000)
       throw new Error("noaa_cache_validity_invalid");
     const { latitude, longitude } = snapshot;
     if (![latitude, longitude].every(Number.isFinite))
@@ -37,7 +38,7 @@ export function createNoaaWaveCache({ now = Date.now } = {}) {
     if (expires <= current)
       throw new Error("noaa_cache_expired");
     const saved = structuredClone(snapshot);
-    entry = { snapshot: saved, fetchedAt, issued, expires };
+    entry = { snapshot: saved, fetchedAt, issued, valid, expires };
     lastAttemptAt = fetchedAt;
     lastErrorCode = null;
   }
@@ -67,7 +68,7 @@ export function createNoaaWaveCache({ now = Date.now } = {}) {
     if (!entry) return Object.freeze({ ...base, state: "UNAVAILABLE",
       reason: lastErrorCode ? "refresh_failed_without_snapshot" : "no_snapshot",
       fetchedAt: null, dataAgeMs: null, cacheAgeMs: null, snapshot: null });
-    const dataAgeMs = at - entry.issued;
+    const dataAgeMs = at - entry.valid;
     const cacheAgeMs = at - entry.fetchedAt;
     if (dataAgeMs < 0 || cacheAgeMs < 0)
       return Object.freeze({ ...base, state: "UNAVAILABLE", reason: "clock_skew",
