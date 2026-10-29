@@ -140,6 +140,7 @@ jobs:
             --max-instances=50 \
             --no-traffic \
             --tag="$tag" \
+            --remove-env-vars="BLAISE_CHM_WARNINGS_ENABLED" \
             --update-env-vars="$runtime_env" \
             "${iam_args[@]}" \
             --quiet
