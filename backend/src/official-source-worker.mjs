@@ -400,20 +400,6 @@ export function createOfficialSourceWorker({
     });
   }
 
-  if (chmWarningsEnabled) {
-    tasks.push({
-      id: CHM_WARNINGS_TASK_ID,
-      run: async ({ startedAt }) => {
-        try {
-          const snapshot = await probeChmWarningsLive({ fetchImpl });
-          chmWarningsCache.recordSuccess(snapshot, { fetchedAt: startedAt });
-        } catch (error) {
-          chmWarningsCache.recordFailure(safeSourceErrorCode(error), { attemptedAt: startedAt });
-          throw error;
-        }
-      },
-    });
-  }
 
   if (inmetWarningsEnabled) {
     tasks.push({

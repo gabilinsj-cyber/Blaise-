@@ -1597,7 +1597,7 @@ private fun FooterSources() {
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
-            Text("Clima • Alertas • Radar • Risco • Marinha • Trânsito", color = Color.White)
+            Text("Clima • Alertas • Radar • Risco • Mar e Atlântico • Trânsito", color = Color.White)
             Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
             Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
         }
