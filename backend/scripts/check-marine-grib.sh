@@ -24,12 +24,12 @@ import assert from "node:assert/strict";
 const fixture = await readFile(
 "/fixtures/noaa-wave-live.grib2");
 const fakeFetch = async () => new Response(fixture);
-const now = Date.UTC(2026, 9, 23, 7);
+const now = Date.UTC(2026, 9, 23, 6);
 const result = await collectNoaaWave(
 -23.5, -43, now, fakeFetch);
 assert.equal(result.nature, "MODELO");
 assert.ok(Math.abs(result.waveHeightM - 1.77) < 0.001);
-assert.equal(result.expiresAt, "2026-10-23T18:00:00.000Z");
+assert.equal(result.expiresAt, "2026-10-23T07:00:00.000Z");
 assert.equal(Date.parse(result.checkedAt), now);
 const collectAt = t => collectNoaaWave(-23.5, -43, t, fakeFetch);
 await assert.rejects(() => collectAt(now+21600000), /noaa_cycle_mismatch/);
