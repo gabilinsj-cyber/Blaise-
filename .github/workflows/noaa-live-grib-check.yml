@@ -1,0 +1,48 @@
+name: NOAA RJ - Leitura GRIB Real
+
+on:
+  push:
+    branches:
+      - test/rj-noaa-android-20261028
+    paths:
+      - .github/workflows/noaa-live-grib-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  ler-ondas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: staging-noaa-rj
+    steps:
+      - name: Obter codigo
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Configurar Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.20.0'
+
+      - name: Instalar leitor GRIB
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libeccodes-tools
+
+      - name: Ler onda NOAA real
+        env:
+          BLAISE_NOAA_STAGING_RUN: 'true'
+          BLAISE_NOAA_STAGING_LATITUDE: '-23.5'
+          BLAISE_NOAA_STAGING_LONGITUDE: '-43.5'
+        run: |
+          set -euo pipefail
+          DADO=$(timeout 120s node backend/src/noaa-staging-runner.mjs)
+          printf '%s\n' "$DADO" | jq -e '
+            .fonte == "NOAA GFS Wave" and
+            (.alturaOndasM | type == "number") and
+            (.alturaOndasM >= 0) and
+            (.validade | type == "string") and
+            (.expiraEm | type == "string")
+          '
+          printf '%s\n' "$DADO" | jq '{fonte,alturaOndasM,validade,expiraEm}'
+          echo "NOAA_LEITURA_REAL=PASS"
