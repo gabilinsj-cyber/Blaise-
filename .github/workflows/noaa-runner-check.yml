@@ -1,0 +1,46 @@
+name: NOAA RJ - Runner Offline
+
+on:
+  push:
+    branches:
+      - test/rj-noaa-android-20261028
+    paths:
+      - .github/workflows/noaa-runner-check.yml
+      - backend/src/noaa-staging-runner.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  validar-runner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Obter codigo
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Configurar Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.20.0'
+
+      - name: Validar seguranca NOAA
+        run: |
+          set -euo pipefail
+          node --check backend/src/noaa-staging-runner.mjs
+
+          set +e
+          saida=$(env -u BLAISE_NOAA_STAGING_RUN node backend/src/noaa-staging-runner.mjs 2>&1)
+          codigo=$?
+          set -e
+          test "$codigo" -eq 2
+          test "$saida" = "NOAA_STAGING_BLOQUEADO"
+
+          set +e
+          saida=$(env BLAISE_NOAA_STAGING_RUN=true BLAISE_NOAA_STAGING_LATITUDE=-30 BLAISE_NOAA_STAGING_LONGITUDE=-50 node backend/src/noaa-staging-runner.mjs 2>&1)
+          codigo=$?
+          set -e
+          test "$codigo" -eq 1
+          test "$saida" = "COORDENADAS_INVALIDAS"
+
+          echo "NOAA_RUNNER_OFFLINE=PASS"
