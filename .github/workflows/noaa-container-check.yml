@@ -1,0 +1,51 @@
+name: NOAA RJ - Container Isolado
+
+on:
+  push:
+    branches:
+      - test/rj-noaa-android-20261028
+    paths:
+      - .github/workflows/noaa-container-check.yml
+      - backend/Dockerfile.noaa-staging
+      - backend/src/noaa-staging-runner.mjs
+      - backend/src/noaa-wave-collector.mjs
+      - backend/src/marine-grib-reader.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  testar-imagem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Obter codigo
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+
+      - name: Construir imagem NOAA
+        run: |
+          docker build \
+            -f backend/Dockerfile.noaa-staging \
+            -t blaise-noaa-ci:local backend
+
+      - name: Testar bloqueio offline
+        run: |
+          set -euo pipefail
+          set +e
+          saida=$(docker run --rm --network none --read-only --cap-drop ALL blaise-noaa-ci:local 2>&1)
+          codigo=$?
+          set -e
+          test "$codigo" -eq 2
+          test "$saida" = "NOAA_STAGING_BLOQUEADO"
+          echo "NOAA_IMAGE_BLOCK=PASS"
+
+      - name: Testar coordenadas offline
+        run: |
+          set -euo pipefail
+          set +e
+          saida=$(docker run --rm --network none --read-only --cap-drop ALL -e BLAISE_NOAA_STAGING_RUN=true -e BLAISE_NOAA_STAGING_LATITUDE=-30 -e BLAISE_NOAA_STAGING_LONGITUDE=-50 blaise-noaa-ci:local 2>&1)
+          codigo=$?
+          set -e
+          test "$codigo" -eq 1
+          test "$saida" = "COORDENADAS_INVALIDAS"
+          echo "NOAA_IMAGE_GEO=PASS"
