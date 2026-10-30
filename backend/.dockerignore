@@ -4,3 +4,5 @@ coverage
 .env
 *.key
 *.json.secret
+**/*.bak*
+**/*backup*

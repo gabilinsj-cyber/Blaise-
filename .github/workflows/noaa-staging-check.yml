@@ -32,3 +32,10 @@ jobs:
           node --check backend/src/noaa-wave-cache.mjs
           node --test backend/test/noaa-wave-cache.test.mjs
           echo "NOAA_STAGING_OFFLINE=PASS"
+
+      - name: Verificar GRIB no conteiner
+        run: |
+          set -euo pipefail
+          docker build -f backend/Dockerfile -t blaise-noaa-grib-ci:check backend
+          docker run --rm --network none --read-only --entrypoint grib_get blaise-noaa-grib-ci:check -V
+          echo "NOAA_GRIB_CONTAINER=PASS"
