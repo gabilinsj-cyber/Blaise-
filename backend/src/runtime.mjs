@@ -1,3 +1,4 @@
+import { collectNoaaWave } from './noaa-wave-collector.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
 import { createScientificAccess } from './blaise-scientific-access.mjs';
@@ -179,6 +180,7 @@ async function main() {
   const sourceWorker = createOfficialSourceWorker({
     config: sourceWorkerConfig,
     noaaPoint: sourceWorkerConfig.noaaPoint,
+    collectNoaa: collectNoaaWave,
     publishInmetP0,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
     cadenceMode: 'fixed_start',
