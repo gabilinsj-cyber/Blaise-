@@ -147,7 +147,7 @@ test('task failure is contained, sanitized and retried on the normal cadence', a
 test('stopped scheduler never starts new work', async () => {
   let calls = 0;
   const scheduler = createOfficialSourceScheduler({
-    tasks: [{ id: 'inea', run: async () => { calls += 1; } }],
+    tasks: [{ id: 'test-source', run: async () => { calls += 1; } }],
     now: () => 0,
     autoSchedule: false,
   });

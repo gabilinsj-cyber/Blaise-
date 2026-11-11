@@ -1,6 +1,5 @@
 # Blaise V6 RJ — entrega estadual, 08/10/2026
 
-Escopo obrigatório: todos os 92 municípios canônicos do RJ, identificados por IBGE. Selecionar duas cidades na tela não limita o escopo de coleta ou de alertas ao par selecionado. Alerta Rio permanece municipal; fontes estaduais/nacionais são aplicadas somente onde sua cobertura estiver validada. INEA excluído das fontes ativas.
 
 ## Implementação desta revisão
 
@@ -11,7 +10,6 @@ Nova rota protegida `/v1/data/municipalities`, consumida pelo cliente Android e 
 - Avisos INMET CAP vigentes associados apenas a IBGEs confirmados. Áreas descritas sem municípios ficam no inventário estadual com cobertura municipal parcial, nunca copiadas às 92 cidades. Cancelamentos já são retirados pelo conector CAP. Não reclassifica severidade oficial nem emite áudio novo.
 - Fonte vencida ou worker desligado não produz ausência de risco. Download recente não renova observação antiga. Catálogo continua visível quando o monitoramento está indisponível.
 - Catálogo de responsabilidades das fontes aprovadas: INMET, CEMADEN-RJ, Alerta Rio, ANA/Hidroweb/HidroWebService, SGB/SACE, CHM, WW3, PNBOIA, NOAA, Windy, Defesa Civil estadual/municipal, COR/CET-Rio, PRF/PMERJ e USGS. Cadastro não equivale a conector ativo. O estado operacional se refere somente ao produto realmente recebido, por exemplo avisos INMET, não todas as variáveis meteorológicas.
-- Runtime ignora configuração legada de estação INEA, preservando as bibliotecas históricas apenas para regressão.
 
 ## Cobertura e pendências por produto
 

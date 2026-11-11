@@ -16,7 +16,6 @@ Escopo RJ e seus municípios, com contexto do Sudeste e Atlântico relevante ao 
 
 ## Fontes e substituição
 
-Observações locais Alerta Rio/INMET; alertas COR/Defesa Civil conforme contrato validado. Substituir INEA por Alerta Rio na capital, CEMADEN, ANA/HidroWebService e SGB/SACE conforme variável/cobertura. Atlântico/ciclone: NOAA/Marinha/INMET e comparação autorizada Windy (não autoridade oficial). Aproximadamente1km da costa: priorizar Alerta Rio/Marinha/INMET/Windy; distância muda prioridade, não severidade. Marinha/CHM para mar/avisos; RSBR/USGS para sismos. Contexto de frentes/massas de ar não substitui observações locais. Magnitude/profundidade não confirmam tsunami.
 
 Não foram recuperados pesos numéricos calibrados por fenômeno. Comparar mesma variável/unidade/período/natureza/cobertura; retransmissão da mesma origem não é fonte independente. Não extrapolar outra cidade como medição do Centro ou de Niterói.
 

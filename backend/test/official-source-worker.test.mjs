@@ -7,7 +7,6 @@ import {
   NOAA_WAVE_TASK_ID,
   CHM_WARNINGS_TASK_ID,
   createOfficialSourceWorker,
-  INEA_STATION_TASK_ID,
   loadOfficialSourceWorkerConfig,
   OfficialSourceWorkerError,
 } from '../src/official-source-worker.mjs';
@@ -23,11 +22,6 @@ import {
   CHM_TEMPORAL_VALIDITY_CONTRACT,
   CHM_WARNINGS_URL,
 } from '../src/chm-source.mjs';
-import {
-  INEA_ALERT_HOST,
-  INEA_STATION_SOURCE_ID,
-  INEA_TELEMETRY_CADENCE_MINUTES,
-} from '../src/inea-source.mjs';
 
 const NOW = Date.parse('2026-09-10T15:00:00.000Z');
 
@@ -48,21 +42,6 @@ function alertaRioSnapshot() {
   });
 }
 
-function ineaSnapshot() {
-  return Object.freeze({
-    sourceId: INEA_STATION_SOURCE_ID,
-    sourceHost: INEA_ALERT_HOST,
-    stationId: '12345678',
-    stationName: 'Estação de teste',
-    observedDate: '10/09/2026',
-    observedTime: '12:00',
-    timezone: 'America/Sao_Paulo',
-    telemetryCadenceMinutes: INEA_TELEMETRY_CADENCE_MINUTES,
-    rainfall: Object.freeze({ last15mMm: 0 }),
-    missingValueCount: 0,
-    snapshotSha256: 'b'.repeat(64),
-  });
-}
 
 function chmSnapshot() {
   const baseWarning = {
@@ -114,7 +93,6 @@ test('worker configuration is disabled fail-closed by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     noaaWaveEnabled: false,
     noaaPoint: null,
   });
@@ -125,10 +103,6 @@ test('worker configuration is disabled fail-closed by default', () => {
       && error.code === 'official_source_worker_invalid_enabled_flag',
   );
   assert.throws(
-    () => loadOfficialSourceWorkerConfig({ BLAISE_INEA_STATION_URL: 'https://example.com/station' }),
-    (error) => error.code === 'official_source_worker_invalid_inea_station_url',
-  );
-  assert.throws(
     () => loadOfficialSourceWorkerConfig({ BLAISE_CHM_WARNINGS_ENABLED: 'yes' }),
     (error) => error.code === 'official_source_worker_invalid_chm_warnings_enabled_flag',
   );
@@ -137,7 +111,7 @@ test('worker configuration is disabled fail-closed by default', () => {
 test('disabled worker cannot start external polling', async () => {
   let calls = 0;
   const worker = createOfficialSourceWorker({
-    config: { enabled: false, initialMode: 'normal', ineaStationUrl: null },
+    config: { enabled: false, initialMode: 'normal' },
     now: () => NOW,
     autoSchedule: false,
     probeAlertaRio: async () => {
@@ -158,7 +132,7 @@ test('disabled worker cannot start external polling', async () => {
 test('enabled worker refreshes Alerta Rio into memory-only cache', async () => {
   let calls = 0;
   const worker = createOfficialSourceWorker({
-    config: { enabled: true, initialMode: 'normal', ineaStationUrl: null },
+    config: { enabled: true, initialMode: 'normal' },
     now: () => NOW,
     autoSchedule: false,
     probeAlertaRio: async () => {
@@ -182,7 +156,7 @@ test('enabled worker refreshes Alerta Rio into memory-only cache', async () => {
 
 test('source failures are contained and exposed only as bounded error codes', async () => {
   const worker = createOfficialSourceWorker({
-    config: { enabled: true, initialMode: 'normal', ineaStationUrl: null },
+    config: { enabled: true, initialMode: 'normal' },
     now: () => NOW,
     autoSchedule: false,
     probeAlertaRio: async () => {
@@ -200,28 +174,6 @@ test('source failures are contained and exposed only as bounded error codes', as
   assert.equal(JSON.stringify(status).includes('upstream body'), false);
 });
 
-test('INEA remains blocked when explicitly enabled', async () => {
-  const stationUrl = 'https://alertadecheias.inea.rj.gov.br/alertadecheias/12345678.html';
-  let ineaCalls = 0;
-  const worker = createOfficialSourceWorker({
-    config: { enabled: true, initialMode: 'severe', ineaStationUrl: stationUrl },
-    now: () => NOW,
-    autoSchedule: false,
-    maxConcurrency: 2,
-    probeAlertaRio: async () => alertaRioSnapshot(),
-    probeIneaStation: async ({ stationUrl: received }) => {
-      assert.equal(received, stationUrl);
-      ineaCalls += 1;
-      return ineaSnapshot();
-    },
-  });
-
-  worker.start();
-  const launched = await worker.tick();
-  assert.deepEqual(launched, [ALERTA_RIO_RAINFALL_TASK_ID]);
-  assert.equal(ineaCalls, 0);
-  worker.stop();
-});
 
 test('CHM remains blocked when explicitly enabled', async () => {
   let chmCalls = 0;
@@ -229,7 +181,6 @@ test('CHM remains blocked when explicitly enabled', async () => {
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       chmWarningsEnabled: true,
     },
     now: () => NOW,
@@ -251,7 +202,7 @@ test('CHM remains blocked when explicitly enabled', async () => {
 
 test('unknown source reads fail closed', () => {
   const worker = createOfficialSourceWorker({
-    config: { enabled: false, initialMode: 'normal', ineaStationUrl: null },
+    config: { enabled: false, initialMode: 'normal' },
     now: () => NOW,
     autoSchedule: false,
   });
@@ -263,7 +214,7 @@ test('unknown source reads fail closed', () => {
 
 test('runtime cadence override preserves source timestamps and requests 60s normal and 30s severe cycles', async () => {
   const worker = createOfficialSourceWorker({
-    config: { enabled: true, initialMode: 'normal', ineaStationUrl: null },
+    config: { enabled: true, initialMode: 'normal' },
     now: () => NOW, autoSchedule: false,
     refreshIntervalsMs: { normal: 60_000, severe: 30_000 },
     probeAlertaRio: async () => alertaRioSnapshot(),

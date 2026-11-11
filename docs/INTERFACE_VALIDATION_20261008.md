@@ -10,7 +10,6 @@ Cartões das duas cidades mostram umidade e vento médio em linhas próprias, al
 
 Rede meteorológica Alerta Rio conectada em painel expansível no painel estadual. Coleta em primeiro plano a cada 60 segundos; idade revalidada pelo relógio de 30 segundos, sem renovar horário da medição. Desligamento retira a rede. Estações desconhecidas são recusadas. Nenhuma estação é usada para preencher Centro, Niterói ou São Gonçalo sem cobertura confirmada. Rede não é mapa de radar, média ponderada municipal nem série histórica.
 
-Removidas menções de INEA da interface, conforme substituição aprovada por Alerta Rio/CEMADEN. Conector legado não ativado nesta revisão.
 
 ## Verificação do serviço
 

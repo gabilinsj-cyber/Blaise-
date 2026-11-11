@@ -92,14 +92,12 @@ test('INMET runtime polling is explicit and disabled by default', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     noaaWaveEnabled: false,
     noaaPoint: null,
   });
   assert.deepEqual(loadOfficialSourceWorkerConfig({ BLAISE_INMET_WARNINGS_ENABLED: 'true' }), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     noaaWaveEnabled: false,
     noaaPoint: null,
     inmetWarningsEnabled: true,
@@ -117,7 +115,6 @@ test('optional INMET CAP task caches source and continuously stages redacted P0 
     config: {
       enabled: true,
       initialMode: 'severe',
-      ineaStationUrl: null,
       inmetWarningsEnabled: true,
     },
     now: () => NOW,
@@ -176,7 +173,6 @@ test('INMET policy or staging failure does not poison a valid source cache and r
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       inmetWarningsEnabled: true,
     },
     now: () => NOW,
@@ -213,7 +209,6 @@ test('INMET refresh failures block P0 evaluation separately and remain fail-clos
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       inmetWarningsEnabled: true,
     },
     now: () => NOW,

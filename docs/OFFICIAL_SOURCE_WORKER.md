@@ -2,7 +2,6 @@
 
 O runtime do backend do Blaise V6 RJ possui uma integração opt-in do scheduler de fontes oficiais. O worker permanece **desabilitado por padrão** e não faz acesso externo enquanto `BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED` não for exatamente `true`.
 
-Quando habilitado, o worker consulta somente adapters oficiais explicitamente configurados. Alerta Rio é a tarefa base; INEA, CEMADEN-RJ, CHM/Marinha, INMET CAP e o inventário cartográfico da Defesa Civil Rio são opcionais e continuam fail-closed. Cada adapter valida o contrato da fonte antes de gravar um snapshot no cache imutável em memória.
 
 O worker reutiliza o scheduler limitado: 15 minutos em modo normal e 1 minuto em modo severo, conjunto estático de tarefas, concorrência limitada e sem sobreposição por fonte. Erros são registrados apenas por código sanitizado. O status operacional nunca inclui valores meteorológicos, texto de avisos, identificadores municipais, geometrias ou payloads de origem; os snapshots completos permanecem somente no cache em memória e são acessíveis apenas pela API interna `readSource()` para futura composição do backend meteorológico.
 
@@ -10,7 +9,6 @@ O worker reutiliza o scheduler limitado: 15 minutos em modo normal e 1 minuto em
 
 - `BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED`: `true` ou `false`; padrão `false`.
 - `BLAISE_OFFICIAL_SOURCE_SEVERE`: `true` ou `false`; padrão `false`. Quando `true`, a cadência inicial é de 1 minuto.
-- `BLAISE_INEA_STATION_URL`: opcional; deve apontar para uma página numérica oficial no host `alertadecheias.inea.rj.gov.br`.
 - `BLAISE_CEMADEN_RJ_ENABLED`: ativa o adapter de risco hidrológico CEMADEN-RJ.
 - `BLAISE_CHM_WARNINGS_ENABLED`: ativa o inventário de avisos CHM/Marinha.
 - `BLAISE_INMET_WARNINGS_ENABLED`: ativa o feed CAP oficial do INMET e a avaliação contínua, local e não publicadora da política P0.

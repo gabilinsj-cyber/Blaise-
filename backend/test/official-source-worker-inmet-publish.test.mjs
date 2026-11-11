@@ -89,7 +89,6 @@ function enabledConfig() {
   return {
     enabled: true,
     initialMode: 'severe',
-    ineaStationUrl: null,
     inmetWarningsEnabled: true,
     inmetP0PublishEnabled: true,
   };
@@ -102,7 +101,6 @@ test('INMET P0 runtime publication is explicit, dependency-bound and fail-closed
   }), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     noaaWaveEnabled: false,
     noaaPoint: null,
     inmetWarningsEnabled: true,

@@ -44,7 +44,6 @@ test('inactive worker and unconnected products never claim operational coverage'
   assert.equal(result.workerActive, false);
   assert.ok(result.municipalities.every(city => city.hydrologicalRisk.level === null));
   assert.ok(result.sources.every(source => source.connectedProduct === null));
-  assert.equal(STATEWIDE_SOURCE_RESPONSIBILITIES.some(source => source.id.includes('inea')), false);
   const current = buildStatewideDashboardSnapshot(worker(), { nowMillis: now });
   assert.equal(current.sources.find(source => source.id === 'inmet').connectedProduct, 'avisos');
   assert.equal(result.sources.some(source => ['chm', 'ww3', 'pnboia'].includes(source.id)), false);

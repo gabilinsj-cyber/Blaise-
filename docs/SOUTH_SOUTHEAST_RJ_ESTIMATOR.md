@@ -4,7 +4,6 @@
 
 Esta camada transforma orientação numérica já normalizada em uma **estimativa probabilística de mudança de tempo** para 24 h e 48 h. Ela acompanha sinais que avançam do Sul em direção ao Sudeste e, quando fontes oficiais locais confirmam a chegada ao limite/território do Estado do Rio de Janeiro, recalcula os municípios com evidência local recente.
 
-O resultado é orientação probabilística do Blaise. **Não é alerta oficial, não substitui Defesa Civil/INMET/Alerta Rio/INEA/CHM e nunca pode criar P0 sozinho.** A precedência das fontes oficiais locais do RJ permanece inalterada.
 
 ## Entradas
 

@@ -10,7 +10,6 @@ O scheduler não retém payloads de fontes, respostas HTTP, valores meteorológi
 
 ## Integração operacional
 
-Esta camada é um **motor de coordenação**, não uma alegação de execução LIVE. Ela pode ser conectada aos adapters já existentes de Alerta Rio, INEA, INMET, CHM e CEMADEN, ou executada por um worker/serviço dedicado. O processo HTTP principal não inicia consultas externas automaticamente apenas por importar o módulo.
 
 Isso preserva o gate fail-closed atual: nenhuma fonte ganha estado LIVE, nenhum P0 é publicado e nenhum custo externo é disparado apenas porque o scheduler foi adicionado ao código. A ativação em produção continua exigindo configuração explícita, identidade de serviço apropriada, evidência de execução e os gates de infraestrutura correspondentes.
 

@@ -43,7 +43,7 @@ data class StatewideSnapshot(val generatedAt: Instant, val workerActive: Boolean
         require(warnings.all { w -> w.municipalityIbges.all { RioMunicipalities.byIbgeCode(it) != null } && w.expires > w.onset })
         require(municipalities.all { city -> city.warningIds.all { id -> warnings.any { it.id == id && city.ibge in it.municipalityIbges } } })
         require(sources.size in 1..32 && sources.map { it.id }.toSet().size == sources.size)
-        require(sources.none { it.id.contains("inea", ignoreCase = true) })
+        require(sources.all { it.id in setOf("inmet", "cemaden-rj", "alerta-rio", "ana", "sgb-sace", "noaa", "defesa-civil", "cor-cet", "prf-pmerj", "usgs") })
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) && Duration.between(generatedAt, now).seconds <= 120
 }

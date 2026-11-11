@@ -60,5 +60,3 @@ Não persiste HTML bruto nem a tabela completa por município no artefato do gat
 Esse PASS prova o contrato estrutural/fonte no momento da execução; não prova freshness operacional contínua, reconciliação multi-fonte, promoção P0, entrega FCM ou exibição no app.
 
 ## Próximo fechamento
-
-Antes de uso operacional no Blaise, a camada deve acrescentar freshness/recheck compatível com a publicação real do CEMADEN-RJ, reconciliação com INMET/INEA/Defesa Civil/Alerta Rio conforme o tipo de risco e política explícita de promoção para alerta do aplicativo. Até isso ocorrer, `operationalFreshnessValidation=NOT_YET_PROVEN` e `p0PromotionPolicy=NOT_IMPLEMENTED` permanecem fail-closed.

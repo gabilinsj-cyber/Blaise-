@@ -23,6 +23,5 @@ Execução de 06/10/2026, aproximadamente 19:23 BRT / 22:23 UTC.
 
 Os números do inventário INMET não equivalem a quantidade de alertas atualmente vigentes. O coletor mantém onset/expires e a política de emissão não publicou notificações. Os registros CEMADEN incluem timestamps anteriores ao dia desta consulta; horário de coleta não renova a validade do estado. Os 417 testes incluem contratos e matemática, não validação de previsão ou áudio em aparelho.
 
-Alerta Rio permanece fonte aprovada e não foi substituído. INEA não foi consultado nesta etapa nem considerado dependência. A exclusão documental não implica remoção automática de todos os módulos legados do repositório.
 
 Não houve implantação Cloud Run, atualização do APK instalado, promoção de produção ou emissão de alerta nesta revalidação. Permanecem pendentes conectores operacionais e entradas dos módulos de mapa, ondas, satélite e cálculo científico já registrados no projeto.

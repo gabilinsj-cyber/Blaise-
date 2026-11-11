@@ -117,7 +117,6 @@ test('Defesa Civil Rio runtime task is explicit, redacted and does not claim sir
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       defesaCivilRioAssetsEnabled: true,
     },
     now: () => NOW,

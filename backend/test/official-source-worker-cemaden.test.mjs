@@ -67,7 +67,6 @@ test('CEMADEN runtime polling is opt-in and invalid flags fail closed', () => {
   assert.deepEqual(loadOfficialSourceWorkerConfig({}), {
     enabled: false,
     initialMode: 'normal',
-    ineaStationUrl: null,
     noaaPoint: null,
     noaaWaveEnabled: false,
   });
@@ -76,7 +75,6 @@ test('CEMADEN runtime polling is opt-in and invalid flags fail closed', () => {
     {
       enabled: false,
       initialMode: 'normal',
-      ineaStationUrl: null,
       noaaPoint: null,
       noaaWaveEnabled: false,
       cemadenRjEnabled: true,
@@ -95,7 +93,6 @@ test('enabled worker refreshes CEMADEN 92-city hydrological risk into memory-onl
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       cemadenRjEnabled: true,
     },
     now: () => NOW,
@@ -131,7 +128,6 @@ test('CEMADEN source failures remain bounded and do not expose upstream content'
     config: {
       enabled: true,
       initialMode: 'normal',
-      ineaStationUrl: null,
       cemadenRjEnabled: true,
     },
     now: () => NOW,

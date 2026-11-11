@@ -18,7 +18,6 @@ export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
   { id: 'ana', name: 'ANA / Hidroweb / HidroWebService', products: ['nivel-de-rios', 'vazao', 'historico-hidrologico'], scope: 'ESTACOES_COM_COBERTURA_RJ' },
   { id: 'sgb-sace', name: 'SGB / SACE', products: ['cheias', 'inundacao', 'boletins-hidrologicos'], scope: 'BACIAS_COM_COBERTURA_RJ' },
   { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
-  { id: 'windy', name: 'Windy', products: ['vento-modelado', 'rajadas-modeladas'], scope: 'MODELO_COM_LICENCA_E_CHAVE' },
   { id: 'defesa-civil', name: 'Defesa Civil estadual e municipal', products: ['avisos-locais', 'ocorrencias', 'sirenes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'cor-cet', name: 'COR.Rio / CET-Rio', products: ['transito', 'alagamentos', 'interdicoes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'prf-pmerj', name: 'PRF / PMERJ', products: ['rodovias', 'ocorrencias'], scope: 'JURISDICAO_DO_ORGAO' },
