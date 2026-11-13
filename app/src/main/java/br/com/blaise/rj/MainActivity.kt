@@ -928,7 +928,7 @@ private fun StatewideMunicipalitiesPanel() {
         }
         if (snapshot != null) {
             Text("FONTES E COBERTURA", color = Gold, fontWeight = FontWeight.Bold)
-            snapshot.sources.forEach { source ->
+            snapshot.sources.filter(RjSourceCatalog::mayShowBackendSource).forEach { source ->
                 Text("${source.name}: ${source.connectedProduct?.replace('-', ' ') ?: "dados ainda não conectados"} • ${when(source.state) {
                     "CURRENT", "CURRENT_DEGRADED" -> "produto recebido; cobertura e validade por local"
                     "STALE" -> "desatualizado"
@@ -1083,6 +1083,40 @@ private fun HistoryScreen(city1: City, city2: City) {
 }
 
 @Composable
+private fun RjApprovedSourcesPanel() {
+    val clock = LocalObservationClock.current
+    val activeSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) && it.workerActive }
+
+    DashboardSection(
+        title = "FONTES METEOROLÓGICAS APROVADAS • RJ",
+        subtitle = "Oito fontes principais • cadastro não significa conexão ativa",
+    ) {
+        RjSourceCatalog.meteorological.forEach { source ->
+            Text(source.name, color = Gold, fontWeight = FontWeight.SemiBold)
+            Text(source.purpose, color = Color.White, style = MaterialTheme.typography.bodySmall)
+            Text(RjSourceCatalog.connectionLabel(source, activeSnapshot),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(6.dp))
+        }
+        Text("FONTES COMPLEMENTARES", color = Gold, fontWeight = FontWeight.Bold)
+        RjSourceCatalog.complementary.forEach { source ->
+            Text(source.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(source.purpose + " • " + RjSourceCatalog.connectionLabel(source, activeSnapshot),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("COMPLEMENTOS OPCIONAIS DE PREVISÃO E VISUALIZAÇÃO", color = Gold, fontWeight = FontWeight.Bold)
+        RjSourceCatalog.optionalComplements.forEach { source ->
+            Text(source.name + " • " + source.purpose,
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("Apenas produtos e horários validados serão usados em medições e alertas. Ausência de dados não significa ausência de risco.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
 private fun MoreScreen(
     powerOn: Boolean,
     silentMode: Boolean,
@@ -1109,6 +1143,8 @@ private fun MoreScreen(
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
+    Spacer(Modifier.height(14.dp))
+    RjApprovedSourcesPanel()
     Spacer(Modifier.height(14.dp))
 }
 
