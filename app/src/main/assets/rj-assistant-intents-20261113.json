@@ -1,0 +1,1198 @@
+{
+  "version": "rj-20261113",
+  "description": "Intencoes de teste do assistente. Nao sao respostas nem dados em tempo real.",
+  "scope": "RJ",
+  "source": "Blaise_V6_RJ_Perguntas_Assistente.md",
+  "intents": [
+    {
+      "id": 1,
+      "question": "Temperatura atual na cidade do Rio de Janeiro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 2,
+      "question": "Previsão do tempo para hoje no Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 3,
+      "question": "Vai chover no Rio hoje à tarde?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 4,
+      "question": "Máxima e mínima previstas para hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 5,
+      "question": "Umidade relativa no Rio neste momento?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 6,
+      "question": "Sensação térmica em Bangu agora?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 7,
+      "question": "Velocidade e direção do vento no Centro hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 8,
+      "question": "Chance de chuva no fim de semana na Zona Sul?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 9,
+      "question": "Está chovendo no Alto da Boa Vista agora?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 10,
+      "question": "Céu vai abrir ou continuar nublado ao longo do dia?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 11,
+      "question": "Índice UV previsto para hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 12,
+      "question": "Previsão de arco-íris ou fenômenos ópticos?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 13,
+      "question": "Vai dar praia no próximo sábado?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 14,
+      "question": "Previsão da qualidade do ar hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 15,
+      "question": "Horários do nascer e pôr do sol hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 16,
+      "question": "Nevoeiro nas primeiras horas da manhã?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 17,
+      "question": "Pressão atmosférica subindo ou caindo agora?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 18,
+      "question": "Temperatura da água do mar em Copacabana hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 19,
+      "question": "Vento forte na Ponte Rio-Niterói hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 20,
+      "question": "Tempo amanhã de manhã na Barra da Tijuca?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 21,
+      "question": "Pancadas isoladas na Zona Norte hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 22,
+      "question": "Umidade adequada para esportes ao ar livre hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 23,
+      "question": "Previsão detalhada hora a hora?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 24,
+      "question": "Previsão de granizo na cidade hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 25,
+      "question": "Tempo no feriado prolongado?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 26,
+      "question": "Estágio de operacionalidade da cidade segundo o COR?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 27,
+      "question": "Alerta do Alerta Rio para chuva forte nas próximas horas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 28,
+      "question": "Onde estão os maiores acumulados de chuva agora?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 29,
+      "question": "Chuva atual pode causar alagamento na Avenida Brasil?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 30,
+      "question": "Risco de deslizamento nas encostas hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 31,
+      "question": "Sirenes acionadas em alguma comunidade?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 32,
+      "question": "Quanto choveu na Rocinha nas últimas 24 horas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 33,
+      "question": "Alerta INMET de tempestade severa para a Região Metropolitana?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 34,
+      "question": "Bairros com maior acumulado pluviométrico?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 35,
+      "question": "Como funcionam os estágios operacionais 1 a 5 do Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 36,
+      "question": "Limite de chuva em uma hora para disparar alarme nas encostas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 37,
+      "question": "Lagoa Rodrigo de Freitas corre risco de transbordar hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 38,
+      "question": "Rio Maracanã está em alerta de transbordamento?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 39,
+      "question": "Onde acompanhar radar do Alerta Rio em tempo real?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 40,
+      "question": "Rajadas acima de 60 km/h com risco de queda de árvores?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 41,
+      "question": "Como a Defesa Civil notifica emergências climáticas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 42,
+      "question": "Risco de alagamento na Praça da Bandeira?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 43,
+      "question": "Volume de chuva no Sumaré nas últimas 12 horas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 44,
+      "question": "Risco de raios e descargas elétricas hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 45,
+      "question": "Como a topografia influencia os temporais?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 46,
+      "question": "Principais pontos históricos de alagamento?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 47,
+      "question": "Chuva persistente nos próximos dias?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 48,
+      "question": "Escoamento e piscinões da Tijuca operando na capacidade máxima?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 49,
+      "question": "Impacto de maré alta combinada com chuva forte?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 50,
+      "question": "O que fazer em alerta máximo de tempestade na minha região?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 51,
+      "question": "Altura das ondas em Copacabana hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 52,
+      "question": "Existe alerta oficial de ressaca para a orla do RJ?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 53,
+      "question": "Condições de surf na Barra considerando os ventos?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 54,
+      "question": "Até quando dura o alerta de ressaca?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 55,
+      "question": "Marés alta e baixa no Porto do Rio hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 56,
+      "question": "Direção predominante do vento hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 57,
+      "question": "Vento sudoeste costuma trazer frente fria?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 58,
+      "question": "Vento nordeste e temperatura do mar em Cabo Frio e Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 59,
+      "question": "Segurança da navegação na Baía de Guanabara com o vento atual?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 60,
+      "question": "Água fria por ressurgência marítima?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 61,
+      "question": "Risco de corrente de retorno na Zona Sul hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 62,
+      "question": "Maré de tempestade/ressaca extrema no calçadão de Ipanema?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 63,
+      "question": "Barcas Rio-Niterói afetadas por nevoeiro ou vento hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 64,
+      "question": "Efeito do swell no Recreio e Prainha?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 65,
+      "question": "Temperatura média do mar no verão versus inverno?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 66,
+      "question": "Por que o mar fica cristalino com vento calmo e sem chuva?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 67,
+      "question": "Praia mais protegida do vento forte?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 68,
+      "question": "Vento em nós na entrada da Baía de Guanabara hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 69,
+      "question": "Vento forte afeta o Bondinho do Pão de Açúcar?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 70,
+      "question": "Praias mais atingidas por ressacas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 71,
+      "question": "Frequência de ressacas por frentes frias?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 72,
+      "question": "Água do Leme costuma ser mais fria; por quê?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 73,
+      "question": "Visibilidade de mergulho nas Cagarras hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 74,
+      "question": "Mudança da brisa terrestre/marítima da manhã para a tarde?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 75,
+      "question": "Impacto do vento forte na travessia da Ponte Rio-Niterói?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 76,
+      "question": "Clima do Rio em cada estação?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 77,
+      "question": "Média histórica de temperatura no verão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 78,
+      "question": "Mês mais chuvoso?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 79,
+      "question": "Mês mais seco?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 80,
+      "question": "Inverno frio ou ameno?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 81,
+      "question": "Média pluviométrica de janeiro em mm?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 82,
+      "question": "Primavera de transição com chuva ou calor atípico?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 83,
+      "question": "Estação ideal para visita com menos chance de chuva?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 84,
+      "question": "Umidade durante o outono?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 85,
+      "question": "Por que tanto calor no verão apesar do litoral?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 86,
+      "question": "Média das mínimas de inverno?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 87,
+      "question": "Frentes frias durante a primavera?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 88,
+      "question": "Média de dias chuvosos em dezembro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 89,
+      "question": "Julho costuma ter céu limpo?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 90,
+      "question": "Sol e noites frescas no outono; por quê?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 91,
+      "question": "Transição verão/outono e temperatura?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 92,
+      "question": "Umidade de inverno atinge seca crítica como no Centro-Oeste?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 93,
+      "question": "Amplitude térmica média diária?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 94,
+      "question": "Classificação climática do Rio? A expressão enviada Tropical Sabiá deve ser verificada, sem assumir classificação correta.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 95,
+      "question": "Formação das pancadas de fim de tarde no verão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 96,
+      "question": "Média anual de precipitação no município?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 97,
+      "question": "Média anual de dias acima de 30 °C?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 98,
+      "question": "Fevereiro é historicamente o mês mais quente?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 99,
+      "question": "Incidência solar no solstício de verão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 100,
+      "question": "Média de precipitação em setembro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 101,
+      "question": "Maior temperatura histórica e bairro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 102,
+      "question": "Menor temperatura oficial na capital?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 103,
+      "question": "Maior sensação térmica contabilizada?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 104,
+      "question": "Maior chuva em 24 horas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 105,
+      "question": "Data do temporal histórico de abril de 2010?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 106,
+      "question": "Bairro com maiores recordes de calor em ondas de calor?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 107,
+      "question": "Estação com temperaturas mais baixas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 108,
+      "question": "Ano mais chuvoso da série Alerta Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 109,
+      "question": "Quantas ondas de calor acima de 42 °C?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 110,
+      "question": "Neve ou geada nas áreas altas/Parque da Tijuca?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 111,
+      "question": "Maior acumulado mensal de janeiro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 112,
+      "question": "Piores ressacas no calçadão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 113,
+      "question": "Rio atingido por ciclone extratropical ou furacão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 114,
+      "question": "Maior rajada registrada nos aeroportos?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 115,
+      "question": "Impactos do temporal de fevereiro de 2019?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 116,
+      "question": "Recorde de chuva no Alto da Boa Vista?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 117,
+      "question": "Chuva no evento de janeiro de 2024?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 118,
+      "question": "Tornado ou tromba d’água na orla?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 119,
+      "question": "Seca histórica mais severa do Sistema Guandu?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 120,
+      "question": "Bangu, Irajá ou Guaratiba: qual é mais quente?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 121,
+      "question": "Setembro comparado à média histórica? Confirmar ano.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 122,
+      "question": "Maior temperatura INMET no Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 123,
+      "question": "Desastre de 1988 ainda é a maior referência? Verificar critério.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 124,
+      "question": "Anos de El Niño com maiores recordes de calor?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 125,
+      "question": "Recorde de umidade mínima no Centro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 126,
+      "question": "Alto da Boa Vista mais frio/chuvoso; por quê? Verificar sempre.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 127,
+      "question": "Diferenças entre Zona Sul e Oeste?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 128,
+      "question": "Floresta da Tijuca como regulador térmico?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 129,
+      "question": "Bangu/Campo Grande mais quentes que Copacabana?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 130,
+      "question": "Maciço da Pedra Branca e fluxo de frentes/ventos?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 131,
+      "question": "Chuva nas encostas versus Centro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 132,
+      "question": "Ilha de calor no Centro e Zona Norte?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 133,
+      "question": "Sensação térmica no Recreio versus Madureira?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 134,
+      "question": "Baixada Fluminense influencia o ar e a temperatura do Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 135,
+      "question": "Rajadas na Barra versus Lagoa?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 136,
+      "question": "Oceano atenua a temperatura na orla?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 137,
+      "question": "Umidade na Ilha do Governador versus Santa Cruz?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 138,
+      "question": "Bairro de microclima mais ameno no auge do verão?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 139,
+      "question": "Topografia e diversidade de microclimas?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 140,
+      "question": "Ventos/temperaturas no Corcovado e Pão de Açúcar?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 141,
+      "question": "Chuva média em Jacarepaguá versus Região Portuária?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 142,
+      "question": "Asfalto e prédios no clima de Copacabana?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 143,
+      "question": "Ar da Baía influencia Botafogo e Flamengo?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 144,
+      "question": "Névoa matinal na curva da Niemeyer?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 145,
+      "question": "Restinga da Marambaia e microclima da Zona Oeste?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 146,
+      "question": "Santos Dumont operando por instrumentos por teto baixo/fechado?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 147,
+      "question": "Galeão aberto ou fechado por nevoeiro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 148,
+      "question": "Chuva forte afeta SuperVia e Metrô Rio?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 149,
+      "question": "Rajadas e operação do VLT no Centro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 150,
+      "question": "Nevoeiro compromete visibilidade na Ponte hoje?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 151,
+      "question": "Chuva nos desfiles do Sambódromo/Carnaval?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 152,
+      "question": "Risco de cancelamento de shows na Apoteose/Parque Olímpico por raios?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 153,
+      "question": "Chuva afeta trânsito nos túneis Rebouças/Santa Bárbara?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 154,
+      "question": "Umidade e visibilidade em Cristo/Dona Marta?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 155,
+      "question": "Vale subir ao Cristo hoje com as nuvens atuais?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 156,
+      "question": "Risco de fechamento do Santos Dumont por vento lateral/windshear? Distinguir fenômenos.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 157,
+      "question": "Drenagem do Maracanã suporta chuva prevista?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 158,
+      "question": "Tempestade em eventos de Copacabana/Réveillon?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 159,
+      "question": "Tempestade e energia na Zona Sul?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 160,
+      "question": "Chuva pode paralisar obras na Linha Vermelha/Amarela?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 161,
+      "question": "Monitoramento meteorológico do COR para trânsito?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 162,
+      "question": "Clima e funcionamento de Teleférico do Alemão/Bondinho de Santa Teresa? Verificar existência/operação atual.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 163,
+      "question": "Nevoeiro na Baía e manobras de navios no Porto?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 164,
+      "question": "Companhias aéreas e frentes frias na costa?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 165,
+      "question": "Qual chuva causa retenção/alagamento na Linha Amarela? Não inventar limiar único.",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 166,
+      "question": "Iluminação de emergência dos túneis acionada por baixa visibilidade?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 167,
+      "question": "Rotas alternativas COR com alagamento no Centro?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 168,
+      "question": "Instabilidade pode adiar jogos nos estádios?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 169,
+      "question": "Maratonas: planejamento por calor e umidade?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    },
+    {
+      "id": 170,
+      "question": "Mudanças no plano de contingência nos estágios 3/4?",
+      "scope": "RJ",
+      "status": "REQUISITO_PARA_TESTE",
+      "requiresValidatedSources": true
+    }
+  ]
+}
