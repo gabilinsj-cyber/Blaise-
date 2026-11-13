@@ -50,6 +50,17 @@ object RjSourceCatalog {
     /** Exclusion is checked before rendering potentially untrusted source names. */
     private val blockedTokens = listOf("inea", "marinha", "chm", "windy", "copernicus")
 
+    /** Marine reading labels must match an approved authority, not a legacy cache. */
+    fun mayShowMarineSource(name: String): Boolean {
+        val value = name.trim().lowercase(java.util.Locale.ROOT)
+        if (value.isEmpty() || blockedTokens.any { it in value }) return false
+        return value in setOf(
+            "noaa", "noaa gfs-wave", "noaa gfs wave", "inpe / cptec", "inpe/cptec",
+            "cptec/inpe", "inmet", "eumetsat", "jaxa / gsmap", "jaxa/gsmap",
+            "jaxa gsmap", "defesa civil rj", "cemaden", "alerta rio"
+        )
+    }
+
     fun mayShowBackendSource(source: StatewideSource): Boolean {
         val text = listOf(source.id, source.name, source.connectedProduct.orEmpty())
             .joinToString(" ").lowercase(java.util.Locale.ROOT)
