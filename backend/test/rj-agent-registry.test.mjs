@@ -6,9 +6,9 @@ import {
   subscriberScaleReview,
 } from '../src/rj-agent-registry.mjs';
 
-test('ten numbered names and functions preserved with explicit deployment honesty', () => {
+test('eleven numbered names preserve ten historical agents with research agent on demand', () => {
   assert.equal(RJ_AGENT_PROJECT, 'Blaise V6 RJ');
-  assert.deepEqual(BLAISE_RJ_AGENTS.map(a => a.number), [1,2,3,4,5,6,7,8,9,10]);
+  assert.deepEqual(BLAISE_RJ_AGENTS.map(a => a.number), [1,2,3,4,5,6,7,8,9,10,11]);
   assert.deepEqual(BLAISE_RJ_AGENTS.slice(0,8).map(a => a.name), [
     'Blaise Sentinel RJ','Blaise Vector RJ','Blaise Fusion RJ','Blaise Track RJ',
     'Blaise Hydro RJ','Blaise Ocean RJ','Blaise Seismo RJ','Blaise Audit RJ',
@@ -19,7 +19,8 @@ test('ten numbered names and functions preserved with explicit deployment honest
   assert.match(agentByNumber(10).historicalName, /NOT_CONFIRMED/);
   assert.equal(BLAISE_RJ_AGENTS.every(a => a.runtimeStatus === 'SPECIFIED_NOT_AUTONOMOUSLY_DEPLOYED'), true);
   assert.equal(BLAISE_RJ_AGENTS.some(a => /INEA/.test(a.name)), false);
-  assert.throws(() => agentByNumber(11), RangeError);
+  assert.equal(agentByNumber(11).name,'Blaise IA — Pesquisa e Respostas em Tempo Real');
+  assert.throws(() => agentByNumber(12), RangeError);
 });
 test('normal, severe and confirmed-extreme science cadence cannot activate 25s network polling', () => {
   assert.equal(rjCadenceForLevel(3).observationUpdateMs, 300000);
