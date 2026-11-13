@@ -460,7 +460,9 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
-    val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latest = LocalCityWeather.current.values.mapNotNull {
+        it.currentObservation(clock)?.takeIf { row -> RjOperationalPolicy.mayUseSource(row.source) }?.observedAt
+    }.maxOrNull()
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
@@ -1298,7 +1300,7 @@ private fun MarinePanel(modifier: Modifier) {
         ?.snapshot?.marine?.takeIf { it.current(clock) }
     val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
 
-    val readings = snapshot?.marine.orEmpty().filter { !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
+    val readings = snapshot?.marine.orEmpty().filter { RjSourceCatalog.mayShowMarineSource(it.sourceName) && !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
     fun marineTime(t: java.time.Instant): String = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
         .withZone(java.time.ZoneId.of("America/Sao_Paulo")).format(t)
     fun marineValue(v: Double?, unit: String): String = v?.let { String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f %s", it, unit) } ?: "Não informado"
@@ -1587,6 +1589,7 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+        ?.takeIf { RjOperationalPolicy.mayUseSource(it.source) }
     Surface(
         modifier = modifier,
         color = Panel,
