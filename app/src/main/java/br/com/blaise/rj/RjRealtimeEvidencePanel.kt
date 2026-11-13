@@ -114,6 +114,39 @@ fun RjRealtimeEvidencePanel(
                 Text(city.name + ": " + metric, color = Color.White,
                     style = MaterialTheme.typography.bodySmall)
             }
+            val liveBackend = (backend as? DashboardDataNetworkResult.Available)?.snapshot
+                ?.takeIf { it.current(now) }
+            val liveState = (statewide as? StatewideDataResult.Available)?.snapshot
+                ?.takeIf { it.workerActive && it.current(now) }
+            val rain = liveBackend?.rainfall
+            if (rain != null) {
+                fun mm(v: Double?) = v?.let {
+                    String.format(Locale.forLanguageTag("pt-BR"), "%.1f mm", it)
+                } ?: "sem medição"
+                Text("CHUVA • ALERTA RIO • REDE DE " + rain.stationCount + " ESTAÇÕES",
+                    color = Color(0xFFF5D17B), fontWeight = FontWeight.SemiBold)
+                Text("15 min: " + mm(rain.max15mMm) + " | 1 h: " + mm(rain.max1hMm) +
+                    " | 24 h: " + mm(rain.max24hMm) + " | " +
+                    RjLiveEvidencePolicy.format(rain.observedAt),
+                    color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("Valores máximos medidos na rede, nunca previsão de probabilidade de chuva.",
+                    color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+            }
+            val marine = liveBackend?.marine?.takeIf { it.current(now) }
+            if (marine != null) {
+                Text("NOAA • ONDAS DE MODELO • " +
+                    String.format(Locale.forLanguageTag("pt-BR"), "%.1f m", marine.waveHeightM) +
+                    " | Válido: " + RjLiveEvidencePolicy.format(marine.validAt),
+                    color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("Ponto oceânico do RJ, não altura costeira, ressaca confirmada ou tsunami.",
+                    color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+            }
+            val currentWarnings = liveState?.warnings.orEmpty().filter { it.current(now) }
+            if (currentWarnings.isNotEmpty()) {
+                Text("AVISOS INMET RECEBIDOS NO PAINEL ESTADUAL: " + currentWarnings.size +
+                    " | Verificar a abrangência municipal e a validade individual.",
+                    color = Color(0xFFF5D17B), style = MaterialTheme.typography.bodySmall)
+            }
             evidence.forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(if (row.observedAt == null) "○" else "●",
