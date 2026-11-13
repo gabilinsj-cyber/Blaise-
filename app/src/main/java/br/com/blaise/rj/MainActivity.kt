@@ -115,6 +115,7 @@ import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
 import br.com.blaise.rj.science.RjScientificCityPanel
+import br.com.blaise.rj.map.RjMeteorologicalOwnMap
 import br.com.blaise.rj.core.OfficialFeedEvidence
 import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
@@ -773,28 +774,14 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
         subtitle = "Radar • chuva • temperatura • vento • nuvens",
         modifier = modifier,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(310.dp).testTag("expanded-radar-map"),
-            color = Color(0xFF071421),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Divider),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(18.dp),
-                ) {
-                    Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Aguardando frames oficiais Alerta Rio/CEMADEN com municípios, fonte e horário.",
-                        color = Muted,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text("Janela operacional: últimos 30 minutos", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
+        RjMeteorologicalOwnMap(
+            selectedIbges = emptySet(),
+            statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot,
+            observedNow = LocalObservationClock.current,
+            mapHeight = 310.dp,
+        )
+        Text("Radar Sumaré: quadros reais ainda não conectados • janela prevista de 30 min, sem interpolação",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         RioStationMeasurementsPanel()
     }
 }
@@ -963,7 +950,12 @@ private fun MapScreen(city1: City, city2: City) {
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
     ) {
-        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
+        RjMeteorologicalOwnMap(
+            selectedIbges = setOf(city1.ibgeCode, city2.ibgeCode),
+            statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot,
+            observedNow = LocalObservationClock.current,
+            mapHeight = 380.dp,
+        )
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
         StatusLine("Alerta Rio / CEMADEN", "Aguardando radar e chuva com horário por frame")
