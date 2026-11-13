@@ -8,6 +8,8 @@
  */
 import {validateRjAgentSource} from './blaise-rj-agent-registry.mjs';
 import {thermalSensationCelsius} from './rj-scientific-calculator.mjs';
+import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
+const RJ_IBGE_CODES=new Set(RJ_MUNICIPALITIES.map(city=>String(city.ibge)));
 
 export const RJ_LICENSED_LOCAL_WEATHER_FUSION='RJ_LICENSED_LOCAL_WEATHER_FUSION_V1';
 const SOURCE_HOSTS=Object.freeze({
@@ -196,7 +198,7 @@ function normalizeMetric(samples,metric,target,grants,now){
 export function prepareRjLicensedLocalWeatherFusion({
   observations={},grants=[],target=null,now=Date.now()
 }={}){
-  if(!target||typeof target.ibge!=='string'||!/^\d{7}$/.test(target.ibge)||
+  if(!target||typeof target.ibge!=='string'||!RJ_IBGE_CODES.has(target.ibge)||
     !number(target.latitude,-23.37,-20.75)||
     !number(target.longitude,-44.9,-40.9)||
     !number(target.elevationM,0,2200)||
