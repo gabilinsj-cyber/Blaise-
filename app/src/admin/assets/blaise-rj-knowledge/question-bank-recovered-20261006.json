@@ -1,0 +1,1391 @@
+{
+  "schema": "BLAISE_RJ_OWNER_QUESTION_BANK_V1",
+  "version": "2026-11-13",
+  "scope": "RIO_DE_JANEIRO_92_MUNICIPALITIES",
+  "access": "ADMIN_ASSETS_ONLY",
+  "declaredPlannedQuestionCount": 800,
+  "recoveredQuestionCount": 170,
+  "missingQuestionCount": 630,
+  "recoveredVerifiedAnswerCount": 0,
+  "answerRule": "Responses to live questions must be computed at query time from approved sources, scope, timestamps, units and validity. Do not cache current weather as static answers.",
+  "retiredSources": [
+    "INEA",
+    "Marinha/CHM",
+    "Windy",
+    "Copernicus"
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "category": "Condições atuais e previsão diária",
+      "question": "Temperatura atual na cidade do Rio de Janeiro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 2,
+      "category": "Condições atuais e previsão diária",
+      "question": "Previsão do tempo para hoje no Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 3,
+      "category": "Condições atuais e previsão diária",
+      "question": "Vai chover no Rio hoje à tarde?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 4,
+      "category": "Condições atuais e previsão diária",
+      "question": "Máxima e mínima previstas para hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 5,
+      "category": "Condições atuais e previsão diária",
+      "question": "Umidade relativa no Rio neste momento?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 6,
+      "category": "Condições atuais e previsão diária",
+      "question": "Sensação térmica em Bangu agora?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 7,
+      "category": "Condições atuais e previsão diária",
+      "question": "Velocidade e direção do vento no Centro hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 8,
+      "category": "Condições atuais e previsão diária",
+      "question": "Chance de chuva no fim de semana na Zona Sul?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 9,
+      "category": "Condições atuais e previsão diária",
+      "question": "Está chovendo no Alto da Boa Vista agora?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 10,
+      "category": "Condições atuais e previsão diária",
+      "question": "Céu vai abrir ou continuar nublado ao longo do dia?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 11,
+      "category": "Condições atuais e previsão diária",
+      "question": "Índice UV previsto para hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 12,
+      "category": "Condições atuais e previsão diária",
+      "question": "Previsão de arco-íris ou fenômenos ópticos?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 13,
+      "category": "Condições atuais e previsão diária",
+      "question": "Vai dar praia no próximo sábado?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 14,
+      "category": "Condições atuais e previsão diária",
+      "question": "Previsão da qualidade do ar hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 15,
+      "category": "Condições atuais e previsão diária",
+      "question": "Horários do nascer e pôr do sol hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 16,
+      "category": "Condições atuais e previsão diária",
+      "question": "Nevoeiro nas primeiras horas da manhã?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 17,
+      "category": "Condições atuais e previsão diária",
+      "question": "Pressão atmosférica subindo ou caindo agora?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 18,
+      "category": "Condições atuais e previsão diária",
+      "question": "Temperatura da água do mar em Copacabana hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 19,
+      "category": "Condições atuais e previsão diária",
+      "question": "Vento forte na Ponte Rio-Niterói hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 20,
+      "category": "Condições atuais e previsão diária",
+      "question": "Tempo amanhã de manhã na Barra da Tijuca?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 21,
+      "category": "Condições atuais e previsão diária",
+      "question": "Pancadas isoladas na Zona Norte hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 22,
+      "category": "Condições atuais e previsão diária",
+      "question": "Umidade adequada para esportes ao ar livre hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 23,
+      "category": "Condições atuais e previsão diária",
+      "question": "Previsão detalhada hora a hora?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 24,
+      "category": "Condições atuais e previsão diária",
+      "question": "Previsão de granizo na cidade hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 25,
+      "category": "Condições atuais e previsão diária",
+      "question": "Tempo no feriado prolongado?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 26,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Estágio de operacionalidade da cidade segundo o COR?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 27,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Alerta do Alerta Rio para chuva forte nas próximas horas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 28,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Onde estão os maiores acumulados de chuva agora?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 29,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Chuva atual pode causar alagamento na Avenida Brasil?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 30,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Risco de deslizamento nas encostas hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 31,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Sirenes acionadas em alguma comunidade?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 32,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Quanto choveu na Rocinha nas últimas 24 horas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 33,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Alerta INMET de tempestade severa para a Região Metropolitana?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 34,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Bairros com maior acumulado pluviométrico?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 35,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Como funcionam os estágios operacionais 1 a 5 do Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 36,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Limite de chuva em uma hora para disparar alarme nas encostas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 37,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Lagoa Rodrigo de Freitas corre risco de transbordar hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 38,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Rio Maracanã está em alerta de transbordamento?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 39,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Onde acompanhar radar do Alerta Rio em tempo real?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 40,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Rajadas acima de 60 km/h com risco de queda de árvores?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 41,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Como a Defesa Civil notifica emergências climáticas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 42,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Risco de alagamento na Praça da Bandeira?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 43,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Volume de chuva no Sumaré nas últimas 12 horas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 44,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Risco de raios e descargas elétricas hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 45,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Como a topografia influencia os temporais?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 46,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Principais pontos históricos de alagamento?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 47,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Chuva persistente nos próximos dias?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 48,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Escoamento e piscinões da Tijuca operando na capacidade máxima?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 49,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "Impacto de maré alta combinada com chuva forte?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 50,
+      "category": "Emergências, chuva intensa e Defesa Civil",
+      "question": "O que fazer em alerta máximo de tempestade na minha região?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 51,
+      "category": "Mar, praias e ventos",
+      "question": "Altura das ondas em Copacabana hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 52,
+      "category": "Mar, praias e ventos",
+      "question": "Marinha emitiu alerta de ressaca para a orla?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 53,
+      "category": "Mar, praias e ventos",
+      "question": "Condições de surf na Barra considerando os ventos?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 54,
+      "category": "Mar, praias e ventos",
+      "question": "Até quando dura o alerta de ressaca?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 55,
+      "category": "Mar, praias e ventos",
+      "question": "Marés alta e baixa no Porto do Rio hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 56,
+      "category": "Mar, praias e ventos",
+      "question": "Direção predominante do vento hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 57,
+      "category": "Mar, praias e ventos",
+      "question": "Vento sudoeste costuma trazer frente fria?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 58,
+      "category": "Mar, praias e ventos",
+      "question": "Vento nordeste e temperatura do mar em Cabo Frio e Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 59,
+      "category": "Mar, praias e ventos",
+      "question": "Segurança da navegação na Baía de Guanabara com o vento atual?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 60,
+      "category": "Mar, praias e ventos",
+      "question": "Água fria por ressurgência marítima?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 61,
+      "category": "Mar, praias e ventos",
+      "question": "Risco de corrente de retorno na Zona Sul hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 62,
+      "category": "Mar, praias e ventos",
+      "question": "Maré de tempestade/ressaca extrema no calçadão de Ipanema?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 63,
+      "category": "Mar, praias e ventos",
+      "question": "Barcas Rio-Niterói afetadas por nevoeiro ou vento hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 64,
+      "category": "Mar, praias e ventos",
+      "question": "Efeito do swell no Recreio e Prainha?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 65,
+      "category": "Mar, praias e ventos",
+      "question": "Temperatura média do mar no verão versus inverno?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 66,
+      "category": "Mar, praias e ventos",
+      "question": "Por que o mar fica cristalino com vento calmo e sem chuva?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 67,
+      "category": "Mar, praias e ventos",
+      "question": "Praia mais protegida do vento forte?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 68,
+      "category": "Mar, praias e ventos",
+      "question": "Vento em nós na entrada da Baía de Guanabara hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 69,
+      "category": "Mar, praias e ventos",
+      "question": "Vento forte afeta o Bondinho do Pão de Açúcar?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 70,
+      "category": "Mar, praias e ventos",
+      "question": "Praias mais atingidas por ressacas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 71,
+      "category": "Mar, praias e ventos",
+      "question": "Frequência de ressacas por frentes frias?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 72,
+      "category": "Mar, praias e ventos",
+      "question": "Água do Leme costuma ser mais fria; por quê?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 73,
+      "category": "Mar, praias e ventos",
+      "question": "Visibilidade de mergulho nas Cagarras hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 74,
+      "category": "Mar, praias e ventos",
+      "question": "Mudança da brisa terrestre/marítima da manhã para a tarde?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 75,
+      "category": "Mar, praias e ventos",
+      "question": "Impacto do vento forte na travessia da Ponte Rio-Niterói?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 76,
+      "category": "Climatologia e médias históricas",
+      "question": "Clima do Rio em cada estação?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 77,
+      "category": "Climatologia e médias históricas",
+      "question": "Média histórica de temperatura no verão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 78,
+      "category": "Climatologia e médias históricas",
+      "question": "Mês mais chuvoso?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 79,
+      "category": "Climatologia e médias históricas",
+      "question": "Mês mais seco?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 80,
+      "category": "Climatologia e médias históricas",
+      "question": "Inverno frio ou ameno?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 81,
+      "category": "Climatologia e médias históricas",
+      "question": "Média pluviométrica de janeiro em mm?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 82,
+      "category": "Climatologia e médias históricas",
+      "question": "Primavera de transição com chuva ou calor atípico?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 83,
+      "category": "Climatologia e médias históricas",
+      "question": "Estação ideal para visita com menos chance de chuva?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 84,
+      "category": "Climatologia e médias históricas",
+      "question": "Umidade durante o outono?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 85,
+      "category": "Climatologia e médias históricas",
+      "question": "Por que tanto calor no verão apesar do litoral?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 86,
+      "category": "Climatologia e médias históricas",
+      "question": "Média das mínimas de inverno?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 87,
+      "category": "Climatologia e médias históricas",
+      "question": "Frentes frias durante a primavera?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 88,
+      "category": "Climatologia e médias históricas",
+      "question": "Média de dias chuvosos em dezembro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 89,
+      "category": "Climatologia e médias históricas",
+      "question": "Julho costuma ter céu limpo?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 90,
+      "category": "Climatologia e médias históricas",
+      "question": "Sol e noites frescas no outono; por quê?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 91,
+      "category": "Climatologia e médias históricas",
+      "question": "Transição verão/outono e temperatura?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 92,
+      "category": "Climatologia e médias históricas",
+      "question": "Umidade de inverno atinge seca crítica como no Centro-Oeste?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 93,
+      "category": "Climatologia e médias históricas",
+      "question": "Amplitude térmica média diária?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 94,
+      "category": "Climatologia e médias históricas",
+      "question": "Classificação climática do Rio? A expressão enviada Tropical Sabiá deve ser verificada, sem assumir classificação correta.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 95,
+      "category": "Climatologia e médias históricas",
+      "question": "Formação das pancadas de fim de tarde no verão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 96,
+      "category": "Climatologia e médias históricas",
+      "question": "Média anual de precipitação no município?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 97,
+      "category": "Climatologia e médias históricas",
+      "question": "Média anual de dias acima de 30 °C?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 98,
+      "category": "Climatologia e médias históricas",
+      "question": "Fevereiro é historicamente o mês mais quente?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 99,
+      "category": "Climatologia e médias históricas",
+      "question": "Incidência solar no solstício de verão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 100,
+      "category": "Climatologia e médias históricas",
+      "question": "Média de precipitação em setembro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 101,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior temperatura histórica e bairro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 102,
+      "category": "Recordes e eventos extremos",
+      "question": "Menor temperatura oficial na capital?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 103,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior sensação térmica contabilizada?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 104,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior chuva em 24 horas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 105,
+      "category": "Recordes e eventos extremos",
+      "question": "Data do temporal histórico de abril de 2010?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 106,
+      "category": "Recordes e eventos extremos",
+      "question": "Bairro com maiores recordes de calor em ondas de calor?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 107,
+      "category": "Recordes e eventos extremos",
+      "question": "Estação com temperaturas mais baixas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 108,
+      "category": "Recordes e eventos extremos",
+      "question": "Ano mais chuvoso da série Alerta Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 109,
+      "category": "Recordes e eventos extremos",
+      "question": "Quantas ondas de calor acima de 42 °C?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 110,
+      "category": "Recordes e eventos extremos",
+      "question": "Neve ou geada nas áreas altas/Parque da Tijuca?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 111,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior acumulado mensal de janeiro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 112,
+      "category": "Recordes e eventos extremos",
+      "question": "Piores ressacas no calçadão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 113,
+      "category": "Recordes e eventos extremos",
+      "question": "Rio atingido por ciclone extratropical ou furacão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 114,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior rajada registrada nos aeroportos?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 115,
+      "category": "Recordes e eventos extremos",
+      "question": "Impactos do temporal de fevereiro de 2019?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 116,
+      "category": "Recordes e eventos extremos",
+      "question": "Recorde de chuva no Alto da Boa Vista?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 117,
+      "category": "Recordes e eventos extremos",
+      "question": "Chuva no evento de janeiro de 2024?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 118,
+      "category": "Recordes e eventos extremos",
+      "question": "Tornado ou tromba d’água na orla?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 119,
+      "category": "Recordes e eventos extremos",
+      "question": "Seca histórica mais severa do Sistema Guandu?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 120,
+      "category": "Recordes e eventos extremos",
+      "question": "Bangu, Irajá ou Guaratiba: qual é mais quente?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 121,
+      "category": "Recordes e eventos extremos",
+      "question": "Setembro comparado à média histórica? Confirmar ano.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 122,
+      "category": "Recordes e eventos extremos",
+      "question": "Maior temperatura INMET no Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 123,
+      "category": "Recordes e eventos extremos",
+      "question": "Desastre de 1988 ainda é a maior referência? Verificar critério.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 124,
+      "category": "Recordes e eventos extremos",
+      "question": "Anos de El Niño com maiores recordes de calor?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 125,
+      "category": "Recordes e eventos extremos",
+      "question": "Recorde de umidade mínima no Centro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 126,
+      "category": "Microclimas e geografia",
+      "question": "Alto da Boa Vista mais frio/chuvoso; por quê? Verificar sempre.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 127,
+      "category": "Microclimas e geografia",
+      "question": "Diferenças entre Zona Sul e Oeste?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 128,
+      "category": "Microclimas e geografia",
+      "question": "Floresta da Tijuca como regulador térmico?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 129,
+      "category": "Microclimas e geografia",
+      "question": "Bangu/Campo Grande mais quentes que Copacabana?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 130,
+      "category": "Microclimas e geografia",
+      "question": "Maciço da Pedra Branca e fluxo de frentes/ventos?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 131,
+      "category": "Microclimas e geografia",
+      "question": "Chuva nas encostas versus Centro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 132,
+      "category": "Microclimas e geografia",
+      "question": "Ilha de calor no Centro e Zona Norte?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 133,
+      "category": "Microclimas e geografia",
+      "question": "Sensação térmica no Recreio versus Madureira?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 134,
+      "category": "Microclimas e geografia",
+      "question": "Baixada Fluminense influencia o ar e a temperatura do Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 135,
+      "category": "Microclimas e geografia",
+      "question": "Rajadas na Barra versus Lagoa?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 136,
+      "category": "Microclimas e geografia",
+      "question": "Oceano atenua a temperatura na orla?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 137,
+      "category": "Microclimas e geografia",
+      "question": "Umidade na Ilha do Governador versus Santa Cruz?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 138,
+      "category": "Microclimas e geografia",
+      "question": "Bairro de microclima mais ameno no auge do verão?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 139,
+      "category": "Microclimas e geografia",
+      "question": "Topografia e diversidade de microclimas?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 140,
+      "category": "Microclimas e geografia",
+      "question": "Ventos/temperaturas no Corcovado e Pão de Açúcar?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 141,
+      "category": "Microclimas e geografia",
+      "question": "Chuva média em Jacarepaguá versus Região Portuária?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 142,
+      "category": "Microclimas e geografia",
+      "question": "Asfalto e prédios no clima de Copacabana?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 143,
+      "category": "Microclimas e geografia",
+      "question": "Ar da Baía influencia Botafogo e Flamengo?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 144,
+      "category": "Microclimas e geografia",
+      "question": "Névoa matinal na curva da Niemeyer?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 145,
+      "category": "Microclimas e geografia",
+      "question": "Restinga da Marambaia e microclima da Zona Oeste?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 146,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Santos Dumont operando por instrumentos por teto baixo/fechado?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 147,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Galeão aberto ou fechado por nevoeiro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 148,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Chuva forte afeta SuperVia e Metrô Rio?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 149,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Rajadas e operação do VLT no Centro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 150,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Nevoeiro compromete visibilidade na Ponte hoje?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 151,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Chuva nos desfiles do Sambódromo/Carnaval?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 152,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Risco de cancelamento de shows na Apoteose/Parque Olímpico por raios?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 153,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Chuva afeta trânsito nos túneis Rebouças/Santa Bárbara?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 154,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Umidade e visibilidade em Cristo/Dona Marta?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 155,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Vale subir ao Cristo hoje com as nuvens atuais?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 156,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Risco de fechamento do Santos Dumont por vento lateral/windshear? Distinguir fenômenos.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 157,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Drenagem do Maracanã suporta chuva prevista?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 158,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Tempestade em eventos de Copacabana/Réveillon?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 159,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Tempestade e energia na Zona Sul?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 160,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Chuva pode paralisar obras na Linha Vermelha/Amarela?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 161,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Monitoramento meteorológico do COR para trânsito?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 162,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Clima e funcionamento de Teleférico do Alemão/Bondinho de Santa Teresa? Verificar existência/operação atual.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 163,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Nevoeiro na Baía e manobras de navios no Porto?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 164,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Companhias aéreas e frentes frias na costa?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 165,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Qual chuva causa retenção/alagamento na Linha Amarela? Não inventar limiar único.",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 166,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Iluminação de emergência dos túneis acionada por baixa visibilidade?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 167,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Rotas alternativas COR com alagamento no Centro?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 168,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Instabilidade pode adiar jogos nos estádios?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 169,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Maratonas: planejamento por calor e umidade?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    },
+    {
+      "id": 170,
+      "category": "Aviação, mobilidade, eventos e infraestrutura",
+      "question": "Mudanças no plano de contingência nos estágios 3/4?",
+      "answerStatus": "REQUIRES_OFFICIAL_SOURCE_AND_TIME"
+    }
+  ],
+  "colloquialVariants": [
+    {
+      "id": 1,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "bafo de frito hoje"
+    },
+    {
+      "id": 2,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "mormaço e dificuldade para respirar"
+    },
+    {
+      "id": 3,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "ar pesado/sopa"
+    },
+    {
+      "id": 4,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "ar não vem ao respirar"
+    },
+    {
+      "id": 5,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "ventilador/ar de secador"
+    },
+    {
+      "id": 6,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "calor desde cedo"
+    },
+    {
+      "id": 7,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "asfalto quente após pôr do sol"
+    },
+    {
+      "id": 8,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "suor/tampa de marmita parado"
+    },
+    {
+      "id": 9,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "verificar sensação térmica quase 50 °C"
+    },
+    {
+      "id": 10,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "forno hoje"
+    },
+    {
+      "id": 11,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "abafamento e risco mais tarde"
+    },
+    {
+      "id": 12,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "moleza e sufoco"
+    },
+    {
+      "id": 13,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "umidade/cozinhando em pé"
+    },
+    {
+      "id": 14,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "noite sem refrescar"
+    },
+    {
+      "id": 15,
+      "category": "Intenções 1–15: calor e abafamento",
+      "phrase": "chuveiro frio saindo quente"
+    },
+    {
+      "id": 16,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "pressão baixa/pessoas passando mal hoje"
+    },
+    {
+      "id": 17,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "tontura no BRS"
+    },
+    {
+      "id": 18,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "fraqueza no mormaço"
+    },
+    {
+      "id": 19,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "água gelada e alívio"
+    },
+    {
+      "id": 20,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "rinite"
+    },
+    {
+      "id": 21,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "cansaço no ponto"
+    },
+    {
+      "id": 22,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "pés/mãos inchados"
+    },
+    {
+      "id": 23,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "dor de cabeça"
+    },
+    {
+      "id": 24,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "treino em Bangu e risco grave"
+    },
+    {
+      "id": 25,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "sono em quarto quente sem ar-condicionado"
+    },
+    {
+      "id": 26,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "enjoo após exposição"
+    },
+    {
+      "id": 27,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "raciocínio lento/confusão no calor"
+    },
+    {
+      "id": 28,
+      "category": "Intenções 16–28: sintomas e bem-estar",
+      "phrase": "idosos/crianças abatidos"
+    },
+    {
+      "id": 29,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "ciclone versus boato WhatsApp"
+    },
+    {
+      "id": 30,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "vento e telhado"
+    },
+    {
+      "id": 31,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "tempestade chegando"
+    },
+    {
+      "id": 32,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "ventania súbita na orla/frente fria"
+    },
+    {
+      "id": 33,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "vento 80 km/h e operação BRT/barcas"
+    },
+    {
+      "id": 34,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "ciclone versus vendaval no Aterro"
+    },
+    {
+      "id": 35,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "ressaca e possível temporal"
+    },
+    {
+      "id": 36,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "abrigo na ventania"
+    },
+    {
+      "id": 37,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "vento/risco na Ponte Rio-Niterói"
+    },
+    {
+      "id": 38,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "vento com chuva ou poeira"
+    },
+    {
+      "id": 39,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "estágio COR por vento"
+    },
+    {
+      "id": 40,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "céu roxo/cinza e tempestade"
+    },
+    {
+      "id": 41,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "risco para postes/fiação"
+    },
+    {
+      "id": 42,
+      "category": "Intenções 29–42: vento e tempestade",
+      "phrase": "duração do evento local"
+    },
+    {
+      "id": 43,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "gelo com temperatura ao solo de 40 °C"
+    },
+    {
+      "id": 44,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "risco hoje na Zona Norte/Baixada"
+    },
+    {
+      "id": 45,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "proteção do carro"
+    },
+    {
+      "id": 46,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "dano em telha/parabrisa"
+    },
+    {
+      "id": 47,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "calha entupida e água subindo"
+    },
+    {
+      "id": 48,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "identificar potencial de granizo"
+    },
+    {
+      "id": 49,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "segurança junto a janelas"
+    },
+    {
+      "id": 50,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "frequência Serra/Campo Grande versus praia"
+    },
+    {
+      "id": 51,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "fiação danificada e prazo Light/Enel"
+    },
+    {
+      "id": 52,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "duração do granizo sem presumir dez minutos"
+    },
+    {
+      "id": 53,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "cobertura de seguro"
+    },
+    {
+      "id": 54,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "resfriamento ou abafamento depois"
+    },
+    {
+      "id": 55,
+      "category": "Intenções 43–55: granizo",
+      "phrase": "gelo não derretendo no caminho"
+    },
+    {
+      "id": 56,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "tomadas/equipamentos e oscilação elétrica"
+    },
+    {
+      "id": 57,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "rotas com alagamento Praça da Bandeira/Av. Brasil"
+    },
+    {
+      "id": 58,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "comida da geladeira em apagão"
+    },
+    {
+      "id": 59,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "ar-condicionado/raios"
+    },
+    {
+      "id": 60,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "árvore caída em carro/rua"
+    },
+    {
+      "id": 61,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "abafamento após chuva"
+    },
+    {
+      "id": 62,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "alternativas com metrô/VLT interrompidos"
+    },
+    {
+      "id": 63,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "asfalto/chapa quente à noite"
+    },
+    {
+      "id": 64,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "quando o mormaço dá trégua"
+    },
+    {
+      "id": 65,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "efeito de pancada de fim de tarde"
+    },
+    {
+      "id": 66,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "mar frio da Zona Sul e umidade"
+    },
+    {
+      "id": 67,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "Bangu versus Copacabana"
+    },
+    {
+      "id": 68,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "bloqueio atmosférico/ar quente"
+    },
+    {
+      "id": 69,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "mofo após sequência úmida"
+    },
+    {
+      "id": 70,
+      "category": "Intenções 56–70: prevenção e depois da chuva",
+      "phrase": "praia no fim de semana e confiança da previsão"
+    }
+  ]
+}
