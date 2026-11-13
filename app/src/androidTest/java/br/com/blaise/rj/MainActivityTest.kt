@@ -71,6 +71,7 @@ class MainActivityTest {
         rule.waitUntil(timeoutMillis = 15_000) { rule.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
         rule.waitForIdle()
         assertCriticalStatusVisible()
+        rule.onNodeWithTag("rj-reference-landscape-header").assertIsDisplayed()
         rule.onNodeWithTag("assistant-compact-strip").assertIsDisplayed()
         rule.onNodeWithTag("assistant-microphone").assertIsEnabled()
         rule.onNodeWithTag("map-overlay-menu").performScrollTo().assertIsDisplayed()
