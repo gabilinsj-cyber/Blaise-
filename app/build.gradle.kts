@@ -46,6 +46,7 @@ android {
         versionCode = 6000002
         versionName = "6.0.1"
         buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "false")
+        buildConfigField("boolean", "BLAISE_ADMIN", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BLAISE_MONTHLY_PRODUCT_ID", buildConfigString(monthlyProductId))
         buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
@@ -88,6 +89,7 @@ android {
             applicationIdSuffix = ".admin"
             versionNameSuffix = "-admin"
             buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
+            buildConfigField("boolean", "BLAISE_ADMIN", "true")
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
