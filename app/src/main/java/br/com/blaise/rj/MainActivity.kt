@@ -829,7 +829,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
-    val centre = "Medição específica não comprovada nesta consulta. Peça a estação oficial do bairro; uma estação de outro local não representa o Centro."
+    val centre = "Sem medição específica validada para o Centro; uma estação de outro bairro não representa o Centro do Rio."
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
