@@ -63,7 +63,7 @@ test('temperature and thermal show clearly separated observation/model provenanc
   assert.equal(r.temperature.sources[0].sourceId,'defesa-civil-rj');
   assert.equal(r.temperature.sources[1].sourceId,'DWD_ICON_GLOBAL');
   assert.equal(r.temperature.sources[0].weight,.7);
-  assert.equal(r.temperature.sources[1].weight,.3);
+  assert.ok(Math.abs(r.temperature.sources[1].weight-.3)<1e-12);
   assert.equal(r.temperature.officialMeasurement,false);
   assert.equal(r.temperature.officialAlert,false);
   assert.equal(r.sensation.status,'DERIVED_LOCAL_ESTIMATE_SENSATION');
