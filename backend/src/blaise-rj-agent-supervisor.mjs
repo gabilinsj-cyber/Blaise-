@@ -1,5 +1,5 @@
 /**
- * Optional controller for the ten predefined RJ agents.
+ * Optional controller for eleven predefined RJ agents.
  * NO timers, network, publishing or self-rewriting are started here.
  * Production must explicitly wire handlers, authorization, and scheduling.
  * Source worker / official P0 pipeline stays independently fail-closed.
@@ -13,7 +13,7 @@ export const RJ_AGENT_SUPERVISOR_VERSION='rj-supervisor-explicit-20261113-v1';
 export function rjAgentDueIntervalMs(id,{severity=1,doubleRed=false}={}) {
   if(!KNOWN.has(id)||!Number.isInteger(severity)||severity<1||severity>5||typeof doubleRed!=='boolean')
     throw new TypeError('valid_rj_agent_cadence_required');
-  if(id==='voz-perguntas'||id==='rotina-01h') return null;
+  if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||id==='rotina-01h') return null;
   if(id==='auditoria-limpeza') return DAY;
   if(['integridade-correcao','checagem-horaria','fiscalizacao-fontes'].includes(id)) return HOUR;
   if(id==='calculos-severos') return doubleRed?25000:severity>=5?30000:severity>=3?MINUTE:5*MINUTE;
@@ -62,7 +62,7 @@ export function createRjAgentSupervisor({
         const results=[];
         for(const agent of RJ_AGENT_DEFINITIONS) {
           const id=agent.id;
-          if(id==='voz-perguntas'||!handlers[id])continue;
+          if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||!handlers[id])continue;
           const interval=rjAgentDueIntervalMs(id,{severity,doubleRed});
           const previous=history.get(id)?.lastAttemptAt;
           let due=false;
@@ -78,6 +78,12 @@ export function createRjAgentSupervisor({
     async onDemandVoice() {
       if(stopped||!enabled)return {id:'voz-perguntas',status:'DISABLED'};
       return runOne('voz-perguntas',now());
+    },
+    async onDemandResearch() {
+      if(stopped||!enabled)return {id:'blaise-ia-pesquisa',status:'DISABLED'};
+      // Research is explicitly triggered by an incoming request; this
+      // supervisor does not pull the internet or hold user questions.
+      return runOne('blaise-ia-pesquisa',now());
     },
     snapshot() {
       return RJ_AGENT_DEFINITIONS.map(agent=>{
