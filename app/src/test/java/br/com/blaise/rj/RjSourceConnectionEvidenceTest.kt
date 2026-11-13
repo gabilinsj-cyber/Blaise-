@@ -48,7 +48,7 @@ class RjSourceConnectionEvidenceTest {
         )
     }
 
-    @Test fun freshStationAndCHMConsultAreShownOnlyForTheirActualProducts() {
+    @Test fun freshStationsAreShownButExcludedAndUnconnectedFeedsAreNot() {
         val rows=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,
             observation=station(3304557,"INMET"),
@@ -61,13 +61,13 @@ class RjSourceConnectionEvidenceTest {
             .verifiedCurrentProduct)
         assertTrue(rows.first { it.source=="INMET" && "CAP" in it.product }
             .verifiedCurrentProduct)
-        val sea=rows.first { it.source=="Marinha do Brasil / CHM" }
-        assertTrue(sea.verifiedCurrentProduct)
-        assertEquals(recently,sea.updatedAt)
-        assertTrue(sea.status.contains("não é previsão por praia"))
-        assertFalse(rows.first { it.source=="OpenWeatherMap" }.verifiedCurrentProduct)
-        assertFalse(rows.first { it.source=="Copernicus Marine" }.verifiedCurrentProduct)
+        assertFalse(rows.first { it.source=="NOAA" }.verifiedCurrentProduct)
+        assertFalse(rows.first { it.source=="INPE / CPTEC" }.verifiedCurrentProduct)
         assertFalse(rows.first { it.source=="EUMETSAT" }.verifiedCurrentProduct)
+        assertFalse(rows.first { it.source=="JAXA / GSMaP" }.verifiedCurrentProduct)
+        assertFalse(rows.any { it.source.contains("Marinha") ||
+            it.source.contains("CHM") || it.source.contains("Windy") ||
+            it.source.contains("Copernicus") || it.source.contains("INEA") })
         assertTrue(rows.first { it.source=="Defesa Civil RJ" }.status.contains("não é segunda medição"))
     }
 
@@ -105,9 +105,9 @@ class RjSourceConnectionEvidenceTest {
             status=public(status="STALE"),now=now)
         assertFalse(staleProducts.first { it.source=="INMET" && "CAP" in it.product }
             .verifiedCurrentProduct)
-        // CHM inventory has its own freshness and is independent of INMET.
-        assertTrue(staleProducts.first { it.source=="Marinha do Brasil / CHM" }
-            .verifiedCurrentProduct)
+        // A cached legacy marine object must NEVER be promoted to live display.
+        assertFalse(staleProducts.any { it.source.contains("CHM") || it.source.contains("Marinha") })
+        assertFalse(staleProducts.first { it.source == "NOAA" }.verifiedCurrentProduct)
         val stale=RjSourceConnectionEvidence.rows(
             municipalityIbge=3304557,observation=null,
             status=public(stamp=now.minusSeconds(300)),now=now)
@@ -120,8 +120,8 @@ class RjSourceConnectionEvidenceTest {
                 municipalityIbge=city.ibgeCode,observation=null,
                 status=null,now=now)
             assertEquals(0,status.count { it.verifiedCurrentProduct })
-            assertEquals("Sem integração ao vivo comprovada",
-                status.first { it.source=="NOAA" }.status)
+            assertTrue(status.first { it.source=="NOAA" }.status
+                .startsWith("Sem integração ao vivo comprovada"))
         }
     }
 }
