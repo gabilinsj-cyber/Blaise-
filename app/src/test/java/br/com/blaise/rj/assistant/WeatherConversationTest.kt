@@ -54,6 +54,26 @@ class WeatherConversationTest {
         assertEquals("Bangu", bangu.request.localScope)
         assertTrue(WeatherConversation().accept("temperatura em Irajá Niterói", selected) is ConversationAction.Reply)
     }
+    @Test fun elNinoAndGlobalWarmingQuestionsDoNotRequireAFakeLocalStation() {
+        val questions = listOf(
+            "Qual a situação atual do El Niño?" to "GLOBAL_CLIMA_RELEVANTE_RJ",
+            "O aquecimento global afeta o Atlântico Sul?" to "ATLANTICO_SUL",
+            "A La Niña interfere no Sudeste?" to "SUDESTE_BRASIL",
+            "O que é a ZCAS no Rio?" to "RIO_DE_JANEIRO",
+        )
+        for ((question, expected) in questions) {
+            val result = WeatherConversation().accept(question, selected) as ConversationAction.Query
+            assertEquals(expected, result.request.researchGeography)
+            assertTrue(result.request.requestedAt.epochSecond > 0)
+        }
+    }
+    @Test fun unrecognizedLocalWeatherQuestionMayRequestResearchWithoutStaticAnswer() {
+        val result = WeatherConversation().accept(
+            "Quais os efeitos do vórtice polar em Petrópolis?", selected
+        ) as ConversationAction.Query
+        assertEquals("RIO_DE_JANEIRO",result.request.researchGeography)
+        assertEquals("Petrópolis",result.request.city.name)
+    }
     @Test fun remembersExplicitCityAndSelectedCityIsOptIn() {
         val c=WeatherConversation()
         c.accept("temperatura em Petrópolis", selected)
