@@ -17,7 +17,11 @@ class RjHomeObservedEvidenceTest {
             municipalityIbge=ibge,
             station="Estação de teste",
             source=source,
-            sourceUrl="https://example.org/fixture",
+            sourceUrl=when(source) {
+                "INMET" -> "https://apitempo.inmet.gov.br/estacao/A652"
+                "Alerta Rio" -> "https://websempre.rio.rj.gov.br/estacoes/"
+                else -> "https://example.org/fixture"
+            },
             observedAt=observed,
             temperatureC=27.1,humidityPercent=70.0,
             windKmh=12.0,maxAgeSeconds=1800,
@@ -42,6 +46,16 @@ class RjHomeObservedEvidenceTest {
             assertNull(RjHomeObservedEvidence.cityObservation(rio,
                 mapOf(rio.ibgeCode to report),now))
         }
+    }
+
+    @Test fun sourceNameCannotImpersonateOfficialStationHost() {
+        val falseInmet=CityWeatherResult(rio.ibgeCode,null,station("INMET",rio.ibgeCode)
+            .copy(sourceUrl="https://apitempo.inmet.gov.br.evil.test/estacao/A652"))
+        assertNull(RjHomeObservedEvidence.cityObservation(rio,
+            mapOf(rio.ibgeCode to falseInmet),now))
+        val falseRio=station("Alerta Rio",rio.ibgeCode)
+            .copy(sourceUrl="https://websempre.rio.rj.gov.br.evil.test/estacoes/")
+        assertEquals(0,RjHomeObservedEvidence.rioObservationCount(listOf(falseRio),now))
     }
 
     @Test fun rioNetworkIsOnlyAnActualRioNetworkAndNotAMunicipalAverage() {
