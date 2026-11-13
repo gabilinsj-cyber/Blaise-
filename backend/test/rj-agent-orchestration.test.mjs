@@ -13,7 +13,7 @@ test('all 92 municipalities receive policy routing, never fabricated live data',
       assert.equal(plan.publishersTriggered,false);
       assert.equal(plan.audibleAlert,false);
       assert.equal(plan.calculatedValues,null);
-      assert.deepEqual(plan.rosterNumbers,[1,2,3,4,5,6,7,8,9,10,11,12]);
+      assert.deepEqual(plan.rosterNumbers,[1,2,3,4,5,6,7,8,9,10,11,12,13]);
       assert.equal(plan.agents.some(a=>a.number===1),true);
       assert.equal(plan.agents.some(a=>a.number===8),true);
       assert.equal(plan.agents.some(a=>a.number===10),true);
