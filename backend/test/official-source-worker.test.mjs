@@ -203,48 +203,38 @@ test('retired INEA collector cannot be enabled even by directly constructed work
   assert.equal(worker.status().sources.some(s => /inea/i.test(s.sourceId)), false);
 });
 
-test('optional CHM warnings task exposes only validated RJ regional routing and never municipality P0', async () => {
-  let chmCalls = 0;
-  const worker = createOfficialSourceWorker({
-    config: {
-      enabled: true,
-      initialMode: 'normal',
-      ineaStationUrl: null,
-      chmWarningsEnabled: true,
-    },
-    now: () => NOW,
-    autoSchedule: false,
-    maxConcurrency: 2,
-    probeAlertaRio: async () => alertaRioSnapshot(),
-    probeChmWarningsLive: async () => {
-      chmCalls += 1;
-      return chmSnapshot();
-    },
+test('excluded CHM warnings cannot be re-enabled by environment or direct config', () => {
+  assert.throws(
+    () => loadOfficialSourceWorkerConfig({
+      BLAISE_CHM_WARNINGS_ENABLED: 'true',
+      BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED: 'true',
+    }),
+    (error) => error.code === 'official_source_worker_retired_source_chm',
+  );
+  assert.throws(
+    () => createOfficialSourceWorker({
+      config: {enabled:true,initialMode:'normal',chmWarningsEnabled:true},
+      now:()=>NOW,autoSchedule:false,
+    }),
+    (error) => error.code === 'official_source_worker_retired_source_chm',
+  );
+  let excludedProbeCalls=0;
+  const worker=createOfficialSourceWorker({
+    config:{enabled:true,initialMode:'normal',chmWarningsEnabled:false},
+    now:()=>NOW,autoSchedule:false,
+    probeAlertaRio:async()=>alertaRioSnapshot(),
+    probeChmWarningsLive:async()=>{ excludedProbeCalls+=1;return chmSnapshot(); },
   });
-
   worker.start();
-  const launched = await worker.tick();
-  assert.deepEqual([...launched].sort(), [ALERTA_RIO_RAINFALL_TASK_ID, CHM_WARNINGS_TASK_ID].sort());
-  assert.equal(chmCalls, 1);
-
-  const reading = worker.readSource(CHM_WARNINGS_TASK_ID);
-  assert.equal(reading.state, 'CURRENT');
-  assert.equal(reading.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
-  assert.equal(reading.snapshot.activeWarningCount, 1);
-  assert.equal(reading.snapshot.temporalValidityValidation, CHM_TEMPORAL_VALIDITY_CONTRACT);
-  assert.equal(reading.snapshot.rjZoneRoutingValidation, CHM_RJ_ALERT_ROUTING_CONTRACT);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.route, 'RJ_MARINE_REGIONAL');
-  assert.equal(reading.snapshot.warnings[0].rjRouting.canExposeRjMarineWarning, true);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.municipalityGeofenceValidated, false);
-  assert.equal(reading.snapshot.warnings[0].rjRouting.canPromoteMunicipalityP0, false);
-  assert.equal(reading.snapshot.rjCoastGeofenceValidation, 'NOT_IMPLEMENTED');
-
-  const status = worker.status();
-  assert.equal(status.chmWarningsConfigured, true);
-  const chmStatus = status.sources.find((source) => source.sourceId === CHM_SOURCE_ID);
-  assert.equal(chmStatus.semanticValidity, CHM_WARNINGS_SEMANTIC_VALIDITY);
-  assert.equal(chmStatus.payloadExposed, false);
-  assert.equal(JSON.stringify(status).includes('AVISO DE VENTO FORTE'), false);
+  assert.deepEqual(worker.status().scheduler.tasks.map(t=>t.taskId).filter(id=>id===CHM_WARNINGS_TASK_ID),[]);
+  assert.deepEqual(await worker.tick(),[ALERTA_RIO_RAINFALL_TASK_ID]);
+  assert.equal(excludedProbeCalls,0);
+  assert.equal(worker.status().chmWarningsConfigured,false);
+  assert.equal(worker.status().sources.some(x=>/chm|marinha/i.test(x.sourceId)),false);
+  assert.throws(
+    ()=>worker.readSource(CHM_WARNINGS_TASK_ID),
+    (error)=>error.code==='official_source_worker_unknown_source',
+  );
 });
 
 test('unknown source reads fail closed', () => {
