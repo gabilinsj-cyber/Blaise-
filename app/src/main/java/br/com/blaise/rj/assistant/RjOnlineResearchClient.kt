@@ -1,6 +1,7 @@
 package br.com.blaise.rj.assistant
 
 import br.com.blaise.rj.BuildConfig
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -55,7 +56,14 @@ object RjOnlineResearchClient {
             if (connection.responseCode != HttpURLConnection.HTTP_OK) return@withContext null
             if (connection.contentLength > MAX_RESPONSE_BYTES) return@withContext null
             val bytes = connection.inputStream.use { input ->
-                input.readNBytes(MAX_RESPONSE_BYTES + 1)
+                val sink = ByteArrayOutputStream()
+                val buffer = ByteArray(4096)
+                while (sink.size() <= MAX_RESPONSE_BYTES) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    sink.write(buffer, 0, count)
+                }
+                sink.toByteArray()
             }
             if (bytes.size > MAX_RESPONSE_BYTES) return@withContext null
             val result = JSONObject(bytes.toString(Charsets.UTF_8))
