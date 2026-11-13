@@ -163,9 +163,14 @@ function normalizeMetric(samples,metric,target,grants,now){
     attribution:grant.attribution,weight:Number(ratios[i].toFixed(6)),
     distanceKm:Number(distance.toFixed(2)),
   }));
+  const primaryIndex=ratios.indexOf(Math.max(...ratios));
   return Object.freeze({
     status:'AUTHORIZED_LOCAL_WEIGHTED_ESTIMATE',
     contract:RJ_LICENSED_LOCAL_WEATHER_FUSION,
+    displayLabel:'Estimativa Blaise — média ponderada; todas as fontes nos detalhes',
+    primarySourceId:sources[primaryIndex].sourceId,
+    primarySourceMeaning:'HIGHEST_WEIGHT_NOT_EXCLUSIVE_SOURCE',
+    allContributingSourcesMustBeDisclosed:true,
     metric:spec.code,unit:spec.unit,value,...extra,
     estimateScope:'LOCAL_POINT_ONLY_NOT_WHOLE_CITY_OR_STATE',
     dataType:'DERIVED_ESTIMATE_NOT_DIRECT_MEASUREMENT',
