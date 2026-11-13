@@ -20,6 +20,7 @@ import kotlinx.coroutines.withTimeout
  * Portuguese (Brazil) voice availability depends on the Android device.
  */
 class AndroidSystemVoiceService(context: Context) : BlaiseVoiceController {
+    private val applicationContext = context.applicationContext
     private val closed = AtomicBoolean(false)
     private val initialized = CompletableDeferred<Boolean>()
     private val mutex = Mutex()
@@ -50,6 +51,19 @@ class AndroidSystemVoiceService(context: Context) : BlaiseVoiceController {
                         language == TextToSpeech.LANG_NOT_SUPPORTED) {
                         return@withLock Result.failure(IllegalStateException(
                             "A voz em português do Brasil não está instalada neste Android"
+                        ))
+                    }
+                    val selectedName = RjConfirmedFemaleVoice.confirmedName(
+                        applicationContext, engine.defaultEngine
+                    )
+                    val selectedVoice = RjConfirmedFemaleVoice.match(engine.voices, selectedName)
+                        ?: return@withLock Result.failure(IllegalStateException(
+                            "Voz feminina não configurada. Abra Configurações, ouça uma amostra " +
+                                "e confirme a voz feminina em português do Brasil."
+                        ))
+                    if (engine.setVoice(selectedVoice) != TextToSpeech.SUCCESS) {
+                        return@withLock Result.failure(IllegalStateException(
+                            "A voz feminina escolhida não está disponível neste Android."
                         ))
                     }
                     val id = "blaise-rj-" + serial.incrementAndGet()
