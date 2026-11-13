@@ -89,7 +89,7 @@ fun RjOwnerQuestionBankPanel() {
             } else {
                 Text("${bank.recovered.size} perguntas recuperadas • " +
                     "${bank.slangVariantCount} variações de linguagem • " +
-                    "${bank.goal - bank.recovered.size} perguntas pendentes de recuperação")
+                    "${bank.goal - bank.recovered.size} cenários adicionais para pesquisa dinâmica (conexão online pendente)")
                 Text("Respostas estáticas revisadas: ${bank.verifiedStaticAnswers}. " +
                     "As respostas de tempo real dependem de consulta oficial recente.")
                 OutlinedButton(
