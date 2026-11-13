@@ -522,21 +522,15 @@ private fun BlaiseDashboard(
                         verticalArrangement = Arrangement.spacedBy(if (wide) 6.dp else 9.dp),
                     ) {
                         if (wide) {
-                            Row(
+                            RjReferenceLandscapeHeader(powerOn, onPowerChange, onSelectSection)
+                            AssistantPanel(
+                                selectedCity = city1,
+                                onNavigate = onSelectSection,
+                                voiceEnabled = powerOn && !silentMode,
+                                appEnabled = powerOn,
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                AppHeader(powerOn, onPowerChange, onSelectSection, Modifier.weight(0.42f), compact = true)
-                                AssistantPanel(
-                                    selectedCity = city1,
-                                    onNavigate = onSelectSection,
-                                    voiceEnabled = powerOn && !silentMode,
-                                    appEnabled = powerOn,
-                                    modifier = Modifier.weight(0.58f),
-                                    compact = true,
-                                )
-                            }
+                                compact = true,
+                            )
                         } else {
                             AppHeader(powerOn, onPowerChange, onSelectSection)
                             AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
@@ -598,6 +592,111 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
     }
     Image(bitmap = portrait, contentDescription = "Blaise, assistente feminina", modifier = modifier,
         contentScale = ContentScale.Fit)
+}
+
+/**
+ * Recreates the approved September reference's wide, dark-blue masthead
+ * WITHOUT carrying over any illustrated historical temperatures or warnings.
+ * Time, measurement date, and warning count come from current product state.
+ */
+@Composable
+private fun RjReferenceLandscapeHeader(
+    powerOn: Boolean,
+    onPowerChange: (Boolean) -> Unit,
+    onNavigate: (String) -> Unit,
+) {
+    val now = LocalObservationClock.current
+    val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    val local = now.atZone(zone)
+    val date = local.format(java.time.format.DateTimeFormatter.ofPattern(
+        "EEEE, dd 'de' MMMM 'de' yyyy", java.util.Locale.forLanguageTag("pt-BR")))
+    val time = local.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    val latest = (
+        LocalCityWeather.current.values.mapNotNull { it.currentObservation(now)?.observedAt } +
+        LocalRioStations.current.filter { it.source == "Alerta Rio" && it.current(now) }
+            .map { it.observedAt }
+    ).maxOrNull()
+    val validPublic = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val warningCount = LocalWeatherCities.current.distinctBy { it.ibgeCode }
+        .flatMap { city -> validPublic?.warningsFor(city.ibgeCode, now).orEmpty() }
+        .distinctBy { it.id }.size
+    var help by remember { mutableStateOf(false) }
+    if (help) {
+        AlertDialog(
+            onDismissRequest = { help = false },
+            title = { Text("Ajuda • Blaise V6 RJ") },
+            text = { Text("Selecione as duas cidades, consulte medições com fonte e horário, " +
+                "mapa, mar, gráficos e avisos oficiais. Pergunte por voz ou texto. " +
+                "Um mapa-base não é radar; dados indisponíveis não significam ausência de risco.") },
+            confirmButton = { TextButton(onClick = { help = false }) { Text("Fechar") } },
+        )
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("rj-reference-landscape-header"),
+        color = Color(0xFF09254A),
+        shape = RoundedCornerShape(17.dp),
+        border = BorderStroke(1.dp, Color(0xFF268AE0)),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(Modifier.weight(0.38f), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    modifier = Modifier.size(53.dp),
+                    color = Panel,
+                    shape = RoundedCornerShape(11.dp),
+                    border = BorderStroke(1.dp, Gold),
+                ) { BlaiseAvatar(Modifier.fillMaxSize()) }
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text("Blaise", fontSize = 23.sp, color = Gold,
+                        fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    Text("V6 RJ  •  Clima e Tempo", color = Color.White,
+                        style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
+            }
+            val activeColor = if (powerOn) StableGreen else AlertRed
+            Surface(
+                modifier = Modifier.testTag("power-indicator")
+                    .clickable { onPowerChange(!powerOn) },
+                color = if (powerOn) Color(0xFF0B3B2B) else Color(0xFF46212C),
+                shape = RoundedCornerShape(40.dp),
+                border = BorderStroke(2.dp, activeColor),
+            ) {
+                Text(if (powerOn) "⏻  LIGADO" else "⏻  DESLIGADO",
+                    modifier = Modifier.padding(horizontal = 17.dp, vertical = 9.dp),
+                    color = if (powerOn) Color.White else Color(0xFFFFE4E5),
+                    fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1)
+            }
+            Column(Modifier.weight(0.35f), horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                Text(date, color = Color.White, style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1)
+                Text(time, color = Color.White, fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Text(latest?.let {
+                    "Medição: " + it.atZone(zone).format(
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                } ?: "Medição atual não confirmada", color = Muted,
+                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+            TextButton(onClick = { onNavigate("Alertas") }) {
+                Text(if (warningCount > 0) "🔔 $warningCount" else "Alertas",
+                    color = if (warningCount > 0) WarningAmber else Color.White,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(onClick = { onNavigate("Mais") }) {
+                Text("⚙", color = Gold, style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = { help = true }) {
+                Text("?", color = Gold, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
 }
 
 @Composable
