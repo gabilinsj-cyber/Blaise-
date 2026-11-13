@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.blaise.rj.core.City
+import br.com.blaise.rj.RjOperationalPolicy
 import br.com.blaise.rj.data.CityWeatherResult
 import java.time.Instant
 import java.time.ZoneId
@@ -32,7 +33,7 @@ fun RjScientificCityPanel(
             for (city in cities.distinctBy { it.ibgeCode }) {
                 val obs = reports[city.ibgeCode]?.currentObservation(now)
                 Text(city.name, fontWeight = FontWeight.SemiBold)
-                if (obs == null) {
+                if (obs == null || !RjOperationalPolicy.mayUseSource(obs.source)) {
                     Text("Cálculos indisponíveis: medição recente e verificável não recebida.", color = Color.LightGray)
                     continue
                 }
