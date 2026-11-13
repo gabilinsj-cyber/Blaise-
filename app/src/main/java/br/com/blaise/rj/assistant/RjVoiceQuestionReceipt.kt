@@ -10,6 +10,10 @@ object RjVoiceQuestionReceipt {
     private val zone = ZoneId.of("America/Sao_Paulo")
     private val format = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale.forLanguageTag("pt-BR"))
 
+    fun questionTime(requestedAt: Instant): String =
+        "Pergunta registrada em ${format.format(requestedAt.atZone(zone))} (horário de Brasília). " +
+            "A hora e a fonte de cada medição devem ser verificadas separadamente."
+
     fun format(requestedAt: Instant, asOf: Instant): String {
         require(!asOf.isBefore(requestedAt.minusSeconds(300))) { "invalid_answer_clock" }
         require(!asOf.isAfter(requestedAt.plusSeconds(600))) { "answer_not_current_to_request" }
