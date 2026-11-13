@@ -81,6 +81,10 @@ aab="app/build/outputs/bundle/release/app-release.aab"
 [[ -x "${build_tools}/apksigner" ]] || block 'apksigner_missing'
 [[ -s "$apk" ]] || block 'release_apk_missing_or_empty'
 [[ -s "$aab" ]] || block 'release_aab_missing_or_empty'
+# Public package hard limit: 400,000,000 bytes; no offline owner model.
+if ! bash scripts/enforce-client-package-size.sh "$apk" "$aab"; then
+  block 'customer_apk_size_or_private_assets_gate_failed'
+fi
 
 "${build_tools}/zipalign" -c -P 16 -v 4 "$apk" > "$EVIDENCE_DIR/zipalign.txt" || block 'zipalign_verification_failed'
 "${build_tools}/apksigner" verify --verbose --print-certs "$apk" > "$EVIDENCE_DIR/apksigner.txt" || block 'apk_signature_verification_failed'
