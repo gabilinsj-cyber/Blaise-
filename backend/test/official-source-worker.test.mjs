@@ -203,7 +203,7 @@ test('retired INEA collector cannot be enabled even by directly constructed work
   assert.equal(worker.status().sources.some(s => /inea/i.test(s.sourceId)), false);
 });
 
-test('excluded CHM warnings cannot be re-enabled by environment or direct config', () => {
+test('excluded CHM warnings cannot be re-enabled by environment or direct config', async () => {
   assert.throws(
     () => loadOfficialSourceWorkerConfig({
       BLAISE_CHM_WARNINGS_ENABLED: 'true',
