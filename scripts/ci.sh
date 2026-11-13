@@ -43,5 +43,8 @@ cp backend/package-lock.json evidence/backend-package-lock.json
   assembleDebug assembleRelease assembleDebugAndroidTest \
   bundleRelease
 
+bash scripts/enforce-client-package-size.sh \
+  app/build/outputs/apk/release/app-release.apk \
+  app/build/outputs/bundle/release/app-release.aab
 ./scripts/generate-sbom.sh
 ./scripts/verify-artifacts.sh
