@@ -543,17 +543,6 @@ private fun BlaiseDashboard(
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
-                        if (powerOn && selectedSection == "Início") {
-                            RjOriginalLiveOverview(
-                                first = city1, second = city2,
-                                reports = LocalCityWeather.current,
-                                rioStations = LocalRioStations.current,
-                                backend = LocalBackendDashboard.current,
-                                now = LocalObservationClock.current,
-                                onSources = { onSelectSection("Mais") },
-                            )
-                        }
-
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
@@ -1113,6 +1102,14 @@ private fun HomeScreen(
             }
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
+                RjOriginalLiveOverview(
+                    first = city1, second = city2,
+                    reports = LocalCityWeather.current,
+                    rioStations = LocalRioStations.current,
+                    backend = LocalBackendDashboard.current,
+                    now = LocalObservationClock.current,
+                    onSources = { onNavigate("Mais") },
+                )
                 DailyChartPanel(city1, Modifier.fillMaxWidth())
                 ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
@@ -1127,6 +1124,15 @@ private fun HomeScreen(
     } else {
         // Portrait: preserve the weather map as the first, largest panel.
         ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
+        Spacer(Modifier.height(10.dp))
+                RjOriginalLiveOverview(
+                    first = city1, second = city2,
+                    reports = LocalCityWeather.current,
+                    rioStations = LocalRioStations.current,
+                    backend = LocalBackendDashboard.current,
+                    now = LocalObservationClock.current,
+                    onSources = { onNavigate("Mais") },
+                )
         Spacer(Modifier.height(10.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
@@ -1383,7 +1389,8 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
                 }
-                if (maxWidth >= 360.dp) {
+                // On phones, keep the map unobstructed. Controls remain below the map.
+                if (maxWidth >= 760.dp) {
                     Surface(
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                             .width(105.dp).testTag("map-overlay-menu"),
