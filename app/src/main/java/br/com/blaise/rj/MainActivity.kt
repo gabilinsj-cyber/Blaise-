@@ -114,6 +114,7 @@ import kotlinx.coroutines.launch
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
+import br.com.blaise.rj.science.RjScientificCityPanel
 import br.com.blaise.rj.core.OfficialFeedEvidence
 import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
@@ -941,6 +942,8 @@ private fun StatewideMunicipalitiesPanel() {
 @Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    RjScientificCityPanel(listOf(city1, city2), LocalCityWeather.current, LocalObservationClock.current)
     Spacer(Modifier.height(14.dp))
     StatewideMunicipalitiesPanel()
     Spacer(Modifier.height(14.dp))
