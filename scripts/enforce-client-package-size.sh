@@ -22,11 +22,17 @@ list="$(unzip -Z -1 "$apk")" || fail 'invalid_apk_archive'
 if printf '%s\n' "$list" | grep -Eq '^assets/dora/(model\.onnx|voices\.bin|espeak-ng-data/|tokens\.txt)'; then
   fail 'owner_offline_dora_assets_present_in_customer_apk'
 fi
+if printf '%s\n' "$list" | grep -Eq '^assets/blaise-rj-knowledge/'; then
+  fail 'owner_question_bank_present_in_customer_apk'
+fi
 if [[ -n "$aab" ]]; then
   [[ -s "$aab" ]] || fail 'missing_customer_bundle'
   bundle_list="$(unzip -Z -1 "$aab")" || fail 'invalid_aab_archive'
   if printf '%s\n' "$bundle_list" | grep -Eq '^base/assets/dora/(model\.onnx|voices\.bin|espeak-ng-data/|tokens\.txt)'; then
     fail 'owner_offline_dora_assets_present_in_customer_bundle'
+  fi
+  if printf '%s\n' "$bundle_list" | grep -Eq '^base/assets/blaise-rj-knowledge/'; then
+    fail 'owner_question_bank_present_in_customer_bundle'
   fi
 fi
 mb="$(awk -v bytes="$count" 'BEGIN { printf "%.2f", bytes/1000000 }')"
