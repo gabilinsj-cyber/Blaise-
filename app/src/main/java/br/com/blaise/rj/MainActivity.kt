@@ -656,9 +656,9 @@ private fun RjReferenceLandscapeHeader(
                     border = BorderStroke(1.dp, Gold),
                 ) { BlaiseAvatar(Modifier.fillMaxSize()) }
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    Text("Blaise", fontSize = 23.sp, color = Gold,
+                    Text("BLAISE V6 RJ", fontSize = 22.sp, color = Gold,
                         fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                    Text("V6 RJ  •  Clima e Tempo", color = Color.White,
+                    Text("Clima e Tempo", color = Color.White,
                         style = MaterialTheme.typography.labelMedium, maxLines = 1)
                 }
             }
@@ -3228,6 +3228,7 @@ private fun CityPanel(
                 }
             }
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
+            Text(label, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Text(
                 observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
