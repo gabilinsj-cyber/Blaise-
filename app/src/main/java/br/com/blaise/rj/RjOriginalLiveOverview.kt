@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +22,7 @@ import br.com.blaise.rj.core.City
 import br.com.blaise.rj.data.CityWeatherObservation
 import br.com.blaise.rj.data.CityWeatherResult
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -32,14 +34,28 @@ import java.util.Locale
  * All unreadable or unavailable feeds remain unavailable, never "zero" or "safe".
  */
 object RjHomeObservedEvidence {
-    private val sourceAllowlist = setOf("INMET", "Alerta Rio")
+    private val allowedOrigins = mapOf(
+        "INMET" to "apitempo.inmet.gov.br",
+        "Alerta Rio" to "websempre.rio.rj.gov.br",
+    )
+    fun verifiedSource(observation: CityWeatherObservation, now: Instant): Boolean {
+        val requiredHost = allowedOrigins[observation.source] ?: return false
+        val url = runCatching { URI(observation.sourceUrl) }.getOrNull() ?: return false
+        return observation.current(now) &&
+            url.scheme == "https" && url.host == requiredHost &&
+            url.userInfo == null && url.port == -1 &&
+            url.rawQuery == null && url.rawFragment == null
+    }
     fun cityObservation(
         city: City, reports: Map<Int, CityWeatherResult>, now: Instant
     ): CityWeatherObservation? = reports[city.ibgeCode]?.currentObservation(now)?.takeIf {
-        it.municipalityIbge == city.ibgeCode && it.source in sourceAllowlist
+        it.municipalityIbge == city.ibgeCode && verifiedSource(it, now)
     }
     fun rioObservationCount(stations: List<CityWeatherObservation>, now: Instant): Int =
-        stations.count { it.municipalityIbge == 3304557 && it.source == "Alerta Rio" && it.current(now) }
+        stations.count {
+            it.municipalityIbge == 3304557 &&
+                it.source == "Alerta Rio" && verifiedSource(it, now)
+        }
 
     fun localTime(time: Instant): String =
         DateTimeFormatter.ofPattern("dd/MM HH:mm").withZone(ZoneId.of("America/Sao_Paulo")).format(time)
@@ -114,6 +130,7 @@ fun RjOriginalLiveOverview(
 
     Column(
         modifier = modifier
+            .testTag("rj-original-live-overview")
             .background(Brush.linearGradient(listOf(Color(0xFF123B61), Color(0xFF071A30))),
                 RoundedCornerShape(17.dp))
             .border(1.dp, rjLine, RoundedCornerShape(17.dp))
