@@ -51,5 +51,10 @@ test('inactive worker and unconnected products never claim operational coverage'
   assert.equal(STATEWIDE_SOURCE_RESPONSIBILITIES.some(source => source.id.includes('inea')), false);
   const current = buildStatewideDashboardSnapshot(worker(), { nowMillis: now });
   assert.equal(current.sources.find(source => source.id === 'inmet').connectedProduct, 'avisos');
-  assert.equal(current.sources.find(source => source.id === 'ww3').connectedProduct, null);
+  for(const name of ['inpe-cptec','noaa','eumetsat','jaxa-gsmap']) {
+    assert.equal(current.sources.find(source=>source.id===name).connectedProduct,null);
+  }
+  assert.equal(current.sources.some(source =>
+    ['chm','ww3','pnboia','windy','copernicus','inea'].includes(source.id)),false);
+  assert.equal(JSON.stringify(current.sources).includes('Marinha'),false);
 });
