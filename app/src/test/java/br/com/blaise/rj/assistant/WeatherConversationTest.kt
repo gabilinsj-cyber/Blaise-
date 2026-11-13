@@ -19,15 +19,22 @@ class WeatherConversationTest {
         assertEquals(3303302, q.request.city.ibgeCode)
         assertTrue(q.request.question.contains("térmica"))
     }
-    @Test fun rioUsesCentreAndTomorrowIsNotToday() {
+    @Test fun generalRioQuestionDoesNotInheritAnUnverifiedCentroStation() {
         val q = WeatherConversation().accept("Temperatura amanhã no Rio", selected, LocalDate.of(2026,10,6)) as ConversationAction.Query
-        assertEquals("Centro do Rio", q.request.localScope)
+        assertNull(q.request.localScope)
+        assertEquals(3304557,q.request.city.ibgeCode)
         assertEquals(LocalDate.of(2026,10,7), q.request.date)
     }
-    @Test fun retainsCentreCoverageOnFollowUp() {
+    @Test fun explicitlyRequestedCentroRemainsScopedOnFollowUp() {
         val c = WeatherConversation()
+        val initial=c.accept("temperatura no Centro do Rio",selected) as ConversationAction.Query
+        assertEquals("Centro do Rio",initial.request.localScope)
+        assertEquals("Centro do Rio",(c.accept("e a umidade?",selected) as ConversationAction.Query).request.localScope)
+    }
+    @Test fun municipalRioFollowUpDoesNotTurnIntoCentroData() {
+        val c=WeatherConversation()
         c.accept("temperatura no Rio", selected)
-        assertEquals("Centro do Rio", (c.accept("e a umidade?", selected) as ConversationAction.Query).request.localScope)
+        assertNull((c.accept("e a umidade?", selected) as ConversationAction.Query).request.localScope)
     }
     @Test fun doesNotInventRegionalOrHazardCoverage() {
         assertTrue(WeatherConversation().accept("alertas na Baixada",selected) is ConversationAction.Reply)
