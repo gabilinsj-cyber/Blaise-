@@ -923,6 +923,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 queryJob = scope.launch {
                     val result = try {
                         val request = action.request
+                        if (request.researchGeography != null) {
+                            br.com.blaise.rj.assistant.RjOnlineResearchClient.answer(request)
+                                ?: "Blaise IA • identifiquei a pergunta sobre clima e região, " +
+                                    "mas o serviço de pesquisa online autorizado ainda não está " +
+                                    "disponível. Não vou apresentar dados antigos como atuais."
+                        } else {
                         val information = br.com.blaise.rj.assistant.liveInformationAnswer(
                             latestOfficial, latestNews, latestSeismic, request, Instant.now())
                         val regional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
@@ -934,9 +940,10 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                             // Recognizing a question is NOT proof that its live data product
                             // exists. Never answer maritime, UV, infrastructure or health
                             // topics by substituting an unrelated temperature observation.
-                            br.com.blaise.rj.assistant.RjClientIntentClassifier
-                                .identify(request.question)
-                                .unavailableExplanation(request.localScope ?: request.city.name)
+                            br.com.blaise.rj.assistant.RjOnlineResearchClient.answer(request)
+                                ?: br.com.blaise.rj.assistant.RjClientIntentClassifier
+                                    .identify(request.question)
+                                    .unavailableExplanation(request.localScope ?: request.city.name)
                         }
                         else {
                             // A question about a specific station or neighbourhood must use
@@ -954,6 +961,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                             ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                             listOfNotNull(measured, information ?: freshRegional).joinToString("\n\n")
+                        }
                         }
                     } catch (error: CancellationException) {
                         if (error !is TimeoutCancellationException) throw error
