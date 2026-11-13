@@ -102,7 +102,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -188,17 +191,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val Navy = Color(0xFF06182C)
-private val NavyRaised = Color(0xFF0A223D)
-private val Panel = Color(0xFF102D4F)
-private val PanelSoft = Color(0xFF15385F)
-private val Gold = Color(0xFFD9B64A)
+private val Navy = Color(0xFF06172E)
+private val NavyRaised = Color(0xFF092751)
+private val Panel = Color(0xFF10345F)
+private val PanelSoft = Color(0xFF153E72)
+private val Gold = Color(0xFFF2CA62)
 private val GoldSoft = Color(0xFFFFE39A)
 private val StableGreen = Color(0xFF57E389)
 private val AlertRed = Color(0xFFFF5D62)
 private val WarningAmber = Color(0xFFFFC857)
 private val Muted = Color(0xFFA8B5C5)
-private val Divider = Color(0xFF284A6D)
+private val Divider = Color(0xFF26669E)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
@@ -1201,6 +1204,7 @@ private fun HomeScreen(
             }
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
+                DailyChartPanel(city1, Modifier.fillMaxWidth())
                 RjOriginalLiveOverview(
                     first = city1, second = city2,
                     reports = LocalCityWeather.current,
@@ -1209,7 +1213,6 @@ private fun HomeScreen(
                     now = LocalObservationClock.current,
                     onSources = { onNavigate("Mais") },
                 )
-                DailyChartPanel(city1, Modifier.fillMaxWidth())
                 ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1395,6 +1398,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
     val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Sensação térmica", "Vento", "Nuvens")
     var selectedLayer by remember { mutableStateOf("Radar") }
     val snapshotTime = LocalObservationClock.current
+    val deviceLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val displayedSeries = LocalWeatherCities.current.distinctBy { it.ibgeCode }.mapNotNull {
         LocalMunicipalSnapshots.current[it.ibgeCode]?.currentSeries(snapshotTime)
     }
@@ -1441,7 +1445,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         }
         Surface(
             modifier = Modifier.fillMaxWidth()
-                .height(if (enlarged) 510.dp else 360.dp)
+                .height(if (enlarged) 520.dp else if (deviceLandscape) 395.dp else 360.dp)
                 .testTag("expanded-radar-map"),
             color = Color(0xFF071421),
             shape = RoundedCornerShape(14.dp),
@@ -1488,8 +1492,9 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
                 }
-                // On phones, keep the map unobstructed. Controls remain below the map.
-                if (maxWidth >= 760.dp) {
+                // Approved screenshot: overlay menu inside the central map in landscape;
+                // portrait uses the accessible chips below the unobstructed map.
+                if (deviceLandscape) {
                     Surface(
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                             .width(105.dp).testTag("map-overlay-menu"),
