@@ -7,6 +7,8 @@ import { createRjLiveSourceAudit } from './rj-live-source-audit.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
+import { createRjResearchHttpHandler } from './rj-research-http.mjs';
+import { createRjDynamicResearchAgent } from './blaise-rj-dynamic-research.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
 import { createOperationalMetrics } from './observability.mjs';
 import {
@@ -209,7 +211,14 @@ async function main() {
   });
   // The operator can verify genuine live refreshes using Google OIDC;
   // a configuration flag or a green CI badge is not proof of current data.
-  const sourceReadinessHandler = createRjSourceReadinessHandler(publicStatusHandler, {
+  // Agent 11 is intentionally NOT live without a licensed web retriever,
+  // subscription verifier, per-account rate limiter and citation reviewer.
+  // A build/env toggle alone cannot activate an expensive public AI endpoint.
+  const researchAgent=createRjDynamicResearchAgent({enabled:false});
+  const researchHandler=createRjResearchHttpHandler(publicStatusHandler,{
+    enabled:false,agent:researchAgent,
+  });
+  const sourceReadinessHandler = createRjSourceReadinessHandler(researchHandler, {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
