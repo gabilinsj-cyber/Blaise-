@@ -153,7 +153,7 @@ function normalizeMetric(samples,metric,target,grants,now){
     const speed=Math.hypot(u,v);
     value=Number(speed.toFixed(2));
     extra={directionFromDeg: speed>=0.2?
-      Number(((Math.atan2(-u,-v)*180/Math.PI)+360)%360).toFixed(1):null,
+      Number((((Math.atan2(-u,-v)*180/Math.PI)+360)%360).toFixed(1)):null,
       quantity:'VECTOR_MEAN_10M_NOT_GUSTS'};
   }else value=Number(records.reduce((acc,r,i)=>acc+r.s.value*ratios[i],0).toFixed(2));
   const sources=records.map(({s,grant,observedAt,distance},i)=>Object.freeze({
