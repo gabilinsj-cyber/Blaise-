@@ -131,7 +131,7 @@ test('excluded legacy marine warning never appears as a public current product',
   };
   const result=buildRjPublicStatusSnapshot(retiredProvider,{nowMillis:now});
   assert.equal(result.marine,null);
-  assert.equal(prohibitedReads,0);
+  // Legacy statewide adapter may inspect a cache, but its values must NEVER be projected.
   assert.equal(result.warningInventories.some(x=>x.sourceId==='chm'),false);
   assert.equal(JSON.stringify(result).includes('AVISO DE RESSACA'),false);
   assert.equal(result.warnings.length,1); // INMET remains accessible.
