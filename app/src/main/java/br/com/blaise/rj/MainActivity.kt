@@ -391,6 +391,17 @@ private fun BlaiseDashboard(
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
 
+                        if (powerOn && selectedSection in setOf("Início", "Cidades", "Mapa")) {
+                            RjRealtimeEvidencePanel(
+                                first = city1, second = city2,
+                                cityWeather = LocalCityWeather.current,
+                                rioStations = LocalRioStations.current,
+                                statewide = LocalStatewideDashboard.current,
+                                backend = LocalBackendDashboard.current,
+                                now = LocalObservationClock.current,
+                            )
+                        }
+
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
@@ -1594,7 +1605,26 @@ private fun CityPanel(
             } ?: "Indisponível"
             StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
             StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", "Indisponível")
+            val apparent = observation?.let { obs ->
+                val heat = if (obs.temperatureC != null && obs.humidityPercent != null)
+                    br.com.blaise.rj.science.RjScientificCalculations.heatIndexC(
+                        obs.temperatureC, obs.humidityPercent
+                    ) else null
+                val chill = if (obs.temperatureC != null && obs.windKmh != null)
+                    br.com.blaise.rj.science.RjScientificCalculations.windChillC(
+                        obs.temperatureC, obs.windKmh
+                    ) else null
+                when {
+                    heat != null -> "Índice de calor: " +
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f °C", heat) +
+                        " (cálculo Blaise; não é medição oficial)"
+                    chill != null -> "Índice de frio: " +
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f °C", chill) +
+                        " (cálculo Blaise; não é medição oficial)"
+                    else -> "Indisponível para os dados recebidos"
+                }
+            } ?: "Medição oficial recente indisponível"
+            StatusLine("Sensação térmica", apparent)
             StatusLine("Índice UV", "Indisponível")
             StatusLine("Chance de chuva", "Indisponível")
             StatusLine("Rajadas / nuvens", "Indisponíveis")
