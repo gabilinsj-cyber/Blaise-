@@ -57,6 +57,9 @@ test('two authorized independent gauges yield only local estimates with complete
     assert.equal(v.estimateScope,'LOCAL_POINT_ONLY_NOT_WHOLE_CITY_OR_STATE');
     assert.equal(v.officialAlert,false);
     assert.equal(v.mayTriggerAlert,false);
+    assert.ok(ids.includes(v.primarySourceId));
+    assert.equal(v.primarySourceMeaning,'HIGHEST_WEIGHT_NOT_EXCLUSIVE_SOURCE');
+    assert.equal(v.allContributingSourcesMustBeDisclosed,true);
   }
   assert.ok(r.metrics.temperature.value>29&&r.metrics.temperature.value<30);
   assert.ok(r.metrics.humidity.value>74&&r.metrics.humidity.value<78);
