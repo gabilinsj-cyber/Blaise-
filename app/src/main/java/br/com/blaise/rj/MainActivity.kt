@@ -2109,10 +2109,10 @@ private fun MarineScreen() {
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
-        subtitle = "Marinha do Brasil / CHM",
+        subtitle = "Autoridades brasileiras competentes • NOAA • INPE/CPTEC",
     ) {
         StatusLine("Ressaca", "Regra destacada para ondas > 3,5 m quando houver aviso oficial")
-        StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
+        StatusLine("Meteotsunami", "Aguardando aviso oficial validado")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
     }
@@ -2130,7 +2130,7 @@ private fun RjMarineSourceMatrixPanel() {
     val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
-        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        subtitle = "INPE/CPTEC • NOAA • EUMETSAT • JAXA/GSMaP",
         modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
     ) {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
@@ -2138,7 +2138,7 @@ private fun RjMarineSourceMatrixPanel() {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         Text(
             if (!canRefresh) "Canal público marítimo não configurado ou aplicativo desligado."
-            else "Consulta pública ao CHM: somente inventário regional autenticado e vigente.",
+            else "Canal público RJ disponível; produto marítimo autorizado ainda não confirmado.",
             color = if(canRefresh) GoldSoft else WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-public-connection"))
@@ -2146,18 +2146,13 @@ private fun RjMarineSourceMatrixPanel() {
             onClick = refreshPublic, enabled = canRefresh,
             modifier = Modifier.testTag("rj-marine-manual-refresh"),
         ) { Text("Reconsultar boletins marítimos") }
-        Text(
-            if(marine == null)
-                "Marinha/CHM: sem inventário regional recente validado; não confirma mar seguro."
-            else "Marinha/CHM: inventário regional obtido em " +
-                RjLiveTableEvidence.localTime(marine.fetchedAt) +
-                " • ${marine.warnings.count { it.current(clock) }} avisos vigentes. " +
-                "Uma consulta atual não equivale a mar seguro nem a medição de cada praia.",
-            color = if(marine == null) WarningAmber else GoldSoft,
+        Text("Não há boletim marítimo autorizado e vigente comprovado neste canal. " +
+            "Não significa mar seguro, ausência de ressaca ou de tsunami.",
+            color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-product-connection"))
-        Text("NOAA, Copernicus Marine e EUMETSAT: produtos cadastrados; " +
-            "sem ingestão contínua validada no painel.",
+        Text("NOAA, INPE/CPTEC, EUMETSAT e JAXA/GSMaP: cada produto exige " +
+            "emissão, cobertura, autorização e validade próprias.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-unconnected-products"))
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
@@ -2182,7 +2177,7 @@ private fun RjMarineSourceMatrixPanel() {
                         color = Muted, style = MaterialTheme.typography.labelSmall)
                     val evidence=RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
                     Text("Dados/avisos regionais: ${evidence.description}",
-                        color = if(evidence.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                        color = WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.testTag("rj-marine-current-${item.code}"))
                     if(evidence.source!=null) Text("Fonte: ${evidence.source} • " +
@@ -2191,9 +2186,8 @@ private fun RjMarineSourceMatrixPanel() {
                 }
             }
         }
-        Text("Marinha/CHM e autoridades brasileiras prevalecem nos avisos oficiais " +
-            "de ressaca, tsunami e maremoto. Copernicus/EUMETSAT oferecem produtos " +
-            "oceânicos/satélite, não confirmações autônomas de tsunami.",
+        Text("Avisos de tsunami, maremoto e ressaca dependem de autoridades competentes. " +
+            "Cálculos e modelos de NOAA/INPE/CPTEC não confirmam ameaça por si só.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -2321,15 +2315,15 @@ private fun MoreScreen(
         val news = LocalNews.current?.takeIf { it.current(clock) }
         StatusLine("Agência Brasil • RSS", news?.let { "RSS recebido • ${formatInformationTime(it.fetchedAt)}" }
             ?: "Sem RSS atual confirmado")
-        Text("Desempate Tabela 2 (cinco fontes): " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
-            ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
+        Text("Desempate por produto (seis fontes): " +
+            FinalDashboardSpec.approvedDisputeSources.joinToString(" → ") +
+            ". Comparar somente medições independentes equivalentes; " +
+            "modelos e satélites não substituem estações nem avisos oficiais.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
-        Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
-            "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
-            "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
+        Text("Fontes excluídas: INEA, Marinha/CHM, Windy e Copernicus. " +
+            "Hidrologia: CEMADEN, ANA e SGB/SACE. Oceano: NOAA, INPE/CPTEC e EUMETSAT. " +
+            "Dados reais dependem de licença, horário, qualidade e produto verificados.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
@@ -2367,7 +2361,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
         Text(
             if (!canRefreshPublic)
-                "Canal público de avisos RJ/Marinha não configurado ou aplicativo desligado. " +
+                "Canal público oficial do RJ não configurado ou aplicativo desligado. " +
                     "Acesso às estações INMET é independente."
             else if(public == null)
                 "Canal público configurado; sem resposta válida e vigente. " +
@@ -2470,18 +2464,17 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
-                "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
-                "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
+            Text("Tabela 1: Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos. " +
+                "Na ausência de medição comparável, consultar em ordem por fenômeno " +
+                "INMET → INPE/CPTEC → NOAA → CEMADEN → JAXA/GSMaP → EUMETSAT.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
-                "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
-                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
+            Text("INMET • referência de medição no desempate quando há estação e horário válidos. " +
+                "Dado republicado ou produto de modelo não conta como segunda medição independente. " +
+                "Avisos oficiais permanecem prevalentes.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
-            Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
-                "temperatura do mar. EUMETSAT: nuvens, tempestades e ciclones no Atlântico.",
+            Text("NOAA + INPE/CPTEC: ondas e swell. EUMETSAT: satélite, vento e SST. " +
+                "JAXA/GSMaP: chuva estimada no oceano, por produto validado.",
                 color = Muted, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-ocean-eumetsat-complement"))
             Text(RjMeteorologicalTables.LIVE_STATUS,
@@ -2585,11 +2578,11 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                 }
             }
         } else {
-            Text("TABELA MARÍTIMA • Marinha, NOAA, Copernicus e EUMETSAT",
+            Text("TABELA MARÍTIMA • INPE/CPTEC, NOAA, EUMETSAT e JAXA/GSMaP",
                 color = Gold, fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-marine-matrix-content"))
             Text("Avisos de ressaca, ciclones e tsunami dependem das autoridades competentes. " +
-                "Copernicus fornece produtos oceânicos e EUMETSAT imagens de satélite. " +
+                "NOAA/INPE/CPTEC fornecem modelos e EUMETSAT observações por satélite. " +
                 "Nenhum dado representa observação real até validar produto, hora e licença.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.marineTable.forEach { item ->
@@ -2614,7 +2607,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                             style = MaterialTheme.typography.labelSmall)
                         val live = RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
                         Text("Aviso marítimo regional: ${live.description}",
-                            color = if(live.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                            color = WarningAmber,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.testTag("rj-marine-live-${item.code}"))
                         Text("Critério: " +
@@ -2777,7 +2770,7 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
     val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
     val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
     DashboardSection(
-        title = "MAR E ONDAS • MARINHA DO BRASIL",
+        title = "MAR E ONDAS • ATLÂNTICO RJ",
         subtitle = "Maré • ondas altas • vento • ressaca",
         modifier = modifier.testTag("marine-conditions-card"),
     ) {
@@ -2785,24 +2778,20 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas (CHM)",wave.description)
-        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
-            "— altura/período/direção • Copernicus/NOAA aguardam integração autorizada")
-        StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
+        StatusLine("Ondas",wave.description)
+        StatusLine("Swell",swell.description)
+        StatusLine("Correntes", "— intensidade/direção • NOAA: produto validado pendente")
         StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
         StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
         StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
-        Text(if (marine==null)
-                "CHM: aguardando boletim oficial regional recente e autorizado."
-            else "Boletim CHM consultado em ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • " +
-                "${marine.warnings.count { it.current(clock) }} aviso(s) regional(is) vigente(s). " +
-                "Não são alertas municipais nem garantia de segurança costeira.",
-            color = if(marine==null) WarningAmber else GoldSoft,
+        Text("Sem leitura oceânica atual autorizada nesta tela; cada produto exige " +
+            "fonte, hora, cobertura e qualidade verificadas.",
+            color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-chm-regional-status"))
-        Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
-            "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
+        Text("NOAA / INPE/CPTEC • modelos de ondas e swell. EUMETSAT/JAXA • satélites " +
+            "por produto; integração marítima atual ainda requer comprovação.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
