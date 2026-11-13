@@ -45,6 +45,7 @@ android {
         targetSdk = 35
         versionCode = 6000002
         versionName = "6.0.1"
+        buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BLAISE_MONTHLY_PRODUCT_ID", buildConfigString(monthlyProductId))
         buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
@@ -67,18 +68,35 @@ android {
         }
     }
     buildTypes {
-        debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
+        }
         release {
+            // Client/public distribution. Original Android TTS; no 300+ MB Dora model.
+            buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "false")
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        create("admin") {
+            // Separate owner's APK (never the client package). Server authorization
+            // remains mandatory for any sensitive data or administrative operation.
+            initWith(getByName("release"))
+            applicationIdSuffix = ".admin"
+            versionNameSuffix = "-admin"
+            buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
-    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/dora/assets"))
+    // The large, pinned offline voice package is for private/debug builds ONLY.
+    // Customer release never includes dora/model.onnx or voices.bin.
+    sourceSets.getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/dora/assets"))
+    sourceSets.getByName("admin").assets.srcDir(layout.buildDirectory.dir("generated/dora/assets"))
     androidResources.noCompress += listOf("onnx", "bin")
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     testOptions.unitTests.isIncludeAndroidResources = true
