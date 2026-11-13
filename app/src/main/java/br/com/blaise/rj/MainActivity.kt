@@ -1411,6 +1411,8 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
     var selectedLayer by remember { mutableStateOf("Radar") }
     val snapshotTime = LocalObservationClock.current
     val deviceLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val liveRadar = LocalRjMeasuredRadarFrame.current
+        ?.takeIf { RjRadarSpatialPolicy.current(it, snapshotTime) }
     val displayedSeries = LocalWeatherCities.current.distinctBy { it.ibgeCode }.mapNotNull {
         LocalMunicipalSnapshots.current[it.ibgeCode]?.currentSeries(snapshotTime)
     }
@@ -1467,7 +1469,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
                 if (selectedLayer == "Radar") {
                     RjRadarSpatialOverlay(
-                        LocalRjMeasuredRadarFrame.current, snapshotTime, mapZoom, Modifier.fillMaxSize(),
+                        liveRadar, snapshotTime, mapZoom, Modifier.fillMaxSize(),
                     )
                 }
                 if (stationMetric != null) {
@@ -1536,11 +1538,18 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     border = BorderStroke(1.dp, WarningAmber),
                 ) {
                     Text(
-                        if (stationSample != null && stationSeries != null)
+                        if (selectedLayer == "Radar" && liveRadar != null)
+                            "RADAR MEDIDO • ${liveRadar.providerId} / ${liveRadar.radarId} • " +
+                                liveRadar.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                                " • ${liveRadar.cells.size} células • não é previsão."
+                        else if (stationSample != null && stationSeries != null)
                             "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
-                        else "$selectedLayer: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.",
+                        else if (selectedLayer == "Radar")
+                            "Radar: aguardando quadro georreferenciado oficial, recente e licenciado. Nenhuma chuva foi simulada."
+                        else "$selectedLayer: sem medição pontual recente validada; mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        color = if (stationSample != null) Color.White else WarningAmber,
+                        color = if (stationSample != null || selectedLayer == "Radar" && liveRadar != null) Color.White else WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         textAlign = TextAlign.Center,
                     )
