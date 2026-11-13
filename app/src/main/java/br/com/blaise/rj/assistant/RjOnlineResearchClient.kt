@@ -94,7 +94,8 @@ object RjOnlineResearchClient {
                 formatted += name + " • " + item.getString("issuedAt") + " • " + link
             }
             "Pesquisa Blaise IA • resposta com fontes (não é alerta oficial)\n" +
-                answer + "\n\nFontes e datas:\n" + formatted.joinToString("\n")
+                RjVoiceQuestionReceipt.format(request.requestedAt, responseTime) +
+                "\n" + answer + "\n\nFontes e datas:\n" + formatted.joinToString("\n")
         } catch (_: Exception) {
             null
         } finally {
