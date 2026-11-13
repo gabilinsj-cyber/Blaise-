@@ -113,96 +113,51 @@ test('public API defaults off and requires independent operator data-usage appro
   assert.equal(res.body.municipalities.length,92);
   assert.equal(delegated,0);
 });
-test('fresh CHM warnings expose regional facts and waves, never municipal P0',()=>{
+test('excluded legacy marine warning never appears as a public current product',()=>{
   const baseline=worker();
-  const maritime={
-    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
-    snapshot:{
-      sourceId:'chm-marine',
-      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
-      warnings:[{
-        id:'321/2026',warningType:'AVISO DE RESSACA',issuedAt:stamp,validUntil:until,
-        rjRouting:{
-          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
-          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
-          marineSignal:{explicitWaveHeight:true,waveMinMeters:3.5,waveMaxMeters:4.2,
-            waveDirection:'SE',officialRessacaLabel:true,waveHeightThresholdExceeded:true},
-        },
-      },{
-        id:'322/2026',warningType:'AVISO DE MAU TEMPO',issuedAt:stamp,validUntil:until,
-        rjRouting:{route:'NOT_DIRECT_RJ',canExposeRjMarineWarning:false,
-          canPromoteMunicipalityP0:false,directRjAreas:[]},
-      }],
+  let prohibitedReads=0;
+  const retiredProvider={
+    status:()=>baseline.status(),
+    readSource:id=>{
+      if(id==='chm-marine-warnings') {
+        prohibitedReads++;
+        return {sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+          snapshot:{sourceId:'chm-marine',warningCount:1,warnings:[{
+            id:'321/2026',warningType:'AVISO DE RESSACA',issuedAt:stamp,validUntil:until
+          }]}};
+      }
+      return baseline.readSource(id);
     },
   };
-  const withMarine={
-    status:()=>baseline.status(),
-    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
-  };
-  const result=buildRjPublicStatusSnapshot(withMarine,{nowMillis:now});
-  assert.equal(result.marine.scope,'METAREA_V_RJ_REGIONAL_NOT_MUNICIPAL');
-  assert.equal(result.marine.warningCount,1);
-  assert.deepEqual(result.marine.warnings[0].areas,['CHARLIE']);
-  assert.equal(result.marine.warnings[0].waveMaxMeters,4.2);
-  assert.equal(result.marine.warnings[0].officialRessacaLabel,true);
-  assert.equal(result.marine.warnings[0].mayIssueMunicipalP0,false);
-  assert.equal(result.marine.municipalityGeofenceValidated,false);
-  assert.equal(result.municipalities[0].warningIds.includes('321/2026'),false);
-  const expired={...maritime,fetchedAt:new Date(now-31*60_000).toISOString()};
-  const staleWorker={...withMarine,readSource:id=>id==='chm-marine-warnings'?
-    expired:baseline.readSource(id)};
-  assert.equal(buildRjPublicStatusSnapshot(staleWorker,{nowMillis:now}).marine,null);
+  const result=buildRjPublicStatusSnapshot(retiredProvider,{nowMillis:now});
+  assert.equal(result.marine,null);
+  assert.equal(prohibitedReads,0);
+  assert.equal(result.warningInventories.some(x=>x.sourceId==='chm'),false);
+  assert.equal(JSON.stringify(result).includes('AVISO DE RESSACA'),false);
+  assert.equal(result.warnings.length,1); // INMET remains accessible.
 });
-
-test('fresh licensed CHM bulletin remains available when INMET CAP and CEMADEN are stale',async()=>{
+test('excluded marine bulletin cannot make stale INMET/CEMADEN appear healthy',async()=>{
   const baseline=worker({stale:true});
-  const maritime={
-    sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
-    snapshot:{
-      sourceId:'chm-marine',
-      sourceUrl:'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo',
-      warnings:[{
-        id:'432/2026',warningType:'AVISO DE RESSACA',
-        issuedAt:stamp,validUntil:until,
-        rjRouting:{
-          route:'RJ_MARINE_REGIONAL',canExposeRjMarineWarning:true,
-          canPromoteMunicipalityP0:false,directRjAreas:['CHARLIE'],
-          marineSignal:{
-            explicitWaveHeight:true,waveMinMeters:3.0,waveMaxMeters:4.0,
-            waveDirection:'SE',officialRessacaLabel:true,
-            waveHeightThresholdExceeded:true,
-          },
-        },
-      }],
-    },
-  };
-  const onlyChm={
+  const staleSourcesWithProhibitedMarine={
     status:()=>baseline.status(),
-    readSource:id=>id==='chm-marine-warnings'?maritime:baseline.readSource(id),
+    readSource:id=>id==='chm-marine-warnings'
+      ? {sourceId:'chm-marine',state:'CURRENT',fetchedAt:stamp,
+          snapshot:{sourceId:'chm-marine',warnings:[]}}
+      : baseline.readSource(id),
   };
-  const snapshot=buildRjPublicStatusSnapshot(onlyChm,{nowMillis:now});
-  assert.equal(snapshot.usableOfficialProducts,true);
-  assert.equal(snapshot.marine.warningCount,1);
-  assert.equal(snapshot.marine.warnings[0].warningType,'AVISO DE RESSACA');
+  const snapshot=buildRjPublicStatusSnapshot(staleSourcesWithProhibitedMarine,{nowMillis:now});
+  assert.equal(snapshot.marine,null);
+  assert.equal(snapshot.usableOfficialProducts,false);
+  assert.equal(snapshot.warningInventories.length,0);
   assert.equal(snapshot.warnings.length,0);
-  assert.ok(snapshot.municipalities.every(c=>c.risk===null&&c.warningIds.length===0));
-  assert.ok(snapshot.marine.warnings.every(x=>x.mayIssueMunicipalP0===false));
   const handler=createRjPublicStatusHandler(()=>{},{
-    enabled:true,licensingApproved:true,clock:()=>now,sourceWorker:onlyChm,
+    enabled:true,licensingApproved:true,clock:()=>now,
+    sourceWorker:staleSourcesWithProhibitedMarine,
   });
   const res=fakeResponse();
   await handler({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},res);
-  assert.equal(res.statusCode,200);
-  assert.equal(res.body.marine.warningCount,1);
-
-  const denied=createRjPublicStatusHandler(
-    (req,response)=>{response.statusCode=404},{
-      enabled:true,licensingApproved:false,clock:()=>now,sourceWorker:onlyChm,
-    });
-  const blocked=fakeResponse();
-  await denied({url:RJ_PUBLIC_STATUS_PATH,method:'GET'},blocked);
-  assert.equal(blocked.statusCode,503);
-  assert.equal(blocked.body.error,'source_terms_not_approved');
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.error,'official_sources_not_validated');
 });
 
 test('absence of CHM source keeps regional marine information unavailable, not safe',()=>{
