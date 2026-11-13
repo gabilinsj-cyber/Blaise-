@@ -1155,6 +1155,7 @@ private fun MoreScreen(
     Spacer(Modifier.height(14.dp))
     RjApprovedSourcesPanel()
     Spacer(Modifier.height(14.dp))
+    RjAgentDebugPanel()
 }
 
 @Composable
