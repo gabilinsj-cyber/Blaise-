@@ -1,0 +1,79 @@
+name: Blaise RJ Administrator Signed APK
+
+# Manual owner-only signing operation; never triggered by a public PR.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROID_HOME: /usr/local/lib/android/sdk
+
+jobs:
+  signed-admin-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Install Android 35
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Prepare protected signing material
+        env:
+          BLAISE_KEYSTORE_B64: ${{ secrets.BLAISE_KEYSTORE_B64 }}
+          BLAISE_STORE_PASSWORD: ${{ secrets.BLAISE_STORE_PASSWORD }}
+          BLAISE_KEY_ALIAS: ${{ secrets.BLAISE_KEY_ALIAS }}
+          BLAISE_KEY_PASSWORD: ${{ secrets.BLAISE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${BLAISE_KEYSTORE_B64:-}"
+          test -n "${BLAISE_STORE_PASSWORD:-}"
+          test -n "${BLAISE_KEY_ALIAS:-}"
+          test -n "${BLAISE_KEY_PASSWORD:-}"
+          keystore="$RUNNER_TEMP/blaise-rj-admin.jks"
+          printf '%s' "$BLAISE_KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          keytool -list -keystore "$keystore" -storepass "$BLAISE_STORE_PASSWORD" -alias "$BLAISE_KEY_ALIAS" >/dev/null
+          echo "BLAISE_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+          echo "::add-mask::$BLAISE_STORE_PASSWORD"
+          echo "::add-mask::$BLAISE_KEY_PASSWORD"
+      - name: Signed admin APK validation
+        env:
+          BLAISE_STORE_PASSWORD: ${{ secrets.BLAISE_STORE_PASSWORD }}
+          BLAISE_KEY_ALIAS: ${{ secrets.BLAISE_KEY_ALIAS }}
+          BLAISE_KEY_PASSWORD: ${{ secrets.BLAISE_KEY_PASSWORD }}
+          BLAISE_ADMIN_EXPECTED_CERT_SHA256: ${{ vars.BLAISE_ADMIN_EXPECTED_CERT_SHA256 }}
+          BLAISE_FIREBASE_APPLICATION_ID: ${{ vars.BLAISE_FIREBASE_APPLICATION_ID }}
+          BLAISE_FIREBASE_API_KEY: ${{ vars.BLAISE_FIREBASE_API_KEY }}
+          BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+          BLAISE_FIREBASE_SENDER_ID: ${{ vars.BLAISE_FIREBASE_SENDER_ID }}
+          BLAISE_RJ_RESEARCH_ENABLED: 'false'
+        run: bash scripts/admin-release-gate.sh
+      - name: Preserve admin release result
+        if: always()
+        run: |
+          mkdir -p evidence/admin-release
+          if [[ ! -s evidence/admin-release/gate.txt ]]; then
+            printf '%s\n' 'ADMIN_RELEASE_GATE=BLOCKED' 'reason=preflight_failed' > evidence/admin-release/gate.txt
+          fi
+      - name: Save private signed APK and gate evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-rj-owner-admin-release-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            admin-packages/*.apk
+            evidence/admin-release/**
