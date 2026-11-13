@@ -120,6 +120,8 @@ import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.assistant.AssistantPolicy
 import br.com.blaise.rj.voice.DoraVoiceService
+import br.com.blaise.rj.voice.AndroidSystemVoiceService
+import br.com.blaise.rj.voice.BlaiseVoiceController
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -772,7 +774,10 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
 private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val voice = remember(context) { DoraVoiceService(context) }
+    val voice: BlaiseVoiceController = remember(context) {
+        if (BuildConfig.BLAISE_OFFLINE_DORA) DoraVoiceService(context)
+        else AndroidSystemVoiceService(context)
+    }
     val scope = rememberCoroutineScope()
     var speechJob by remember { mutableStateOf<Job?>(null) }
     var speechRequest by remember { mutableStateOf(0) }
@@ -798,7 +803,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         speechJob = scope.launch {
             try {
                 voice.speak(text).onFailure {
-                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz Dora. Tente novamente."
+                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz. Confira o mecanismo de fala em português do Android."
                 }
             } finally {
                 if (request == speechRequest) speaking = false
