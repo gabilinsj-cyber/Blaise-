@@ -28,7 +28,7 @@ class WeatherConversation {
         val station = br.com.blaise.rj.data.AlertaRioObservationParser.stations.firstOrNull {
             Regex("(^| )${Regex.escape(normalizedSpeech(it))}( |$)").containsMatchIn(text)
         }
-        val neighbourhood = listOf("Bangu", "Campo Grande", "Copacabana", "Ipanema", "Leme", "Barra da Tijuca", "Recreio dos Bandeirantes", "Madureira", "Rocinha", "Tijuca", "Botafogo", "Flamengo").firstOrNull {
+        val neighbourhood = listOf("Centro do Rio", "Centro", "Bangu", "Campo Grande", "Copacabana", "Ipanema", "Leme", "Barra da Tijuca", "Recreio dos Bandeirantes", "Madureira", "Rocinha", "Tijuca", "Botafogo", "Flamengo").firstOrNull {
             Regex("(^| )${Regex.escape(normalizedSpeech(it))}( |$)").containsMatchIn(text)
         }
         val namedCity = RioMunicipalities.all.sortedByDescending { it.name.length }.firstOrNull {
@@ -46,7 +46,7 @@ class WeatherConversation {
             return ConversationAction.Reply("Para qual cidade ou região você deseja saber?")
         }
         if (explicit != null || text.contains("minha cidade")) {
-            confirmedScope = station ?: neighbourhood ?: if (resolved.ibgeCode == 3304557) "Centro do Rio" else null
+            confirmedScope = station ?: neighbourhood // Rio municipal data is NOT Centro do Rio
         }
         city = resolved
         val question = pending?.let { "$it. $raw" } ?: raw
