@@ -6,9 +6,9 @@ import {
   subscriberScaleReview,
 } from '../src/rj-agent-registry.mjs';
 
-test('twelve numbered names preserve ten historical agents and two on demand', () => {
+test('thirteen numbered names preserve ten historical agents and three optional additions', () => {
   assert.equal(RJ_AGENT_PROJECT, 'Blaise V6 RJ');
-  assert.deepEqual(BLAISE_RJ_AGENTS.map(a => a.number), [1,2,3,4,5,6,7,8,9,10,11,12]);
+  assert.deepEqual(BLAISE_RJ_AGENTS.map(a => a.number), [1,2,3,4,5,6,7,8,9,10,11,12,13]);
   assert.deepEqual(BLAISE_RJ_AGENTS.slice(0,8).map(a => a.name), [
     'Blaise Sentinel RJ','Blaise Vector RJ','Blaise Fusion RJ','Blaise Track RJ',
     'Blaise Hydro RJ','Blaise Ocean RJ','Blaise Seismo RJ','Blaise Audit RJ',
@@ -21,7 +21,8 @@ test('twelve numbered names preserve ten historical agents and two on demand', (
   assert.equal(BLAISE_RJ_AGENTS.some(a => /INEA/.test(a.name)), false);
   assert.equal(agentByNumber(11).name,'Blaise IA — Pesquisa e Respostas em Tempo Real');
   assert.equal(agentByNumber(12).name,'Blaise V6 RJ — Geodados e Fusão Científica');
-  assert.throws(() => agentByNumber(13), RangeError);
+  assert.equal(agentByNumber(13).name,'Blaise OpenWeather RJ — Dados Meteorológicos');
+  assert.throws(() => agentByNumber(14), RangeError);
 });
 test('normal, severe and confirmed-extreme science cadence cannot activate 25s network polling', () => {
   assert.equal(rjCadenceForLevel(3).observationUpdateMs, 300000);
