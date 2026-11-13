@@ -1020,8 +1020,12 @@ private fun MarineScreen() {
         subtitle = "Condições marítimas do litoral do RJ",
     ) {
         StatusLine("Ressaca", "Dados indisponíveis")
-        StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
-        StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
+        StatusLine("Meteotsunami", "Sem aviso oficial validado nesta tela; não significa ausência de risco")
+        StatusLine("Tsunami sísmico", "Consultar alertas oficiais; sem confirmação nesta tela")
+        StatusLine("Velocidade de onda longa", "Calculadora interna disponível somente com batimetria e perfil válidos")
+        StatusLine("Tempo de chegada de tsunami", "Não disponível como previsão pública: modelo operacional e validação pendentes")
+        Text("A altura de ondas NOAA, o swell e a ressaca não confirmam tsunami. Cálculos condicionais não emitem alerta nem recomendam evacuação.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
     }
 }
