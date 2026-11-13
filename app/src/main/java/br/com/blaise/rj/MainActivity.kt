@@ -349,7 +349,9 @@ fun BlaiseApp(
                     cities.map { city -> async {
                         city.ibgeCode to weatherClient.citySnapshot(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
-                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                            // Automatic collection is municipal. Centro do Rio remains on-demand;
+                            // a different station must never be mislabeled as Centro.
+                            null,
                         ))
                     } }.map { it.await() }.toMap()
                 }
@@ -602,7 +604,10 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val clock = LocalObservationClock.current
-    val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latest = (
+        LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt } +
+        LocalRioStations.current.filter { it.current(clock) && it.source == "Alerta Rio" }.map { it.observedAt }
+    ).maxOrNull()
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM • HH:mm"))
     Card(
