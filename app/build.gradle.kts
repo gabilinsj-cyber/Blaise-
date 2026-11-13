@@ -45,6 +45,8 @@ android {
         targetSdk = 35
         versionCode = 6000002
         versionName = "6.0.1"
+        buildConfigField("boolean", "BLAISE_RESEARCH_ENABLED",
+            (System.getenv("BLAISE_RJ_RESEARCH_ENABLED") == "true").toString())
         buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "false")
         buildConfigField("boolean", "BLAISE_ADMIN", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
