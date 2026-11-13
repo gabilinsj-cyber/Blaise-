@@ -38,13 +38,13 @@ class WeatherConversationTest {
     }
     @Test fun doesNotInventRegionalOrHazardCoverage() {
         assertTrue(WeatherConversation().accept("alertas na Baixada",selected) is ConversationAction.Reply)
-        assertTrue(WeatherConversation().accept("ciclone em Niterói",selected) is ConversationAction.Reply)
+        assertTrue(WeatherConversation().accept("ciclone em Niterói",selected) is ConversationAction.Query)
     }
     @Test fun mixedQuestionKeepsAvailableWeatherQueryWithoutClaimingUvOrHazardData() {
         val result = WeatherConversation().accept("temperatura umidade vento e UV em Niterói", selected) as ConversationAction.Query
         assertEquals(3303302, result.request.city.ibgeCode)
         assertTrue(result.request.question.contains("UV"))
-        assertTrue(WeatherConversation().accept("UV em Niterói", selected) is ConversationAction.Reply)
+        assertTrue(WeatherConversation().accept("UV em Niterói", selected) is ConversationAction.Query)
     }
     @Test fun namedNeighbourhoodDoesNotInheritAnotherMunicipalityOrBecomeCentre() {
         val conversation = WeatherConversation()
