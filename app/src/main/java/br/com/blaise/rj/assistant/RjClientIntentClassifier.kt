@@ -60,7 +60,7 @@ object RjClientIntentClassifier {
             "primavera", "outono", "verao", "media", "mes mais", "historicamente",
             "clima", "climatica", "estacao", "estacoes", "neve", "geada",
             "microclima", "microclimas", "topografia", "asfalto", "predios",
-            "floresta da tijuca", "restinga", "maciço", "maco", "regulador termico",
+            "floresta da tijuca", "restinga", "macico", "regulador termico",
             "baia", "diferencas", "seco", "seca"),
         "tempestade e fenômenos severos" to listOf("granizo", "raio", "descarga eletrica",
             "tempestade", "trovoada", "relampago", "microexplosao"),
