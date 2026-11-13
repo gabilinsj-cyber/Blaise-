@@ -1563,6 +1563,34 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                 Text(if (enlarged) "Reduzir" else "Ampliar")
             }
         }
+        if (selectedLayer == "Radar") {
+            Text(
+                if (liveRadar == null)
+                    "Escala de chuva do radar • nenhuma leitura atual disponível"
+                else "Escala de chuva do radar • quadro medido e validado",
+                color = Muted, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-radar-legend-status"),
+            )
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                listOf(
+                    "Fraca" to Color(0xFF00B7ED),
+                    "Leve" to Color(0xFF20D75A),
+                    "Moderada" to Color(0xFFFFD528),
+                    "Forte" to Color(0xFFFF5D1A),
+                    "Extrema" to Color(0xFFDF36B5),
+                ).forEach { (name, tint) ->
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(Modifier.size(8.dp).background(tint, CircleShape))
+                        Text(name, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
         Text("SOBREPOSIÇÕES DO MAPA • verificar disponibilidade", color = Gold,
             style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
