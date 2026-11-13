@@ -1,5 +1,5 @@
 /**
- * Blaise V6 RJ: registry of eleven functional agents (ten historical + Agent 11 on demand).
+ * Blaise V6 RJ: registry of twelve functional agents (ten historical + agents 11 and 12 on demand).
  *
  * Registry != ten running processes. Each entry states capabilities already in
  * the repo and tasks still needing real source integration, production IAM,
@@ -9,7 +9,7 @@
  */
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 
-export const RJ_AGENT_REGISTRY_VERSION = 'blaise-v6-rj-agents-2026-10-10-v1';
+export const RJ_AGENT_REGISTRY_VERSION = 'blaise-v6-rj-agents-2026-11-13-v2';
 export const RJ_AGENT_PROJECT = 'Blaise V6 RJ';
 const NOT_DEPLOYED = 'SPECIFIED_NOT_AUTONOMOUSLY_DEPLOYED';
 const create = (number, name, responsibility, sourceKinds, components, blockers, historicalName = 'APPROVED') => Object.freeze({
@@ -83,10 +83,18 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['NOAA','INMET','INPE_CPTEC','EUMETSAT','JAXA_GSMAP','IPCC_CLIMATE','WMO_CLIMATE','OFFICIAL_RJ_SOURCES'],
     ['blaise-rj-dynamic-research.mjs','blaise-rj-agent-registry.mjs','blaise-rj-agent-supervisor.mjs'],
     ['Motor de busca autorizado ainda não conectado','Síntese de IA com evidências, custo, limite de chamadas e proteção contra abuso','Teste de fonte/escopo/frescor em produção']),
+
+  create(12, 'Blaise V6 RJ — Geodados e Fusão Científica',
+    'Localizar estações com geodados Geo-Rio sob CC BY 4.0 e estimar temperatura somente quando os direitos comerciais de cada produto de medição forem comprovados; manter atribuição, horários e revisão científica.',
+    ['GEO_RIO_CC_BY4_STATION_POSITIONS_ONLY','LICENSED_STATION_TEMPERATURE_OBSERVATIONS'],
+    ['rj-geo-rio-station-locations.mjs','rj-licensed-weighted-fusion.mjs','blaise-rj-agent-supervisor.mjs'],
+    ['Política de coleta e licenças comerciais de cada produto meteorológico',
+      'Validação do mapa próprio e dos 33 pontos geográficos',
+      'Executor de servidor protegido, prova de frescor, auditoria e autorização de produção']),
 ]);
 
-if (BLAISE_RJ_AGENTS.length !== 11 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 11) {
-  throw new Error('rj_agent_registry_must_have_eleven_unique_agents');
+if (BLAISE_RJ_AGENTS.length !== 12 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 12) {
+  throw new Error('rj_agent_registry_must_have_twelve_unique_agents');
 }
 
 export const RJ_AGENT_CADENCE = Object.freeze({
@@ -104,7 +112,7 @@ export const RJ_AGENT_CADENCE = Object.freeze({
 });
 
 export function agentByNumber(number) {
-  if (!Number.isInteger(number) || number < 1 || number > 11) throw new RangeError('unknown_rj_agent');
+  if (!Number.isInteger(number) || number < 1 || number > 12) throw new RangeError('unknown_rj_agent');
   return BLAISE_RJ_AGENTS[number - 1];
 }
 export function rjCadenceForLevel(level, { independentOfficialLevel5Alerts = 0, scientificRevalidationLevel = null } = {}) {
