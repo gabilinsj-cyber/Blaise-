@@ -802,8 +802,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         speaking = true
         speechJob = scope.launch {
             try {
-                voice.speak(text).onFailure {
-                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz. Confira o mecanismo de fala em português do Android."
+                voice.speak(text).onFailure { error ->
+                    if (request == speechRequest) voiceError =
+                        if (error.message?.contains("Voz feminina") == true ||
+                            error.message?.contains("voz feminina") == true)
+                            error.message
+                        else "Não foi possível reproduzir a voz. Confira o mecanismo de fala em português do Android."
                 }
             } finally {
                 if (request == speechRequest) speaking = false
@@ -2452,6 +2456,14 @@ private fun MoreScreen(
             Text(if (silentMode) "Modo silencioso: LIGADO" else "Modo silencioso: DESLIGADO")
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
+    }
+    Spacer(Modifier.height(14.dp))
+    if (BuildConfig.BLAISE_ADMIN) {
+        Text("Edição administrativa • voz Dora feminina offline. " +
+            "Operações privilegiadas exigem autorização no servidor.", color = Muted)
+        br.com.blaise.rj.admin.RjOwnerQuestionBankPanel()
+    } else {
+        br.com.blaise.rj.voice.RjFemaleVoiceSettingsPanel()
     }
     Spacer(Modifier.height(14.dp))
     DashboardSection(
