@@ -829,7 +829,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
-    val centre = reports[3304557]?.summary(clock) ?: "Consultando medição oficial do Centro do Rio."
+    val centre = "Medição específica não comprovada nesta consulta. Peça a estação oficial do bairro; uma estação de outro local não representa o Centro."
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
@@ -922,8 +922,19 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         if (information != null && !needsWeather) information
                         else if (regional != null && !needsWeather) regional
                         else {
-                            val measured = sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
-                                ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
+                            // A question about a specific station or neighbourhood must use
+                        // the explicitly scoped official fetch, never municipal snapshots.
+                        val normalized = br.com.blaise.rj.assistant.normalizedSpeech(request.question)
+                        val futureOrForecast = request.date != java.time.LocalDate.now(
+                            java.time.ZoneId.of("America/Sao_Paulo")) ||
+                            listOf("vai", "previsao", "amanha", "maxima", "minima",
+                                "praia", "quando").any(normalized::contains)
+                        val measured = if (request.localScope != null) {
+                            if (futureOrForecast)
+                                "Previsão para ${request.localScope}: sem produto oficial validado; a medição atual não é previsão."
+                            else OfficialWeatherClient().currentCity(request).summary(Instant.now())
+                        } else sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
+                            ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                             listOfNotNull(measured, information ?: freshRegional).joinToString("\n\n")
                         }
