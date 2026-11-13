@@ -55,7 +55,7 @@ class WeatherConversation {
                 .containsMatchIn(text) -> "ATLANTICO_SUL"
             Regex("\\b(sudeste|regiao sudeste)\\b")
                 .containsMatchIn(text) -> "SUDESTE_BRASIL"
-            Regex("\\b(el nino|la nina|aquecimento global|mudancas climaticas|mudanca climatica|enso|efeito estufa|clima global)\\b")
+            Regex("\\b(el nino|la nina|aquecimento global|mudancas climaticas|mudanca climatica|enso|efeito estufa|clima global|zcas|zcit|oscilacao|mjo|anomalia climatica)\\b")
                 .containsMatchIn(text) -> if (explicit != null) "RIO_DE_JANEIRO" else "GLOBAL_CLIMA_RELEVANTE_RJ"
             else -> null
         }
@@ -75,7 +75,7 @@ class WeatherConversation {
         if (all.contains("fim de semana") || all.contains("final de semana") || all.contains("semana que vem"))
             return ConversationAction.Reply("Entendi a consulta para ${resolved.name}. Ainda não tenho previsão validada para esse período; não vou usar as condições atuais como previsão.")
         val intents = RjClientIntentClassifier.identify(question)
-        if (!intents.recognized && researchGeography == null)
+        if (!intents.recognized && researchGeography == null && explicit == null)
             return ConversationAction.Reply(
                 "Não consegui identificar o assunto da pergunta com segurança para ${resolved.name}. " +
                 "Pode dizer se deseja temperatura, chuva, vento, alertas, mar, trânsito ou outro fenômeno?"
@@ -83,7 +83,9 @@ class WeatherConversation {
         val date = if (all.contains("amanha")) today.plusDays(1) else today
         val scope = confirmedScope
         return ConversationAction.Query(WeatherRequest(
-            resolved, question, date, scope, researchGeography, Instant.now()
+            resolved, question, date, scope,
+            researchGeography ?: if (!intents.recognized) "RIO_DE_JANEIRO" else null,
+            Instant.now()
         ))
     }
 }
