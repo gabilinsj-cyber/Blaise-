@@ -971,8 +971,17 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     }
                     if (version == queryVersion) {
                         loading = false
-                        answer = result
-                        if (spoken) readAloud(result)
+                        // Applies to weather, alerts, risk and voice questions. The
+                        // research path already carries separate question/answer dates.
+                        val dated = if (result.startsWith("Pesquisa Blaise IA • resposta com fontes")) {
+                            result
+                        } else {
+                            br.com.blaise.rj.assistant.RjVoiceQuestionReceipt.questionTime(
+                                action.request.requestedAt
+                            ) + "\n" + result
+                        }
+                        answer = dated
+                        if (spoken) readAloud(dated)
                     }
                 }
             }
