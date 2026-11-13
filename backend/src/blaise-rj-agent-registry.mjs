@@ -1,10 +1,10 @@
 /** 
- * Catálogo e despachante seguro de 11 agentes internos RJ.
+ * Catálogo e despachante seguro de 12 agentes internos RJ.
  * Importar este módulo NÃO inicia rotinas, timers, coleta ou rede.
  * O worker de produção precisa registrar executores autorizados e telemetria
  * antes de considerar qualquer agente operacional.
  */
-export const RJ_AGENT_REGISTRY_VERSION = 'rj-agents-20261113-v1';
+export const RJ_AGENT_REGISTRY_VERSION = 'rj-agents-20261113-v2';
 export const RJ_AGENT_DEFINITIONS = Object.freeze([
   {id:'integridade-correcao',name:'Integridade e correção contínua',cadence:'CONTINUOUS_MONITOR',access:'ADMIN',scope:'RJ',description:'Detectar falhas e propor correção auditável; nunca aplicar patch automaticamente à produção.'},
   {id:'checagem-horaria',name:'Verificação horária de fontes',cadence:'HOURLY',access:'ADMIN',scope:'RJ',description:'Conferir disponibilidade, horário, jurisdição e qualidade de cada fonte.'},
@@ -17,6 +17,7 @@ export const RJ_AGENT_DEFINITIONS = Object.freeze([
   {id:'fiscalizacao-fontes',name:'Fiscalização de fontes e licenças',cadence:'HOURLY',access:'ADMIN',scope:'RJ',description:'Bloquear fonte sem licença, domínio, produto, timestamp ou jurisdição verificados.'},
   {id:'seguranca-escala',name:'Segurança, assinaturas e escala',cadence:'CONTINUOUS_MONITOR',access:'ADMIN',scope:'RJ',description:'Autorização P0/premium, anomalias, limites de recursos, canary e rollback.'},
   {id:'blaise-ia-pesquisa',name:'Blaise IA — Pesquisa e Respostas em Tempo Real',cadence:'ON_DEMAND',access:'PUBLIC_QUERY_WITH_SERVER_GATES',scope:'RJ_SUDESTE_SOUTH_ATLANTIC_RELEVANT_GLOBAL_CLIMATE',description:'Interpretar perguntas livres sobre meteorologia, clima, El Niño/La Niña e aquecimento global; fundamentar respostas em evidências autorizadas, datadas e citadas. Sem fontes/IA conectadas, informar indisponibilidade.'},
+  {id:'geodados-fusao-licenciada',name:'Blaise V6 RJ — Geodados e Fusão Científica',cadence:'ON_DEMAND',access:'ADMIN',scope:'RJ',description:'Localizar estações Geo-Rio sob CC BY 4.0 com atribuição. Média de medições somente com licença comercial específica, fontes e horários auditáveis. Nunca coletar clandestinamente, apagar registros ou gerar alertas oficiais.'},
 ].map(row=>Object.freeze(row)));
 
 const APPROVED_SOURCE_IDS = new Set([
