@@ -1,5 +1,5 @@
 /** 
- * Catálogo e despachante seguro dos 10 agentes internos RJ.
+ * Catálogo e despachante seguro de 11 agentes internos RJ.
  * Importar este módulo NÃO inicia rotinas, timers, coleta ou rede.
  * O worker de produção precisa registrar executores autorizados e telemetria
  * antes de considerar qualquer agente operacional.
@@ -16,6 +16,7 @@ export const RJ_AGENT_DEFINITIONS = Object.freeze([
   {id:'voz-perguntas',name:'Assistente de voz e perguntas',cadence:'ON_DEMAND',access:'ADMIN',scope:'RJ',description:'Responder perguntas usando dados válidos, sem histórico desnecessário de voz/localização.'},
   {id:'fiscalizacao-fontes',name:'Fiscalização de fontes e licenças',cadence:'HOURLY',access:'ADMIN',scope:'RJ',description:'Bloquear fonte sem licença, domínio, produto, timestamp ou jurisdição verificados.'},
   {id:'seguranca-escala',name:'Segurança, assinaturas e escala',cadence:'CONTINUOUS_MONITOR',access:'ADMIN',scope:'RJ',description:'Autorização P0/premium, anomalias, limites de recursos, canary e rollback.'},
+  {id:'blaise-ia-pesquisa',name:'Blaise IA — Pesquisa e Respostas em Tempo Real',cadence:'ON_DEMAND',access:'PUBLIC_QUERY_WITH_SERVER_GATES',scope:'RJ_SUDESTE_SOUTH_ATLANTIC_RELEVANT_GLOBAL_CLIMATE',description:'Interpretar perguntas livres sobre meteorologia, clima, El Niño/La Niña e aquecimento global; fundamentar respostas em evidências autorizadas, datadas e citadas. Sem fontes/IA conectadas, informar indisponibilidade.'},
 ].map(row=>Object.freeze(row)));
 
 const APPROVED_SOURCE_IDS = new Set([
