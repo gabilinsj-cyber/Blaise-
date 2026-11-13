@@ -2159,6 +2159,12 @@ private fun MarineWarningHistoryPanel() {
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
     Spacer(Modifier.height(14.dp))
+    br.com.blaise.rj.science.RjScientificCityPanel(
+        cities = listOf(city1, city2),
+        reports = LocalCityWeather.current,
+        now = LocalObservationClock.current,
+    )
+    Spacer(Modifier.height(14.dp))
     StatewideMunicipalitiesPanel()
     Spacer(Modifier.height(14.dp))
     DashboardSection(
