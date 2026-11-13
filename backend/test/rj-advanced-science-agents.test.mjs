@@ -37,9 +37,10 @@ test('CAPE/CIN rejects missing or excessively gapped vertical profile',()=>{
     {heightAglM:2000,environmentVirtualTemperatureK:300,parcelVirtualTemperatureK:302},
   ]}));
 });
-test('exact ten agents registered but NOT auto enabled',()=>{
-  assert.equal(RJ_AGENT_DEFINITIONS.length,10);
-  assert.equal(new Set(RJ_AGENT_DEFINITIONS.map(x=>x.id)).size,10);
+test('eleven RJ agents registered but NOT auto enabled',()=>{
+  assert.equal(RJ_AGENT_DEFINITIONS.length,11);
+  assert.equal(new Set(RJ_AGENT_DEFINITIONS.map(x=>x.id)).size,11);
+  assert.equal(RJ_AGENT_DEFINITIONS.at(-1).id,'blaise-ia-pesquisa');
   assert.ok(rjAgentCatalog().every(x=>!x.operational));
 });
 test('excluded sources rejected even with executable callbacks',async()=>{
