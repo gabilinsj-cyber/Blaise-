@@ -1,5 +1,5 @@
 /**
- * Blaise V6 RJ: registry of twelve functional agents (ten historical + agents 11 and 12 on demand).
+ * Blaise V6 RJ: registry of thirteen functional agents (ten historical + agents 11, 12 and 13).
  *
  * Registry != ten running processes. Each entry states capabilities already in
  * the repo and tasks still needing real source integration, production IAM,
@@ -9,7 +9,7 @@
  */
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 
-export const RJ_AGENT_REGISTRY_VERSION = 'blaise-v6-rj-agents-2026-11-13-v2';
+export const RJ_AGENT_REGISTRY_VERSION = 'blaise-v6-rj-agents-2026-11-13-v3';
 export const RJ_AGENT_PROJECT = 'Blaise V6 RJ';
 const NOT_DEPLOYED = 'SPECIFIED_NOT_AUTONOMOUSLY_DEPLOYED';
 const create = (number, name, responsibility, sourceKinds, components, blockers, historicalName = 'APPROVED') => Object.freeze({
@@ -91,10 +91,19 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['Política de coleta e licenças comerciais de cada produto meteorológico',
       'Validação do mapa próprio e dos 33 pontos geográficos',
       'Executor de servidor protegido, prova de frescor, auditoria e autorização de produção']),
+
+  create(13, 'Blaise OpenWeather RJ — Dados Meteorológicos',
+    'Obter estimativas atuais da One Call API 4.0 via servidor com segredo protegido, limites de custo, cache compartilhado e rastreabilidade; não transformar previsões em observações oficiais.',
+    ['OPENWEATHER_ONECALL4_CURRENT'],
+    ['rj-openweather-onecall4.mjs','rj-openweather-agent13.mjs','blaise-rj-agent-supervisor.mjs'],
+    ['Nova chave apenas no gerenciador de segredos do servidor, nunca no app ou no GitHub',
+      'Assinatura One Call e faturamento com teto diário conferidos',
+      'Cache distribuído e contador atômico para limite total de consultas',
+      'Ativação operacional, homologação de dados reais e integração ao mapa existente']),
 ]);
 
-if (BLAISE_RJ_AGENTS.length !== 12 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 12) {
-  throw new Error('rj_agent_registry_must_have_twelve_unique_agents');
+if (BLAISE_RJ_AGENTS.length !== 13 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 13) {
+  throw new Error('rj_agent_registry_must_have_thirteen_unique_agents');
 }
 
 export const RJ_AGENT_CADENCE = Object.freeze({
@@ -112,7 +121,7 @@ export const RJ_AGENT_CADENCE = Object.freeze({
 });
 
 export function agentByNumber(number) {
-  if (!Number.isInteger(number) || number < 1 || number > 12) throw new RangeError('unknown_rj_agent');
+  if (!Number.isInteger(number) || number < 1 || number > 13) throw new RangeError('unknown_rj_agent');
   return BLAISE_RJ_AGENTS[number - 1];
 }
 export function rjCadenceForLevel(level, { independentOfficialLevel5Alerts = 0, scientificRevalidationLevel = null } = {}) {
