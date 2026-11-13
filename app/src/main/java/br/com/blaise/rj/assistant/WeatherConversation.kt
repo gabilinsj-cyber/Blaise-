@@ -54,9 +54,12 @@ class WeatherConversation {
         val all = normalizedSpeech(question)
         if (all.contains("fim de semana") || all.contains("final de semana") || all.contains("semana que vem"))
             return ConversationAction.Reply("Entendi a consulta para ${resolved.name}. Ainda não tenho previsão validada para esse período; não vou usar as condições atuais como previsão.")
-        val supported = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover", "alerta", "aviso", "risco", "alagamento", "inundacao", "cheia", "deslizamento", "noticia", "transito", "abalo", "sismo", "terremoto", "tsunami", "maremoto", "onda", "swell", "ressaca", "atlantico")
-        if (supported.none(all::contains))
-            return ConversationAction.Reply("Entendi a pergunta para ${resolved.name}, mas ainda não tenho dados oficiais validados para esse assunto. Não posso confirmar condições ou riscos agora.")
+        val intents = RjClientIntentClassifier.identify(question)
+        if (!intents.recognized)
+            return ConversationAction.Reply(
+                "Não consegui identificar o assunto da pergunta com segurança para ${resolved.name}. " +
+                "Pode dizer se deseja temperatura, chuva, vento, alertas, mar, trânsito ou outro fenômeno?"
+            )
         val date = if (all.contains("amanha")) today.plusDays(1) else today
         val scope = confirmedScope
         return ConversationAction.Query(WeatherRequest(resolved, question, date, scope))
