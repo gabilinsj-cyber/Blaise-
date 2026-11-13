@@ -43,8 +43,8 @@ android {
         applicationId = "br.com.blaise.rj"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6000001
-        versionName = "6.0.0-rc.1"
+        versionCode = 6000002
+        versionName = "6.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BLAISE_MONTHLY_PRODUCT_ID", buildConfigString(monthlyProductId))
         buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
