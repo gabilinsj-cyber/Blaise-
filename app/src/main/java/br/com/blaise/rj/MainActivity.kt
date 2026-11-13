@@ -926,6 +926,14 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
                         if (information != null && !needsWeather) information
                         else if (regional != null && !needsWeather) regional
+                        else if (!needsWeather) {
+                            // Recognizing a question is NOT proof that its live data product
+                            // exists. Never answer maritime, UV, infrastructure or health
+                            // topics by substituting an unrelated temperature observation.
+                            br.com.blaise.rj.assistant.RjClientIntentClassifier
+                                .identify(request.question)
+                                .unavailableExplanation(request.localScope ?: request.city.name)
+                        }
                         else {
                             // A question about a specific station or neighbourhood must use
                         // the explicitly scoped official fetch, never municipal snapshots.
