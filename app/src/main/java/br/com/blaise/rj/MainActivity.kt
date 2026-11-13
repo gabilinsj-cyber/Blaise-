@@ -543,6 +543,16 @@ private fun BlaiseDashboard(
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
+                        if (powerOn && selectedSection == "Início") {
+                            RjOriginalLiveOverview(
+                                first = city1, second = city2,
+                                reports = LocalCityWeather.current,
+                                rioStations = LocalRioStations.current,
+                                backend = LocalBackendDashboard.current,
+                                now = LocalObservationClock.current,
+                                onSources = { onSelectSection("Mais") },
+                            )
+                        }
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
