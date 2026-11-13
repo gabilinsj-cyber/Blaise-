@@ -514,7 +514,8 @@ private fun BlaiseDashboard(
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize().background(Navy).safeDrawingPadding(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 760.dp
+                val wide = maxWidth >= 700.dp &&
+                    LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                 Column(Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -2987,11 +2988,16 @@ private fun DashboardSection(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = NavyRaised),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Divider),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(1.dp, Color(0xFF2E7CB7)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF154777), Color(0xFF092546))))
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
             Text(title, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
             Text(subtitle, color = Muted, style = MaterialTheme.typography.labelSmall)
             content()
@@ -3174,15 +3180,23 @@ private fun CityPanel(
     }
     Surface(
         modifier = modifier,
-        color = Panel,
+        color = Color.Transparent,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFF2777B0)),
+        border = BorderStroke(1.dp, Color(0xFF3389D3)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(9.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF164A84), Color(0xFF0A2850))))
+                .padding(9.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(label, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.weight(1f))
+                Text(city.name, color = Gold, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f), maxLines = 1)
                 Text("RJ", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("⌄", color = Gold, style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.clickable(onClick = onChoose).padding(horizontal = 3.dp))
             }
             if (skyline != null) {
                 Image(
