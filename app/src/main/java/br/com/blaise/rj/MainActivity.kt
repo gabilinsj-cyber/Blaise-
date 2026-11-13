@@ -1376,7 +1376,7 @@ private fun ScientificReadoutsPanel(city: City, modifier: Modifier = Modifier) {
 private fun AgentStatusPanel(modifier: Modifier = Modifier) {
     var details by remember { mutableStateOf(false) }
     DashboardSection(
-        title = "BLAISE • 10 AGENTES CIENTÍFICOS E DE SEGURANÇA",
+        title = "BLAISE • 11 AGENTES, INCLUINDO PESQUISA IA",
         subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
         modifier = modifier.testTag("ten-agents-panel"),
     ) {
@@ -1386,7 +1386,7 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
         val latestFailure = LocalWeatherAudits.current.lastOrNull { "UNAVAILABLE" in it.reason || "MISMATCH" in it.reason || it.reason.startsWith("SOURCE_FAILURE") }
         latestFailure?.let { Text("Auditoria de fonte • IBGE ${it.municipalityIbge} • ${it.reason}",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-        Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
+        Text("11 agentes cadastrados • agente de pesquisa IA por solicitação. Consulta online ainda exige integração autorizada.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         val seismic = LocalSeismic.current
         val news = LocalNews.current
@@ -1397,16 +1397,16 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
-            Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
+            Text(if (details) "Recolher funções dos 11 agentes" else "Ver funções dos 11 agentes")
         }
         if (details) {
             AlertDialog(
                 onDismissRequest = { details = false },
-                title = { Text("Funções dos 10 agentes") },
+                title = { Text("Funções dos 11 agentes") },
                 text = {
                     Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        BlaiseAgentDashboard.tenAgents.forEach { agent ->
+                        BlaiseAgentDashboard.elevenAgents.forEach { agent ->
                             Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.labelSmall)
                             Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
