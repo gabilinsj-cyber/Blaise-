@@ -29,6 +29,16 @@ class RjSourceCatalogTest {
         ))
     }
 
+    @Test fun maritimePanelsRejectLegacyAndUnrecognizedSourceNames() {
+        for (forbidden in listOf("INEA", "Marinha do Brasil", "CHM", "Copernicus", "Windy",
+            "NOAA from CHM cache", "Unknown vendor")) {
+            assertFalse(RjSourceCatalog.mayShowMarineSource(forbidden))
+        }
+        assertTrue(RjSourceCatalog.mayShowMarineSource("NOAA GFS-Wave"))
+        assertTrue(RjSourceCatalog.mayShowMarineSource("INPE / CPTEC"))
+        assertTrue(RjSourceCatalog.mayShowMarineSource("EUMETSAT"))
+    }
+
     @Test fun catalogNeverInventsLiveAvailability() {
         val noaa = RjSourceCatalog.meteorological.first { it.id == "noaa" }
         assertEquals("Conexão em tempo real não comprovada", RjSourceCatalog.connectionLabel(noaa, null))
