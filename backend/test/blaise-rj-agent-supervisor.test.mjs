@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createRjAgentSupervisor,rjAgentDueIntervalMs}
   from '../src/blaise-rj-agent-supervisor.mjs';
 
-test('twelve agents have bounded normal/severe/extreme cadence without timers',()=>{
+test('thirteen agents have bounded normal/severe/extreme cadence without timers',()=>{
   assert.equal(rjAgentDueIntervalMs('calculos-severos'),300000);
   assert.equal(rjAgentDueIntervalMs('calculos-severos',{severity:3}),60000);
   assert.equal(rjAgentDueIntervalMs('calculos-severos',{severity:5}),30000);
@@ -12,6 +12,7 @@ test('twelve agents have bounded normal/severe/extreme cadence without timers',(
   assert.equal(rjAgentDueIntervalMs('voz-perguntas'),null);
   assert.equal(rjAgentDueIntervalMs('blaise-ia-pesquisa'),null);
   assert.equal(rjAgentDueIntervalMs('geodados-fusao-licenciada'),null);
+  assert.equal(rjAgentDueIntervalMs('openweather-rj'),null);
   assert.throws(()=>rjAgentDueIntervalMs('unknown'));
 });
 test('supervisor never runs handlers without explicit enable',async()=>{
@@ -19,7 +20,7 @@ test('supervisor never runs handlers without explicit enable',async()=>{
   const s=createRjAgentSupervisor({handlers:{'transito-rj':{run:()=>runs++}}});
   assert.equal((await s.tick()).status,'DISABLED');
   assert.equal(runs,0);
-  assert.equal(s.snapshot().length,12);
+  assert.equal(s.snapshot().length,13);
   assert.ok(s.snapshot().every(x=>x.lastAttemptAt===null));
 });
 test('supervisor throttles duplicate polls and never auto-activates nonexistent agents',async()=>{
