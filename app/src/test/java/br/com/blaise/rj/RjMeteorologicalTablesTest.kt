@@ -14,7 +14,7 @@ class RjMeteorologicalTablesTest {
         )
         assertEquals(expected, RjMeteorologicalTables.table1.take(10).map { it.code })
         assertTrue(RjMeteorologicalTables.table1.take(10).all {
-            it.priority.contains("OpenWeatherMap")
+            it.priority.contains("Alerta Rio") && !it.priority.contains("Windy")
         })
     }
 
@@ -32,7 +32,7 @@ class RjMeteorologicalTablesTest {
         val byKey = RjMeteorologicalTables.table1.associateBy { it.code }
         listOf("ONDAS","SWELL","RESSACA","MARE","CORRENTES_MARINHAS",
             "TEMPERATURA_MAR").forEach {
-            assertTrue(byKey[it]?.priority?.contains("Copernicus Marine") == true)
+            assertTrue(byKey[it]?.priority?.contains("NOAA") == true)
         }
         listOf("CICLONE_EXTRATROPICAL","CHUVA_ATLANTICO").forEach {
             assertTrue(byKey[it]?.priority?.contains("EUMETSAT") == true)
@@ -68,12 +68,23 @@ class RjMeteorologicalTablesTest {
         for (entry in RjMeteorologicalTables.marineTable) {
             assertTrue(entry.linkedPhenomena.isNotEmpty())
             assertTrue(entry.linkedPhenomena.all { it in available })
-            assertTrue(entry.sources.contains("Marinha") || entry.sources.contains("NOAA"))
+            assertTrue(entry.sources.contains("NOAA") || entry.sources.contains("INPE/CPTEC"))
         }
         val by=RjMeteorologicalTables.marineTable.associateBy { it.code }
         assertTrue(by.getValue("CICLONES_OCEANICOS").sources.contains("EUMETSAT"))
-        assertTrue(by.getValue("ONDAS_SWELL").sources.contains("Copernicus"))
+        assertTrue(by.getValue("ONDAS_SWELL").sources.contains("NOAA"))
         assertFalse(by.getValue("TSUNAMI").sources.contains("EUMETSAT"))
+        assertEquals(
+            listOf("INMET", "INPE/CPTEC", "NOAA", "CEMADEN", "JAXA/GSMaP", "EUMETSAT"),
+            RjMeteorologicalTables.disputeTable2Sources
+        )
+        val forbidden = listOf("Marinha", "CHM", "INEA", "Windy", "Copernicus", "OpenWeatherMap")
+        assertTrue(RjMeteorologicalTables.table1.none { row ->
+            forbidden.any { it in row.priority }
+        })
+        assertTrue(RjMeteorologicalTables.marineTable.none { row ->
+            forbidden.any { it in row.sources }
+        })
     }
 
 }
