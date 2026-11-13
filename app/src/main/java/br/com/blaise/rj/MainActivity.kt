@@ -279,13 +279,9 @@ fun BlaiseApp(
             warningHistory = next
             warningHistoryStore.write(next)
         }
-        val marine = current?.marine?.takeIf { it.current(observationClock) }
-        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock,
-            current?.warningInventories?.firstOrNull { it.sourceId == "chm" })
-        if (nextMarine != marineHistory) {
-            marineHistory = nextMarine
-            marineHistoryStore.write(nextMarine)
-        }
+        // Previously cached excluded marine products are not read, merged, or
+        // written back. Preserved archive remains untouched for audited cleanup.
+
     }
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
@@ -424,7 +420,11 @@ fun BlaiseApp(
             }
         },
         LocalPublicRjStatus provides if (powerOn) ((publicRjStatus as? PublicRjStatusResult.Available)?.let {
-            PublicRjStatusResult.Available(it.snapshot.suppressWithdrawn(warningHistory, marineHistory))
+            val visible = it.snapshot.suppressWithdrawn(warningHistory, emptyList())
+            PublicRjStatusResult.Available(visible.copy(
+                marine = null,
+                warningInventories = visible.warningInventories.filterNot { row -> row.sourceId == "chm" },
+            ))
         } ?: publicRjStatus) else PublicRjStatusResult.Unavailable,
         LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
             ((statewideDashboard as? StatewideDataResult.Available)?.let { result ->
@@ -1988,29 +1988,11 @@ private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false)
     }
 }
 
+/** Excluded legacy provider cannot appear as historical warnings in RJ. */
 @Composable
 private fun MarineWarningHistoryPanel() {
-    val now = LocalObservationClock.current
-    val records = LocalOfficialMarineHistory.current.filter {
-        !it.localActiveUntil().isAfter(now) && it.retainHistory(now)
-    }
-    if (records.isEmpty()) return
-    Spacer(Modifier.height(14.dp))
-    DashboardSection("HISTÓRICO MARÍTIMO • MARINHA / CHM", "Registros encerrados no Blaise • não representam risco atual") {
-        records.forEach { warning ->
-            val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
-            val zone = java.time.ZoneId.of("America/Sao_Paulo")
-            val closed = warning.localActiveUntil()
-            Text("${warning.id} • ${warning.warningType} • ${warning.areas.joinToString()}", color = Muted)
-            Text("Emissão ${warning.issuedAt.atZone(zone).format(format)} • encerramento local ${closed.atZone(zone).format(format)} • histórico até ${closed.plusSeconds(AlertValidityPolicy.HISTORY_SECONDS).atZone(zone).format(format)} (Brasília)",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-            if (warning.localClosedAt != null) Text("Retirada confirmada no feed da fonte.", color = Muted)
-            Text("Fonte: Marinha / CHM • aviso regional METAREA V, sem atribuição automática a município.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", color = Muted,
-                style = MaterialTheme.typography.labelSmall)
-        }
-    }
+    // Source-dependent public history will be restored for an approved,
+    // authenticated Brazilian authority product with verified timestamps.
 }
 
 @Composable
@@ -2124,8 +2106,7 @@ private fun MarineScreen() {
 @Composable
 private fun RjMarineSourceMatrixPanel() {
     val clock = LocalObservationClock.current
-    val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val canRefresh = LocalPublicStatusConfigured.current
     val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
@@ -2339,7 +2320,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
     val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock)
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
-    val marine = public?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val sourceEvidence = RjSourceConnectionEvidence.rows(
         municipalityIbge=city.ibgeCode, observation=observation,
         rioStations=LocalRioStations.current, status=public, now=clock,
@@ -2523,7 +2504,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 2 • Cinco fontes de desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
-            Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
+            Text(RjMeteorologicalTables.disputeTable2Sources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
             Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
@@ -2764,8 +2745,7 @@ private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = nu
 @Composable
 private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
     val clock = LocalObservationClock.current
-    val marine=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val wave=RjLiveTableEvidence.marine("ONDAS",marine,clock)
     val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
     val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
@@ -3199,7 +3179,7 @@ private fun FooterSources() {
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
-            Text("Clima • Alertas • Radar • Risco • Marinha • Trânsito", color = Color.White)
+            Text("Clima • Alertas • Radar • Risco • NOAA • Trânsito", color = Color.White)
             Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
             Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
         }
