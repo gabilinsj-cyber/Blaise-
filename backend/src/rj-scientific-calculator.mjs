@@ -63,6 +63,22 @@ export function weightedOfficialMean({
   if (new Set(observations.map(o => `${o.sourceId}:${o.stationId}`)).size !== observations.length) {
     return insufficient('DUPLICATE_STATION');
   }
+  // COR.Rio disseminates weather observations from Alerta Rio and other
+  // upstream networks. A redistribution channel is NOT a second measuring
+  // provider. For this calculation, request station data from the verified
+  // upstream producer instead of counting the COR mirror as independent.
+  const retiredOrMirror = new Set([
+    'COR_RIO','COR.RIO','COR_RIO_REPUBLISHED',
+    'INEA','MARINHA_CHM','CHM','WINDY','COPERNICUS_MARINE'
+  ]);
+  if (observations.some(o => retiredOrMirror.has(String(o.sourceId).toUpperCase()))) {
+    return insufficient('EXCLUDED_OR_REPUBLISHED_SOURCE_NOT_INDEPENDENT');
+  }
+  const originalProviders = observations.map(o =>
+    String(o.originalSourceId || o.upstreamSourceId || o.sourceId).toUpperCase());
+  if (new Set(originalProviders).size !== observations.length) {
+    return insufficient('DUPLICATE_UPSTREAM_PROVIDER_NOT_INDEPENDENT');
+  }
   const times = observations.map(o => Date.parse(o.observedAt));
   if (Math.max(...times) - Math.min(...times) > Math.min(maxSkewMs,300_000)) {
     return insufficient('OBSERVATION_TIMES_NOT_COMPARABLE');
@@ -79,6 +95,9 @@ export function weightedOfficialMean({
     variable: first.variable,
     ibge: first.ibge,
     sourceCount: observations.length,
+    publicLabel: 'Média ponderada de duas medições oficiais',
+    technicalSourcesMustRemainAvailable: true,
+    attributionAndReuseTermsMustBeHonored: true,
     sourceIds: Object.freeze([...new Set(observations.map(o => o.sourceId))]),
     observedAt: new Date(Math.max(...times)).toISOString(),
     caution: 'ESTIMATIVA_LOCAL_NAO_MEDICAO_MUNICIPAL_NEM_ALERTA_OFICIAL',
