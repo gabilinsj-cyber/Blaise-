@@ -75,7 +75,7 @@ class RjLiveTableEvidenceTest {
             .contains("Não calcular média"))
     }
 
-    @Test fun officialMarineRegionalWarningNeverBecomesMunicipalRessacaPrediction() {
+    @Test fun excludedMarineInventoryNeverBecomesPublicWarningOrWeatherMeasurement() {
         val warning=PublicRjMarineWarning(
             id="321/2026",warningType="AVISO DE RESSACA",
             issuedAt=stamp,validUntil=now.plusSeconds(3600),areas=listOf("CHARLIE"),
@@ -85,20 +85,20 @@ class RjLiveTableEvidenceTest {
             "https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo",
             listOf(warning))
         val waves=RjLiveTableEvidence.marine("ONDAS",marine,now)
-        assertEquals("AVISO_CHM_REGIONAL",waves.state)
-        assertTrue(waves.description.contains("3,5 m"))
-        assertTrue(waves.description.contains("METAREA V"))
+        assertEquals("SEM_PRODUTO_MARITIMO_VALIDADO",waves.state)
+        assertFalse(waves.description.contains("3,5 m"))
+        assertFalse(waves.description.contains("METAREA V"))
         assertFalse(waves.mayPublishAlert)
         val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,now)
-        assertEquals("AVISO_CHM_REGIONAL",ressaca.state)
+        assertEquals("SEM_PRODUTO_MARITIMO_VALIDADO",ressaca.state)
         val expired=RjLiveTableEvidence.marine("RESSACA",marine,now.plusSeconds(4_000))
-        assertEquals("SEM_AVISO_MARITIMO_VALIDADO",expired.state)
+        assertEquals("SEM_PRODUTO_MARITIMO_VALIDADO",expired.state)
     }
 
     @Test fun marineWithoutSpecificProductIsUnavailableWithoutZeroOrSafetyClaim() {
         val noMarine=RjLiveTableEvidence.marine("ONDAS",null,now)
-        assertEquals("SEM_AVISO_MARITIMO_VALIDADO",noMarine.state)
-        assertTrue(noMarine.description.contains("não confirma mar seguro"))
+        assertEquals("SEM_PRODUTO_MARITIMO_VALIDADO",noMarine.state)
+        assertTrue(noMarine.description.contains("não significa mar seguro"))
         assertEquals("SEM_PRODUTO_VALIDADO",RjLiveTableEvidence.municipality(
             "TEMPERATURA_MAR",3304557,station(),null,now).state)
     }

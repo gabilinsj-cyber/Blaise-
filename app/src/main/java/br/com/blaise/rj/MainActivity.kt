@@ -102,7 +102,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -117,6 +120,8 @@ import br.com.blaise.rj.billing.SubscriptionOffer
 import br.com.blaise.rj.billing.SubscriptionOffersSnapshot
 import br.com.blaise.rj.assistant.AssistantPolicy
 import br.com.blaise.rj.voice.DoraVoiceService
+import br.com.blaise.rj.voice.AndroidSystemVoiceService
+import br.com.blaise.rj.voice.BlaiseVoiceController
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -188,17 +193,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val Navy = Color(0xFF06182C)
-private val NavyRaised = Color(0xFF0A223D)
-private val Panel = Color(0xFF102D4F)
-private val PanelSoft = Color(0xFF15385F)
-private val Gold = Color(0xFFD9B64A)
+private val Navy = Color(0xFF06172E)
+private val NavyRaised = Color(0xFF092751)
+private val Panel = Color(0xFF10345F)
+private val PanelSoft = Color(0xFF153E72)
+private val Gold = Color(0xFFF2CA62)
 private val GoldSoft = Color(0xFFFFE39A)
 private val StableGreen = Color(0xFF57E389)
 private val AlertRed = Color(0xFFFF5D62)
 private val WarningAmber = Color(0xFFFFC857)
 private val Muted = Color(0xFFA8B5C5)
-private val Divider = Color(0xFF284A6D)
+private val Divider = Color(0xFF26669E)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
@@ -279,13 +284,9 @@ fun BlaiseApp(
             warningHistory = next
             warningHistoryStore.write(next)
         }
-        val marine = current?.marine?.takeIf { it.current(observationClock) }
-        val nextMarine = marineHistoryStore.merge(marineHistory, marine?.warnings.orEmpty(), observationClock,
-            current?.warningInventories?.firstOrNull { it.sourceId == "chm" })
-        if (nextMarine != marineHistory) {
-            marineHistory = nextMarine
-            marineHistoryStore.write(nextMarine)
-        }
+        // Previously cached excluded marine products are not read, merged, or
+        // written back. Preserved archive remains untouched for audited cleanup.
+
     }
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
@@ -349,7 +350,9 @@ fun BlaiseApp(
                     cities.map { city -> async {
                         city.ibgeCode to weatherClient.citySnapshot(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
-                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                            // Automatic collection is municipal. Centro do Rio remains on-demand;
+                            // a different station must never be mislabeled as Centro.
+                            null,
                         ))
                     } }.map { it.await() }.toMap()
                 }
@@ -422,7 +425,11 @@ fun BlaiseApp(
             }
         },
         LocalPublicRjStatus provides if (powerOn) ((publicRjStatus as? PublicRjStatusResult.Available)?.let {
-            PublicRjStatusResult.Available(it.snapshot.suppressWithdrawn(warningHistory, marineHistory))
+            val visible = it.snapshot.suppressWithdrawn(warningHistory, emptyList())
+            PublicRjStatusResult.Available(visible.copy(
+                marine = null,
+                warningInventories = visible.warningInventories.filterNot { row -> row.sourceId == "chm" },
+            ))
         } ?: publicRjStatus) else PublicRjStatusResult.Unavailable,
         LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
             ((statewideDashboard as? StatewideDataResult.Available)?.let { result ->
@@ -509,7 +516,8 @@ private fun BlaiseDashboard(
     MaterialTheme(colorScheme = BlaiseScheme) {
         Surface(modifier = Modifier.fillMaxSize().background(Navy).safeDrawingPadding(), color = Navy) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 760.dp
+                val wide = maxWidth >= 700.dp &&
+                    LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                 Column(Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -520,28 +528,21 @@ private fun BlaiseDashboard(
                         verticalArrangement = Arrangement.spacedBy(if (wide) 6.dp else 9.dp),
                     ) {
                         if (wide) {
-                            Row(
+                            RjReferenceLandscapeHeader(powerOn, onPowerChange, onSelectSection)
+                            AssistantPanel(
+                                selectedCity = city1,
+                                onNavigate = onSelectSection,
+                                voiceEnabled = powerOn && !silentMode,
+                                appEnabled = powerOn,
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                AppHeader(powerOn, onPowerChange, onSelectSection, Modifier.weight(0.42f), compact = true)
-                                AssistantPanel(
-                                    selectedCity = city1,
-                                    onNavigate = onSelectSection,
-                                    voiceEnabled = powerOn && !silentMode,
-                                    appEnabled = powerOn,
-                                    modifier = Modifier.weight(0.58f),
-                                    compact = true,
-                                )
-                            }
+                                compact = true,
+                            )
                         } else {
                             AppHeader(powerOn, onPowerChange, onSelectSection)
                             AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
-
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
@@ -599,10 +600,118 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
         contentScale = ContentScale.Fit)
 }
 
+/**
+ * Recreates the approved September reference's wide, dark-blue masthead
+ * WITHOUT carrying over any illustrated historical temperatures or warnings.
+ * Time, measurement date, and warning count come from current product state.
+ */
+@Composable
+private fun RjReferenceLandscapeHeader(
+    powerOn: Boolean,
+    onPowerChange: (Boolean) -> Unit,
+    onNavigate: (String) -> Unit,
+) {
+    val now = LocalObservationClock.current
+    val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    val local = now.atZone(zone)
+    val date = local.format(java.time.format.DateTimeFormatter.ofPattern(
+        "EEEE, dd 'de' MMMM 'de' yyyy", java.util.Locale.forLanguageTag("pt-BR")))
+    val time = local.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    val latest = (
+        LocalCityWeather.current.values.mapNotNull { it.currentObservation(now)?.observedAt } +
+        LocalRioStations.current.filter { it.source == "Alerta Rio" && it.current(now) }
+            .map { it.observedAt }
+    ).maxOrNull()
+    val validPublic = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }
+    val warningCount = LocalWeatherCities.current.distinctBy { it.ibgeCode }
+        .flatMap { city -> validPublic?.warningsFor(city.ibgeCode, now).orEmpty() }
+        .distinctBy { it.id }.size
+    var help by remember { mutableStateOf(false) }
+    if (help) {
+        AlertDialog(
+            onDismissRequest = { help = false },
+            title = { Text("Ajuda • Blaise V6 RJ") },
+            text = { Text("Selecione as duas cidades, consulte medições com fonte e horário, " +
+                "mapa, mar, gráficos e avisos oficiais. Pergunte por voz ou texto. " +
+                "Um mapa-base não é radar; dados indisponíveis não significam ausência de risco.") },
+            confirmButton = { TextButton(onClick = { help = false }) { Text("Fechar") } },
+        )
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("rj-reference-landscape-header"),
+        color = Color(0xFF09254A),
+        shape = RoundedCornerShape(17.dp),
+        border = BorderStroke(1.dp, Color(0xFF268AE0)),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(Modifier.weight(0.38f), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    modifier = Modifier.size(53.dp),
+                    color = Panel,
+                    shape = RoundedCornerShape(11.dp),
+                    border = BorderStroke(1.dp, Gold),
+                ) { BlaiseAvatar(Modifier.fillMaxSize()) }
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text("BLAISE V6 RJ", fontSize = 22.sp, color = Gold,
+                        fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    Text("Clima e Tempo", color = Color.White,
+                        style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
+            }
+            val activeColor = if (powerOn) StableGreen else AlertRed
+            Surface(
+                modifier = Modifier.testTag("power-indicator")
+                    .clickable { onPowerChange(!powerOn) },
+                color = if (powerOn) Color(0xFF0B3B2B) else Color(0xFF46212C),
+                shape = RoundedCornerShape(40.dp),
+                border = BorderStroke(2.dp, activeColor),
+            ) {
+                Text(if (powerOn) "⏻  LIGADO" else "⏻  DESLIGADO",
+                    modifier = Modifier.padding(horizontal = 17.dp, vertical = 9.dp),
+                    color = if (powerOn) Color.White else Color(0xFFFFE4E5),
+                    fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1)
+            }
+            Column(Modifier.weight(0.35f), horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                Text(date, color = Color.White, style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1)
+                Text(time, color = Color.White, fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Text(latest?.let {
+                    "Medição: " + it.atZone(zone).format(
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                } ?: "Medição atual não confirmada", color = Muted,
+                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+            TextButton(onClick = { onNavigate("Alertas") }) {
+                Text(if (warningCount > 0) "🔔 $warningCount" else "Alertas",
+                    color = if (warningCount > 0) WarningAmber else Color.White,
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(onClick = { onNavigate("Mais") }) {
+                Text("⚙", color = Gold, style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = { help = true }) {
+                Text("?", color = Gold, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val clock = LocalObservationClock.current
-    val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latest = (
+        LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt } +
+        LocalRioStations.current.filter { it.current(clock) && it.source == "Alerta Rio" }.map { it.observedAt }
+    ).maxOrNull()
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM • HH:mm"))
     Card(
@@ -665,7 +774,10 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
 private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val voice = remember(context) { DoraVoiceService(context) }
+    val voice: BlaiseVoiceController = remember(context) {
+        if (BuildConfig.BLAISE_OFFLINE_DORA) DoraVoiceService(context)
+        else AndroidSystemVoiceService(context)
+    }
     val scope = rememberCoroutineScope()
     var speechJob by remember { mutableStateOf<Job?>(null) }
     var speechRequest by remember { mutableStateOf(0) }
@@ -690,8 +802,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
         speaking = true
         speechJob = scope.launch {
             try {
-                voice.speak(text).onFailure {
-                    if (request == speechRequest) voiceError = "Não foi possível reproduzir a voz Dora. Tente novamente."
+                voice.speak(text).onFailure { error ->
+                    if (request == speechRequest) voiceError =
+                        if (error.message?.contains("Voz feminina") == true ||
+                            error.message?.contains("voz feminina") == true)
+                            error.message
+                        else "Não foi possível reproduzir a voz. Confira o mecanismo de fala em português do Android."
                 }
             } finally {
                 if (request == speechRequest) speaking = false
@@ -722,7 +838,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val reports = LocalCityWeather.current
     val clock = LocalObservationClock.current
     val bulletinPeriod = BulletinPolicy.currentPeriod(clock.atZone(java.time.ZoneId.of("America/Sao_Paulo")))
-    val centre = reports[3304557]?.summary(clock) ?: "Consultando medição oficial do Centro do Rio."
+    val centre = "Sem medição específica validada para o Centro; uma estação de outro bairro não representa o Centro do Rio."
     val chosen = reports[selectedCity.ibgeCode]?.summary(clock) ?: "Consultando medição oficial de ${selectedCity.name}."
     val publicOfficial = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
@@ -807,6 +923,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 queryJob = scope.launch {
                     val result = try {
                         val request = action.request
+                        if (request.researchGeography != null) {
+                            br.com.blaise.rj.assistant.RjOnlineResearchClient.answer(request)
+                                ?: "Blaise IA • identifiquei a pergunta sobre clima e região, " +
+                                    "mas o serviço de pesquisa online autorizado ainda não está " +
+                                    "disponível. Não vou apresentar dados antigos como atuais."
+                        } else {
                         val information = br.com.blaise.rj.assistant.liveInformationAnswer(
                             latestOfficial, latestNews, latestSeismic, request, Instant.now())
                         val regional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
@@ -814,11 +936,32 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
                         if (information != null && !needsWeather) information
                         else if (regional != null && !needsWeather) regional
+                        else if (!needsWeather) {
+                            // Recognizing a question is NOT proof that its live data product
+                            // exists. Never answer maritime, UV, infrastructure or health
+                            // topics by substituting an unrelated temperature observation.
+                            br.com.blaise.rj.assistant.RjOnlineResearchClient.answer(request)
+                                ?: br.com.blaise.rj.assistant.RjClientIntentClassifier
+                                    .identify(request.question)
+                                    .unavailableExplanation(request.localScope ?: request.city.name)
+                        }
                         else {
-                            val measured = sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
-                                ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
+                            // A question about a specific station or neighbourhood must use
+                        // the explicitly scoped official fetch, never municipal snapshots.
+                        val normalized = br.com.blaise.rj.assistant.normalizedSpeech(request.question)
+                        val futureOrForecast = request.date != java.time.LocalDate.now(
+                            java.time.ZoneId.of("America/Sao_Paulo")) ||
+                            listOf("vai", "previsao", "amanha", "maxima", "minima",
+                                "praia", "quando").any(normalized::contains)
+                        val measured = if (request.localScope != null) {
+                            if (futureOrForecast)
+                                "Previsão para ${request.localScope}: sem produto oficial validado; a medição atual não é previsão."
+                            else OfficialWeatherClient().currentCity(request).summary(Instant.now())
+                        } else sharedSnapshots[request.city.ibgeCode]?.answer(request, Instant.now())
+                            ?: "Sem snapshot validado para ${request.city.name}; selecione este município para atualizar os dados compartilhados."
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                             listOfNotNull(measured, information ?: freshRegional).joinToString("\n\n")
+                        }
                         }
                     } catch (error: CancellationException) {
                         if (error !is TimeoutCancellationException) throw error
@@ -1099,6 +1242,14 @@ private fun HomeScreen(
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
                 DailyChartPanel(city1, Modifier.fillMaxWidth())
+                RjOriginalLiveOverview(
+                    first = city1, second = city2,
+                    reports = LocalCityWeather.current,
+                    rioStations = LocalRioStations.current,
+                    backend = LocalBackendDashboard.current,
+                    now = LocalObservationClock.current,
+                    onSources = { onNavigate("Mais") },
+                )
                 ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1112,6 +1263,15 @@ private fun HomeScreen(
     } else {
         // Portrait: preserve the weather map as the first, largest panel.
         ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
+        Spacer(Modifier.height(10.dp))
+                RjOriginalLiveOverview(
+                    first = city1, second = city2,
+                    reports = LocalCityWeather.current,
+                    rioStations = LocalRioStations.current,
+                    backend = LocalBackendDashboard.current,
+                    now = LocalObservationClock.current,
+                    onSources = { onNavigate("Mais") },
+                )
         Spacer(Modifier.height(10.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
@@ -1224,7 +1384,7 @@ private fun ScientificReadoutsPanel(city: City, modifier: Modifier = Modifier) {
 private fun AgentStatusPanel(modifier: Modifier = Modifier) {
     var details by remember { mutableStateOf(false) }
     DashboardSection(
-        title = "BLAISE • 10 AGENTES CIENTÍFICOS E DE SEGURANÇA",
+        title = "BLAISE • 11 AGENTES, INCLUINDO PESQUISA IA",
         subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
         modifier = modifier.testTag("ten-agents-panel"),
     ) {
@@ -1234,7 +1394,7 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
         val latestFailure = LocalWeatherAudits.current.lastOrNull { "UNAVAILABLE" in it.reason || "MISMATCH" in it.reason || it.reason.startsWith("SOURCE_FAILURE") }
         latestFailure?.let { Text("Auditoria de fonte • IBGE ${it.municipalityIbge} • ${it.reason}",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-        Text("10 agentes cadastrados • execução autônoma em produção ainda não validada.",
+        Text("11 agentes cadastrados • agente de pesquisa IA por solicitação. Consulta online ainda exige integração autorizada.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         val seismic = LocalSeismic.current
         val news = LocalNews.current
@@ -1245,16 +1405,16 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
-            Text(if (details) "Recolher funções dos 10 agentes" else "Ver funções dos 10 agentes")
+            Text(if (details) "Recolher funções dos 11 agentes" else "Ver funções dos 11 agentes")
         }
         if (details) {
             AlertDialog(
                 onDismissRequest = { details = false },
-                title = { Text("Funções dos 10 agentes") },
+                title = { Text("Funções dos 11 agentes") },
                 text = {
                     Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        BlaiseAgentDashboard.tenAgents.forEach { agent ->
+                        BlaiseAgentDashboard.elevenAgents.forEach { agent ->
                             Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.labelSmall)
                             Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
@@ -1275,6 +1435,9 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
     val availableLayers = listOf("Radar", "Chuva", "Temperatura", "Sensação térmica", "Vento", "Nuvens")
     var selectedLayer by remember { mutableStateOf("Radar") }
     val snapshotTime = LocalObservationClock.current
+    val deviceLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val liveRadar = LocalRjMeasuredRadarFrame.current
+        ?.takeIf { RjRadarSpatialPolicy.current(it, snapshotTime) }
     val displayedSeries = LocalWeatherCities.current.distinctBy { it.ibgeCode }.mapNotNull {
         LocalMunicipalSnapshots.current[it.ibgeCode]?.currentSeries(snapshotTime)
     }
@@ -1321,17 +1484,17 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         }
         Surface(
             modifier = Modifier.fillMaxWidth()
-                .height(if (enlarged) 510.dp else 360.dp)
+                .height(if (enlarged) 520.dp else if (deviceLandscape) 395.dp else 360.dp)
                 .testTag("expanded-radar-map"),
             color = Color(0xFF071421),
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, Color(0xFF2777B0)),
         ) {
-            BoxWithConstraints {
+            Box(Modifier.fillMaxSize()) {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
                 if (selectedLayer == "Radar") {
                     RjRadarSpatialOverlay(
-                        LocalRjMeasuredRadarFrame.current, snapshotTime, mapZoom, Modifier.fillMaxSize(),
+                        liveRadar, snapshotTime, mapZoom, Modifier.fillMaxSize(),
                     )
                 }
                 if (stationMetric != null) {
@@ -1368,7 +1531,9 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         border = BorderStroke(1.dp, Gold),
                     ) { Text("−", modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp), color = Color.White, fontWeight = FontWeight.Bold) }
                 }
-                if (maxWidth >= 360.dp) {
+                // Approved screenshot: overlay menu inside the central map in landscape;
+                // portrait uses the accessible chips below the unobstructed map.
+                if (deviceLandscape) {
                     Surface(
                         modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
                             .width(105.dp).testTag("map-overlay-menu"),
@@ -1398,11 +1563,18 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                     border = BorderStroke(1.dp, WarningAmber),
                 ) {
                     Text(
-                        if (stationSample != null && stationSeries != null)
+                        if (selectedLayer == "Radar" && liveRadar != null)
+                            "RADAR MEDIDO • ${liveRadar.providerId} / ${liveRadar.radarId} • " +
+                                liveRadar.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
+                                " • ${liveRadar.cells.size} células • não é previsão."
+                        else if (stationSample != null && stationSeries != null)
                             "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
-                        else "$selectedLayer: sem medição pontual recente validada; radar e mapas interpolados indisponíveis.",
+                        else if (selectedLayer == "Radar")
+                            "Radar: aguardando quadro georreferenciado oficial, recente e licenciado. Nenhuma chuva foi simulada."
+                        else "$selectedLayer: sem medição pontual recente validada; mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        color = if (stationSample != null) Color.White else WarningAmber,
+                        color = if (stationSample != null || selectedLayer == "Radar" && liveRadar != null) Color.White else WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         textAlign = TextAlign.Center,
                     )
@@ -1414,6 +1586,34 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { enlarged = !enlarged }) {
                 Text(if (enlarged) "Reduzir" else "Ampliar")
+            }
+        }
+        if (selectedLayer == "Radar") {
+            Text(
+                if (liveRadar == null)
+                    "Escala de chuva do radar • nenhuma leitura atual disponível"
+                else "Escala de chuva do radar • quadro medido e validado",
+                color = Muted, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.testTag("rj-radar-legend-status"),
+            )
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                listOf(
+                    "Fraca" to Color(0xFF00B7ED),
+                    "Leve" to Color(0xFF20D75A),
+                    "Moderada" to Color(0xFFFFD528),
+                    "Forte" to Color(0xFFFF5D1A),
+                    "Extrema" to Color(0xFFDF36B5),
+                ).forEach { (name, tint) ->
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(Modifier.size(8.dp).background(tint, CircleShape))
+                        Text(name, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
         Text("SOBREPOSIÇÕES DO MAPA • verificar disponibilidade", color = Gold,
@@ -1973,34 +2173,22 @@ private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false)
     }
 }
 
+/** Excluded legacy provider cannot appear as historical warnings in RJ. */
 @Composable
 private fun MarineWarningHistoryPanel() {
-    val now = LocalObservationClock.current
-    val records = LocalOfficialMarineHistory.current.filter {
-        !it.localActiveUntil().isAfter(now) && it.retainHistory(now)
-    }
-    if (records.isEmpty()) return
-    Spacer(Modifier.height(14.dp))
-    DashboardSection("HISTÓRICO MARÍTIMO • MARINHA / CHM", "Registros encerrados no Blaise • não representam risco atual") {
-        records.forEach { warning ->
-            val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
-            val zone = java.time.ZoneId.of("America/Sao_Paulo")
-            val closed = warning.localActiveUntil()
-            Text("${warning.id} • ${warning.warningType} • ${warning.areas.joinToString()}", color = Muted)
-            Text("Emissão ${warning.issuedAt.atZone(zone).format(format)} • encerramento local ${closed.atZone(zone).format(format)} • histórico até ${closed.plusSeconds(AlertValidityPolicy.HISTORY_SECONDS).atZone(zone).format(format)} (Brasília)",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-            if (warning.localClosedAt != null) Text("Retirada confirmada no feed da fonte.", color = Muted)
-            Text("Fonte: Marinha / CHM • aviso regional METAREA V, sem atribuição automática a município.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo", color = Muted,
-                style = MaterialTheme.typography.labelSmall)
-        }
-    }
+    // Source-dependent public history will be restored for an approved,
+    // authenticated Brazilian authority product with verified timestamps.
 }
 
 @Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    br.com.blaise.rj.science.RjScientificCityPanel(
+        cities = listOf(city1, city2),
+        reports = LocalCityWeather.current,
+        now = LocalObservationClock.current,
+    )
     Spacer(Modifier.height(14.dp))
     StatewideMunicipalitiesPanel()
     Spacer(Modifier.height(14.dp))
@@ -2094,10 +2282,10 @@ private fun MarineScreen() {
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "RESSACA • TSUNAMI • MAREMOTO",
-        subtitle = "Marinha do Brasil / CHM",
+        subtitle = "Autoridades brasileiras competentes • NOAA • INPE/CPTEC",
     ) {
         StatusLine("Ressaca", "Regra destacada para ondas > 3,5 m quando houver aviso oficial")
-        StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
+        StatusLine("Meteotsunami", "Aguardando aviso oficial validado")
         StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
     }
@@ -2109,13 +2297,12 @@ private fun MarineScreen() {
 @Composable
 private fun RjMarineSourceMatrixPanel() {
     val clock = LocalObservationClock.current
-    val marine = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val canRefresh = LocalPublicStatusConfigured.current
     val refreshPublic = LocalPublicStatusRefresh.current
     DashboardSection(
         title = "FONTES E DADOS MARÍTIMOS • RJ / ATLÂNTICO",
-        subtitle = "Marinha • NOAA • Copernicus Marine • EUMETSAT",
+        subtitle = "INPE/CPTEC • NOAA • EUMETSAT • JAXA/GSMaP",
         modifier = Modifier.fillMaxWidth().testTag("rj-marine-screen-table"),
     ) {
         Text("Quadro de consulta por fenômeno. Informações e previsões só serão exibidas " +
@@ -2123,7 +2310,7 @@ private fun RjMarineSourceMatrixPanel() {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         Text(
             if (!canRefresh) "Canal público marítimo não configurado ou aplicativo desligado."
-            else "Consulta pública ao CHM: somente inventário regional autenticado e vigente.",
+            else "Canal público RJ disponível; produto marítimo autorizado ainda não confirmado.",
             color = if(canRefresh) GoldSoft else WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-public-connection"))
@@ -2131,18 +2318,13 @@ private fun RjMarineSourceMatrixPanel() {
             onClick = refreshPublic, enabled = canRefresh,
             modifier = Modifier.testTag("rj-marine-manual-refresh"),
         ) { Text("Reconsultar boletins marítimos") }
-        Text(
-            if(marine == null)
-                "Marinha/CHM: sem inventário regional recente validado; não confirma mar seguro."
-            else "Marinha/CHM: inventário regional obtido em " +
-                RjLiveTableEvidence.localTime(marine.fetchedAt) +
-                " • ${marine.warnings.count { it.current(clock) }} avisos vigentes. " +
-                "Uma consulta atual não equivale a mar seguro nem a medição de cada praia.",
-            color = if(marine == null) WarningAmber else GoldSoft,
+        Text("Não há boletim marítimo autorizado e vigente comprovado neste canal. " +
+            "Não significa mar seguro, ausência de ressaca ou de tsunami.",
+            color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-product-connection"))
-        Text("NOAA, Copernicus Marine e EUMETSAT: produtos cadastrados; " +
-            "sem ingestão contínua validada no painel.",
+        Text("NOAA, INPE/CPTEC, EUMETSAT e JAXA/GSMaP: cada produto exige " +
+            "emissão, cobertura, autorização e validade próprias.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("rj-marine-unconnected-products"))
         RjMeteorologicalTables.marineTable.forEachIndexed { index, item ->
@@ -2167,7 +2349,7 @@ private fun RjMarineSourceMatrixPanel() {
                         color = Muted, style = MaterialTheme.typography.labelSmall)
                     val evidence=RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
                     Text("Dados/avisos regionais: ${evidence.description}",
-                        color = if(evidence.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                        color = WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.testTag("rj-marine-current-${item.code}"))
                     if(evidence.source!=null) Text("Fonte: ${evidence.source} • " +
@@ -2176,9 +2358,8 @@ private fun RjMarineSourceMatrixPanel() {
                 }
             }
         }
-        Text("Marinha/CHM e autoridades brasileiras prevalecem nos avisos oficiais " +
-            "de ressaca, tsunami e maremoto. Copernicus/EUMETSAT oferecem produtos " +
-            "oceânicos/satélite, não confirmações autônomas de tsunami.",
+        Text("Avisos de tsunami, maremoto e ressaca dependem de autoridades competentes. " +
+            "Cálculos e modelos de NOAA/INPE/CPTEC não confirmam ameaça por si só.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -2285,6 +2466,14 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    if (BuildConfig.BLAISE_ADMIN) {
+        Text("Edição administrativa • voz Dora feminina offline. " +
+            "Operações privilegiadas exigem autorização no servidor.", color = Muted)
+        br.com.blaise.rj.admin.RjOwnerQuestionBankPanel()
+    } else {
+        br.com.blaise.rj.voice.RjFemaleVoiceSettingsPanel()
+    }
+    Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "FONTES OFICIAIS",
         subtitle = "Prioridade local e origem preservada",
@@ -2306,15 +2495,15 @@ private fun MoreScreen(
         val news = LocalNews.current?.takeIf { it.current(clock) }
         StatusLine("Agência Brasil • RSS", news?.let { "RSS recebido • ${formatInformationTime(it.fetchedAt)}" }
             ?: "Sem RSS atual confirmado")
-        Text("Desempate Tabela 2 (cinco fontes): " +
-            FinalDashboardSpec.fiveSituationalWeatherSources.joinToString(" → ") +
-            ". Consultar apenas se não houver duas fontes convergentes na Tabela 1. " +
-            "INMET/CEMADEN são observações por estação; INPE, Windy e NOAA dependem do tipo de produto.",
+        Text("Desempate por produto (seis fontes): " +
+            FinalDashboardSpec.approvedDisputeSources.joinToString(" → ") +
+            ". Comparar somente medições independentes equivalentes; " +
+            "modelos e satélites não substituem estações nem avisos oficiais.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("five-weather-sources-status"))
-        Text("INEA excluído. Para hidrologia, litoral e Atlântico, também ANA, CEMADEN, " +
-            "SGB/SACE, Marinha e NOAA conforme fenômeno. " +
-            "Consulta ao vivo e uso comercial somente após validação de origem, horário e autorização.",
+        Text("Fontes excluídas: INEA, Marinha/CHM, Windy e Copernicus. " +
+            "Hidrologia: CEMADEN, ANA e SGB/SACE. Oceano: NOAA, INPE/CPTEC e EUMETSAT. " +
+            "Dados reais dependem de licença, horário, qualidade e produto verificados.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
     Spacer(Modifier.height(10.dp))
@@ -2330,7 +2519,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
     val observation = LocalCityWeather.current[city.ibgeCode]?.currentObservation(clock)
     val public = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
-    val marine = public?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val sourceEvidence = RjSourceConnectionEvidence.rows(
         municipalityIbge=city.ibgeCode, observation=observation,
         rioStations=LocalRioStations.current, status=public, now=clock,
@@ -2352,7 +2541,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             modifier = Modifier.testTag("rj-meteo-homologation-status"))
         Text(
             if (!canRefreshPublic)
-                "Canal público de avisos RJ/Marinha não configurado ou aplicativo desligado. " +
+                "Canal público oficial do RJ não configurado ou aplicativo desligado. " +
                     "Acesso às estações INMET é independente."
             else if(public == null)
                 "Canal público configurado; sem resposta válida e vigente. " +
@@ -2455,18 +2644,17 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 1 • Fontes e cobertura por fenômeno", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-1-content"))
-            Text("Tabela 1: Alerta Rio (somente cidade do Rio) + Defesa Civil (P1) " +
-                "+ OpenWeatherMap (3ª consulta complementar). Concordando duas medições " +
-                "independentes, calcular e encerrar. Somente sem essa dupla, consultar " +
-                "Tabela 2: INPE → INMET → CEMADEN → Windy → NOAA.",
+            Text("Tabela 1: Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos. " +
+                "Na ausência de medição comparável, consultar em ordem por fenômeno " +
+                "INMET → INPE/CPTEC → NOAA → CEMADEN → JAXA/GSMaP → EUMETSAT.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall)
-            Text("OpenWeatherMap • 3ª consulta COMPLEMENTAR dos dez fenômenos. " +
-                "Dado republicado ou produto de modelo não vale como segunda medição independente. " +
-                "INMET é a 2ª fonte do desempate; avisos oficiais continuam prevalecendo.",
+            Text("INMET • referência de medição no desempate quando há estação e horário válidos. " +
+                "Dado republicado ou produto de modelo não conta como segunda medição independente. " +
+                "Avisos oficiais permanecem prevalentes.",
                 color = GoldSoft, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-openweather-complement"))
-            Text("Marinha + NOAA + Copernicus Marine: ondas, swell, correntes, marés e " +
-                "temperatura do mar. EUMETSAT: nuvens, tempestades e ciclones no Atlântico.",
+            Text("NOAA + INPE/CPTEC: ondas e swell. EUMETSAT: satélite, vento e SST. " +
+                "JAXA/GSMaP: chuva estimada no oceano, por produto validado.",
                 color = Muted, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.testTag("rj-ocean-eumetsat-complement"))
             Text(RjMeteorologicalTables.LIVE_STATUS,
@@ -2515,7 +2703,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
             Text("TABELA 2 • Cinco fontes de desempate e cálculo científico", color = Gold,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-meteo-table-2-content"))
-            Text(RjMeteorologicalTables.disputeTable2FiveSources.joinToString(" → "),
+            Text(RjMeteorologicalTables.disputeTable2Sources.joinToString(" → "),
                 color = GoldSoft, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("rj-five-dispute-source-priority"))
             Text("Esta consulta só começa quando nenhuma dupla independente converge na Tabela 1. " +
@@ -2570,11 +2758,11 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                 }
             }
         } else {
-            Text("TABELA MARÍTIMA • Marinha, NOAA, Copernicus e EUMETSAT",
+            Text("TABELA MARÍTIMA • INPE/CPTEC, NOAA, EUMETSAT e JAXA/GSMaP",
                 color = Gold, fontWeight = FontWeight.Bold,
                 modifier = Modifier.testTag("rj-marine-matrix-content"))
             Text("Avisos de ressaca, ciclones e tsunami dependem das autoridades competentes. " +
-                "Copernicus fornece produtos oceânicos e EUMETSAT imagens de satélite. " +
+                "NOAA/INPE/CPTEC fornecem modelos e EUMETSAT observações por satélite. " +
                 "Nenhum dado representa observação real até validar produto, hora e licença.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             RjMeteorologicalTables.marineTable.forEach { item ->
@@ -2599,7 +2787,7 @@ private fun RjMeteorologicalTablesPanel(city: City) {
                             style = MaterialTheme.typography.labelSmall)
                         val live = RjLiveTableEvidence.marine(item.linkedPhenomena.first(),marine,clock)
                         Text("Aviso marítimo regional: ${live.description}",
-                            color = if(live.state=="AVISO_CHM_REGIONAL") StableGreen else WarningAmber,
+                            color = WarningAmber,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.testTag("rj-marine-live-${item.code}"))
                         Text("Critério: " +
@@ -2756,13 +2944,12 @@ private fun MarineAndRiskRow(wide: Boolean, onNavigate: ((String) -> Unit)? = nu
 @Composable
 private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = null) {
     val clock = LocalObservationClock.current
-    val marine=(LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(clock) }?.marine?.takeIf { it.current(clock) }
+    val marine: br.com.blaise.rj.data.PublicRjMarine? = null // Excluded legacy source
     val wave=RjLiveTableEvidence.marine("ONDAS",marine,clock)
     val swell=RjLiveTableEvidence.marine("SWELL",marine,clock)
     val ressaca=RjLiveTableEvidence.marine("RESSACA",marine,clock)
     DashboardSection(
-        title = "MAR E ONDAS • MARINHA DO BRASIL",
+        title = "MAR E ONDAS • ATLÂNTICO RJ",
         subtitle = "Maré • ondas altas • vento • ressaca",
         modifier = modifier.testTag("marine-conditions-card"),
     ) {
@@ -2770,24 +2957,20 @@ private fun MarinePanel(modifier: Modifier, onNavigate: ((String) -> Unit)? = nu
             color = Color.White, style = MaterialTheme.typography.labelSmall)
         StatusLine("Alta", "— horário • — m")
         StatusLine("Baixa", "— horário • — m")
-        StatusLine("Ondas (CHM)",wave.description)
-        StatusLine("Swell", if(swell.state=="AVISO_CHM_REGIONAL") swell.description else
-            "— altura/período/direção • Copernicus/NOAA aguardam integração autorizada")
-        StatusLine("Correntes", "— intensidade/direção • Copernicus Marine não conectado")
+        StatusLine("Ondas",wave.description)
+        StatusLine("Swell",swell.description)
+        StatusLine("Correntes", "— intensidade/direção • NOAA: produto validado pendente")
         StatusLine("Temperatura do mar", "— °C • fonte oceânica não conectada")
         StatusLine("Vento", "— direção e velocidade • produto marítimo pendente")
         StatusLine("Ressaca",ressaca.description)
         StatusLine("Tsunami", "Somente com aviso de autoridade competente")
-        Text(if (marine==null)
-                "CHM: aguardando boletim oficial regional recente e autorizado."
-            else "Boletim CHM consultado em ${RjLiveTableEvidence.localTime(marine.fetchedAt)} • " +
-                "${marine.warnings.count { it.current(clock) }} aviso(s) regional(is) vigente(s). " +
-                "Não são alertas municipais nem garantia de segurança costeira.",
-            color = if(marine==null) WarningAmber else GoldSoft,
+        Text("Sem leitura oceânica atual autorizada nesta tela; cada produto exige " +
+            "fonte, hora, cobertura e qualidade verificadas.",
+            color = WarningAmber,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-chm-regional-status"))
-        Text("NOAA / Marinha / Copernicus Marine • produtos marítimos por variável. " +
-            "EUMETSAT • satélite para nuvens e ciclones. Integração ao vivo ainda pendente.",
+        Text("NOAA / INPE/CPTEC • modelos de ondas e swell. EUMETSAT/JAXA • satélites " +
+            "por produto; integração marítima atual ainda requer comprovação.",
             color = Muted, style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.testTag("marine-ocean-sources"))
         Text("Fonte marítima e horário devem acompanhar cada leitura. " +
@@ -2892,11 +3075,16 @@ private fun DashboardSection(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = NavyRaised),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Divider),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(1.dp, Color(0xFF2E7CB7)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF154777), Color(0xFF092546))))
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
             Text(title, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
             Text(subtitle, color = Muted, style = MaterialTheme.typography.labelSmall)
             content()
@@ -3079,15 +3267,23 @@ private fun CityPanel(
     }
     Surface(
         modifier = modifier,
-        color = Panel,
+        color = Color.Transparent,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFF2777B0)),
+        border = BorderStroke(1.dp, Color(0xFF3389D3)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(9.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF164A84), Color(0xFF0A2850))))
+                .padding(9.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(label, color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.weight(1f))
+                Text(city.name, color = Gold, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.weight(1f), maxLines = 1)
                 Text("RJ", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("⌄", color = Gold, style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.clickable(onClick = onChoose).padding(horizontal = 3.dp))
             }
             if (skyline != null) {
                 Image(
@@ -3108,6 +3304,7 @@ private fun CityPanel(
                 }
             }
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
+            Text(label, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Text(
                 observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
@@ -3195,7 +3392,7 @@ private fun FooterSources() {
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
-            Text("Clima • Alertas • Radar • Risco • Marinha • Trânsito", color = Color.White)
+            Text("Clima • Alertas • Radar • Risco • NOAA • Trânsito", color = Color.White)
             Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
             Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
         }

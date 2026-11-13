@@ -40,9 +40,9 @@ class ScientificDashboardPolicyTest {
         assertTrue(derived.any { it.method == "Vento-frio" })
         assertFalse(derived.any { it.method.contains("Rothfusz") })
     }
-    @Test fun tenAgentsAreOnlyCatalogedNotAdvertisedAsAutonomousOnline() {
-        assertEquals((1..10).toList(), BlaiseAgentDashboard.tenAgents.map { it.index })
-        assertTrue(BlaiseAgentDashboard.tenAgents.all { it.deploymentStatus.contains("não validada") })
-        assertEquals("Auditoria Profunda RJ", BlaiseAgentDashboard.tenAgents.last().name)
+    @Test fun elevenAgentsAreOnlyCatalogedNotAdvertisedAsAutonomousOnline() {
+        assertEquals((1..11).toList(), BlaiseAgentDashboard.elevenAgents.map { it.index })
+        assertTrue(BlaiseAgentDashboard.elevenAgents.all { it.deploymentStatus.contains("não validada") })
+        assertEquals("Blaise IA — Pesquisa e Respostas em Tempo Real", BlaiseAgentDashboard.elevenAgents.last().name)
     }
 }

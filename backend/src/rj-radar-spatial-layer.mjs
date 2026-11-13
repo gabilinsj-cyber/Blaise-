@@ -17,6 +17,9 @@ const invalid=(why)=>Object.freeze({status:'UNAVAILABLE',reason:why,frames:Objec
 function normalizedFrame(frame,now,maxAgeMs){
   if(!frame||typeof frame!=='object')return null;
   if(frame.dataType!=='GEOREFERENCED_MEASURED_RADAR_RAIN_RATE')return null;
+  // Only numerical geo-referenced cells. No screenshots, base64 image or raster URLs.
+  if(['imageUrl','imageData','imageBase64','rasterImage','screenshot','mapTileUrl']
+    .some(key=>Object.hasOwn(frame,key)))return null;
   if(frame.usagePermissionStatus!=='VERIFIED_FOR_BLAISE_RJ_COMMERCIAL_DISPLAY')return null;
   if(typeof frame.provider!=='string'||!id.test(frame.provider))return null;
   if(typeof frame.radarId!=='string'||!id.test(frame.radarId))return null;
@@ -56,7 +59,8 @@ function normalizedFrame(frame,now,maxAgeMs){
 export function prepareRjRadarTimeline({
   frames=[],now=Date.now(),displayLastMinutes=30,
 }={}) {
-  if(!Array.isArray(frames)||frames.length>12||!Number.isFinite(now)
+  // 30 min with a frame every ~2 min can contain up to 16 timestamped frames.
+  if(!Array.isArray(frames)||frames.length>16||!Number.isFinite(now)
     ||!Number.isInteger(displayLastMinutes)||displayLastMinutes!==30)
     return invalid('INVALID_FRAME_ENVELOPE');
   const accepted=[];

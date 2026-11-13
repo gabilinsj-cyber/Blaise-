@@ -78,7 +78,7 @@ data class BlaiseAgentUi(
 
 /** Display names follow the RJ backend's agent registry; never show as ONLINE. */
 object BlaiseAgentDashboard {
-    val tenAgents: List<BlaiseAgentUi> = listOf(
+    val elevenAgents: List<BlaiseAgentUi> = listOf(
         BlaiseAgentUi(1, "Blaise Sentinel RJ", "Origem, autorização e frescor das fontes"),
         BlaiseAgentUi(2, "Blaise Vector RJ", "Cálculos, física e recálculos"),
         BlaiseAgentUi(3, "Blaise Fusion RJ", "Fusão de observações comparáveis"),
@@ -89,9 +89,10 @@ object BlaiseAgentDashboard {
         BlaiseAgentUi(8, "Blaise Audit RJ", "Revisão de evidências e alertas"),
         BlaiseAgentUi(9, "Correção Horária RJ", "Regressões e integridade periódica"),
         BlaiseAgentUi(10, "Auditoria Profunda RJ", "Segurança, escala e marcos de 500 mil assinantes"),
+        BlaiseAgentUi(11, "Blaise IA — Pesquisa e Respostas em Tempo Real", "Perguntas abertas sobre RJ, Sudeste, Atlântico Sul e clima global, mediante fontes datadas e citadas"),
     )
     init {
-        require(tenAgents.size == 10)
-        require(tenAgents.map { it.index } == (1..10).toList())
+        require(elevenAgents.size == 11)
+        require(elevenAgents.map { it.index } == (1..11).toList())
     }
 }

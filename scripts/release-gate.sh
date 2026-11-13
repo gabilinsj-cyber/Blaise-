@@ -81,9 +81,39 @@ aab="app/build/outputs/bundle/release/app-release.aab"
 [[ -x "${build_tools}/apksigner" ]] || block 'apksigner_missing'
 [[ -s "$apk" ]] || block 'release_apk_missing_or_empty'
 [[ -s "$aab" ]] || block 'release_aab_missing_or_empty'
+# Public package hard limit: 400,000,000 bytes; no offline owner model.
+if ! bash scripts/enforce-client-package-size.sh "$apk" "$aab"; then
+  block 'customer_apk_size_or_private_assets_gate_failed'
+fi
 
 "${build_tools}/zipalign" -c -P 16 -v 4 "$apk" > "$EVIDENCE_DIR/zipalign.txt" || block 'zipalign_verification_failed'
 "${build_tools}/apksigner" verify --verbose --print-certs "$apk" > "$EVIDENCE_DIR/apksigner.txt" || block 'apk_signature_verification_failed'
+
+# A production release is NOT a renamed debug APK. Refuse a wrong Android ID,
+# missing signing cert or any version that would be a downgrade to the V6 baseline.
+[[ -x "${build_tools}/aapt" ]] || block 'aapt_missing'
+"${build_tools}/aapt" dump badging "$apk" | grep '^package:' > "$EVIDENCE_DIR/android-identity.txt" ||
+  block 'apk_package_metadata_missing'
+apk_package="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" "$EVIDENCE_DIR/android-identity.txt")"
+apk_version="$(sed -n "s/^package: .* versionCode='\([0-9]*\)'.*/\1/p" "$EVIDENCE_DIR/android-identity.txt")"
+[[ "$apk_package" == 'br.com.blaise.rj' ]] || block 'not_original_rj_production_package'
+[[ "$apk_version" =~ ^[0-9]+$ ]] || block 'apk_version_code_invalid'
+(( apk_version >= 6000002 )) || block 'release_version_too_old'
+cert_sha="$(sed -n 's/.*certificate SHA-256 digest: *\([0-9A-Fa-f:]*\).*/\1/p' "$EVIDENCE_DIR/apksigner.txt" | head -n1 | tr -d ':' | tr 'A-F' 'a-f')"
+[[ "$cert_sha" =~ ^[0-9a-f]{64}$ ]] || block 'apk_signing_fingerprint_missing'
+original_cert="${BLAISE_ORIGINAL_CERT_SHA256:-}"
+upgrade_status='NOT_PROVEN_ORIGINAL_CERT_NOT_PROVIDED'
+if [[ -n "$original_cert" ]]; then
+  original_cert="${original_cert//:/}"
+  original_cert="${original_cert,,}"
+  [[ "$original_cert" =~ ^[0-9a-f]{64}$ ]] || block 'invalid_original_cert_fingerprint'
+  [[ "$cert_sha" == "$original_cert" ]] || block 'original_signing_certificate_mismatch'
+  upgrade_status='ORIGINAL_SIGNING_CERT_MATCH'
+fi
+printf '%s\n' "package_id=$apk_package" "version_code=$apk_version" \
+  "signing_cert_sha256=$cert_sha" "upgrade_cert_status=$upgrade_status" \
+  > "$EVIDENCE_DIR/android-release-identity.txt"
+
 jarsigner -verify -verbose -certs "$aab" > "$EVIDENCE_DIR/jarsigner-aab.txt" || block 'aab_signature_verification_failed'
 java -jar "$BUNDLETOOL_JAR" validate --bundle "$aab" > "$EVIDENCE_DIR/bundletool.txt" || block 'bundletool_validation_failed'
 sha256sum "$apk" "$aab" > "$EVIDENCE_DIR/SHA256SUMS"
@@ -95,6 +125,9 @@ printf '%s\n' \
   "store_channel=$STORE_CHANNEL" \
   "package_slug=$store_slug" \
   'signature=VERIFIED' \
+  "android_package=$apk_package" \
+  "android_version_code=$apk_version" \
+  "in_place_upgrade=$upgrade_status" \
   'publication=REQUIRES_STORE_ACCOUNT_CONFIRMATION' \
   > "$PACKAGE_DIR/manifest.txt"
 if [[ "$STORE_CHANNEL" == 'GOOGLE_PLAY' ]]; then
@@ -108,6 +141,9 @@ printf '%s\n' \
   "billing=$billing_status" \
   'fcm_p0=CONFIGURED' \
   'apk_signature=VERIFIED' \
+  "apk_id=$apk_package" \
+  "apk_version_code=$apk_version" \
+  "in_place_upgrade=$upgrade_status" \
   'aab_signature=VERIFIED' \
   'bundle_validation=PASS' \
   'store_upload=BLOCKED_UNTIL_ACCOUNT_CONFIRMATION' \

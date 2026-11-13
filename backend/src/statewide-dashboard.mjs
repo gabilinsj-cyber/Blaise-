@@ -18,11 +18,10 @@ export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
   { id: 'alerta-rio', name: 'Alerta Rio', products: ['chuva', 'meteorologia', 'radar-conforme-produto'], scope: 'MUNICIPIO_DO_RIO', taskId: 'alerta-rio-rainfall' },
   { id: 'ana', name: 'ANA / Hidroweb / HidroWebService', products: ['nivel-de-rios', 'vazao', 'historico-hidrologico'], scope: 'ESTACOES_COM_COBERTURA_RJ' },
   { id: 'sgb-sace', name: 'SGB / SACE', products: ['cheias', 'inundacao', 'boletins-hidrologicos'], scope: 'BACIAS_COM_COBERTURA_RJ' },
-  { id: 'chm', name: 'Marinha / CHM', products: ['avisos-maritimos', 'mares', 'ondas', 'ressaca'], scope: 'ZONAS_MARITIMAS_VALIDADAS', taskId: 'chm-marine-warnings' },
-  { id: 'ww3', name: 'Marinha / WW3', products: ['previsao-de-ondas'], scope: 'GRADE_MODELO_MARITIMO' },
-  { id: 'pnboia', name: 'Marinha / PNBOIA', products: ['boias', 'ondas-observadas'], scope: 'PONTOS_OBSERVADOS' },
-  { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
-  { id: 'windy', name: 'Windy', products: ['vento-modelado', 'rajadas-modeladas'], scope: 'MODELO_COM_LICENCA_E_CHAVE' },
+  { id: 'inpe-cptec', name: 'INPE / CPTEC', products: ['modelos-meteorologicos', 'ondas-conforme-produto'], scope: 'RJ_E_ATLANTICO_POR_PRODUTO' },
+  { id: 'noaa', name: 'NOAA', products: ['ondas', 'swell', 'modelos', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
+  { id: 'eumetsat', name: 'EUMETSAT', products: ['satelite', 'temperatura-do-mar', 'vento-conforme-produto'], scope: 'RJ_E_ATLANTICO_POR_PRODUTO' },
+  { id: 'jaxa-gsmap', name: 'JAXA / GSMaP', products: ['chuva-oceanica-por-satelite'], scope: 'RJ_E_ATLANTICO_POR_PRODUTO' },
   { id: 'defesa-civil', name: 'Defesa Civil estadual e municipal', products: ['avisos-locais', 'ocorrencias', 'sirenes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'cor-cet', name: 'COR.Rio / CET-Rio', products: ['transito', 'alagamentos', 'interdicoes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'prf-pmerj', name: 'PRF / PMERJ', products: ['rodovias', 'ocorrencias'], scope: 'JURISDICAO_DO_ORGAO' },
@@ -102,7 +101,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
         state: actual?.state ?? 'NOT_CONNECTED', observedAt: actual?.observedAt ?? null,
         // Connector state applies only to this product, never every listed responsibility.
         connectedProduct: actual ? (source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
-          : source.id === 'alerta-rio' ? 'chuva' : 'inventario-avisos-maritimos') : null };
+          : source.id === 'alerta-rio' ? 'chuva' : null) : null };
     }),
   };
 }

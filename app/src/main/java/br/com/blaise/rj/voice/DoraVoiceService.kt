@@ -4,7 +4,6 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import br.com.blaise.rj.data.VoiceService
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
@@ -26,7 +25,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Offline Kokoro v1.0, Brazilian Portuguese Dora (speaker 42). No public demo/API calls. */
-class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
+class DoraVoiceService(context: Context) : BlaiseVoiceController {
     private val context = context.applicationContext
     private val mutex = Mutex()
     private val closed = AtomicBoolean(false)
@@ -35,7 +34,7 @@ class DoraVoiceService(context: Context) : VoiceService, AutoCloseable {
     private val playing = AtomicReference<AudioTrack?>(null)
     private var engine: OfflineTts? = null // accessed only while holding mutex
 
-    fun stop() {
+    override fun stop() {
         synchronized(playbackLock) {
             generation.incrementAndGet()
             playing.get()?.let { track -> runCatching { track.pause(); track.flush() } }

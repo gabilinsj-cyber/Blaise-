@@ -60,7 +60,6 @@ object RjSourceConnectionEvidence {
             ?.firstOrNull { it.id == "inmet" && it.currentlyConnected() && inmetInventory != null }
         val hydroWorker = freshStatus?.sourceProducts
             ?.firstOrNull { it.id == "cemaden-rj" && it.currentlyConnected() }
-        val marine = freshStatus?.marine?.takeIf { it.current(now) }
         val localRisk = freshStatus?.municipality(municipalityIbge, now)?.risk
             ?.takeIf { it.current(now) }
 
@@ -88,21 +87,20 @@ object RjSourceConnectionEvidence {
                 else OFFLINE,
                 localRisk?.observedAt,
                 localRisk != null && hydroWorker != null),
-            RjSourceConnectionRow("Marinha do Brasil / CHM", "Avisos regionais de mau tempo • METAREA V",
-                if(marine != null) "Inventário de avisos consultado; não é previsão por praia"
-                else OFFLINE,marine?.fetchedAt,marine != null),
-            RjSourceConnectionRow("OpenWeatherMap", "Terceiro complemento das 10 variáveis",
+            RjSourceConnectionRow("NOAA", "Modelos, ondas e oceano Atlântico",
+                OFFLINE + " • sem novo valor/ponto de emissão validado neste contrato"),
+            RjSourceConnectionRow("INPE / CPTEC", "Previsões e produtos oceânicos",
+                OFFLINE + " • " + MODEL_ONLY),
+            RjSourceConnectionRow("EUMETSAT", "Satélite, vento e temperatura do mar",
+                OFFLINE + " • produto não validado nesta consulta"),
+            RjSourceConnectionRow("JAXA / GSMaP", "Chuva estimada por satélite",
+                OFFLINE + " • hora e área não verificadas"),
+            RjSourceConnectionRow("COR.Rio / CET-Rio", "Trânsito, chuva e ocorrências urbanas",
                 OFFLINE),
-            RjSourceConnectionRow("INPE / CPTEC", "Produtos meteorológicos de previsão",
-                "$OFFLINE • $MODEL_ONLY"),
-            RjSourceConnectionRow("Windy", "Comparação de modelos e desempate",
-                "$OFFLINE • $MODEL_ONLY"),
-            RjSourceConnectionRow("NOAA", "Atlântico, modelos e monitoramento especializado",
+            RjSourceConnectionRow("Geo-Rio", "Encostas e riscos geológicos",
                 OFFLINE),
-            RjSourceConnectionRow("Copernicus Marine", "Ondas, swell, correntes e temperatura do mar",
-                OFFLINE),
-            RjSourceConnectionRow("EUMETSAT", "Nuvens, ciclones e tempestades no Atlântico",
-                OFFLINE),
+            RjSourceConnectionRow("USGS", "Sismos e dados sísmicos oficiais",
+                OFFLINE + " • consulte o painel especializado"),
             RjSourceConnectionRow("ANA / SGB-SACE", "Níveis, vazões e risco de cheia",
                 OFFLINE),
         )

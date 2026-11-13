@@ -1,5 +1,5 @@
 /**
- * Blaise V6 RJ: registry of the TEN requested functional agents.
+ * Blaise V6 RJ: registry of eleven functional agents (ten historical + Agent 11 on demand).
  *
  * Registry != ten running processes. Each entry states capabilities already in
  * the repo and tasks still needing real source integration, production IAM,
@@ -28,7 +28,7 @@ const create = (number, name, responsibility, sourceKinds, components, blockers,
 export const BLAISE_RJ_AGENTS = Object.freeze([
   create(1, 'Blaise Sentinel RJ',
     'Verificação de fonte oficial, domínio, licença, localização, horário, frescor e falha segura; INEA aposentado.',
-    ['ALERTA_RIO','DEFESA_CIVIL_RJ','CEMADEN','ANA','SGB_SACE','INMET','MARINHA','NOAA','INPE_CPTEC_FORECAST'],
+    ['ALERTA_RIO','DEFESA_CIVIL_RJ','CEMADEN','ANA','SGB_SACE','INMET','NOAA','INPE_CPTEC_FORECAST'],
     ['official-source-worker.mjs','source-contract.mjs','rj-phenomenon-source-policy.mjs'],
     ['Autorização e acesso à fonte','Cobertura/latência verificada para cada município']),
   create(2, 'Blaise Vector RJ',
@@ -38,12 +38,12 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['Observações/perfis oficiais espacialmente comparáveis','Calibrações locais para parâmetros dependentes de radar']),
   create(3, 'Blaise Fusion RJ',
     'Fusão e média ponderada de medições comparáveis, verificação cruzada e rastreabilidade sem transformar modelos em medições.',
-    ['INMET','DEFESA_CIVIL_RJ','CEMADEN','MARINHA','NOAA','INPE_CPTEC_FORECAST','WINDY_COMPARISON_ONLY'],
+    ['INMET','DEFESA_CIVIL_RJ','CEMADEN','NOAA','INPE_CPTEC_FORECAST'],
     ['rj-scientific-calculator.mjs','rj-weather-transition-estimator.mjs'],
     ['Pesos documentados e auditados','Fontes simultâneas compatíveis por município']),
   create(4, 'Blaise Track RJ',
     'Trajetória, velocidade, direção, área atingível e janela aproximada de chegada de fenômenos com incerteza explícita.',
-    ['INMET','DEFESA_CIVIL_RJ','ALERTA_RIO_RIO_CITY_ONLY','MARINHA','NOAA','INPE_CPTEC_FORECAST'],
+    ['INMET','DEFESA_CIVIL_RJ','ALERTA_RIO_RIO_CITY_ONLY','NOAA','INPE_CPTEC_FORECAST'],
     ['blaise-marine-kernels.mjs','rj-weather-transition-estimator.mjs'],
     ['Vetores do mesmo fenômeno validados','Georreferenciamento e habilidade de nowcasting aferida']),
   create(5, 'Blaise Hydro RJ',
@@ -53,12 +53,12 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['Integrações ANA e SGB/SACE por estação','Medições hidrológicas atuais com licença']),
   create(6, 'Blaise Ocean RJ',
     'Mar, ondas, ventos marítimos, ressaca, ciclone extratropical e Atlântico adjacente, sem extrapolação indevida.',
-    ['MARINHA_CHM','NOAA','INMET','INPE_CPTEC_FORECAST','WINDY_COMPARISON_ONLY'],
-    ['chm-source.mjs','blaise-marine-kernels.mjs'],
+    ['NOAA','INMET','INPE_CPTEC_FORECAST'],
+    ['blaise-marine-kernels.mjs'],
     ['Frame/campo oceânico georreferenciado e vigente','Validação de produtos NOAA e condições de uso']),
   create(7, 'Blaise Seismo RJ',
     'Abalos recentes, Atlântico, avaliação de potencial impacto RJ e tsunami somente após avisos de autoridade competente.',
-    ['USGS','NOAA','MARINHA_CHM','DEFESA_CIVIL_RJ'],
+    ['USGS','NOAA','DEFESA_CIVIL_RJ'],
     ['MainActivity.kt_seismology_panel'],
     ['Integração sísmica oficial ao backend','Confirmação independente de risco de tsunami']),
   create(8, 'Blaise Audit RJ',
@@ -78,10 +78,15 @@ export const BLAISE_RJ_AGENTS = Object.freeze([
     ['android-ci.yml','cloudrun-preflight.sh','production-preflight.sh'],
     ['Contagem autenticada de assinantes','Cotações USD/EUR atuais e links oficiais','Compra/contratação e deploy exigem aprovação explícita'],
     'FUNCTIONAL_LABEL_NOT_CONFIRMED_AS_ORIGINAL_PROPER_NAME'),
+  create(11, 'Blaise IA — Pesquisa e Respostas em Tempo Real',
+    'Responder perguntas abertas relativas ao RJ, Sudeste, Atlântico Sul e clima global relevante por pesquisa solicitada, evidências datadas, fonte aprovada e resposta citada; nunca inventar fatos, previsões ou avisos.',
+    ['NOAA','INMET','INPE_CPTEC','EUMETSAT','JAXA_GSMAP','IPCC_CLIMATE','WMO_CLIMATE','OFFICIAL_RJ_SOURCES'],
+    ['blaise-rj-dynamic-research.mjs','blaise-rj-agent-registry.mjs','blaise-rj-agent-supervisor.mjs'],
+    ['Motor de busca autorizado ainda não conectado','Síntese de IA com evidências, custo, limite de chamadas e proteção contra abuso','Teste de fonte/escopo/frescor em produção']),
 ]);
 
-if (BLAISE_RJ_AGENTS.length !== 10 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 10) {
-  throw new Error('rj_agent_registry_must_have_ten_unique_agents');
+if (BLAISE_RJ_AGENTS.length !== 11 || new Set(BLAISE_RJ_AGENTS.map(a => a.number)).size !== 11) {
+  throw new Error('rj_agent_registry_must_have_eleven_unique_agents');
 }
 
 export const RJ_AGENT_CADENCE = Object.freeze({
@@ -99,7 +104,7 @@ export const RJ_AGENT_CADENCE = Object.freeze({
 });
 
 export function agentByNumber(number) {
-  if (!Number.isInteger(number) || number < 1 || number > 10) throw new RangeError('unknown_rj_agent');
+  if (!Number.isInteger(number) || number < 1 || number > 11) throw new RangeError('unknown_rj_agent');
   return BLAISE_RJ_AGENTS[number - 1];
 }
 export function rjCadenceForLevel(level, { independentOfficialLevel5Alerts = 0, scientificRevalidationLevel = null } = {}) {
@@ -116,7 +121,7 @@ export function rjCadenceForLevel(level, { independentOfficialLevel5Alerts = 0, 
   });
 }
 
-const AUTHORITIES = new Set(['INMET','DEFESA_CIVIL_RJ','CEMADEN','ALERTA_RIO','MARINHA_CHM','NOAA','SGB_SACE','ANA']);
+const AUTHORITIES = new Set(['INMET','DEFESA_CIVIL_RJ','CEMADEN','ALERTA_RIO','NOAA','SGB_SACE','ANA']);
 const IBGE = new Set(RJ_MUNICIPALITIES.map(x => x.ibge));
 export function evaluateExtremeAudioGate({ alerts, diagnostic, now = Date.now() } = {}) {
   const unavailable = reason => Object.freeze({ state: 'NOT_AUTHORIZED', reason,

@@ -19,25 +19,32 @@ class WeatherConversationTest {
         assertEquals(3303302, q.request.city.ibgeCode)
         assertTrue(q.request.question.contains("térmica"))
     }
-    @Test fun rioUsesCentreAndTomorrowIsNotToday() {
+    @Test fun generalRioQuestionDoesNotInheritAnUnverifiedCentroStation() {
         val q = WeatherConversation().accept("Temperatura amanhã no Rio", selected, LocalDate.of(2026,10,6)) as ConversationAction.Query
-        assertEquals("Centro do Rio", q.request.localScope)
+        assertNull(q.request.localScope)
+        assertEquals(3304557,q.request.city.ibgeCode)
         assertEquals(LocalDate.of(2026,10,7), q.request.date)
     }
-    @Test fun retainsCentreCoverageOnFollowUp() {
+    @Test fun explicitlyRequestedCentroRemainsScopedOnFollowUp() {
         val c = WeatherConversation()
+        val initial=c.accept("temperatura no Centro do Rio",selected) as ConversationAction.Query
+        assertEquals("Centro do Rio",initial.request.localScope)
+        assertEquals("Centro do Rio",(c.accept("e a umidade?",selected) as ConversationAction.Query).request.localScope)
+    }
+    @Test fun municipalRioFollowUpDoesNotTurnIntoCentroData() {
+        val c=WeatherConversation()
         c.accept("temperatura no Rio", selected)
-        assertEquals("Centro do Rio", (c.accept("e a umidade?", selected) as ConversationAction.Query).request.localScope)
+        assertNull((c.accept("e a umidade?", selected) as ConversationAction.Query).request.localScope)
     }
     @Test fun doesNotInventRegionalOrHazardCoverage() {
         assertTrue(WeatherConversation().accept("alertas na Baixada",selected) is ConversationAction.Reply)
-        assertTrue(WeatherConversation().accept("ciclone em Niterói",selected) is ConversationAction.Reply)
+        assertTrue(WeatherConversation().accept("ciclone em Niterói",selected) is ConversationAction.Query)
     }
     @Test fun mixedQuestionKeepsAvailableWeatherQueryWithoutClaimingUvOrHazardData() {
         val result = WeatherConversation().accept("temperatura umidade vento e UV em Niterói", selected) as ConversationAction.Query
         assertEquals(3303302, result.request.city.ibgeCode)
         assertTrue(result.request.question.contains("UV"))
-        assertTrue(WeatherConversation().accept("UV em Niterói", selected) is ConversationAction.Reply)
+        assertTrue(WeatherConversation().accept("UV em Niterói", selected) is ConversationAction.Query)
     }
     @Test fun namedNeighbourhoodDoesNotInheritAnotherMunicipalityOrBecomeCentre() {
         val conversation = WeatherConversation()
@@ -46,6 +53,26 @@ class WeatherConversationTest {
         assertEquals(3304557, bangu.request.city.ibgeCode)
         assertEquals("Bangu", bangu.request.localScope)
         assertTrue(WeatherConversation().accept("temperatura em Irajá Niterói", selected) is ConversationAction.Reply)
+    }
+    @Test fun elNinoAndGlobalWarmingQuestionsDoNotRequireAFakeLocalStation() {
+        val questions = listOf(
+            "Qual a situação atual do El Niño?" to "GLOBAL_CLIMA_RELEVANTE_RJ",
+            "O aquecimento global afeta o Atlântico Sul?" to "ATLANTICO_SUL",
+            "A La Niña interfere no Sudeste?" to "SUDESTE_BRASIL",
+            "O que é a ZCAS no Rio?" to "RIO_DE_JANEIRO",
+        )
+        for ((question, expected) in questions) {
+            val result = WeatherConversation().accept(question, selected) as ConversationAction.Query
+            assertEquals(expected, result.request.researchGeography)
+            assertTrue(result.request.requestedAt.epochSecond > 0)
+        }
+    }
+    @Test fun unrecognizedLocalWeatherQuestionMayRequestResearchWithoutStaticAnswer() {
+        val result = WeatherConversation().accept(
+            "Quais os efeitos do vórtice polar em Petrópolis?", selected
+        ) as ConversationAction.Query
+        assertEquals("RIO_DE_JANEIRO",result.request.researchGeography)
+        assertEquals("Petrópolis",result.request.city.name)
     }
     @Test fun remembersExplicitCityAndSelectedCityIsOptIn() {
         val c=WeatherConversation()

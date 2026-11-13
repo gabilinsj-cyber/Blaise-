@@ -49,6 +49,34 @@ test('INPE CPTEC model values never enter official measured mean, even if mislab
   }
 });
 
+test('COR mirror of Alerta Rio is not a second independent source', () => {
+  const alerta={...observation('AR-1',28),sourceId:'ALERTA_RIO',
+    sourceUrl:'https://websempre.rio.rj.gov.br/estacoes/'};
+  const fromCor={...observation('COR-1',28.5),sourceId:'COR_RIO',
+    originalSourceId:'ALERTA_RIO',sourceUrl:'https://cor.rio/tempo'};
+  const result=weightedOfficialMean({observations:[alerta,fromCor],now:NOW});
+  assert.equal(result.state,'DADOS_INSUFICIENTES');
+  assert.equal(result.reason,'EXCLUDED_OR_REPUBLISHED_SOURCE_NOT_INDEPENDENT');
+});
+
+test('two different distributors of a single upstream station cannot be averaged',()=>{
+  const a={...observation('INMET-1',28),originalSourceId:'ALERTA_RIO'};
+  const b={...observation('DC-2',29),upstreamSourceId:'ALERTA_RIO'};
+  const result=weightedOfficialMean({observations:[a,b],now:NOW});
+  assert.equal(result.reason,'DUPLICATE_UPSTREAM_PROVIDER_NOT_INDEPENDENT');
+});
+
+test('validated weighted mean keeps technical provenance and does not silently hide attribution',()=>{
+  const result=weightedOfficialMean({observations:[
+    observation('INMET-1',28),observation('DC-2',29)
+  ],now:NOW});
+  assert.equal(result.state,'CALCULO_EXPERIMENTAL_BLAISE');
+  assert.equal(result.publicLabel,'Média ponderada de duas medições oficiais');
+  assert.equal(result.technicalSourcesMustRemainAvailable,true);
+  assert.equal(result.attributionAndReuseTermsMustBeHonored,true);
+  assert.deepEqual(result.sourceIds,['INMET','DEFESA_CIVIL']);
+});
+
 test('different municipalities cannot be averaged into a fictional statewide temperature', () => {
   const result = weightedOfficialMean({ observations: [
     observation('INMET-1', 30),

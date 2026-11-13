@@ -43,5 +43,14 @@ cp backend/package-lock.json evidence/backend-package-lock.json
   assembleDebug assembleRelease assembleDebugAndroidTest \
   bundleRelease
 
+# CI has no production signing key: AGP names this file app-release-unsigned.apk.
+# The signed release gate separately checks the final app-release.apk.
+client_apk="app/build/outputs/apk/release/app-release-unsigned.apk"
+if [[ -s "app/build/outputs/apk/release/app-release.apk" ]]; then
+  client_apk="app/build/outputs/apk/release/app-release.apk"
+fi
+bash scripts/enforce-client-package-size.sh \
+  "$client_apk" \
+  app/build/outputs/bundle/release/app-release.aab
 ./scripts/generate-sbom.sh
 ./scripts/verify-artifacts.sh

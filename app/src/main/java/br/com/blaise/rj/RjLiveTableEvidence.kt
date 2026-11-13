@@ -36,11 +36,11 @@ object RjLiveTableEvidence {
         "CICLONE_EXTRATROPICAL","MASSA_AR","FRENTE_FRIA","CHUVA_ATLANTICO" ->
             "Advecção x(t)=x₀+v×t, tendência da pressão e vento por grades/perfis temporais válidos; ETA é estimativa com incerteza e não afirma impacto."
         "ONDAS","SWELL","RESSACA" ->
-            "Altura, período e direção com produto/boia compatível; velocidade/propagação por teoria de ondas somente com profundidade e período validados. Aviso CHM prevalece."
+            "Altura, período e direção com produto NOAA/INPE-CPTEC adequado; velocidade e propagação somente com profundidade/período validados. Avisos exigem autoridade brasileira competente."
         "MARE","CORRENTES_MARINHAS","TEMPERATURA_MAR" ->
             "Produto marítimo espacial/temporal adequado; não misturar maré prevista, nível observado, corrente e temperatura do mar."
         "TSUNAMI","SISMO" ->
-            "Não calcular média de magnitudes, alarmes ou avisos. Conferir autoridade marítima, rede sísmica e vigência oficial."
+            "Não calcular média de magnitudes, alarmes ou avisos. Conferir autoridades brasileiras competentes, NOAA/USGS e vigência oficial."
         else ->
             "Verificar fonte, município, área, horário e qualidade; cálculos físicos e alertas oficiais são processos separados."
     }
@@ -109,32 +109,21 @@ object RjLiveTableEvidence {
         return RjLiveEvidence("SEM_PRODUTO_VALIDADO",UNAVAILABLE)
     }
 
+    /**
+     * Legacy CHM inventory is excluded by the RJ owner and MUST NOT become
+     * a live observation, public marine warning, or a tsunami notification.
+     * Keep this call signature for UI compatibility until the old adapter
+     * and archived CHM contracts are independently retired with tests.
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun marine(
         phenomenon: String,
         snapshot: PublicRjMarine?,
         now: Instant,
-    ): RjLiveEvidence {
-        val fresh=snapshot?.takeIf { it.current(now) }
-            ?:return RjLiveEvidence("SEM_AVISO_MARITIMO_VALIDADO",
-                "Inventário regional CHM não disponível ou vencido; não confirma mar seguro")
-        val relevant=fresh.warnings.firstOrNull { it.current(now) &&
-            when(phenomenon) {
-                "RESSACA" -> it.officialRessacaLabel
-                "ONDAS","SWELL" -> it.waveMaxMeters!=null
-                "CICLONE_EXTRATROPICAL" -> it.warningType.contains("CICLONE",ignoreCase=true)
-                "TEMPESTADE","CHUVA_ATLANTICO" -> it.warningType.contains("TEMPESTADE",ignoreCase=true)
-                "TSUNAMI" -> it.warningType.contains("TSUNAMI",ignoreCase=true)
-                else -> false
-            }
-        }
-        return relevant?.let { warning ->
-            val waves=if (warning.waveMinMeters != null && warning.waveMaxMeters != null)
-                " • ondas no aviso: ${numeric(warning.waveMinMeters,"m")}–${numeric(warning.waveMaxMeters,"m")}" else ""
-            RjLiveEvidence("AVISO_CHM_REGIONAL",
-                "${warning.warningType} • zonas ${warning.areas.joinToString(", ")}${waves} • válido até ${localTime(warning.validUntil)}. Região METAREA V, não alerta municipal.",
-                "Marinha / CHM",warning.issuedAt)
-        } ?:RjLiveEvidence("SEM_AVISO_APLICAVEL_CONFIRMADO",
-            "Inventário CHM consultado em ${localTime(fresh.fetchedAt)}; sem evento regional vigente validado para esta categoria. Não significa ausência de risco.",
-            "Marinha / CHM",fresh.fetchedAt)
-    }
+    ): RjLiveEvidence =
+        RjLiveEvidence("SEM_PRODUTO_MARITIMO_VALIDADO",
+            "Sem leitura marítima autorizada e vigente neste contrato. " +
+                "NOAA, INPE/CPTEC e EUMETSAT exigem produto, horário, licença e área. " +
+                "Sem dado não significa mar seguro; alertas somente de autoridade competente.")
+
 }

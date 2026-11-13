@@ -28,71 +28,73 @@ data class RjMeteoMarineRow(
 
 object RjMeteorologicalTables {
     const val ID = "BLAISE-RJ-METEO-HOMOLOG-01"
-    const val VERSION = "2026-10-14.v5"
+    const val VERSION = "2026-11-13.v6"
     const val STATUS = "Cadastro técnico • homologação operacional pendente"
-    const val METHOD = "Duas das três primárias convergentes: média ponderada somente com pesos verificados; senão cinco referências de desempate"
+    const val METHOD = "Prioridade Alerta Rio e Defesa Civil RJ por produto; INMET, INPE/CPTEC, NOAA, CEMADEN, JAXA/GSMaP e EUMETSAT para checagem compatível"
     const val NO_INEA = "INEA excluído"
     const val PHENOMENA_COUNT = 30
     const val ADDITIONAL_TIEBREAK_CHECKS = 5
-    const val THIRD_COMPLEMENT = "OpenWeatherMap: terceira consulta complementar para as 10 variáveis, não alerta oficial"
-    const val MARINE_COMPLEMENT = "Copernicus Marine: ondas, swell, marés, correntes e temperatura do mar"
+    const val THIRD_COMPLEMENT = "INMET: consulta de desempate com estação, hora e município compatíveis"
+    const val MARINE_COMPLEMENT = "NOAA e INPE/CPTEC: ondas e swell; EUMETSAT: satélite e temperatura do mar"
     const val SATELLITE_COMPLEMENT = "EUMETSAT: satélite, nuvens e ciclones no Atlântico"
     const val LIVE_STATUS = "Cadastro técnico; ingestão ativa das novas fontes ainda não confirmada"
     val primaryTable1Sources = listOf(
-        "Alerta Rio", "Defesa Civil RJ", "OpenWeatherMap (3ª consulta complementar)"
+        "Alerta Rio", "Defesa Civil RJ", "INMET (desempate por produto)"
     )
-    val disputeTable2FiveSources = listOf(
-        "INPE/CPTEC", "INMET", "CEMADEN", "Windy", "NOAA"
+    val disputeTable2Sources = listOf(
+        "INMET", "INPE/CPTEC", "NOAA", "CEMADEN", "JAXA/GSMaP", "EUMETSAT"
     )
+    // Kept only for compatibility with historical five-row UI contracts.
+    val disputeTable2FiveSources = disputeTable2Sources.take(5)
 
-    // RJ denotes only city Rio coverage for Alerta Rio. INPE/CPTEC and Windy
-    // are MODEL sources, never a second station for observational averages.
+    // Rio city coverage for Alerta Rio; forecasts/satellite estimates are
+    // never a second station in any observation average.
     val table1 = listOf(
-        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; 3ª consulta OpenWeatherMap; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3º complemento; cálculo físico Blaise sobre entradas válidas, sem média de índices"),
-        RjMeteoSourceRow("CHUVA_ATUAL", "Chuva atual", "RJ, estações com medição", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta por produto; desempate de leituras de chuva INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil por igual janela; OpenWeatherMap 3ª consulta; INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "P1 Alerta Rio + Defesa Civil por aviso vigente; OpenWeatherMap 3ª consulta complementar; INPE, INMET, CEMADEN, Windy, NOAA para evidências, não média de alertas"),
-        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("RAJADA", "Rajadas de vento", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "P1 Alerta Rio + Defesa Civil com dados reais; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "P1 Alerta Rio + Defesa Civil; OpenWeatherMap 3ª consulta; desempate INPE → INMET → CEMADEN → Windy → NOAA"),
-        RjMeteoSourceRow("GRANIZO", "Granizo", "92 municípios, área do evento", "P1 Alerta Rio + Defesa Civil por aviso oficial; OpenWeatherMap 3ª consulta de contexto; desempate conforme fenômeno e produto, nunca média de avisos"),
-        RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Alerta Rio + Defesa Civil P1 na cidade do Rio; INMET/CEMADEN; OpenWeatherMap complementar; EUMETSAT satélite; INPE → Windy"),
-        RjMeteoSourceRow("RISCO_HIDROLOGICO", "Cheia e inundação", "Bacias e municípios com risco", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
-        RjMeteoSourceRow("VAZAO_RIO", "Vazão dos rios", "Estações hidrológicas RJ", "ANA HidroWeb → SGB/SACE"),
-        RjMeteoSourceRow("RESSACA", "Ressaca e ondas altas", "Litoral RJ", "Marinha/CHM + boias + NOAA + Copernicus Marine; alerta Marinha prevalece"),
-        RjMeteoSourceRow("ONDAS", "Ondas, marés e mar", "Litoral e oceano próximo", "Marinha/CHM + NOAA + Copernicus Marine; altura, período e direção"),
-        RjMeteoSourceRow("CICLONE_EXTRATROPICAL", "Ciclone extratropical", "Atlântico com possível impacto RJ", "Marinha/CHM + INMET + NOAA + EUMETSAT + Copernicus Marine; INPE → Windy como comparação"),
-        RjMeteoSourceRow("CHUVA_ATLANTICO", "Chuva oceânica", "Atlântico próximo ao RJ", "Marinha/CHM + NOAA + EUMETSAT para nuvens e sistemas; INPE → Windy"),
-        RjMeteoSourceRow("MASSA_AR", "Massa de ar polar ou quente", "RJ e divisas", "INMET + Marinha + NOAA + EUMETSAT; INPE → Windy"),
-        RjMeteoSourceRow("RADAR", "Radar meteorológico próprio", "Cobertura geográfica real RJ", "Alerta Rio (cidade Rio) / CEMADEN → Defesa Civil; grade licenciada"),
-        RjMeteoSourceRow("DESLIZAMENTO", "Deslizamentos", "Áreas susceptíveis RJ", "Defesa Civil → CEMADEN → SGB/SACE → ANA"),
-        RjMeteoSourceRow("ALAGAMENTO", "Alagamento urbano", "Municípios / vias RJ", "Defesa Civil → CEMADEN → ANA → SGB/SACE; COR.Rio quando aplicável"),
-        RjMeteoSourceRow("FRENTE_FRIA", "Frentes frias", "RJ, divisas e Atlântico", "INMET + Marinha + NOAA + EUMETSAT; INPE → Windy"),
-        RjMeteoSourceRow("EL_NINO_LA_NINA", "El Niño / La Niña", "Escala climática e impactos no RJ", "INMET → NOAA → INPE → Windy"),
-        RjMeteoSourceRow("SISMO", "Sismos e terremotos", "RJ/Atlântico e seção global", "USGS → Defesa Civil → Marinha/CHM → NOAA"),
-        RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "Marinha/CHM + NOAA + autoridades brasileiras; USGS para origem sísmica"),
-        RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "NOAA/GOES GLM + rede terrestre autorizada → Defesa Civil"),
-        RjMeteoSourceRow("MARE", "Marés e nível do mar", "Litoral RJ", "Marinha/CHM → Copernicus Marine → NOAA; distinguir previsão e nível observado"),
-        RjMeteoSourceRow("SWELL", "Swell e ondulações", "Litoral e Atlântico próximo", "Marinha/CHM + NOAA + Copernicus Marine; altura, período e direção"),
-        RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA por produto"),
-        RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "Marinha/CHM + Copernicus Marine + NOAA; medição e modelo identificados"),
+        RjMeteoSourceRow("TEMPERATURA", "Temperatura", "92 municípios, estações existentes", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("SENSACAO_TERMICA", "Sensação térmica", "92 municípios, com entradas válidas", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("CHUVA_ATUAL", "Chuva atual", "RJ, estações com medição", "Alerta Rio (capital) e Defesa Civil RJ; INMET e CEMADEN por produto; JAXA/GSMaP para estimativa por satélite, NOAA para modelo; não misturar medição e previsão."),
+        RjMeteoSourceRow("CHUVA_ACUMULADA", "Chuva acumulada (janelas)", "92 municípios, estações existentes", "Alerta Rio (capital) e Defesa Civil RJ; INMET e CEMADEN por produto; JAXA/GSMaP para estimativa por satélite, NOAA para modelo; não misturar medição e previsão."),
+        RjMeteoSourceRow("TEMPORAL", "Temporal e avisos", "92 municípios, área do evento", "Defesa Civil RJ e INMET (aviso oficial), Alerta Rio (capital); INPE/CPTEC e NOAA como contexto, sem transformar modelos em avisos."),
+        RjMeteoSourceRow("VENTO", "Vento médio", "92 municípios, estações existentes", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("RAJADA", "Rajadas de vento", "92 municípios, estações existentes", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("PRESSAO_ATMOSFERICA", "Pressão / tendência", "92 municípios com estação", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("UMIDADE", "Umidade relativa", "92 municípios, estações existentes", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("GRANIZO", "Granizo", "92 municípios, área do evento", "Defesa Civil RJ e INMET (aviso oficial), Alerta Rio (capital); INPE/CPTEC e NOAA como contexto, sem transformar modelos em avisos."),
+        RjMeteoSourceRow("TEMPESTADE", "Tempestade severa", "92 municípios, área do evento", "Defesa Civil RJ e INMET (aviso oficial), Alerta Rio (capital); INPE/CPTEC e NOAA como contexto, sem transformar modelos em avisos."),
+        RjMeteoSourceRow("RISCO_HIDROLOGICO", "Cheia e inundação", "Bacias e municípios com risco", "Defesa Civil RJ → CEMADEN (risco/chuva) → ANA/Hidroweb → SGB/SACE; fonte, geografia e horário por produto."),
+        RjMeteoSourceRow("VAZAO_RIO", "Vazão dos rios", "Estações hidrológicas RJ", "Defesa Civil RJ → CEMADEN (risco/chuva) → ANA/Hidroweb → SGB/SACE; fonte, geografia e horário por produto."),
+        RjMeteoSourceRow("RESSACA", "Ressaca e ondas altas", "Litoral RJ", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("ONDAS", "Ondas, marés e mar", "Litoral e oceano próximo", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("CICLONE_EXTRATROPICAL", "Ciclone extratropical", "Atlântico com possível impacto RJ", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("CHUVA_ATLANTICO", "Chuva oceânica", "Atlântico próximo ao RJ", "JAXA/GSMaP para precipitação satelital, EUMETSAT para nuvens, NOAA e INPE/CPTEC para modelos; Defesa Civil RJ somente para aviso oficial pertinente; não misturar medição e previsão."),
+        RjMeteoSourceRow("MASSA_AR", "Massa de ar polar ou quente", "RJ e divisas", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("RADAR", "Radar meteorológico próprio", "Cobertura geográfica real RJ", "Alerta Rio/COR.Rio para quadros reais do radar Sumaré; janela de 30 min sem interpolação, com hora e autorização de uso."),
+        RjMeteoSourceRow("DESLIZAMENTO", "Deslizamentos", "Áreas susceptíveis RJ", "Defesa Civil RJ → CEMADEN (risco/chuva) → ANA/Hidroweb → SGB/SACE; fonte, geografia e horário por produto."),
+        RjMeteoSourceRow("ALAGAMENTO", "Alagamento urbano", "Municípios / vias RJ", "Defesa Civil RJ → CEMADEN (risco/chuva) → ANA/Hidroweb → SGB/SACE; fonte, geografia e horário por produto."),
+        RjMeteoSourceRow("FRENTE_FRIA", "Frentes frias", "RJ, divisas e Atlântico", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("EL_NINO_LA_NINA", "El Niño / La Niña", "Escala climática e impactos no RJ", "Alerta Rio (somente capital) e Defesa Civil RJ por seus produtos; medição INMET, previsão INPE/CPTEC/NOAA e satélite somente quando produto, horário e área forem comprovados."),
+        RjMeteoSourceRow("SISMO", "Sismos e terremotos", "RJ/Atlântico e seção global", "USGS e redes sísmicas oficiais; avisos à população somente de autoridades competentes, sem média de magnitudes."),
+        RjMeteoSourceRow("TSUNAMI", "Tsunami, maremoto e meteotsunami", "Costa RJ e Atlântico", "Autoridades brasileiras competentes e NOAA por seus produtos oficiais; USGS para origem sísmica. Tempo por batimetria é cálculo condicional, nunca aviso de tsunami."),
+        RjMeteoSourceRow("RAIOS", "Raios e descargas elétricas", "RJ, conforme rede", "INPE/CPTEC e satélites validados; redes autorizadas e Defesa Civil RJ para avisos."),
+        RjMeteoSourceRow("MARE", "Marés e nível do mar", "Litoral RJ", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("SWELL", "Swell e ondulações", "Litoral e Atlântico próximo", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("CORRENTES_MARINHAS", "Correntes oceânicas", "Litoral e Atlântico próximo", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
+        RjMeteoSourceRow("TEMPERATURA_MAR", "Temperatura da superfície do mar", "Litoral e Atlântico próximo", "INPE/CPTEC e NOAA (ondas, swell e modelos), EUMETSAT (vento, SST e satélite), JAXA/GSMaP (chuva oceânica); alertas apenas de autoridades brasileiras competentes."),
     )
     val table2 = listOf(
-        RjMeteoDisputeRow("01", "Três fontes da Tabela 1", "Alerta Rio e Defesa Civil P1; OpenWeatherMap como 3ª consulta complementar. Se duas leituras independentes convergirem, parar e calcular média ponderada somente com pesos verificados."),
-        RjMeteoDisputeRow("02", "Convergência 2 de 3", "Duas observações independentes e comparáveis entre as três primeiras bastam; verificar origem, estação, janela e qualidade; jamais duplicar medição republicada."),
-        RjMeteoDisputeRow("03", "Se não houver convergência", "Consultar CINCO fontes de desempate em ordem: INPE/CPTEC → INMET → CEMADEN → Windy → NOAA; basta uma confirmar aproximadamente uma leitura primária."),
-        RjMeteoDisputeRow("04", "INPE e INMET", "INPE/CPTEC é a 1ª consulta; INMET é a 2ª. Se o INPE oferecer apenas previsão, apresentar previsão e medição separadas; uma estação INMET pode validar uma medição existente."),
-        RjMeteoDisputeRow("05", "CEMADEN, Windy e NOAA", "Se necessário, CEMADEN é a 3ª referência, Windy a 4ª e NOAA a 5ª. Aplicar somente produtos compatíveis por fenômeno; modelos não substituem medições."),
-        RjMeteoDisputeRow("06", "Duas fontes apresentadas", "Mostrar leituras reais e/ou uma medição oficial + uma previsão identificada; nunca média mista de modelo e sensor."),
-        RjMeteoDisputeRow("07", "Dados faltantes", "Fonte atrasada ou indisponível: consultar imediatamente a próxima fonte autorizada e compatível. Medições com mais de 5 min não entram no cálculo; sem fonte atual, mostrar dados indisponíveis. Exibir fonte e horário de origem."),
-        RjMeteoDisputeRow("08", "Exceções especializadas", "Avisos marítimos, rios, raios, sismo e tsunami usam fontes competentes; não fazer média de categorias de alerta."),
-        RjMeteoDisputeRow("09", "P1 conjunta", "Alerta Rio e Defesa Civil são prioridade conjunta no Rio; dado republicado não equivale a duas medições independentes."),
-        RjMeteoDisputeRow("10", "Terceira fonte complementar", "OpenWeatherMap auxilia as 10 variáveis da tabela, quando o produto existe; não substitui INMET, Alerta Rio ou avisos oficiais."),
-        RjMeteoDisputeRow("11", "Compatibilidade antes de ponderar", "Média ponderada somente entre duas medições atuais, independentes e similares, com unidades, janelas, localidades e tipos equivalentes e pesos verificáveis. Sem pesos válidos, mostrar as leituras sem calcular. Previsão não é medição."),
-        RjMeteoDisputeRow("12", "Exceções marítimas", "Marinha/NOAA/Copernicus/EUMETSAT conforme o evento; tsunami depende de aviso competente, nunca de imagens ou de média."),
-        RjMeteoDisputeRow("13", "Licença e rastreabilidade", "Verificar produto, fonte, hora, autorização de uso comercial, atribuição e independência; sem evidência, não emitir alerta."),
+        RjMeteoDisputeRow("01", "Prioridade oficial", "Alerta Rio e Defesa Civil RJ fornecem produtos oficiais no âmbito de sua competência. INMET é a primeira referência de medição na checagem complementar."),
+        RjMeteoDisputeRow("02", "Medições independentes", "Comparar apenas duas observações independentes da mesma variável, área e janela; não confundir avisos com medições."),
+        RjMeteoDisputeRow("03", "Se faltar comprovação", "Consultar uma fonte autorizada por vez: INMET → INPE/CPTEC → NOAA → CEMADEN → JAXA/GSMaP → EUMETSAT, respeitando o produto."),
+        RjMeteoDisputeRow("04", "INMET e INPE/CPTEC", "INMET: observação por estação do município. INPE/CPTEC: previsão ou análise; apresentar natureza e horários separados."),
+        RjMeteoDisputeRow("05", "NOAA e satélites", "NOAA para modelo/Atlântico; CEMADEN para chuva e risco; JAXA/GSMaP para precipitação satelital; EUMETSAT para produto adequado."),
+        RjMeteoDisputeRow("06", "Duas fontes apresentadas", "Medição independente e previsão podem aparecer lado a lado, nunca receber média mista."),
+        RjMeteoDisputeRow("07", "Dados desatualizados", "Usar validade de cada produto. Sem entrada atual, mostrar indisponibilidade; atualização visual não altera horário da medição."),
+        RjMeteoDisputeRow("08", "Fenômenos especializados", "Avisos, rios, raios, sismo e tsunami seguem autoridades competentes e não são média de categorias."),
+        RjMeteoDisputeRow("09", "Prioridade P1", "Alerta Rio e Defesa Civil RJ têm precedência pelos seus avisos/produtos. Republicação não conta como fonte independente."),
+        RjMeteoDisputeRow("10", "Complementos condicionados", "Weather.com apenas como complemento horário quando houver licença; não substitui avisos oficiais nem estação INMET."),
+        RjMeteoDisputeRow("11", "Antes da ponderação", "Permitir pesos apenas para observações independentes e comparáveis. Sem pesos, mostrar as leituras individualmente."),
+        RjMeteoDisputeRow("12", "Oceano e litoral", "INPE/CPTEC, NOAA, EUMETSAT e JAXA por produto; tsunami e ressaca exigem aviso de autoridade competente."),
+        RjMeteoDisputeRow("13", "Licença e rastreabilidade", "Verificar produto, fonte, horário, autorização comercial, município, independência e aviso; sem evidência não emitir alerta."),
     )
     // Map one selected Table 1 item to ONLY the Table 2 checks that
     // apply. Distinct checks for measurements, formulas, warning categories
@@ -131,31 +133,31 @@ object RjMeteorologicalTables {
     // These are SOURCE ELIGIBILITY, not live observations or warnings.
     val marineTable = listOf(
         RjMeteoMarineRow("CICLONES_OCEANICOS", "Ciclones oceânicos",
-            "Marinha + NOAA + EUMETSAT + Copernicus",
+            "INPE/CPTEC + NOAA + EUMETSAT",
             "Evolução atmosférica, deslocamento e efeitos no mar",
             listOf("CICLONE_EXTRATROPICAL")),
         RjMeteoMarineRow("TEMPESTADES_ATLANTICO", "Tempestades no Atlântico",
-            "Marinha + NOAA + EUMETSAT",
+            "INPE/CPTEC + NOAA + EUMETSAT + JAXA/GSMaP",
             "Nuvens e sistemas intensos; satélite não substitui radar",
             listOf("TEMPESTADE", "CHUVA_ATLANTICO")),
         RjMeteoMarineRow("ONDAS_SWELL", "Ondas e swell",
-            "Marinha + NOAA + Copernicus",
+            "INPE/CPTEC + NOAA + EUMETSAT",
             "Altura, período, direção e propagação das ondas",
             listOf("ONDAS", "SWELL")),
         RjMeteoMarineRow("RESSACA_LITORAL", "Ressaca no litoral RJ",
-            "Marinha + boias + Copernicus + NOAA",
+            "INPE/CPTEC + NOAA + Defesa Civil RJ (avisos)",
             "Previsão e avaliação do risco costeiro por aviso competente",
             listOf("RESSACA")),
         RjMeteoMarineRow("TSUNAMI", "Tsunami / maremoto",
-            "NOAA + Marinha + autoridades brasileiras",
+            "Autoridades brasileiras competentes + NOAA + USGS",
             "Avisos oficiais, nível do mar e avaliação de ameaça",
             listOf("TSUNAMI")),
     )
 
     init {
         require(primaryTable1Sources.size == 3 && disputeTable2FiveSources.size == 5)
-        require(disputeTable2FiveSources.take(2) == listOf("INPE/CPTEC", "INMET"))
-        require(disputeTable2FiveSources.last() == "NOAA")
+        require(disputeTable2Sources.take(2) == listOf("INMET", "INPE/CPTEC"))
+        require(disputeTable2Sources.last() == "EUMETSAT")
         require(table1.size == PHENOMENA_COUNT && table1.map { it.code }.distinct().size == PHENOMENA_COUNT)
         require(table2.size == 8 + ADDITIONAL_TIEBREAK_CHECKS)
         require(marineTable.size == 5 && marineTable.map { it.code }.distinct().size == 5)

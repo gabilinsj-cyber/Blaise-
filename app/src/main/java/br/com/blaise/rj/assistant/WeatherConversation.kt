@@ -3,13 +3,21 @@ package br.com.blaise.rj.assistant
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
 import java.text.Normalizer
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
 fun normalizedSpeech(value: String): String = Normalizer.normalize(value.lowercase(), Normalizer.Form.NFD)
     .replace(Regex("\\p{M}+"), "").replace(Regex("[^a-z0-9 ]"), " ").replace(Regex(" +"), " ").trim()
 
-data class WeatherRequest(val city: City, val question: String, val date: LocalDate, val localScope: String?)
+data class WeatherRequest(
+    val city: City,
+    val question: String,
+    val date: LocalDate,
+    val localScope: String?,
+    val researchGeography: String? = null,
+    val requestedAt: Instant = Instant.now(),
+)
 sealed interface ConversationAction {
     data class Query(val request: WeatherRequest) : ConversationAction
     data class Reply(val text: String) : ConversationAction
@@ -28,7 +36,7 @@ class WeatherConversation {
         val station = br.com.blaise.rj.data.AlertaRioObservationParser.stations.firstOrNull {
             Regex("(^| )${Regex.escape(normalizedSpeech(it))}( |$)").containsMatchIn(text)
         }
-        val neighbourhood = listOf("Bangu", "Campo Grande", "Copacabana", "Ipanema", "Leme", "Barra da Tijuca", "Recreio dos Bandeirantes", "Madureira", "Rocinha", "Tijuca", "Botafogo", "Flamengo").firstOrNull {
+        val neighbourhood = listOf("Centro do Rio", "Centro", "Bangu", "Campo Grande", "Copacabana", "Ipanema", "Leme", "Barra da Tijuca", "Recreio dos Bandeirantes", "Madureira", "Rocinha", "Tijuca", "Botafogo", "Flamengo").firstOrNull {
             Regex("(^| )${Regex.escape(normalizedSpeech(it))}( |$)").containsMatchIn(text)
         }
         val namedCity = RioMunicipalities.all.sortedByDescending { it.name.length }.firstOrNull {
@@ -40,13 +48,25 @@ class WeatherConversation {
             RioMunicipalities.all.first { it.ibgeCode == 3304557 } else null
         val region = listOf("baixada", "regiao serrana", "regiao metropolitana", "zona norte", "zona sul", "zona oeste", "estado do rio").firstOrNull(text::contains)
         if (explicit == null && region != null) return ConversationAction.Reply("Você pediu um panorama de $region. Ainda não tenho cobertura regional validada para essa consulta. Qual município deseja consultar agora?")
-        val resolved = explicit ?: if (text.contains("minha cidade")) selectedCity else city
+        // Climatic and South Atlantic questions need no invented municipal
+        // station. The selected municipality is a navigation context only.
+        val researchGeography = when {
+            Regex("\\b(atlantico sul|oceano atlantico sul|atlantic south)\\b")
+                .containsMatchIn(text) -> "ATLANTICO_SUL"
+            Regex("\\b(sudeste|regiao sudeste)\\b")
+                .containsMatchIn(text) -> "SUDESTE_BRASIL"
+            Regex("\\b(el nino|la nina|aquecimento global|mudancas climaticas|mudanca climatica|enso|efeito estufa|clima global|zcas|zcit|oscilacao|mjo|anomalia climatica)\\b")
+                .containsMatchIn(text) -> if (explicit != null) "RIO_DE_JANEIRO" else "GLOBAL_CLIMA_RELEVANTE_RJ"
+            else -> null
+        }
+        val resolved = explicit ?: if (text.contains("minha cidade") ||
+            researchGeography != null) selectedCity else city
         if (resolved == null) {
             pending = raw
             return ConversationAction.Reply("Para qual cidade ou região você deseja saber?")
         }
         if (explicit != null || text.contains("minha cidade")) {
-            confirmedScope = station ?: neighbourhood ?: if (resolved.ibgeCode == 3304557) "Centro do Rio" else null
+            confirmedScope = station ?: neighbourhood // Rio municipal data is NOT Centro do Rio
         }
         city = resolved
         val question = pending?.let { "$it. $raw" } ?: raw
@@ -54,11 +74,18 @@ class WeatherConversation {
         val all = normalizedSpeech(question)
         if (all.contains("fim de semana") || all.contains("final de semana") || all.contains("semana que vem"))
             return ConversationAction.Reply("Entendi a consulta para ${resolved.name}. Ainda não tenho previsão validada para esse período; não vou usar as condições atuais como previsão.")
-        val supported = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover", "alerta", "aviso", "risco", "alagamento", "inundacao", "cheia", "deslizamento", "noticia", "transito", "abalo", "sismo", "terremoto", "tsunami", "maremoto", "onda", "ressaca", "marinha")
-        if (supported.none(all::contains))
-            return ConversationAction.Reply("Entendi a pergunta para ${resolved.name}, mas ainda não tenho dados oficiais validados para esse assunto. Não posso confirmar condições ou riscos agora.")
+        val intents = RjClientIntentClassifier.identify(question)
+        if (!intents.recognized && researchGeography == null && explicit == null)
+            return ConversationAction.Reply(
+                "Não consegui identificar o assunto da pergunta com segurança para ${resolved.name}. " +
+                "Pode dizer se deseja temperatura, chuva, vento, alertas, mar, trânsito ou outro fenômeno?"
+            )
         val date = if (all.contains("amanha")) today.plusDays(1) else today
         val scope = confirmedScope
-        return ConversationAction.Query(WeatherRequest(resolved, question, date, scope))
+        return ConversationAction.Query(WeatherRequest(
+            resolved, question, date, scope,
+            researchGeography ?: if (!intents.recognized) "RIO_DE_JANEIRO" else null,
+            Instant.now()
+        ))
     }
 }
