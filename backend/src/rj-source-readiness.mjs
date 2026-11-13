@@ -15,6 +15,18 @@ import {
 export const RJ_SOURCE_READINESS_PATH = '/v1/internal/rj-sources/readiness';
 export const RJ_SOURCE_READINESS_CONTRACT = 'BLAISE_RJ_SOURCE_LIVE_READINESS_V1';
 const STATES = new Set(['CURRENT','CURRENT_DEGRADED']);
+/**
+ * A retired or unknown source cannot qualify infrastructure as "live".
+ * Task-to-source mapping prevents one successful task validating unrelated
+ * cached data. No third-party payloads are returned by this endpoint.
+ */
+const APPROVED_SOURCE_TASK = new Map([
+  ['alerta-rio-rainfall-live','alerta-rio-rainfall'],
+  ['cemaden-rj-hydrological-risk','cemaden-rj-hydrological-risk'],
+  ['inmet-cap-warnings','inmet-cap-warnings'],
+  ['defesa-civil-rio-map-assets','defesa-civil-rio-map-assets'],
+]);
+const APPROVED_TASKS = new Set(APPROVED_SOURCE_TASK.values());
 
 function parseAt(iso) {
   const date = typeof iso === 'string' ? Date.parse(iso) : NaN;
@@ -45,12 +57,22 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
   const enabled=info?.enabled===true;
   const started=info?.started===true;
   const scheduler=info?.scheduler;
-  const tasks=Array.isArray(scheduler?.tasks)?scheduler.tasks:[];
-  const reports=Array.isArray(info?.sources)?info.sources.map(e=>normalizeSource(e,nowMillis)):[];
-  const completed=tasks.filter(t=>t?.lastOutcome==='SUCCESS'
-    &&Number.isInteger(t?.runCount)&&t.runCount>=1);
-  const sourceFresh=reports.filter(s=>s.fresh);
-  const live=enabled&&started&&completed.length>=1&&sourceFresh.length>=1;
+  const tasks=Array.isArray(scheduler?.tasks)
+    ?scheduler.tasks.filter(t=>APPROVED_TASKS.has(t?.taskId)):[];
+  const reports=Array.isArray(info?.sources)
+    ?info.sources.filter(e=>APPROVED_SOURCE_TASK.has(e?.sourceId))
+      .map(e=>normalizeSource(e,nowMillis)):[];
+  const completed=tasks.filter(t=> {
+    const finished=parseAt(t?.lastFinishedAt);
+    return t?.lastOutcome==='SUCCESS'
+      &&Number.isInteger(t?.runCount)&&t.runCount>=1
+      &&finished!==null&&finished<=nowMillis
+      &&nowMillis-finished<=15*60_000;
+  });
+  const completedIds=new Set(completed.map(t=>t.taskId));
+  const sourceFresh=reports.filter(source=>source.fresh
+    &&completedIds.has(APPROVED_SOURCE_TASK.get(source.sourceId)));
+  const live=enabled&&started&&sourceFresh.length>=1;
   return Object.freeze({
     contract:RJ_SOURCE_READINESS_CONTRACT,
     checkedAt:new Date(nowMillis).toISOString(),
@@ -76,7 +98,6 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
     }))),
     radarSpatialFrameReady:false,
     inpeApiReady:false,
-    windyLicensedModelApiReady:false,
     continuousUptimeProven:false, // require external Cloud Run/Cloud Monitoring SLO
     sourceLicensingProven:false, // source-product authorization is separate
     homologationRegister:Object.freeze({
@@ -86,8 +107,6 @@ export function buildRjSourceReadiness(worker,{nowMillis=Date.now()}={}) {
       documentedDisputeStages:RJ_METEO_TABLE2.length,
       sourceProductsVerifiedForCommercialUse:false,
       allThirtyPhenomenaLive:false,
-      openWeatherMapLiveProof:false,
-      copernicusMarineLiveProof:false,
       eumetsatSatelliteLiveProof:false,
       type:'CATALOG_PLUS_READ_ONLY_SOURCE_STATUS_NOT_PRODUCTION_LICENSE',
       liveSourceTasksWithRecentData:sourceFresh.length,
