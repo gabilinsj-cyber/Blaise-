@@ -20,7 +20,7 @@ test('a real fresh measured grid is presented as a native Blaise radar layer wit
   assert.equal(a.syntheticPixelsGenerated,false);
   assert.equal(a.warningsAuthorized,false);
 });
-test('30min timeline needs most recent frame <=10min old, identical calibrated radar and no duplicate frames',()=>{
+test('30min timeline needs most recent frame <=5min old, identical calibrated radar and no duplicate frames',()=>{
   const valid=prepareRjRadarTimeline({now,frames:[
     frame('2026-10-11T03:31:00Z'),frame('2026-10-11T03:55:00Z'),
   ]});
@@ -44,6 +44,8 @@ test('never turn sparse surface stations, unknown license or copied radar images
     frame('2026-10-11T03:55:00Z',{cells:[{latitude:0,longitude:0,rainRateMmH:12,footprintKm:1}]}),
     frame('2026-10-11T03:55:00Z',{cells:[{latitude:-22.9,longitude:-43.2,rainRateMmH:999,footprintKm:1}]}),
     frame('2026-10-11T03:55:00Z',{sourceUrl:'http://unsafe.test/radar'}),
+    frame('2026-10-11T03:55:00Z',{imageUrl:'https://example.org/screenshot.png'}),
+    frame('2026-10-11T03:55:00Z',{imageBase64:'data:image/png;base64,AAAA'}),
   ];
   for(const row of invalids){
     const result=prepareRjRadarTimeline({now,frames:[row]});
@@ -57,4 +59,20 @@ test('never turn sparse surface stations, unknown license or copied radar images
 
 test('a six-minute-old radar frame cannot be displayed as current',()=>{
   assert.equal(prepareRjRadarTimeline({now,frames:[frame('2026-10-11T03:54:00Z')]}).status,'UNAVAILABLE');
+});
+
+test('up to 16 real two-minute numeric frames fill a 30-minute history without any raster image',()=>{
+  const times=Array.from({length:16},(_,index)=>
+    new Date(now-(15-index)*2*60_000).toISOString());
+  const full=prepareRjRadarTimeline({now,frames:times.map(time=>frame(time))});
+  assert.equal(full.status,'AVAILABLE_VERIFIED_RADAR_GRID_FRAMES');
+  assert.equal(full.frames.length,16);
+  assert.equal(full.sourceImageCopied,false);
+  assert.equal(full.syntheticPixelsGenerated,false);
+  assert.equal(full.frames.every(row=>!Object.hasOwn(row,'imageUrl')&&
+    row.cells.every(cell=>cell.kind==='MEASURED_CALIBRATED_RADAR_CELL')),true);
+  assert.equal(prepareRjRadarTimeline({now,frames:[
+    ...times.map(time=>frame(time)),
+    frame('2026-10-11T03:29:00Z')
+  ]}).status,'UNAVAILABLE');
 });
