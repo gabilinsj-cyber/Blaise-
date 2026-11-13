@@ -168,6 +168,9 @@ export function loadOfficialSourceWorkerConfig(env = process.env) {
     defaultValue: false,
     code: 'official_source_worker_invalid_chm_warnings_enabled_flag',
   });
+  if (chmWarningsEnabled) {
+    throw new OfficialSourceWorkerError('official_source_worker_retired_source_chm');
+  }
   const inmetWarningsEnabled = parseBoolean(env.BLAISE_INMET_WARNINGS_ENABLED, {
     defaultValue: false,
     code: 'official_source_worker_invalid_inmet_warnings_enabled_flag',
@@ -275,6 +278,11 @@ export function createOfficialSourceWorker({
   }
   if (typeof chmWarningsEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_chm_warnings_enabled_flag');
+  }
+  // Retired by the RJ owner. A manually constructed config must not bypass
+  // the environment policy or re-enable maritime CHM polling.
+  if (chmWarningsEnabled) {
+    throw new OfficialSourceWorkerError('official_source_worker_retired_source_chm');
   }
   if (typeof inmetWarningsEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_inmet_warnings_enabled_flag');
