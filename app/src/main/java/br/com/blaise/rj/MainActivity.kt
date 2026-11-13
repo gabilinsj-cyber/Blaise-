@@ -1465,7 +1465,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, Color(0xFF2777B0)),
         ) {
-            BoxWithConstraints {
+            Box(Modifier.fillMaxSize()) {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
                 if (selectedLayer == "Radar") {
                     RjRadarSpatialOverlay(
