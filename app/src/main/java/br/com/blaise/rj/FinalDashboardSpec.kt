@@ -30,11 +30,10 @@ object FinalDashboardSpec {
         "Queda de árvore/poste", "Túneis fechados", "Deslizamentos", "Obras", "Rotas alternativas"
     )
 
-    val officialSources = listOf(
-        "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
-        "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
-        "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
-    )
+    /** Approved sources by product, never a claim of live data or permission. */
+    val officialSources = (RjSourceCatalog.meteorological + RjSourceCatalog.complementary)
+        .map { it.name }
+    val optionalVisualizationSources = RjSourceCatalog.optionalComplements.map { it.name }
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 

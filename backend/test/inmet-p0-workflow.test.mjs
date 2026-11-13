@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const workflowPath = '.github/workflows/inmet-p0-publish.yml';
+const workflowPath = '../.github/workflows/inmet-p0-publish.yml';
 
 test('INMET P0 publication workflow remains manual-only and fail-closed', async () => {
   const workflow = await readFile(workflowPath, 'utf8');

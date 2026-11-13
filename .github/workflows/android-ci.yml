@@ -234,3 +234,51 @@ jobs:
               for f in sorted(z.infolist(), key=lambda f: f.compress_size, reverse=True)[:15]:
                   print(f"{f.compress_size / 1000000:.2f} MB | {f.filename}")
           PYAPK
+
+      # O APK possui recursos de voz offline e ultrapassa o limite de transferência
+      # em alguns canais. As partes NÃO alteram o binário: basta concatená-las.
+      - name: APK de teste em partes verificadas
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/apk-chunks
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          split -b 128m -d -a 2 "$apk" evidence/apk-chunks/part-
+          (cd evidence/apk-chunks && sha256sum part-* > parts.sha256)
+          sha256sum "$apk" | awk '{print $1}' > evidence/apk-chunks/apk.sha256
+          parts="$(find evidence/apk-chunks -name 'part-*' -type f | wc -l)"
+          test "$parts" -eq 4
+          cat evidence/apk-chunks/part-* | sha256sum | awk '{print $1}' | diff - evidence/apk-chunks/apk.sha256
+          printf 'Original: app-debug.apk\nApplication ID: br.com.blaise.rj.debug\nBuild: DEBUG TEST ONLY\nParts: 00, 01, 02, 03 (128 MiB max each)\nAssembly: concatenate in sequence, verify apk.sha256\n' > evidence/apk-chunks/README.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-apk-part-00
+          path: evidence/apk-chunks/part-00
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-apk-part-01
+          path: evidence/apk-chunks/part-01
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-apk-part-02
+          path: evidence/apk-chunks/part-02
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-apk-part-03
+          path: evidence/apk-chunks/part-03
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-apk-integrity-manifest
+          path: |
+            evidence/apk-chunks/apk.sha256
+            evidence/apk-chunks/parts.sha256
+            evidence/apk-chunks/README.txt
+          if-no-files-found: error

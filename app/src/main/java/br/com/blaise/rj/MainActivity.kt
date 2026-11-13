@@ -114,6 +114,8 @@ import kotlinx.coroutines.launch
 import br.com.blaise.rj.cities.CitySelectionStore
 import br.com.blaise.rj.cities.RioMunicipalities
 import br.com.blaise.rj.core.City
+import br.com.blaise.rj.science.RjScientificCityPanel
+import br.com.blaise.rj.map.RjMeteorologicalOwnMap
 import br.com.blaise.rj.core.OfficialFeedEvidence
 import br.com.blaise.rj.core.OfficialFeedState
 import br.com.blaise.rj.core.OfficialFeedStatusPolicy
@@ -389,6 +391,17 @@ private fun BlaiseDashboard(
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
 
+                        if (powerOn && selectedSection in setOf("Início", "Cidades", "Mapa")) {
+                            RjRealtimeEvidencePanel(
+                                first = city1, second = city2,
+                                cityWeather = LocalCityWeather.current,
+                                rioStations = LocalRioStations.current,
+                                statewide = LocalStatewideDashboard.current,
+                                backend = LocalBackendDashboard.current,
+                                now = LocalObservationClock.current,
+                            )
+                        }
+
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
@@ -447,7 +460,9 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
-    val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latest = LocalCityWeather.current.values.mapNotNull {
+        it.currentObservation(clock)?.takeIf { row -> RjOperationalPolicy.mayUseSource(row.source) }?.observedAt
+    }.maxOrNull()
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
@@ -772,28 +787,14 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
         subtitle = "Radar • chuva • temperatura • vento • nuvens",
         modifier = modifier,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(310.dp).testTag("expanded-radar-map"),
-            color = Color(0xFF071421),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Divider),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(18.dp),
-                ) {
-                    Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Aguardando frames oficiais Alerta Rio/CEMADEN com municípios, fonte e horário.",
-                        color = Muted,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text("Janela operacional: últimos 30 minutos", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
+        RjMeteorologicalOwnMap(
+            selectedIbges = emptySet(),
+            statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot,
+            observedNow = LocalObservationClock.current,
+            mapHeight = 310.dp,
+        )
+        Text("Radar Sumaré: quadros reais ainda não conectados • janela prevista de 30 min, sem interpolação",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         RioStationMeasurementsPanel()
     }
 }
@@ -927,7 +928,7 @@ private fun StatewideMunicipalitiesPanel() {
         }
         if (snapshot != null) {
             Text("FONTES E COBERTURA", color = Gold, fontWeight = FontWeight.Bold)
-            snapshot.sources.forEach { source ->
+            snapshot.sources.filter(RjSourceCatalog::mayShowBackendSource).forEach { source ->
                 Text("${source.name}: ${source.connectedProduct?.replace('-', ' ') ?: "dados ainda não conectados"} • ${when(source.state) {
                     "CURRENT", "CURRENT_DEGRADED" -> "produto recebido; cobertura e validade por local"
                     "STALE" -> "desatualizado"
@@ -941,6 +942,8 @@ private fun StatewideMunicipalitiesPanel() {
 @Composable
 private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, onChooseCity2: () -> Unit) {
     CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    RjScientificCityPanel(listOf(city1, city2), LocalCityWeather.current, LocalObservationClock.current)
     Spacer(Modifier.height(14.dp))
     StatewideMunicipalitiesPanel()
     Spacer(Modifier.height(14.dp))
@@ -960,7 +963,12 @@ private fun MapScreen(city1: City, city2: City) {
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
     ) {
-        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
+        RjMeteorologicalOwnMap(
+            selectedIbges = setOf(city1.ibgeCode, city2.ibgeCode),
+            statewideSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot,
+            observedNow = LocalObservationClock.current,
+            mapHeight = 380.dp,
+        )
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
         StatusLine("Alerta Rio / CEMADEN", "Aguardando radar e chuva com horário por frame")
@@ -1025,8 +1033,12 @@ private fun MarineScreen() {
         subtitle = "Condições marítimas do litoral do RJ",
     ) {
         StatusLine("Ressaca", "Dados indisponíveis")
-        StatusLine("Tsunami meteorológica", "Aguardando aviso oficial")
-        StatusLine("Tsunami / maremoto", "Aguardando aviso oficial")
+        StatusLine("Meteotsunami", "Sem aviso oficial validado nesta tela; não significa ausência de risco")
+        StatusLine("Tsunami sísmico", "Consultar alertas oficiais; sem confirmação nesta tela")
+        StatusLine("Velocidade de onda longa", "Calculadora interna disponível somente com batimetria e perfil válidos")
+        StatusLine("Tempo de chegada de tsunami", "Não disponível como previsão pública: modelo operacional e validação pendentes")
+        Text("A altura de ondas NOAA, o swell e a ressaca não confirmam tsunami. Cálculos condicionais não emitem alerta nem recomendam evacuação.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         StatusLine("Surf / pesca", "Ondas, maré e direção do vento com fonte e horário")
     }
 }
@@ -1080,6 +1092,40 @@ private fun HistoryScreen(city1: City, city2: City) {
 }
 
 @Composable
+private fun RjApprovedSourcesPanel() {
+    val clock = LocalObservationClock.current
+    val activeSnapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) && it.workerActive }
+
+    DashboardSection(
+        title = "FONTES METEOROLÓGICAS APROVADAS • RJ",
+        subtitle = "Oito fontes principais • cadastro não significa conexão ativa",
+    ) {
+        RjSourceCatalog.meteorological.forEach { source ->
+            Text(source.name, color = Gold, fontWeight = FontWeight.SemiBold)
+            Text(source.purpose, color = Color.White, style = MaterialTheme.typography.bodySmall)
+            Text(RjSourceCatalog.connectionLabel(source, activeSnapshot),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(6.dp))
+        }
+        Text("FONTES COMPLEMENTARES", color = Gold, fontWeight = FontWeight.Bold)
+        RjSourceCatalog.complementary.forEach { source ->
+            Text(source.name, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(source.purpose + " • " + RjSourceCatalog.connectionLabel(source, activeSnapshot),
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("COMPLEMENTOS OPCIONAIS DE PREVISÃO E VISUALIZAÇÃO", color = Gold, fontWeight = FontWeight.Bold)
+        RjSourceCatalog.optionalComplements.forEach { source ->
+            Text(source.name + " • " + source.purpose,
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("Apenas produtos e horários validados serão usados em medições e alertas. Ausência de dados não significa ausência de risco.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
 private fun MoreScreen(
     powerOn: Boolean,
     silentMode: Boolean,
@@ -1107,6 +1153,9 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    RjApprovedSourcesPanel()
+    Spacer(Modifier.height(14.dp))
+    RjAgentDebugPanel()
 }
 
 @Composable
@@ -1252,7 +1301,7 @@ private fun MarinePanel(modifier: Modifier) {
         ?.snapshot?.marine?.takeIf { it.current(clock) }
     val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
 
-    val readings = snapshot?.marine.orEmpty().filter { !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
+    val readings = snapshot?.marine.orEmpty().filter { RjSourceCatalog.mayShowMarineSource(it.sourceName) && !it.issuedAt.isAfter(clock) && it.expiresAt.isAfter(clock) && (it.nature != "OBSERVADO" || (!it.validAt.isAfter(clock) && !it.validAt.isBefore(clock.minusSeconds(3600)))) }
     fun marineTime(t: java.time.Instant): String = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
         .withZone(java.time.ZoneId.of("America/Sao_Paulo")).format(t)
     fun marineValue(v: Double?, unit: String): String = v?.let { String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f %s", it, unit) } ?: "Não informado"
@@ -1541,6 +1590,7 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+        ?.takeIf { RjOperationalPolicy.mayUseSource(it.source) }
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1559,7 +1609,26 @@ private fun CityPanel(
             } ?: "Indisponível"
             StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
             StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", "Indisponível")
+            val apparent = observation?.let { obs ->
+                val heat = if (obs.temperatureC != null && obs.humidityPercent != null)
+                    br.com.blaise.rj.science.RjScientificCalculations.heatIndexC(
+                        obs.temperatureC, obs.humidityPercent
+                    ) else null
+                val chill = if (obs.temperatureC != null && obs.windKmh != null)
+                    br.com.blaise.rj.science.RjScientificCalculations.windChillC(
+                        obs.temperatureC, obs.windKmh
+                    ) else null
+                when {
+                    heat != null -> "Índice de calor: " +
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f °C", heat) +
+                        " (cálculo Blaise; não é medição oficial)"
+                    chill != null -> "Índice de frio: " +
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f °C", chill) +
+                        " (cálculo Blaise; não é medição oficial)"
+                    else -> "Indisponível para os dados recebidos"
+                }
+            } ?: "Medição oficial recente indisponível"
+            StatusLine("Sensação térmica", apparent)
             StatusLine("Índice UV", "Indisponível")
             StatusLine("Chance de chuva", "Indisponível")
             StatusLine("Rajadas / nuvens", "Indisponíveis")
