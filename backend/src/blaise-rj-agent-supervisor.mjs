@@ -1,5 +1,5 @@
 /**
- * Optional controller for eleven predefined RJ agents.
+ * Optional controller for thirteen predefined RJ agents.
  * NO timers, network, publishing or self-rewriting are started here.
  * Production must explicitly wire handlers, authorization, and scheduling.
  * Source worker / official P0 pipeline stays independently fail-closed.
@@ -8,12 +8,12 @@ import {RJ_AGENT_DEFINITIONS,dispatchRjAgent} from './blaise-rj-agent-registry.m
 
 const DAY=86400000,HOUR=3600000,MINUTE=60000;
 const KNOWN=new Set(RJ_AGENT_DEFINITIONS.map(x=>x.id));
-export const RJ_AGENT_SUPERVISOR_VERSION='rj-supervisor-explicit-20261113-v1';
+export const RJ_AGENT_SUPERVISOR_VERSION='rj-supervisor-explicit-20261113-v2';
 
 export function rjAgentDueIntervalMs(id,{severity=1,doubleRed=false}={}) {
   if(!KNOWN.has(id)||!Number.isInteger(severity)||severity<1||severity>5||typeof doubleRed!=='boolean')
     throw new TypeError('valid_rj_agent_cadence_required');
-  if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||id==='rotina-01h') return null;
+  if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||id==='geodados-fusao-licenciada'||id==='openweather-rj'||id==='rotina-01h') return null;
   if(id==='auditoria-limpeza') return DAY;
   if(['integridade-correcao','checagem-horaria','fiscalizacao-fontes'].includes(id)) return HOUR;
   if(id==='calculos-severos') return doubleRed?25000:severity>=5?30000:severity>=3?MINUTE:5*MINUTE;
@@ -62,7 +62,7 @@ export function createRjAgentSupervisor({
         const results=[];
         for(const agent of RJ_AGENT_DEFINITIONS) {
           const id=agent.id;
-          if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||!handlers[id])continue;
+          if(id==='voz-perguntas'||id==='blaise-ia-pesquisa'||id==='geodados-fusao-licenciada'||id==='openweather-rj'||!handlers[id])continue;
           const interval=rjAgentDueIntervalMs(id,{severity,doubleRed});
           const previous=history.get(id)?.lastAttemptAt;
           let due=false;
@@ -84,6 +84,17 @@ export function createRjAgentSupervisor({
       // Research is explicitly triggered by an incoming request; this
       // supervisor does not pull the internet or hold user questions.
       return runOne('blaise-ia-pesquisa',now());
+    },
+    async onDemandLicensedGeodata() {
+      if(stopped||!enabled)return {id:'geodados-fusao-licenciada',status:'DISABLED'};
+      // Only an explicitly registered authorized handler runs here. No stealth.
+      return runOne('geodados-fusao-licenciada',now());
+    },
+    async onDemandOpenWeather() {
+      if(stopped||!enabled)return {id:'openweather-rj',status:'DISABLED'};
+      // Only explicit server calls; the handler must implement shared
+      // cache, atomic daily budget and server-only secret reader.
+      return runOne('openweather-rj',now());
     },
     snapshot() {
       return RJ_AGENT_DEFINITIONS.map(agent=>{

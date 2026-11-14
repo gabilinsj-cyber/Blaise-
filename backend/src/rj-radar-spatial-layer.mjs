@@ -7,6 +7,8 @@
  * Conversion from an authorized provider's physical binary/grid product is
  * intentionally separate, source-specific and not implemented here.
  */
+import {isExcludedRjRadarProduct} from './rj-radar-excluded-providers.mjs';
+
 export const RJ_RADAR_SPATIAL_LAYER_CONTRACT='BLAISE_NATIVE_RJ_RADAR_SPATIAL_FRAMES_V1';
 const BOUNDS=Object.freeze({west:-45.2,east:-40.4,south:-24.3,north:-20.4});
 const id=/^[A-Za-z0-9][A-Za-z0-9._-]{1,83}$/;
@@ -15,7 +17,7 @@ const invalid=(why)=>Object.freeze({status:'UNAVAILABLE',reason:why,frames:Objec
   provenanceVerified:false,sourceImageCopied:false,syntheticPixelsGenerated:false});
 
 function normalizedFrame(frame,now,maxAgeMs){
-  if(!frame||typeof frame!=='object')return null;
+  if(!frame||typeof frame!=='object'||isExcludedRjRadarProduct(frame))return null;
   if(frame.dataType!=='GEOREFERENCED_MEASURED_RADAR_RAIN_RATE')return null;
   // Only numerical geo-referenced cells. No screenshots, base64 image or raster URLs.
   if(['imageUrl','imageData','imageBase64','rasterImage','screenshot','mapTileUrl']

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createRjAgentSupervisor,rjAgentDueIntervalMs}
   from '../src/blaise-rj-agent-supervisor.mjs';
 
-test('eleven agents have bounded normal/severe/extreme cadence without timers',()=>{
+test('thirteen agents have bounded normal/severe/extreme cadence without timers',()=>{
   assert.equal(rjAgentDueIntervalMs('calculos-severos'),300000);
   assert.equal(rjAgentDueIntervalMs('calculos-severos',{severity:3}),60000);
   assert.equal(rjAgentDueIntervalMs('calculos-severos',{severity:5}),30000);
@@ -11,6 +11,8 @@ test('eleven agents have bounded normal/severe/extreme cadence without timers',(
   assert.equal(rjAgentDueIntervalMs('transito-rj'),300000);
   assert.equal(rjAgentDueIntervalMs('voz-perguntas'),null);
   assert.equal(rjAgentDueIntervalMs('blaise-ia-pesquisa'),null);
+  assert.equal(rjAgentDueIntervalMs('geodados-fusao-licenciada'),null);
+  assert.equal(rjAgentDueIntervalMs('openweather-rj'),null);
   assert.throws(()=>rjAgentDueIntervalMs('unknown'));
 });
 test('supervisor never runs handlers without explicit enable',async()=>{
@@ -18,7 +20,7 @@ test('supervisor never runs handlers without explicit enable',async()=>{
   const s=createRjAgentSupervisor({handlers:{'transito-rj':{run:()=>runs++}}});
   assert.equal((await s.tick()).status,'DISABLED');
   assert.equal(runs,0);
-  assert.equal(s.snapshot().length,11);
+  assert.equal(s.snapshot().length,13);
   assert.ok(s.snapshot().every(x=>x.lastAttemptAt===null));
 });
 test('supervisor throttles duplicate polls and never auto-activates nonexistent agents',async()=>{
@@ -54,4 +56,16 @@ test('01h BRT daily job respects local clock and is not a continuous live worker
   at=Date.parse('2026-11-14T04:00:00Z');
   assert.equal((await s.tick()).results.length,1);
   assert.equal(calls,2);
+});
+
+test('Agent 12 never starts a clandestine or automatic worker and needs explicit handler',async()=>{
+  let calls=0;
+  const s=createRjAgentSupervisor({enabled:true,now:()=>Date.parse('2026-11-13T18:00:00Z'),handlers:{
+    'geodados-fusao-licenciada':{sourceId:'geo-rio',run:()=>{calls++;return {audited:true};}}
+  }});
+  assert.equal((await s.tick()).results.length,0);
+  assert.equal(calls,0);
+  const result=await s.onDemandLicensedGeodata();
+  assert.equal(result.status,'COMPLETED');
+  assert.equal(calls,1);
 });
