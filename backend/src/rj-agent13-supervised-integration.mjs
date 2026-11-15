@@ -80,7 +80,13 @@ export function createRjAgent13SupervisedIntegration({
     onDemand:async({adminAuthorized=false}={})=>{
       if(adminAuthorized!==true) return Object.freeze({status:'BLOCKED',reason:'ADMIN_AUTH_REQUIRED'});
       if(!configured) return Object.freeze({status:'DISABLED',reason:'NOT_CONFIGURED'});
-      return supervisor.onDemandOpenWeather();
+      const outcome=await supervisor.onDemandOpenWeather();
+      if(outcome?.status==='COMPLETED' && outcome?.result?.status==='UNAVAILABLE') {
+        return Object.freeze({id:'openweather-rj',status:'UNAVAILABLE',
+          reason:outcome.result.reason || 'NO_CURRENT_VALID_DATA',
+          officialAlert:false,officialObservation:false});
+      }
+      return outcome;
     },
     snapshot:()=>supervisor.snapshot(),
     stop:()=>supervisor.stop(),
