@@ -30,9 +30,9 @@ STAGED_NAME = 'agent13OperatorHandler'
 def prepare(source: str) -> tuple[str, str]:
     # Existing custom / partial Agent 13 wiring must be reviewed, not replaced.
     if 'createRjAgent13OperatorHttpHandler' in source or IMPORT_REF in source:
-        m = SERVER.search(source)
+        staged_servers = list(SERVER.finditer(source)) + list(SERVER_DIRECT.finditer(source))
         if (re.search(r'\bconst\s+agent13OperatorHandler\s*=\s*createRjAgent13OperatorHttpHandler\s*\(', source)
-                and len(SERVER.findall(source)) == 1 and m.group('handler') == STAGED_NAME):
+                and len(staged_servers) == 1 and staged_servers[0].group('handler') == STAGED_NAME):
             if re.search(r'\bverifyOperatorOidc:\s*null\b', source) and re.search(r'\bagent13:\s*null\b', source):
                 return source, 'ALREADY_STAGED_DISABLED'
         raise ValueError('EXISTING_AGENT13_WIRING_REQUIRES_MANUAL_REVIEW')
