@@ -2,7 +2,7 @@
 """Safely stage a disabled Agent 13 route in an existing Blaise RJ runtime.
 
 Nothing is imported/executed from runtime; no credentials are read. Preserves
-other local edits. Requires a unique readiness import and server anchor.
+other local edits. Requires a known single import and server anchor.
 """
 from __future__ import annotations
 import argparse
@@ -20,6 +20,11 @@ SERVER = re.compile(
     r"http\.createServer\(\s*createDrainingHandler\(\s*"
     r"(?P<handler>[A-Za-z_$][\w$]*)\s*,\s*readiness\s*\)\s*\)\s*;"
 )
+HTTP_IMPORT_ANCHOR = re.compile(r"""(?m)^import\s+http\s+from\s+['"]node:http['"]\s*;?[ \t]*$""")
+SERVER_DIRECT = re.compile(
+    r"(?m)^(?P<indent>[ \t]*)const[ \t]+server[ \t]*=[ \t]*"
+    r"http\.createServer\(\s*(?P<handler>[A-Za-z_$][\w$]*)\s*\)\s*;"
+)
 STAGED_NAME = 'agent13OperatorHandler'
 
 def prepare(source: str) -> tuple[str, str]:
@@ -33,12 +38,19 @@ def prepare(source: str) -> tuple[str, str]:
         raise ValueError('EXISTING_AGENT13_WIRING_REQUIRES_MANUAL_REVIEW')
 
     anchors = list(IMP_ANCHOR.finditer(source))
-    servers = list(SERVER.finditer(source))
+    anchor_kind = 'readiness'
     if len(anchors) != 1:
-        raise ValueError(f'READINESS_IMPORT_ANCHORS_{len(anchors)}_EXPECTED_1')
-    if len(servers) != 1:
-        raise ValueError(f'HTTP_SERVER_ANCHORS_{len(servers)}_EXPECTED_1')
-    match = servers[0]
+        # Some local runtimes do not import rj-source-readiness.
+        anchors = list(HTTP_IMPORT_ANCHOR.finditer(source))
+        anchor_kind = 'http'
+    if len(anchors) != 1:
+        raise ValueError(f'KNOWN_IMPORT_ANCHORS_{len(anchors)}_EXPECTED_1')
+    draining = list(SERVER.finditer(source))
+    direct = list(SERVER_DIRECT.finditer(source))
+    if len(draining) + len(direct) != 1:
+        raise ValueError(f'HTTP_SERVER_ANCHORS_{len(draining)+len(direct)}_EXPECTED_1')
+    is_draining = len(draining) == 1
+    match = draining[0] if is_draining else direct[0]
     indent, upstream = match.group('indent', 'handler')
     if upstream == STAGED_NAME:
         raise ValueError('ALREADY_STAGED_PARTIAL_NO_IMPORT')
@@ -54,10 +66,13 @@ def prepare(source: str) -> tuple[str, str]:
         f'{indent}    verifyOperatorOidc: null,\n'
         f'{indent}  }},\n'
         f'{indent});\n'
-        f'{indent}const server = http.createServer(createDrainingHandler({STAGED_NAME}, readiness));'
+        + (f'{indent}const server = http.createServer(createDrainingHandler({STAGED_NAME}, readiness));'
+           if is_draining else
+           f'{indent}const server = http.createServer({STAGED_NAME});')
     )
     modified = source[:match.start()] + replacement + source[match.end():]
-    m = IMP_ANCHOR.search(modified)
+    anchor_re = IMP_ANCHOR if anchor_kind == 'readiness' else HTTP_IMPORT_ANCHOR
+    m = anchor_re.search(modified)
     if not m:
         raise ValueError('IMPORT_ANCHOR_LOST')
     modified = modified[:m.end()] + '\n' + IMPORT_LINE + modified[m.end():]
