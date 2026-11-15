@@ -3,7 +3,7 @@
  * Does not schedule, publish, connect to Cloud Run or query a provider on import.
  * The application must inject its existing service and supervisor factories.
  */
-export const RJ_AGENT13_BRIDGE_VERSION = '1.1.0-rj-20261115';
+export const RJ_AGENT13_BRIDGE_VERSION = '1.1.1-rj-20261115';
 const GATES = Object.freeze([
   'BLAISE_OPENWEATHER_ENABLED',
   'BLAISE_OPENWEATHER_USAGE_APPROVED',
@@ -49,20 +49,21 @@ export function createRjAgent13SupervisedIntegration({
   });
   const configured=Boolean(canConfigure && service?.configured===true &&
     typeof service.collect==='function');
-  let running=false;
+  let running=false, onDemandActive=false, lastExecution=null;
+  const capture=result=>{lastExecution=result;return result;};
   async function run({now:requestedAt}={}) {
-    if(!configured) return unavailable('NOT_CONFIGURED');
-    if(running) return unavailable('ALREADY_RUNNING');
+    if(!configured) return capture(unavailable('NOT_CONFIGURED'));
+    if(running) return capture(unavailable('ALREADY_RUNNING'));
     running=true;
     try {
       const target=await targetProvider();
-      if(!validTarget(target)) return unavailable('NO_VERIFIED_SERVER_TARGET');
+      if(!validTarget(target)) return capture(unavailable('NO_VERIFIED_SERVER_TARGET'));
       const at=Number.isSafeInteger(requestedAt) && requestedAt>=0 ? requestedAt : now();
-      if(!Number.isSafeInteger(at)||at<0) return unavailable('INVALID_CLOCK');
+      if(!Number.isSafeInteger(at)||at<0) return capture(unavailable('INVALID_CLOCK'));
       const result=await service.collect({target,now:at});
-      return result && typeof result==='object' ? result : unavailable('INVALID_SERVICE_RESULT');
+      return capture(result && typeof result==='object' ? result : unavailable('INVALID_SERVICE_RESULT'));
     } catch {
-      return unavailable('SERVICE_OR_FIRESTORE_UNAVAILABLE');
+      return capture(unavailable('SERVICE_OR_FIRESTORE_UNAVAILABLE'));
     } finally { running=false; }
   }
   const supervisor=supervisorFactory({
@@ -80,13 +81,34 @@ export function createRjAgent13SupervisedIntegration({
     onDemand:async({adminAuthorized=false}={})=>{
       if(adminAuthorized!==true) return Object.freeze({status:'BLOCKED',reason:'ADMIN_AUTH_REQUIRED'});
       if(!configured) return Object.freeze({status:'DISABLED',reason:'NOT_CONFIGURED'});
-      const outcome=await supervisor.onDemandOpenWeather();
-      if(outcome?.status==='COMPLETED' && outcome?.result?.status==='UNAVAILABLE') {
-        return Object.freeze({id:'openweather-rj',status:'UNAVAILABLE',
-          reason:outcome.result.reason || 'NO_CURRENT_VALID_DATA',
-          officialAlert:false,officialObservation:false});
+      if(onDemandActive) return Object.freeze({status:'BUSY',reason:'ALREADY_RUNNING'});
+      onDemandActive=true;
+      lastExecution=null;
+      try {
+        const outcome=await supervisor.onDemandOpenWeather();
+        if(outcome?.status==='DISABLED') return outcome;
+        // Supervisor intentionally returns status only, discarding the
+        // dispatch payload. Capture the real Agent 13 result in the handler.
+        if(outcome?.status!=='COMPLETED')
+          return unavailable('SUPERVISOR_DID_NOT_COMPLETE');
+        const result=lastExecution ?? outcome.result;
+        if(result?.status==='UNAVAILABLE')
+          return unavailable(result.reason || 'NO_CURRENT_VALID_DATA');
+        // A successful dispatch is not proof of valid weather. Reject missing
+        // or unclassified provider data, rather than publishing fake success.
+        if(result?.status!=='CURRENT_ESTIMATE_AVAILABLE' ||
+           result.weather?.status!=='AVAILABLE_PROVIDER_CURRENT_ESTIMATE' ||
+           result.weather.sourceId!=='OPENWEATHER_ONECALL4_CURRENT' ||
+           result.weather.officialObservation!==false ||
+           result.weather.officialAlert!==false)
+          return unavailable('VERIFIED_WEATHER_RESULT_REQUIRED');
+        return Object.freeze({id:'openweather-rj',status:'COMPLETED',result});
+      } catch {
+        return unavailable('SUPERVISOR_EXECUTION_FAILED');
+      } finally {
+        lastExecution=null;
+        onDemandActive=false;
       }
-      return outcome;
     },
     snapshot:()=>supervisor.snapshot(),
     stop:()=>supervisor.stop(),
