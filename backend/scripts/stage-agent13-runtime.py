@@ -56,8 +56,11 @@ def prepare(source: str) -> tuple[str, str]:
         raise ValueError('ALREADY_STAGED_PARTIAL_NO_IMPORT')
     if not re.search(r'\bconst\s+' + re.escape(upstream) + r'\s*=', source):
         raise ValueError('UPSTREAM_HANDLER_NOT_DECLARED')
-    if source.count('const server') != 1:
-        raise ValueError('AMBIGUOUS_SERVER_DECLARATIONS')
+    # Match the exact variable `server`, not `serverShutdown` or `serverPort`.
+    # The previous substring count rejected otherwise valid runtimes.
+    exact_declarations = re.findall(r'(?m)^[ \t]*const[ \t]+server[ \t]*=', source)
+    if len(exact_declarations) != 1:
+        raise ValueError(f'AMBIGUOUS_SERVER_DECLARATIONS_{len(exact_declarations)}')
     replacement = (
         f'{indent}// Staged only; no operator verifier or collector wired.\n'
         f'{indent}const {STAGED_NAME} = createRjAgent13OperatorHttpHandler(\n'
