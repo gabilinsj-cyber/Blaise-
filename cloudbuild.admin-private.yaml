@@ -1,5 +1,7 @@
 # Private Blaise V6 RJ administrator APK only. No deployment, keys or weather APIs.
-# Requires the caller to approve Android SDK licenses in the launcher.
+# Uses the default-pool E2_STANDARD_2 eligible for the 2500 free build-minutes per billing account/month.
+# The free quota is not guaranteed to remain; Cloud Storage and network fees may apply.
+# Requires operator to approve Android SDK licenses in launcher.
 substitutions:
   _ADMIN_BUCKET: "REQUIRED"
   _BUILD_RUN_ID: "REQUIRED"
@@ -10,7 +12,7 @@ steps:
     env: ["ACCEPT_ANDROID_SDK_LICENSES=yes"]
 timeout: "3600s"
 options:
-  machineType: E2_HIGHCPU_8
+  machineType: E2_STANDARD_2
   diskSizeGb: "100"
   logging: CLOUD_LOGGING_ONLY
 artifacts:
