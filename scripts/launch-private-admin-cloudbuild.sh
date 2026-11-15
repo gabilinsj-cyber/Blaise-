@@ -75,27 +75,7 @@ git show "FETCH_HEAD:cloudbuild.admin-private.yaml" > "$CONFIG"
   echo "BUILD_FILES_MISSING"; exit 1;
 }
 # Fail closed if the free-tier-eligible machine or default pool is changed.
-if ! grep -Eq '^[[:space:]]*machineType:[[:space:]]*E2_STANDARD_2[[:space:]]*
-  echo "BUILD_BLOCKED: ONLY_E2_STANDARD_2_IS_ALLOWED"
-  exit 1
-fi
-if grep -Eq '^[[:space:]]*pool:[[:space:]]*' "$CONFIG"; then
-  echo "BUILD_BLOCKED: PRIVATE_POOL_IS_NOT_FREE_TIER"
-  exit 1
-fi
-echo "=== FREE_TIER_ELIGIBLE_MACHINE_CONFIRMED: E2_STANDARD_2 ==="
-echo "NOTE: 2500 free minutes are shared by all projects on the billing account."
-echo "NOTE: Storage/network charges remain possible; this is not a zero-cost guarantee."
-echo "=== SUBMITTING_ISOLATED_ANDROID_ADMIN_BUILD ==="
-gcloud builds submit "$ARCHIVE" --project="$PROJECT" --region="$REGION" \
-  --config="$CONFIG" --machine-type=e2-standard-2 \
-  --substitutions="_ADMIN_BUCKET=$BUCKET,_BUILD_RUN_ID=$RUN_ID" \
-  --timeout=3600s
-echo "=== PRIVATE_BUILD_FINISHED ==="
-echo "PRIVATE_BUCKET=gs://$BUCKET/private-admin/$RUN_ID/"
-gcloud storage ls -r "gs://$BUCKET/private-admin/$RUN_ID/**" || true
-echo "=== NO_PRODUCTION_APPS_MODIFIED ==="
- "$CONFIG"; then
+if ! grep -Eq '^[[:space:]]*machineType:[[:space:]]*E2_STANDARD_2[[:space:]]*$' "$CONFIG"; then
   echo "BUILD_BLOCKED: ONLY_E2_STANDARD_2_IS_ALLOWED"
   exit 1
 fi
