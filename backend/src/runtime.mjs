@@ -230,7 +230,7 @@ async function main() {
   const agent13OperatorHandler = createRjAgent13OperatorHttpHandler(
     sourceReadinessHandler, {
       agent13: null,
-      verifyOperatorOidc: metricsOidcVerifier,
+      verifyOperatorOidc: null, // Dedicated Agent 13 identity is not provisioned yet.
     },
   );
   const server = http.createServer(createDrainingHandler(agent13OperatorHandler, readiness));
