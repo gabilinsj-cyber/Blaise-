@@ -1,0 +1,20 @@
+# Private Blaise V6 RJ administrator APK only. No deployment, keys or weather APIs.
+# Requires the caller to approve Android SDK licenses in the launcher.
+substitutions:
+  _ADMIN_BUCKET: "REQUIRED"
+  _BUILD_RUN_ID: "REQUIRED"
+steps:
+  - name: "eclipse-temurin:17-jdk-jammy"
+    entrypoint: bash
+    args: ["scripts/cloudbuild-admin-private-build.sh"]
+    env: ["ACCEPT_ANDROID_SDK_LICENSES=yes"]
+timeout: "3600s"
+options:
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: "100"
+  logging: CLOUD_LOGGING_ONLY
+artifacts:
+  objects:
+    location: "gs://$_ADMIN_BUCKET/private-admin/$_BUILD_RUN_ID/"
+    paths:
+      - "app/build/outputs/apk/admin/app-admin.apk"
