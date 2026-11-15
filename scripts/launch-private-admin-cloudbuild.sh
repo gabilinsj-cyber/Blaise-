@@ -41,7 +41,7 @@ case "$BUILD_SA" in
 esac
 echo "=== PRIVATE_BUCKET_CHECK ==="
 if gcloud storage buckets describe "gs://$BUCKET" \
-  --format=json > "$SAFE/admin-bucket-metadata.json" 2>/dev/null; then
+  --raw --format=json > "$SAFE/admin-bucket-metadata.json" 2>/dev/null; then
   python3 - "$SAFE/admin-bucket-metadata.json" "$NUMBER" <<'PY'
 import json,sys
 doc=json.load(open(sys.argv[1]))
@@ -49,7 +49,11 @@ iam=doc.get('iamConfiguration',{})
 project=str(doc.get('projectNumber',''))
 if project and project != sys.argv[2]:
     raise SystemExit('BUCKET_OWNERSHIP_MISMATCH')
-if iam.get('publicAccessPrevention')!='enforced' or not iam.get('uniformBucketLevelAccess',{}).get('enabled'):
+pap=iam.get('publicAccessPrevention')
+uniform=iam.get('uniformBucketLevelAccess',{}).get('enabled')
+print('BUCKET_PUBLIC_ACCESS_PREVENTION:',pap or 'NOT_RETURNED')
+print('BUCKET_UNIFORM_LEVEL_ACCESS:',uniform)
+if pap!='enforced' or uniform is not True:
     raise SystemExit('PRIVATE_BUCKET_SETTINGS_MISMATCH')
 print('EXISTING_PRIVATE_BUCKET_VERIFIED')
 PY
