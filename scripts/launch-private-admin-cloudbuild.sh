@@ -109,7 +109,7 @@ BUILD_ID=$(gcloud builds submit "$ARCHIVE" --project="$PROJECT" --region="$REGIO
   --config="$CONFIG" --machine-type=e2-standard-2 \
   --substitutions="_ADMIN_BUCKET=$BUCKET,_BUILD_RUN_ID=$RUN_ID" \
   --timeout=3600s --async --format='value(id)')
-if ! printf '%s' "$BUILD_ID" | grep -Eq '^[0-9a-f-]{36}; then
+if ! printf '%s' "$BUILD_ID" | python3 -c 'import re,sys; raise SystemExit(0 if re.fullmatch("[0-9a-f-]{36}",sys.stdin.read()) else 1)'; then
   echo "SUBMISSION_ID_UNEXPECTED: check Cloud Build history before any retry"
   printf '%s\n' "$BUILD_ID"
   exit 1
