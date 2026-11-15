@@ -52,8 +52,11 @@ function fakeSupervisor({enabled,handlers}) {
  return {
    snapshot:()=>[{id:'openweather-rj',configured:Boolean(handlers['openweather-rj'])}],
    stop:()=>{stopped=true;},
-   onDemandOpenWeather:async()=> !enabled||stopped ? {status:'DISABLED'} :
-     handlers['openweather-rj'].run({now:Date.parse('2026-11-15T12:00:00Z')})
+   onDemandOpenWeather:async()=>{
+     if(!enabled||stopped)return {status:'DISABLED'};
+     await handlers['openweather-rj'].run({now:Date.parse('2026-11-15T12:00:00Z')});
+     return {status:'COMPLETED'}; // actual supervisor intentionally drops result
+   }
  };
 }
 function setup(overrides={}) {
