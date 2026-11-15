@@ -116,3 +116,14 @@ test('outage while determining server target is handled without provider call',a
  const r=await s.onDemand({adminAuthorized:true});
  assert.equal(r.status,'UNAVAILABLE');assert.equal(calls,0);
 });
+
+test('supervisor does not report unavailable weather as successful weather',async()=>{
+ const s=setup({supervisorFactory:()=>({
+   snapshot:()=>[],stop:()=>{},
+   onDemandOpenWeather:async()=>({status:'COMPLETED',result:{status:'UNAVAILABLE',reason:'ATOMIC_QUOTA_UNAVAILABLE'}})
+ })});
+ const r=await s.onDemand({adminAuthorized:true});
+ assert.equal(r.status,'UNAVAILABLE');
+ assert.equal(r.reason,'ATOMIC_QUOTA_UNAVAILABLE');
+ assert.equal(r.officialAlert,false);
+});
