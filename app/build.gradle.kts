@@ -92,6 +92,9 @@ android {
             versionNameSuffix = "-admin"
             buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
             buildConfigField("boolean", "BLAISE_ADMIN", "true")
+            // Owner-only local test: installable with SDK debug signing if no
+            // release key was provided. Never publish this as a store package.
+            if (!releaseSigningReady) signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
