@@ -44,6 +44,10 @@ if [ -z "$SDK" ]; then
     [ -x "$STAGING/cmdline-tools/bin/sdkmanager" ] || {
       echo "SDKMANAGER_NAO_ENCONTRADO"; exit 1
     }
+    if [ -e "$SDK/cmdline-tools/latest" ]; then
+      echo "SDK_TOOLS_PARTIAL_FOUND - NAO SOBRESCRITO"
+      exit 1
+    fi
     mv "$STAGING/cmdline-tools" "$SDK/cmdline-tools/latest"
     rmdir "$STAGING"
   fi
@@ -71,9 +75,10 @@ bash scripts/build-admin-private-apk.sh
 APK="$PWD/app/build/outputs/apk/admin/app-admin.apk"
 [ -s "$APK" ] || { echo "ADMIN_APK_NAO_GERADO"; exit 1; }
 mkdir -p "$SAFE/admin-apk"
-cp -n "$APK" "$SAFE/admin-apk/blaise-v6-rj-admin.apk" || {
+if [ -e "$SAFE/admin-apk/blaise-v6-rj-admin.apk" ]; then
   echo "ARQUIVO_ADMIN_JA_EXISTE - NAO SOBRESCRITO"; exit 1
-}
+fi
+cp "$APK" "$SAFE/admin-apk/blaise-v6-rj-admin.apk"
 echo "=== APK ADMINISTRADOR GERADO E VERIFICADO ==="
 sha256sum "$SAFE/admin-apk/blaise-v6-rj-admin.apk"
 du -h "$SAFE/admin-apk/blaise-v6-rj-admin.apk"
