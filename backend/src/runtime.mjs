@@ -7,6 +7,7 @@ import { createRjLiveSourceAudit } from './rj-live-source-audit.mjs';
 import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
+import { createRjAgent13OperatorHttpHandler } from './rj-agent13-operator-http.mjs';
 import { createRjResearchHttpHandler } from './rj-research-http.mjs';
 import { createRjDynamicResearchAgent } from './blaise-rj-dynamic-research.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
@@ -222,7 +223,17 @@ async function main() {
     worker: sourceWorker,
     verifyOperatorOidc: metricsOidcVerifier,
   });
-  const server = http.createServer(createDrainingHandler(sourceReadinessHandler, readiness));
+  // Stage Agent 13's OIDC-protected operator route without enabling collection.
+  // Agent 13 receives a credentialed Firestore client and an exclusive runner
+  // only after separate production readiness checks and operator approval.
+  // All other HTTP handlers and the official P0 worker stay unchanged.
+  const agent13OperatorHandler = createRjAgent13OperatorHttpHandler(
+    sourceReadinessHandler, {
+      agent13: null,
+      verifyOperatorOidc: metricsOidcVerifier,
+    },
+  );
+  const server = http.createServer(createDrainingHandler(agent13OperatorHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
