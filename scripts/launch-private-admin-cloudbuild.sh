@@ -29,6 +29,13 @@ if [ "${BLAISE_BUILD_APPROVAL:-}" != "ACEITO" ]; then
   exit 1
 fi
 echo "EXPLICIT_LICENSE_AND_COST_APPROVAL_CONFIRMED"
+echo "=== VERIFYING_NO_RUNNING_OR_QUEUED_BUILD ==="
+ONGOING=$(gcloud builds list --ongoing --project="$PROJECT" --region="$REGION" --format='value(id)')
+if [ -n "$ONGOING" ]; then
+  echo "BUILD_NOT_SUBMITTED: EXISTING_CLOUD_BUILD_IN_PROGRESS"
+  printf '%s\n' "$ONGOING"
+  exit 1
+fi
 NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
 [ -n "$NUMBER" ] || { echo "PROJECT_NUMBER_NOT_FOUND"; exit 1; }
 BUCKET="blaise-v6-rj-admin-private-$NUMBER"
@@ -90,12 +97,27 @@ fi
 echo "=== FREE_TIER_ELIGIBLE_MACHINE_CONFIRMED: E2_STANDARD_2 ==="
 echo "NOTE: 2500 free minutes are shared by all projects on the billing account."
 echo "NOTE: Storage/network charges remain possible; this is not a zero-cost guarantee."
-echo "=== SUBMITTING_ISOLATED_ANDROID_ADMIN_BUILD ==="
-gcloud builds submit "$ARCHIVE" --project="$PROJECT" --region="$REGION" \
+echo "=== VERIFYING_NO_NEW_CONCURRENT_BUILD ==="
+ONGOING=$(gcloud builds list --ongoing --project="$PROJECT" --region="$REGION" --format='value(id)')
+if [ -n "$ONGOING" ]; then
+  echo "BUILD_NOT_SUBMITTED: EXISTING_CLOUD_BUILD_IN_PROGRESS"
+  printf '%s\n' "$ONGOING"
+  exit 1
+fi
+echo "=== SUBMITTING_ISOLATED_ANDROID_ADMIN_BUILD_ASYNC ==="
+BUILD_ID=$(gcloud builds submit "$ARCHIVE" --project="$PROJECT" --region="$REGION" \
   --config="$CONFIG" --machine-type=e2-standard-2 \
   --substitutions="_ADMIN_BUCKET=$BUCKET,_BUILD_RUN_ID=$RUN_ID" \
-  --timeout=3600s
-echo "=== PRIVATE_BUILD_FINISHED ==="
-echo "PRIVATE_BUCKET=gs://$BUCKET/private-admin/$RUN_ID/"
-gcloud storage ls -r "gs://$BUCKET/private-admin/$RUN_ID/**" || true
+  --timeout=3600s --async --format='value(id)')
+if ! printf '%s' "$BUILD_ID" | grep -Eq '^[0-9a-f-]{36}; then
+  echo "SUBMISSION_ID_UNEXPECTED: check Cloud Build history before any retry"
+  printf '%s\n' "$BUILD_ID"
+  exit 1
+fi
+printf '%s\n' "$BUILD_ID" > "$SAFE/admin-build-$RUN_ID.id"
+echo "=== PRIVATE_BUILD_SUBMITTED_NOT_COMPLETED ==="
+echo "BUILD_ID=$BUILD_ID"
+echo "PRIVATE_APK_DESTINATION_AFTER_SUCCESS=gs://$BUCKET/private-admin/$RUN_ID/"
+echo "STATUS_COMMAND=gcloud builds describe $BUILD_ID --project=$PROJECT --region=$REGION --format=value(status)"
+echo "The APK is NOT available until the Cloud Build status is SUCCESS and the artifact is verified."
 echo "=== NO_PRODUCTION_APPS_MODIFIED ==="
