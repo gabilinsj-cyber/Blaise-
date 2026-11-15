@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Private Android admin build via Cloud Build, without Cloud Shell SDK or /tmp.
+# Only new private Cloud Storage bucket and build IAM binding may be created.
+# No backend, Firestore, NOAA or public client modification.
+set -euo pipefail
+PROJECT="blaise-v6-rj"
+REGION="southamerica-east1"
+REPO="$HOME/Blaise-RJ"
+BR="safety/rj-agent13-firestore-failclosed-20261115"
+SAFE="$HOME/blaise-rj-safety"
+mkdir -p "$SAFE"
+[ -d "$REPO/.git" ] || { echo "BLAISE_REPO_NOT_FOUND"; exit 1; }
+for TOOL in git gzip python3 gcloud; do
+  command -v "$TOOL" >/dev/null || { echo "MISSING_TOOL_$TOOL"; exit 1; }
+done
+ENABLED=$(gcloud services list --enabled --project="$PROJECT" \
+  --filter='config.name=cloudbuild.googleapis.com' \
+  --format='value(config.name)')
+[ "$ENABLED" = "cloudbuild.googleapis.com" ] || {
+  echo "CLOUD_BUILD_API_NOT_ENABLED: no APIs changed"; exit 1;
+}
+echo "=== PRIVATE_ANDROID_BUILD_APPROVAL ==="
+echo "This operation uses billable Cloud Build and private Cloud Storage."
+echo "Android SDK legal terms: https://developer.android.com/studio"
+echo "It does not touch the production backend or send OpenWeather requests."
+echo "Type ACEITO to confirm the SDK licenses and these build/storage costs."
+read -r APPROVAL </dev/tty
+[ "$APPROVAL" = "ACEITO" ] || { echo "OPERATOR_DID_NOT_APPROVE"; exit 1; }
+NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
+[ -n "$NUMBER" ] || { echo "PROJECT_NUMBER_NOT_FOUND"; exit 1; }
+BUCKET="blaise-v6-rj-admin-private-$NUMBER"
+BUILD_SA=$(gcloud builds get-default-service-account --region="$REGION" \
+  --project="$PROJECT" --format='value(serviceAccountEmail)')
+BUILD_SA=$(printf '%s' "$BUILD_SA" | awk -F/ '{print $NF}')
+case "$BUILD_SA" in
+  *@*.gserviceaccount.com) ;;
+  *) echo "CLOUD_BUILD_ACCOUNT_NOT_FOUND"; exit 1 ;;
+esac
+echo "=== PRIVATE_BUCKET_CHECK ==="
+if gcloud storage buckets describe "gs://$BUCKET" \
+  --format=json > "$SAFE/admin-bucket-metadata.json" 2>/dev/null; then
+  python3 - "$SAFE/admin-bucket-metadata.json" "$NUMBER" <<'PY'
+import json,sys
+doc=json.load(open(sys.argv[1]))
+iam=doc.get('iamConfiguration',{})
+project=str(doc.get('projectNumber',''))
+if project and project != sys.argv[2]:
+    raise SystemExit('BUCKET_OWNERSHIP_MISMATCH')
+if iam.get('publicAccessPrevention')!='enforced' or not iam.get('uniformBucketLevelAccess',{}).get('enabled'):
+    raise SystemExit('PRIVATE_BUCKET_SETTINGS_MISMATCH')
+print('EXISTING_PRIVATE_BUCKET_VERIFIED')
+PY
+else
+  echo "=== CREATING_PRIVATE_ADMIN_BUCKET ==="
+  gcloud storage buckets create "gs://$BUCKET" \
+    --project="$PROJECT" --location="$REGION" \
+    --uniform-bucket-level-access --public-access-prevention
+fi
+echo "=== GRANTING_BUILD_WRITE_ONLY_IN_PRIVATE_BUCKET ==="
+gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
+  --member="serviceAccount:$BUILD_SA" \
+  --role='roles/storage.objectCreator'
+echo "=== ARCHIVING_ONLY_COMMITTED_ISOLATED_BRANCH ==="
+cd "$REPO"
+git fetch origin "refs/heads/$BR"
+RUN_ID=$(date -u +%Y%m%dT%H%M%SZ)-$RANDOM
+ARCHIVE="$SAFE/admin-source-$RUN_ID.tar.gz"
+CONFIG="$SAFE/admin-cloudbuild-$RUN_ID.yaml"
+git archive --format=tar FETCH_HEAD | gzip > "$ARCHIVE"
+git show "FETCH_HEAD:cloudbuild.admin-private.yaml" > "$CONFIG"
+[ -s "$ARCHIVE" ] && [ -s "$CONFIG" ] || {
+  echo "BUILD_FILES_MISSING"; exit 1;
+}
+echo "=== SUBMITTING_ISOLATED_ANDROID_ADMIN_BUILD ==="
+gcloud builds submit "$ARCHIVE" --project="$PROJECT" --region="$REGION" \
+  --config="$CONFIG" \
+  --substitutions="_ADMIN_BUCKET=$BUCKET,_BUILD_RUN_ID=$RUN_ID" \
+  --timeout=3600s
+echo "=== PRIVATE_BUILD_FINISHED ==="
+echo "PRIVATE_BUCKET=gs://$BUCKET/private-admin/$RUN_ID/"
+gcloud storage ls -r "gs://$BUCKET/private-admin/$RUN_ID/**" || true
+echo "=== NO_PRODUCTION_APPS_MODIFIED ==="
