@@ -92,8 +92,13 @@ test('Firestore transaction failure fails closed with zero provider requests',as
 test('quota at 900 fails closed and 901st request is not made',async()=>{
  let calls=0;
  const db=fakeDb({start:899});
- const s=setup({database:db,fetchImpl:async()=>{calls++;return {status:'CURRENT_ESTIMATE_AVAILABLE'};}});
- assert.equal((await s.onDemand({adminAuthorized:true})).status,'CURRENT_ESTIMATE_AVAILABLE');
+ const s=setup({database:db,fetchImpl:async()=>{calls++;return {
+   status:'CURRENT_ESTIMATE_AVAILABLE',
+   weather:{status:'AVAILABLE_PROVIDER_CURRENT_ESTIMATE',
+     sourceId:'OPENWEATHER_ONECALL4_CURRENT',
+     officialObservation:false,officialAlert:false}
+ };}});
+ assert.equal((await s.onDemand({adminAuthorized:true})).status,'COMPLETED');
  assert.equal((await s.onDemand({adminAuthorized:true})).status,'UNAVAILABLE');
  assert.equal(calls,1);assert.equal(db.read(),900);
 });
@@ -126,4 +131,30 @@ test('supervisor does not report unavailable weather as successful weather',asyn
  assert.equal(r.status,'UNAVAILABLE');
  assert.equal(r.reason,'ATOMIC_QUOTA_UNAVAILABLE');
  assert.equal(r.officialAlert,false);
+});
+
+test('successful dispatch without verified weather is unavailable',async()=>{
+ const s=setup({fetchImpl:async()=>({status:'CURRENT_ESTIMATE_AVAILABLE'})});
+ const result=await s.onDemand({adminAuthorized:true});
+ assert.equal(result.status,'UNAVAILABLE');
+ assert.equal(result.reason,'VERIFIED_WEATHER_RESULT_REQUIRED');
+});
+test('concurrent administrator dispatch is blocked in the same process',async()=>{
+ let release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ let calls=0;
+ const s=setup({fetchImpl:async()=>{
+   calls++;await gate;
+   return {status:'CURRENT_ESTIMATE_AVAILABLE',
+     weather:{status:'AVAILABLE_PROVIDER_CURRENT_ESTIMATE',
+       sourceId:'OPENWEATHER_ONECALL4_CURRENT',
+       officialObservation:false,officialAlert:false}};
+ }});
+ const first=s.onDemand({adminAuthorized:true});
+ await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+ const second=await s.onDemand({adminAuthorized:true});
+ assert.equal(second.status,'BUSY');
+ release();
+ assert.equal((await first).status,'COMPLETED');
+ assert.equal(calls,1);
 });
