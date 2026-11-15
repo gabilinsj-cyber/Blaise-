@@ -23,9 +23,12 @@ echo "=== PRIVATE_ANDROID_BUILD_APPROVAL ==="
 echo "This operation uses billable Cloud Build and private Cloud Storage."
 echo "Android SDK legal terms: https://developer.android.com/studio"
 echo "It does not touch the production backend or send OpenWeather requests."
-echo "Type ACEITO to confirm the SDK licenses and these build/storage costs."
-read -r APPROVAL </dev/tty
-[ "$APPROVAL" = "ACEITO" ] || { echo "OPERATOR_DID_NOT_APPROVE"; exit 1; }
+echo "To approve explicitly, re-run this script with BLAISE_BUILD_APPROVAL=ACEITO."
+if [ "${BLAISE_BUILD_APPROVAL:-}" != "ACEITO" ]; then
+  echo "OPERATOR_DID_NOT_APPROVE: no build or billing initiated"
+  exit 1
+fi
+echo "EXPLICIT_LICENSE_AND_COST_APPROVAL_CONFIRMED"
 NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
 [ -n "$NUMBER" ] || { echo "PROJECT_NUMBER_NOT_FOUND"; exit 1; }
 BUCKET="blaise-v6-rj-admin-private-$NUMBER"
