@@ -2,6 +2,7 @@ import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
 import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CEMADEN_RJ_HYDRO_URL } from './cemaden-rj-source.mjs';
+import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
 import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from './inmet-source.mjs';
 
 export const STATEWIDE_DASHBOARD_PATH = '/v1/data/municipalities';
@@ -13,13 +14,16 @@ const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 // Approved responsibilities, not a claim that all portals supply an operational feed.
 export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
   { id: 'inmet', name: 'INMET', products: ['temperatura', 'umidade', 'vento', 'previsao', 'avisos'], scope: 'RJ_POR_COBERTURA_VALIDADA', taskId: INMET_WARNINGS_TASK_ID },
-  { id: 'cemaden-rj', name: 'CEMADEN-RJ / Defesa Civil RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
-  { id: 'alerta-rio', name: 'Alerta Rio', products: ['chuva', 'meteorologia', 'radar-conforme-produto'], scope: 'MUNICIPIO_DO_RIO', taskId: 'alerta-rio-rainfall' },
+  { id: 'cemaden-rj', name: 'CEMADEN-RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
   { id: 'ana', name: 'ANA / Hidroweb / HidroWebService', products: ['nivel-de-rios', 'vazao', 'historico-hidrologico'], scope: 'ESTACOES_COM_COBERTURA_RJ' },
   { id: 'sgb-sace', name: 'SGB / SACE', products: ['cheias', 'inundacao', 'boletins-hidrologicos'], scope: 'BACIAS_COM_COBERTURA_RJ' },
   { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
-  { id: 'windy', name: 'Windy', products: ['vento-modelado', 'rajadas-modeladas'], scope: 'MODELO_COM_LICENCA_E_CHAVE' },
-  { id: 'defesa-civil', name: 'Defesa Civil estadual e municipal', products: ['avisos-locais', 'ocorrencias', 'sirenes'], scope: 'JURISDICAO_DO_ORGAO' },
+  { id: 'ecmwf', name: 'ECMWF', products: ['previsao-ifs'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'dwd', name: 'DWD', products: ['previsao-icon'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'nasa', name: 'NASA', products: ['satelite-atmosfera'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'jaxa', name: 'JAXA', products: ['chuva-satelite-gsmap'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'eumetsat', name: 'EUMETSAT', products: ['satelite-oceanos'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'agente-13-openweather', name: 'Agente 13 / OpenWeather', products: ['comparacao', 'contingencia'], scope: 'BRASIL_CONFORME_COBERTURA_AUTORIZADA' },
   { id: 'cor-cet', name: 'COR.Rio / CET-Rio', products: ['transito', 'alagamentos', 'interdicoes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'prf-pmerj', name: 'PRF / PMERJ', products: ['rodovias', 'ocorrencias'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'usgs', name: 'USGS', products: ['sismos'], scope: 'EVENTOS_GLOBAIS_E_RELEVANCIA_RJ' },
@@ -138,6 +142,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     workerActive: active,
     municipalities,
     warnings,
+    officialNoticeLinks: OFFICIAL_ALERT_LINKS,
     marine: buildNoaaMarine(worker, nowMillis),
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
       const actualId = source.taskId ? reading(worker, source.taskId)?.sourceId : null;
