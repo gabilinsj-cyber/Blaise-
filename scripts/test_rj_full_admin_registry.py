@@ -26,9 +26,10 @@ class FullAdminRegistryTest(unittest.TestCase):
     def test_thirteen_roles_have_truthful_status(self):
         registry = read("app/src/main/java/br/com/blaise/rj/ScientificDashboardPolicy.kt")
         ui = read("app/src/main/java/br/com/blaise/rj/MainActivity.kt")
-        self.assertIn("require(allAgents.size == 13)", registry)
+        self.assertIn("require(allAgents.size == 14)", registry)
         self.assertIn('BlaiseAgentUi(12, "Blaise GeoFusion RJ"', registry)
         self.assertIn('BlaiseAgentUi(13, "Blaise OpenWeather RJ"', registry)
+        self.assertIn('BlaiseAgentUi(14, "Blaise Auditor Meteorológico Internacional RJ"', registry)
         self.assertIn("BlaiseAgentDashboard.allAgents.forEach", ui)
         self.assertIn("não comprova que todos estejam executando", ui)
         self.assertIn("AdminScientificCatalogPanel()", ui)
