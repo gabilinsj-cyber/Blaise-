@@ -20,7 +20,11 @@ private class OfficialWeatherSourceFailure(val code: String) : java.io.IOExcepti
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
-        runCatching { currentCityBlocking(request) }.getOrElse {
+        try {
+            currentCityBlocking(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             CityWeatherResult(request.city.ibgeCode, request.localScope,
                 unavailableReason = "Não foi possível confirmar uma medição oficial recente para ${request.localScope ?: request.city.name}.")
         }
@@ -189,8 +193,12 @@ class OfficialWeatherClient {
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
         // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
         // retrieval age cannot extend the validity of the underlying observation.
-        val result = runCatching { query(request) }.getOrElse {
-            "Não consegui confirmar os dados oficiais de ${request.localScope ?: request.city.name} agora. A consulta ao INMET está indisponível. Não tenho temperatura ou sensação térmica válida para informar. Tente novamente em instantes."
+        val result = try {
+            query(request)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            "Não consegui confirmar os dados oficiais de ${request.localScope ?: request.city.name} agora. A fonte consultada está indisponível. Não tenho temperatura ou sensação térmica válida para informar. Tente novamente em instantes."
         }
         result
     }
@@ -207,11 +215,14 @@ class OfficialWeatherClient {
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
         // Alerta Rio publishes a station HTML table. INMET publishes JSON.
         // Ask for the correct representation without weakening validation.
+        val host = URL(url).host
+        val isAlertaRio = host.equals("websempre.rio.rj.gov.br", ignoreCase = true)
+        val isInmet = host.equals("apitempo.inmet.gov.br", ignoreCase = true)
         conn.setRequestProperty("Accept",
-            if (URL(url).host.equals("websempre.rio.rj.gov.br", ignoreCase = true))
-                "text/html,application/xhtml+xml;q=0.9"
-            else
-                "application/json")
+            if (isAlertaRio) "text/html,application/xhtml+xml;q=0.9" else "application/json")
+        // Identify this application truthfully; do not impersonate a browser
+        // or attempt to bypass source-side access restrictions.
+        conn.setRequestProperty("User-Agent", "BlaiseV6RJ/6.0 (official-weather-reader)")
         try {
             if (conn.responseCode != 200) throw OfficialWeatherSourceFailure("HTTP_${conn.responseCode}")
             return conn.inputStream.use { input ->
@@ -223,8 +234,22 @@ class OfficialWeatherClient {
                     check(output.size() + count <= 2 * 1024 * 1024)
                     output.write(buffer, 0, count)
                 }
-                val bytes = output.toByteArray()
-                bytes.toString(Charsets.UTF_8)
+                val body = output.toByteArray().toString(Charsets.UTF_8)
+                // HTTP 200 is NOT evidence of meteorological observations.
+                // Some upstream access gates return small HTML login/error pages.
+                // Fail closed instead of passing them to the station parser.
+                if (isAlertaRio && (
+                        !body.contains("Dados Meteorol", ignoreCase = true) ||
+                        !body.contains("P. de Orvalho", ignoreCase = true) ||
+                        !body.contains("Umi. do Ar", ignoreCase = true) ||
+                        !body.contains("<table", ignoreCase = true)
+                    )) {
+                    throw OfficialWeatherSourceFailure("SOURCE_PAGE_NOT_MEASUREMENTS")
+                }
+                if (isInmet && body.trimStart().firstOrNull() !in listOf('[', '{')) {
+                    throw OfficialWeatherSourceFailure("SOURCE_JSON_MISSING")
+                }
+                body
             }
         } finally { conn.disconnect() }
     }
