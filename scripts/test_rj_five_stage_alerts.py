@@ -30,7 +30,7 @@ class FiveStageAlertContractTest(unittest.TestCase):
         self.assertIn('authorizedToDisplayShortMetadata',MODEL)
         self.assertIn('Duration.between(checkedAt, now).seconds !in 0..300',MODEL)
         self.assertIn('if (!alert.isCurrent(now)) return',CARD)
-        self.assertIn('alert.isCurrent(now)',ONCE)
+        self.assertIn('event.isCurrent(now)',ONCE)
 
     def test_one_only_on_a_transition_to_five_and_persist_first(self):
         self.assertIn('current == RjBlaiseStage.FIVE && previous != RjBlaiseStage.FIVE',MODEL)
