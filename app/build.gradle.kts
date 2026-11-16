@@ -26,6 +26,10 @@ val annualProductId = System.getenv("BLAISE_ANNUAL_PRODUCT_ID").orEmpty().trim()
 val entitlementVerifyUrl = System.getenv("BLAISE_ENTITLEMENT_VERIFY_URL").orEmpty().trim()
 val publicStatusBaseUrl = System.getenv("BLAISE_RJ_PUBLIC_STATUS_BASE_URL").orEmpty().trim()
     .ifEmpty { "https://blaise-v6-rj-backend-4bl6iadyua-rj.a.run.app" }
+// Explicit legal/contractual clearance for relaying the INMET warning-only
+// public backend; disabled by default, independent of weather observations.
+val publicAlertRelayAuthorized =
+    System.getenv("BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED").orEmpty().trim().equals("true", ignoreCase = true)
 val firebaseApplicationId = System.getenv("BLAISE_FIREBASE_APPLICATION_ID").orEmpty().trim()
 val firebaseApiKey = System.getenv("BLAISE_FIREBASE_API_KEY").orEmpty().trim()
 val firebaseProjectId = System.getenv("BLAISE_FIREBASE_PROJECT_ID").orEmpty().trim()
@@ -55,6 +59,7 @@ android {
         buildConfigField("String", "BLAISE_ANNUAL_PRODUCT_ID", buildConfigString(annualProductId))
         buildConfigField("String", "BLAISE_ENTITLEMENT_VERIFY_URL", buildConfigString(entitlementVerifyUrl))
         buildConfigField("String", "BLAISE_RJ_PUBLIC_STATUS_BASE_URL", buildConfigString(publicStatusBaseUrl))
+        buildConfigField("boolean", "BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED", publicAlertRelayAuthorized.toString())
         buildConfigField("String", "BLAISE_FIREBASE_APPLICATION_ID", buildConfigString(firebaseApplicationId))
         buildConfigField("String", "BLAISE_FIREBASE_API_KEY", buildConfigString(firebaseApiKey))
         buildConfigField("String", "BLAISE_FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
