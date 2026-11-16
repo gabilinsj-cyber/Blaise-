@@ -2,24 +2,30 @@ import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
 import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
 import { CEMADEN_RJ_HYDRO_URL } from './cemaden-rj-source.mjs';
+import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
 import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from './inmet-source.mjs';
 
 export const STATEWIDE_DASHBOARD_PATH = '/v1/data/municipalities';
 export const STATEWIDE_DASHBOARD_CONTRACT = 'RJ_92_MUNICIPALITIES_V1';
 export const STATEWIDE_DASHBOARD_MAX_BYTES = 1024 * 1024;
 const currentStates = new Set(['CURRENT', 'CURRENT_DEGRADED']);
+// Ceiling applies to current observations, not to still-valid CAP warning periods.
+export const MAX_CURRENT_OBSERVATION_AGE_MS = 12 * 60_000;
 const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 
 // Approved responsibilities, not a claim that all portals supply an operational feed.
 export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
   { id: 'inmet', name: 'INMET', products: ['temperatura', 'umidade', 'vento', 'previsao', 'avisos'], scope: 'RJ_POR_COBERTURA_VALIDADA', taskId: INMET_WARNINGS_TASK_ID },
-  { id: 'cemaden-rj', name: 'CEMADEN-RJ / Defesa Civil RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
-  { id: 'alerta-rio', name: 'Alerta Rio', products: ['chuva', 'meteorologia', 'radar-conforme-produto'], scope: 'MUNICIPIO_DO_RIO', taskId: 'alerta-rio-rainfall' },
+  { id: 'cemaden-rj', name: 'CEMADEN-RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
   { id: 'ana', name: 'ANA / Hidroweb / HidroWebService', products: ['nivel-de-rios', 'vazao', 'historico-hidrologico'], scope: 'ESTACOES_COM_COBERTURA_RJ' },
   { id: 'sgb-sace', name: 'SGB / SACE', products: ['cheias', 'inundacao', 'boletins-hidrologicos'], scope: 'BACIAS_COM_COBERTURA_RJ' },
   { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
-  { id: 'windy', name: 'Windy', products: ['vento-modelado', 'rajadas-modeladas'], scope: 'MODELO_COM_LICENCA_E_CHAVE' },
-  { id: 'defesa-civil', name: 'Defesa Civil estadual e municipal', products: ['avisos-locais', 'ocorrencias', 'sirenes'], scope: 'JURISDICAO_DO_ORGAO' },
+  { id: 'ecmwf', name: 'ECMWF', products: ['previsao-ifs'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'dwd', name: 'DWD', products: ['previsao-icon'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'nasa', name: 'NASA', products: ['satelite-atmosfera'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'jaxa', name: 'JAXA', products: ['chuva-satelite-gsmap'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'eumetsat', name: 'EUMETSAT', products: ['satelite-oceanos'], scope: 'COBERTURA_CONFORME_PRODUTO' },
+  { id: 'agente-13-openweather', name: 'Agente 13 / OpenWeather', products: ['comparacao', 'contingencia'], scope: 'BRASIL_CONFORME_COBERTURA_AUTORIZADA' },
   { id: 'cor-cet', name: 'COR.Rio / CET-Rio', products: ['transito', 'alagamentos', 'interdicoes'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'prf-pmerj', name: 'PRF / PMERJ', products: ['rodovias', 'ocorrencias'], scope: 'JURISDICAO_DO_ORGAO' },
   { id: 'usgs', name: 'USGS', products: ['sismos'], scope: 'EVENTOS_GLOBAIS_E_RELEVANCIA_RJ' },
@@ -90,7 +96,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const active = status?.enabled === true && status?.started === true;
   const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
-  const hydroReady = ready(hydro, nowMillis, 30 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
+  const hydroReady = ready(hydro, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
   const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
   const records = hydroReady ? hydro.snapshot.records : [];
   const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
@@ -114,7 +120,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const unresolved = warnings.some(item => item.attribution === 'UNRESOLVED_RJ_AREA');
   const municipalities = RJ_MUNICIPALITIES.map(city => {
     const item = byIbge.get(city.ibge);
-    const validRisk = item && freshStamp(item.observedAt, nowMillis, 30 * 60_000)
+    const validRisk = item && freshStamp(item.observedAt, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS)
       && Number.isInteger(item.priority) && item.priority >= 1 && item.priority <= 5;
     return {
       ibge: city.ibge,
@@ -138,6 +144,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     workerActive: active,
     municipalities,
     warnings,
+    officialNoticeLinks: OFFICIAL_ALERT_LINKS,
     marine: buildNoaaMarine(worker, nowMillis),
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
       const actualId = source.taskId ? reading(worker, source.taskId)?.sourceId : null;

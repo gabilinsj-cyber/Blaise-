@@ -31,9 +31,9 @@ object FinalDashboardSpec {
     )
 
     val officialSources = listOf(
-        "COR.Rio", "CET-Rio", "Alerta Rio", "Geo-Rio",
-        "Defesa Civil Municipal", "Defesa Civil Estadual", "CEMADEN", "ANA/Hidroweb", "SGB/SACE",
-        "Marinha do Brasil/CHM", "INMET", "CPTEC/INPE", "USGS"
+        "INMET", "CEMADEN", "NOAA", "ECMWF/IFS", "DWD/ICON",
+        "NASA", "JAXA/GSMaP", "EUMETSAT", "OpenWeather/Agente 13",
+        "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")

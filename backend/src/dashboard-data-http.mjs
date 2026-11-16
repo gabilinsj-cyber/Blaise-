@@ -1,4 +1,5 @@
 import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
+import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
@@ -152,10 +153,10 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
   try {
     rainfallReading = sourceWorker.readSource(ALERTA_RIO_RAINFALL_TASK_ID);
   } catch {
-    return null;
+    rainfallReading = null;
   }
   const rainfall = summarizeAlertaRioRainfall(rainfallReading);
-  if (!rainfall) return null;
+  // Municipal rain gauges are link-only; keep the dashboard available without fabricating a measurement.
 
   let marine = null;
   try {
@@ -201,10 +202,12 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
     contract: DASHBOARD_DATA_HTTP_CONTRACT,
     generatedAt: new Date(nowMillis).toISOString(),
     mode: status.mode === 'severe' ? 'severe' : 'normal',
-    scope: 'RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL',
+    scope: 'RJ_APPROVED_SOURCES',
     sourceCount: sources.length,
     currentSourceCount,
     rainfall,
+    rainfallAvailability: rainfall ? 'AVAILABLE' : 'UNAVAILABLE',
+    officialNoticeLinks: OFFICIAL_ALERT_LINKS,
     marine,
     sources: Object.freeze(sources),
     privacy: Object.freeze({

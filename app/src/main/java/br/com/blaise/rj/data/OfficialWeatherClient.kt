@@ -13,7 +13,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
+/** Direct observations are restricted to INMET; every answer revalidates measurement age. */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
@@ -23,35 +23,13 @@ class OfficialWeatherClient {
         }
     }
 
-    /** Separate station network: these readings never stand in for Centro or another municipality. */
-    suspend fun currentRioStations(): List<CityWeatherObservation> = withContext(Dispatchers.IO) {
-        try {
-            val url = "https://websempre.rio.rj.gov.br/estacoes/"
-            AlertaRioObservationParser.parse(get(url)).map { row ->
-                CityWeatherObservation(3304557, row.station, "Alerta Rio", url, row.observedAt,
-                    row.temperatureC, row.humidityPercent, row.windKmh, 1800)
-            }.filter { it.current(Instant.now()) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+    /** Municipal sources are link-only; no direct Alerta Rio meteorological polling. */
+    suspend fun currentRioStations(): List<CityWeatherObservation> = emptyList()
 
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
         val scope = request.localScope
-        if (request.city.ibgeCode == 3304557 && scope != null) {
-            if (AlertaRioObservationParser.stations.none { normalizedSpeech(it) == normalizedSpeech(scope) }) {
-                return CityWeatherResult(request.city.ibgeCode, scope,
-                    unavailableReason = "Não há medição de $scope confirmada nesta consulta. Informe uma estação para consultar sua área de cobertura.")
-            }
-            val url = "https://websempre.rio.rj.gov.br/estacoes/"
-            val row = AlertaRioObservationParser.parse(get(url)).firstOrNull { normalizedSpeech(it.station) == normalizedSpeech(scope) }
-            return CityWeatherResult(request.city.ibgeCode, scope, row?.let {
-                CityWeatherObservation(request.city.ibgeCode, it.station, "Alerta Rio", url, it.observedAt,
-                    it.temperatureC, it.humidityPercent, it.windKmh, 1800)
-            })
-        }
+        if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
+            unavailableReason = "Cobertura de $scope ainda não confirmada por uma estação INMET autorizada. A fonte municipal foi desativada.")
         val today = LocalDate.now(zone)
         val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
         val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
@@ -66,7 +44,7 @@ class OfficialWeatherClient {
         val instant = Instant.now()
         val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
             OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..7200 }.maxByOrNull { it.second }
+        }.filter { Duration.between(it.second, instant).seconds in 0..MAX_CURRENT_OBSERVATION_AGE_SECONDS }.maxByOrNull { it.second }
             ?: return CityWeatherResult(request.city.ibgeCode, scope,
                 unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
         if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
@@ -75,7 +53,7 @@ class OfficialWeatherClient {
             request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
             OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
             OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
+            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), MAX_CURRENT_OBSERVATION_AGE_SECONDS,
         ))
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {

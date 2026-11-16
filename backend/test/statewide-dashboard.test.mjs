@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { RJ_MUNICIPALITIES } from '../src/rio-municipalities.mjs';
-import { buildStatewideDashboardSnapshot, STATEWIDE_SOURCE_RESPONSIBILITIES } from '../src/statewide-dashboard.mjs';
+import { buildStatewideDashboardSnapshot, STATEWIDE_SOURCE_RESPONSIBILITIES, MAX_CURRENT_OBSERVATION_AGE_MS } from '../src/statewide-dashboard.mjs';
 import { INMET_SOURCE_ID, INMET_CAP_RSS_URL } from '../src/inmet-source.mjs';
 const now = Date.parse('2026-10-08T10:00:00Z');
 const stamp = new Date(now - 60_000).toISOString();
@@ -33,6 +33,16 @@ test('recent download never renews expired observation; expired fetch blocks all
   const stale = buildStatewideDashboardSnapshot(worker({ fetchedAt: old }), { nowMillis: now });
   assert.ok(stale.municipalities.every(city => city.hydrologicalRisk.level === null));
   assert.deepEqual(stale.warnings, []);
+});
+test('12-minute limit accepts precise boundary and rejects older observations', () => {
+  const exact = new Date(now - MAX_CURRENT_OBSERVATION_AGE_MS).toISOString();
+  const expired = new Date(now - MAX_CURRENT_OBSERVATION_AGE_MS - 1).toISOString();
+  const onTime = buildStatewideDashboardSnapshot(worker({ observedAt: exact }), { nowMillis: now });
+  assert.ok(onTime.municipalities.some(city => city.hydrologicalRisk.level !== null));
+  const oldObservation = buildStatewideDashboardSnapshot(worker({ observedAt: expired }), { nowMillis: now });
+  assert.ok(oldObservation.municipalities.every(city => city.hydrologicalRisk.level === null));
+  const oldFetch = buildStatewideDashboardSnapshot(worker({ fetchedAt: expired }), { nowMillis: now });
+  assert.ok(oldFetch.municipalities.every(city => city.hydrologicalRisk.level === null));
 });
 test('unresolved statewide CAP is retained but never spread across municipalities', () => {
   const result = buildStatewideDashboardSnapshot(worker({ unresolved: true }), { nowMillis: now });

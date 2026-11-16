@@ -297,6 +297,7 @@ export function createOfficialSourceWorker({
     throw new OfficialSourceWorkerError('official_source_worker_invalid_mode');
   }
   const ineaStationUrl = null;
+  const municipalNoticeLinksOnly = config.municipalNoticeLinksOnly === true;
   const noaaWaveEnabled = config.noaaWaveEnabled ?? false;
   noaaPoint = noaaPoint ?? config.noaaPoint ?? null;
   if (typeof noaaWaveEnabled !== "boolean") throw new OfficialSourceWorkerError("invalid_noaa_enabled_flag");
@@ -306,7 +307,7 @@ export function createOfficialSourceWorker({
   const chmWarningsEnabled = false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
   const inmetP0PublishEnabled = config.inmetP0PublishEnabled ?? false;
-  const defesaCivilRioAssetsEnabled = config.defesaCivilRioAssetsEnabled ?? false;
+  const defesaCivilRioAssetsEnabled = municipalNoticeLinksOnly ? false : (config.defesaCivilRioAssetsEnabled ?? false);
   if (typeof cemadenRjEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');
   }
@@ -344,7 +345,7 @@ export function createOfficialSourceWorker({
     throw new OfficialSourceWorkerError('official_source_worker_invalid_event_handler');
   }
 
-  const alertaRioCache = createAlertaRioRainfallCache({ now });
+  const alertaRioCache = municipalNoticeLinksOnly ? null : createAlertaRioRainfallCache({ now });
   const noaaWaveCache = noaaWaveEnabled ? createNoaaWaveCache({ now }) : null;
   const ineaCache = ineaStationUrl ? createIneaHydrometStationCache({ now }) : null;
   const cemadenRjCache = cemadenRjEnabled ? createCemadenRjHydrologicalRiskCache({ now }) : null;
@@ -357,7 +358,7 @@ export function createOfficialSourceWorker({
     automaticPublication: inmetAutomaticPublication,
   });
 
-  const tasks = [{
+  const tasks = municipalNoticeLinksOnly ? [] : [{
     id: ALERTA_RIO_RAINFALL_TASK_ID,
     run: async ({ startedAt }) => {
       try {
@@ -504,6 +505,11 @@ export function createOfficialSourceWorker({
     });
   }
 
+  // Keep startup safe when no approved live source is enabled. Never poll an excluded source as fallback.
+  if (tasks.length === 0) {
+    tasks.push({ id: 'no-live-source-configured', run: async () => {} });
+  }
+
   const scheduler = createOfficialSourceScheduler({
     tasks,
     now,
@@ -532,7 +538,7 @@ export function createOfficialSourceWorker({
     if (taskId === NOAA_WAVE_TASK_ID && noaaWaveCache) {
       return noaaWaveCache.read({ mode: scheduler.snapshot().mode });
     }
-    if (taskId === ALERTA_RIO_RAINFALL_TASK_ID) {
+    if (taskId === ALERTA_RIO_RAINFALL_TASK_ID && alertaRioCache) {
       return alertaRioCache.read({ mode: scheduler.snapshot().mode });
     }
     if (taskId === INEA_STATION_TASK_ID && ineaCache) {
@@ -555,9 +561,9 @@ export function createOfficialSourceWorker({
 
   function status() {
     const schedulerStatus = scheduler.snapshot();
-    const sourceStates = [
-      sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode })),
-    ];
+    const sourceStates = alertaRioCache
+      ? [sourceStateWithoutPayload(alertaRioCache.read({ mode: schedulerStatus.mode }))]
+      : [];
     if (ineaCache) {
       sourceStates.push(sourceStateWithoutPayload(ineaCache.read({ mode: schedulerStatus.mode })));
     }
@@ -588,6 +594,7 @@ export function createOfficialSourceWorker({
       inmetP0PublishEnabled,
       inmetP0Evaluation,
       defesaCivilRioAssetsConfigured: defesaCivilRioAssetsEnabled,
+      municipalNoticeLinksOnly,
       payloadRetention: 'MEMORY_ONLY_IN_SOURCE_CACHE',
       statusPayloads: 'REDACTED',
       externalPolling: config.enabled ? 'EXPLICITLY_ENABLED' : 'DISABLED_FAIL_CLOSED',
