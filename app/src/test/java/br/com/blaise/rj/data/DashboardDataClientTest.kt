@@ -45,11 +45,12 @@ class DashboardDataClientTest {
         assertEquals("normal", snapshot.mode)
         assertEquals(2, snapshot.sourceCount)
         assertEquals(1, snapshot.currentSourceCount)
-        assertEquals(33, snapshot.rainfall.stationCount)
-        assertEquals(2, snapshot.rainfall.wetStationCount)
-        assertEquals(12.5, snapshot.rainfall.max15mMm!!, 0.0)
-        assertEquals(28.4, snapshot.rainfall.max1hMm!!, 0.0)
-        assertEquals(85.7, snapshot.rainfall.max24hMm!!, 0.0)
+        val rainfall = snapshot.rainfall ?: error("Expected validated legacy rainfall")
+        assertEquals(33, rainfall.stationCount)
+        assertEquals(2, rainfall.wetStationCount)
+        assertEquals(12.5, rainfall.max15mMm!!, 0.0)
+        assertEquals(28.4, rainfall.max1hMm!!, 0.0)
+        assertEquals(85.7, rainfall.max24hMm!!, 0.0)
         assertEquals("CURRENT", snapshot.sources.first().state)
         assertEquals("STALE", snapshot.sources.last().state)
     }
@@ -87,6 +88,30 @@ class DashboardDataClientTest {
             put("currentSourceCount", 2)
         }
         assertTrue(runCatching { DashboardDataParser.parse(duplicateSources) }.isFailure)
+    }
+
+    @Test fun `parser accepts new dashboard without excluded municipal gauge feed`() {
+        val updated = validPayload().toMutableMap().apply {
+            put("scope", "RJ_APPROVED_SOURCES")
+            put("rainfall", null)
+            put("rainfallAvailability", "UNAVAILABLE")
+            put("sourceCount", 0)
+            put("currentSourceCount", 0)
+            put("sources", emptyList<Map<String, Any?>>())
+            put("officialNoticeLinks", listOf(mapOf(
+                "id" to "alerta-rio",
+                "name" to "Alerta Rio",
+                "message" to "Consulte os avisos oficiais de chuvas na cidade do Rio.",
+                "url" to "https://www.sistema-alerta-rio.com.br/alertas/",
+            )))
+        }
+        val snapshot = DashboardDataParser.parse(updated)
+        assertNull(snapshot.rainfall)
+        assertEquals(0, snapshot.currentSourceCount)
+        assertEquals(1, snapshot.officialNoticeLinks.size)
+        assertTrue(snapshot.current(Instant.parse("2026-09-15T11:00:10Z")))
+        val invalid = updated.toMutableMap().apply { put("rainfallAvailability", "AVAILABLE") }
+        assertTrue(runCatching { DashboardDataParser.parse(invalid) }.isFailure)
     }
 
     private fun validPayload(): Map<String, Any?> = mapOf(
