@@ -31,7 +31,8 @@ class InternationalSourceOnlyContractTest(unittest.TestCase):
 
     def test_no_republication_and_private_review_once_in_thirty_minutes(self):
         self.assertIn('INTERNAL_BRAZILIAN_REVIEW_INTERVAL_MINUTES = 30L', POLICY)
-        self.assertIn('"INMET", "Alerta Rio", "Defesa Civil RJ"', POLICY)
+        self.assertIn('"INMET", "Defesa Civil RJ"', POLICY)
+        self.assertNotIn('"INMET", "Alerta Rio", "Defesa Civil RJ"', POLICY)
         self.assertIn('consulta', DOC.lower())
         self.assertIn('intervalo mínimo de 30 minutos', DOC)
         self.assertIn('sem', DOC.lower())
