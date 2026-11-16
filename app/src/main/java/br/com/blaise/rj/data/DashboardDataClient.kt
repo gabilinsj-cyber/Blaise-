@@ -74,7 +74,7 @@ data class DashboardMarineReading(
         val age = java.time.Duration.between(validAt, now).seconds
         val checkedAge = java.time.Duration.between(lastCheckedAt, now).seconds
         return age in 0L..3599L &&
-            checkedAge in 0L..900L &&
+            checkedAge in 0L..MAX_CURRENT_OBSERVATION_AGE_SECONDS &&
             expiresAt.isAfter(now)
     }
 }
@@ -95,8 +95,8 @@ data class DashboardDataSnapshot(
         fun ageWithin(value: Instant, limit: Long): Boolean =
             !value.isAfter(now) && java.time.Duration.between(value, now).seconds <= limit
         return ageWithin(generatedAt, 120) &&
-            (rainfall == null || (ageWithin(rainfall.observedAt, 900) &&
-                rainfall.fetchedAt?.let { ageWithin(it, if (mode == "severe") 120 else 900) } == true))
+            (rainfall == null || (ageWithin(rainfall.observedAt, MAX_CURRENT_OBSERVATION_AGE_SECONDS) &&
+                rainfall.fetchedAt?.let { ageWithin(it, if (mode == "severe") 120 else MAX_CURRENT_OBSERVATION_AGE_SECONDS) } == true))
     }
 }
 
