@@ -2071,106 +2071,37 @@ private fun PublicOfficialWarningRibbon(
 
 @Composable
 private fun PublicMunicipalStatusLine(ibge: Int) {
-    val now = LocalObservationClock.current
-    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(now) }
-    val city = snapshot?.municipality(ibge, now)
-    val risk = city?.risk?.takeIf { it.current(now) }
-    val warnings = snapshot?.warningsFor(ibge, now).orEmpty()
-    Column(
-        Modifier.fillMaxWidth().testTag("official-municipality-status-${ibge}"),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        if (risk != null) {
-            PulsingRiskLabel("Risco hidrológico: ${risk.label} (nível ${risk.level})", risk.level)
-            Text("CEMADEN-RJ / Defesa Civil • " +
-                risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")),
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-        } else {
-            Text("Risco municipal: sem boletim oficial recente validado",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-        }
-        warnings.take(3).forEach { warning ->
-            val expiry = warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
-            Text("INMET: ${warning.event} • ${warning.severity} • até ${expiry}",
-                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-            AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
-                Text(it, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        if (warnings.isEmpty()) {
-            Text("Avisos oficiais: sem confirmação de cobertura completa; não indica ausência de risco.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+    // Public alert levels, verbatim issuer texts and municipal risk values
+    // are not republished by Blaise. The original authority owns the details.
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Column(Modifier.fillMaxWidth().testTag("official-municipality-status-$ibge")) {
+        Text("Para verificar avisos desta região, consulte as autoridades oficiais.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        TextButton(onClick = { uri.openUri("https://avisos.inmet.gov.br/") }) {
+            Text("INMET • abrir página oficial", color = Gold)
         }
     }
 }
 
 @Composable
 private fun StatewideMunicipalitiesPanel() {
-    val clock = LocalObservationClock.current
-    val response = LocalStatewideDashboard.current
-    val snapshot = (response as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
-    val publicSnapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
-        ?.snapshot?.takeIf { it.current(clock) }
     var query by remember { mutableStateOf("") }
-    DashboardSection("ESTADO DO RJ • 92 MUNICÍPIOS", "Riscos e avisos por município, fonte e horário") {
-        OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("Buscar município do RJ") },
-            singleLine = true, modifier = Modifier.fillMaxWidth())
-        if (snapshot == null && publicSnapshot == null) {
-            Text("Sem atualização oficial estadual validada nesta consulta. " +
-                "O canal público não depende de assinatura, mas precisa ser habilitado com fontes autorizadas.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
-        } else if (snapshot == null && publicSnapshot != null) {
-            Text("Dados públicos • INMET e CEMADEN/Defesa Civil • origem, horário e cobertura por município.",
-                color = Gold, style = MaterialTheme.typography.labelSmall)
-        } else if (!snapshot!!.workerActive) {
-            Text("Coleta estadual indisponível. O cadastro de municípios não confirma monitoramento ativo.", color = WarningAmber)
-        }
-        val cities = RioMunicipalities.search(query)
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    DashboardSection("ESTADO DO RJ • 92 MUNICÍPIOS",
+        "Consultar avisos em páginas oficiais, sem reprodução de níveis ou textos") {
+        OutlinedTextField(value = query, onValueChange = { query = it },
+            label = { Text("Buscar município do RJ") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth())
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
-            items(cities, key = { it.ibgeCode }) { city ->
-                val row = snapshot?.municipalities?.firstOrNull { it.ibge == city.ibgeCode }
-                val publicRow = publicSnapshot?.municipality(city.ibgeCode, clock)
-                Column(Modifier.padding(vertical = 8.dp)) {
+            items(RioMunicipalities.search(query), key = { it.ibgeCode }) { city ->
+                Column(Modifier.padding(vertical = 6.dp)) {
                     Text(city.name, color = Color.White, fontWeight = FontWeight.Bold)
-                    val paidRisk = row?.risk?.takeIf { it.current(clock) }
-                    val publicRisk = publicRow?.risk?.takeIf { it.current(clock) }
-                    val riskLabel = paidRisk?.label ?: publicRisk?.label
-                    val riskTime = paidRisk?.observedAt ?: publicRisk?.observedAt
-                    Text(if (riskLabel == null) "Risco hidrológico: indisponível ou desatualizado." else
-                        "Risco hidrológico: ${riskLabel} • CEMADEN-RJ • ${riskTime?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).",
+                    Text("Informações de segurança: consultar a publicação da autoridade competente.",
                         color = Muted, style = MaterialTheme.typography.labelSmall)
-                    val paidWarnings = snapshot?.warnings
-                        ?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
-                    val publicWarnings = publicSnapshot?.warningsFor(city.ibgeCode, clock).orEmpty()
-                    paidWarnings.forEach { warning ->
-                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.",
-                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                    TextButton(onClick = { uri.openUri("https://avisos.inmet.gov.br/") }) {
+                        Text("Consultar INMET", color = Gold)
                     }
-                    if (paidWarnings.isEmpty()) publicWarnings.forEach { warning ->
-                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.",
-                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (paidWarnings.isEmpty() && publicWarnings.isEmpty())
-                        Text("Nenhum aviso municipal confirmado nesta consulta; não comprova ausência de risco.",
-                            color = Muted, style = MaterialTheme.typography.labelSmall)
-                    if (row?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS" ||
-                        publicRow?.warningCoverage == "PARTIAL_UNRESOLVED_AREAS")
-                        Text("Há avisos estaduais cuja área municipal ainda não foi confirmada.",
-                            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                 }
-            }
-        }
-        if (snapshot != null) {
-            Text("FONTES E COBERTURA", color = Gold, fontWeight = FontWeight.Bold)
-            snapshot.sources.forEach { source ->
-                Text("${source.name}: ${source.connectedProduct?.replace('-', ' ') ?: "dados ainda não conectados"} • ${when(source.state) {
-                    "CURRENT", "CURRENT_DEGRADED" -> "produto recebido; cobertura e validade por local"
-                    "STALE" -> "desatualizado"
-                    else -> "indisponível"
-                }}", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -2198,57 +2129,17 @@ private fun PulsingRiskLabel(text: String, level: Int) {
     Text(text, color = color.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
 }
 
-/** Persisted provenance is historical; only a matching live snapshot confirms the source. */
+/** Histories remain locally preserved but source texts and alert levels are not republished. */
 @Composable
 private fun MunicipalAlertValidityPanel(ibge: Int, historyOnly: Boolean = false) {
-    val now = LocalObservationClock.current
-    val snapshot = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)?.snapshot
-    val paid = (LocalStatewideDashboard.current as? StatewideDataResult.Available)?.snapshot
-        ?.takeIf { it.current(now) && it.workerActive }
-    val warnings = LocalOfficialWarningHistory.current.filter {
-        ibge in it.municipalityIbges && it.retainHistory(now) &&
-            (!historyOnly || !it.localActiveUntil().isAfter(now))
-    }
-    if (warnings.isEmpty()) {
-        if (historyOnly) Text("Sem registros históricos retidos para esta cidade.", color = Muted)
-        return
-    }
-    Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val activeRecords = warnings.filter { it.localActiveUntil().isAfter(now) }
-        val historicalRecords = warnings.filterNot { it.localActiveUntil().isAfter(now) }
-        (activeRecords + historicalRecords).forEach { warning ->
-            if (historicalRecords.firstOrNull() == warning)
-                Text("HISTÓRICO • encerrados no Blaise", color = Muted, fontWeight = FontWeight.Bold)
-            val sourceCurrent = (snapshot?.current(now) == true && snapshot.warnings.any { it == warning }) ||
-                paid?.warnings?.any { it.id == warning.id && it.sent == warning.sent &&
-                    it.expires == warning.expires && it.event == warning.event && it.severity == warning.severity &&
-                    it.attribution == "EXACT_IBGE" && ibge in it.municipalityIbges } == true
-            val state = AlertValidityPolicy.evaluate(warning.sent, warning.onset,
-                warning.expires, now, sourceCurrent)
-            val historical = warning.localClosedAt != null || state == AlertValidity.EXPIRED || state == AlertValidity.LOCAL_EXPIRED
-            Surface(color = Navy, shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, if (historical) Muted else WarningAmber)) {
-                Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                    Text("${if (historical) "HISTÓRICO" else "AVISO"} • INMET • ${warning.event} • gravidade da emissão: ${warning.severity}", color = if (historical) Muted else Color.White)
-                    Text(if (warning.localClosedAt != null) "Retirada confirmada na fonte • somente histórico" else AlertValidityPolicy.label(state),
-                        color = if (historical) Muted else WarningAmber)
-                    if (warning.localClosedAt == null) AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.sent, now))?.let {
-                        Text(it, color = if (historical) Muted else WarningAmber, style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (historical)
-                        Text("Retirado da lista ativa do Blaise. Registro histórico por mais 12 horas após o encerramento local; não representa risco atual nem cancelamento pelo emissor.",
-                            color = Muted, style = MaterialTheme.typography.labelSmall)
-                    val format = java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
-                    val zone = java.time.ZoneId.of("America/Sao_Paulo")
-                    Text("Emissão ${warning.sent.atZone(zone).format(format)} • início ${warning.onset.atZone(zone).format(format)} • fim ${warning.expires.atZone(zone).format(format)} (Brasília)",
-                        color = Muted, style = MaterialTheme.typography.labelSmall)
-                    Text(warning.sourceUrl, color = Muted, style = MaterialTheme.typography.labelSmall)
-                    if (!historical && state == AlertValidity.REVIEW_DUE)
-                        Text("Reavaliação meteorológica ainda não comprovada; o aviso oficial permanece vigente.",
-                            color = Muted, style = MaterialTheme.typography.labelSmall)
-                }
-            }
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    Column(Modifier.fillMaxWidth().testTag("alert-validity-$ibge")) {
+        Text(if (historyOnly)
+                "Histórico: consulte os registros nas páginas oficiais."
+            else "Avisos públicos: consulte a informação original da autoridade.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        TextButton(onClick = { uri.openUri("https://avisos.inmet.gov.br/") }) {
+            Text("Abrir página oficial do INMET", color = Gold)
         }
     }
 }
@@ -2345,10 +2236,9 @@ private fun AlertsScreen(city1: City, city2: City) {
         Text(city2.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city2.ibgeCode)
         MunicipalAlertValidityPanel(city2.ibgeCode)
-        Text("Todos os avisos recebidos aparecem abaixo da respectiva cidade, com fonte e validade.", color = Gold)
-        Text("Após 3 horas sem nova emissão, destacar falta de atualização; após 4 horas, informar ausência de dados novos e risco atual sem confirmação. Reconsultar o mesmo aviso não renova sua emissão. Gravidade e vigência oficiais permanecem preservadas.", color = Muted)
-        Text("Sem nova emissão: sair da lista ativa em 12 horas ou no vencimento oficial anterior. Histórico por mais 12 horas após esse encerramento, com exclusão local na próxima checagem ou abertura. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
-        Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
+        Text("O Blaise não publica a escala 1–5 nem reproduz o texto dos avisos. " +
+            "Consulte a instituição emissora para a classificação e as orientações oficiais.",
+            color = Gold)
     }
     Spacer(Modifier.height(14.dp))
     OfficialSafetySourcesPanel()
