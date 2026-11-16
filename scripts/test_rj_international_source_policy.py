@@ -22,7 +22,9 @@ class InternationalSourceOnlyContractTest(unittest.TestCase):
         self.assertIn('INTERNATIONAL_OBSERVATION_UNAVAILABLE', POLICY)
 
     def test_statewide_and_public_meteorology_are_not_fetched_in_app(self):
-        self.assertIn('val publicRjClient: PublicRjStatusHttpsClient? = remember { null }', ACTIVITY)
+        self.assertIn('if (BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED)', ACTIVITY)
+        self.assertIn('RjPublicOfficialAlertOnly', ACTIVITY)
+        self.assertIn('.sanitize(fetched.snapshot, Instant.now())', ACTIVITY)
         self.assertIn('val statewideClient: StatewideDataHttpsClient? = remember { null }', ACTIVITY)
         self.assertIn('val dashboardClient: DashboardDataHttpsClient? = remember { null }', ACTIVITY)
         self.assertIn('rioStations = emptyList() // Official station observations', ACTIVITY)
