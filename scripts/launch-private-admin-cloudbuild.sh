@@ -6,7 +6,7 @@ set -euo pipefail
 PROJECT="blaise-v6-rj"
 REGION="southamerica-east1"
 REPO="$HOME/Blaise-RJ"
-BR="safety/rj-agent13-firestore-failclosed-20261115"
+BR="integration/rj-v6-full-admin-20261116"
 SAFE="$HOME/blaise-rj-safety"
 mkdir -p "$SAFE"
 [ -d "$REPO/.git" ] || { echo "BLAISE_REPO_NOT_FOUND"; exit 1; }
