@@ -1497,6 +1497,14 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
         Text("14 agentes especificados; o cadastro não comprova que todos estejam executando. O 14º permanece isolado, sem consulta GPT automática. Saúde real somente via supervisor autenticado.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        val international = LocalInternational92.current
+        val validCityCount = international?.takeIf { it.current(LocalObservationClock.current) }
+            ?.values?.values?.count { it.current(LocalObservationClock.current) } ?: 0
+        Text("Agente 13 • OpenWeather: $validCityCount/92 municípios com estimativa internacional atual validada nesta consulta.",
+            color = if (validCityCount > 0) StableGreen else WarningAmber,
+            style = MaterialTheme.typography.labelSmall)
+        Text("Agente 14 • auditor de comparação: cadastrado; execução automática não conectada.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         val seismic = LocalSeismic.current
         val news = LocalNews.current
         val now = LocalObservationClock.current
