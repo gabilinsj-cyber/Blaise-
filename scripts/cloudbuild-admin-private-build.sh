@@ -17,6 +17,9 @@ echo "=== PRECHECK_DORA_HASH_PYTHON_COMPATIBILITY ==="
 python3 -m unittest -v scripts/test_prepare_dora_voice_digest.py
 python3 -m py_compile scripts/prepare-dora-voice.py
 echo "=== PRECHECK_DORA_HASH_PASS ==="
+echo "=== PRECHECK_FULL_ADMIN_LAYOUT_AGENTS_SCIENCE ==="
+python3 -m unittest discover -s scripts -p 'test_rj_*.py' -v
+echo "=== PRECHECK_FULL_ADMIN_PASS ==="
 export ANDROID_HOME=/workspace/.android-sdk-build
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export GRADLE_USER_HOME=/workspace/.gradle-admin-build
