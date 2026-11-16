@@ -29,7 +29,8 @@ class RjStageFiveOnceStore(context: Context) {
     @Synchronized
     fun accept(event: VerifiedBlaisePublicStage, now: Instant): Boolean {
         if (!event.isCurrent(now)) return false
-        val plain = "${event.sourceId}|${event.alertId}|${event.municipalityIbge}"
+        // A single published alert covering both selected cities must not sound twice.
+        val plain = "${event.sourceId}|${event.alertId}"
         val key = MessageDigest.getInstance("SHA-256")
             .digest(plain.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
