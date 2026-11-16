@@ -1462,7 +1462,7 @@ private fun AdminScientificCatalogPanel() {
 private fun AgentStatusPanel(modifier: Modifier = Modifier) {
     var details by remember { mutableStateOf(false) }
     DashboardSection(
-        title = "BLAISE • 13 FUNÇÕES DE AGENTES CADASTRADAS",
+        title = "BLAISE • 14 FUNÇÕES DE AGENTES CADASTRADAS",
         subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
         modifier = modifier.testTag("ten-agents-panel"),
     ) {
@@ -1472,7 +1472,7 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
         val latestFailure = LocalWeatherAudits.current.lastOrNull { "UNAVAILABLE" in it.reason || "MISMATCH" in it.reason || it.reason.startsWith("SOURCE_FAILURE") }
         latestFailure?.let { Text("Auditoria de fonte • IBGE ${it.municipalityIbge} • ${it.reason}",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-        Text("13 agentes especificados; o cadastro não comprova que todos estejam executando. Saúde real somente via supervisor autenticado.",
+        Text("14 agentes especificados; o cadastro não comprova que todos estejam executando. O 14º permanece isolado, sem consulta GPT automática. Saúde real somente via supervisor autenticado.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         val seismic = LocalSeismic.current
         val news = LocalNews.current
@@ -1483,12 +1483,12 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
-            Text(if (details) "Recolher funções dos 13 agentes" else "Ver funções dos 13 agentes")
+            Text(if (details) "Recolher funções dos 14 agentes" else "Ver funções dos 14 agentes")
         }
         if (details) {
             AlertDialog(
                 onDismissRequest = { details = false },
-                title = { Text("Funções dos 13 agentes") },
+                title = { Text("Funções dos 14 agentes") },
                 text = {
                     Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(7.dp)) {
