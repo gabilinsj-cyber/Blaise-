@@ -70,6 +70,20 @@ def prepare():
         if (destination / "voices.bin").stat().st_size < 43 * 510 * 256 * 4:
             raise RuntimeError("Dora speaker table is incomplete")
         marker.write_text(expected)
+    # The Android client speaks only Brazilian Portuguese. Keep the complete
+    # neural model and the pt dictionary; discard unrelated language dictionary
+    # tables from generated assets to stay within the approved 400 MB APK cap.
+    # The upstream cached archive remains intact and SHA-256 verified.
+    dictionaries = destination / "espeak-ng-data"
+    removed_bytes = 0
+    for dictionary in dictionaries.glob("*_dict"):
+        if dictionary.name == "pt_dict":
+            continue
+        removed_bytes += dictionary.stat().st_size
+        dictionary.unlink()
+    if not (dictionaries / "pt_dict").is_file():
+        raise RuntimeError("Portuguese dictionary missing after pruning")
+    print(f"Non-Portuguese eSpeak dictionaries removed from client build: {removed_bytes / 1_000_000:.2f} MB")
     shutil.copyfile(CACHE / "sherpa.aar", OUTPUT / "sherpa-onnx-1.13.8.aar")
     # Native inference tests may leave temporary model files; never package them.
     for temporary in destination.glob(".model.onnx.*"):

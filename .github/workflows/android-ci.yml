@@ -229,8 +229,11 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
           p = Path("app/build/outputs/apk/debug/app-debug.apk")
-          print(f"APK total: {p.stat().st_size / 1000000:.2f} MB")
+          apk_size = p.stat().st_size
+          print(f"APK total: {apk_size / 1000000:.2f} MB")
           with ZipFile(p) as z:
               for f in sorted(z.infolist(), key=lambda f: f.compress_size, reverse=True)[:15]:
                   print(f"{f.compress_size / 1000000:.2f} MB | {f.filename}")
+          if apk_size > 400_000_000:
+              raise SystemExit(f"Client APK is {apk_size} bytes, exceeds the 400 MB policy")
           PYAPK
