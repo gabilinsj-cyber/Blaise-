@@ -31,7 +31,7 @@ class LinkOnlyAndTripleProviderTest(unittest.TestCase):
 
     def test_warning_ribbon_is_neutral_phrase_and_link(self):
         ribbon=function_body('private fun PublicOfficialWarningRibbon(', 'private fun PublicMunicipalStatusLine(')
-        self.assertIn('Aviso público no INMET',ribbon)
+        self.assertIn('O INMET publica avisos meteorológicos. Consulte a página oficial.',ribbon)
         self.assertIn('uri.openUri("https://avisos.inmet.gov.br/")',ribbon)
         self.assertNotIn('warning.second.event',ribbon)
         self.assertNotIn('warning.second.severity',ribbon)
