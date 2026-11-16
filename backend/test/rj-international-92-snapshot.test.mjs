@@ -10,7 +10,7 @@ const row={
  type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
  attributionRequired:true,originalMapPreserved:true,
  officialObservation:false,officialAlert:false,radarFrame:false,
- latitude:-22.9068,longitude:-43.1729,
+ latitude:-23.0738,longitude:-43.1987,
  validAt:'2026-11-16T14:55:00.000Z',
  retrievedAt:'2026-11-16T14:56:00.000Z',
  values:{temperatureC:27.4,providerFeelsLikeC:31,relativeHumidityPct:79,
@@ -42,6 +42,7 @@ test('stale, shifted, non-provider or Brazilian readings are never published',()
  const bad=[
   {...row,validAt:'2026-11-16T14:00:00.000Z'},
   {...row,latitude:-21.0,longitude:-52.0},
+  {...row,latitude:-22.9068,longitude:-43.1729}, // Wrong point within RJ for this IBGE
   {...row,status:'CURRENT'},
   {...row,type:'OBSERVATION'},
   {...row,sourceId:'ALERTA_RIO'},
