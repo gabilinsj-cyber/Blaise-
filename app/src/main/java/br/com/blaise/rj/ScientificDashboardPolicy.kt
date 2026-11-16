@@ -91,8 +91,20 @@ object BlaiseAgentDashboard {
         BlaiseAgentUi(10, "Auditoria Profunda RJ", "Segurança, escala e marcos de 500 mil assinantes"),
         BlaiseAgentUi(11, "Blaise IA — Pesquisa e Respostas em Tempo Real", "Perguntas abertas sobre RJ, Sudeste, Atlântico Sul e clima global, mediante fontes datadas e citadas"),
     )
+    // Two additional roles from the approved project design. This registry is
+    // not runtime telemetry: server-side authenticated health is authoritative.
+    val allAgents: List<BlaiseAgentUi> = elevenAgents + listOf(
+        BlaiseAgentUi(12, "Blaise GeoFusion RJ",
+            "Integração geográfica das estações Alerta Rio, correspondência por município e fusão apenas de observações independentes comparáveis",
+            "Cadastrado • autenticação/licença e execução real não confirmadas no aplicativo"),
+        BlaiseAgentUi(13, "Blaise OpenWeather RJ",
+            "OpenWeatherMap complementar sob demanda • cache e contador persistente de 900 consultas diárias • supervisor isolado",
+            "Cadastrado • não consulta o provedor pelo painel • execução Cloud Run não confirmada"),
+    )
     init {
         require(elevenAgents.size == 11)
         require(elevenAgents.map { it.index } == (1..11).toList())
+        require(allAgents.size == 13)
+        require(allAgents.map { it.index } == (1..13).toList())
     }
 }
