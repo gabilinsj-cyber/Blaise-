@@ -388,7 +388,7 @@ fun BlaiseApp(
                     is PublicRjStatusResult.Available ->
                         br.com.blaise.rj.data.RjPublicOfficialAlertOnly
                             .sanitize(fetched.snapshot, Instant.now())
-                            ?.let(PublicRjStatusResult::Available)
+                            ?.let { PublicRjStatusResult.Available(it) }
                             ?: PublicRjStatusResult.Unavailable
                     else -> PublicRjStatusResult.Unavailable
                 }
