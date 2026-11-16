@@ -6,7 +6,7 @@ set -euo pipefail
 PROJECT="blaise-v6-rj"
 REGION="southamerica-east1"
 REPO="$HOME/Blaise-RJ"
-BR="policy/rj-three-international-link-only-20261116"
+BR="integration/rj-international-92-live-readonly-20261116"
 SAFE="$HOME/blaise-rj-safety"
 mkdir -p "$SAFE"
 [ -d "$REPO/.git" ] || { echo "BLAISE_REPO_NOT_FOUND"; exit 1; }
