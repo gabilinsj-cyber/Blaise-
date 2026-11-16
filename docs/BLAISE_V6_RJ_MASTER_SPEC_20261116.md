@@ -90,3 +90,33 @@ Branch isolada `integration/rj-v6-full-admin-20261116` herdada de `ui/rj-origina
 - `backend/src/rj-international-source-policy.mjs`: somente regras puras de agendamento e aprovação, **nenhum serviço foi ligado ou programado**. Consulta interna exige confirmação legal e é elegível no máximo a cada 30 minutos.
 - `backend/test/rj-international-source-policy.test.mjs`: testa bloqueios, intervalos, proveniência e não derivação.
 - **Nenhuma informação internacional atual foi confirmada** apenas por alterar essa política. Não afirmar que a interface já está em tempo real nem que o APK final foi gerado.
+
+## Complemento aprovado — divergências e alertas públicos (16/11/2026)
+Esta seção **complementa e prevalece** sobre a política internacional anterior no que diz respeito à divulgação de alertas oficiais brasileiros, sem reativar medições brasileiras para cliente.
+
+### Divergência de meteorologia
+- **Consulta de referência brasileira autorizada:** somente no backend, em cadência mínima de 30 minutos e segundo direitos de acesso/uso; jamais reproduzir a leitura brasileira na interface dos clientes.
+- Ao identificar divergência relevante por variável, município e horário comparáveis, **solicitar uma segunda fonte internacional independente**, com direito de uso comercial e produto próprio recente.
+- Se a segunda fonte confirmar qualidade superior ou o dado primário tiver expirado, substituir o valor mostrado com fonte internacional, horário e natureza do produto. Nunca transferir o valor brasileiro para o dado internacional.
+- Sem segunda evidência comparável e válida: manter o primário enquanto válido e sinalizar revisão; quando nenhum válido, mostrar **indisponível**. Não fazer média nem interpolar artificialmente.
+- **Dados aproximados:** rotular explicitamente como MODELO/ESTIMATIVA/PREVISÃO; o rótulo OBSERVAÇÃO exige observação real. Temperatura, sensação térmica, chuva, vento, rajadas, pressão e produtos marítimos têm comparações separadas.
+- Quando a norma de uso brasileira não permitir sequer comparação comercial, não utilizá-la para desencadear correção comercial; revisão internacional pode ocorrer por seus próprios indicadores.
+
+### Alertas públicos oficiais: exceção explícita
+- **Permitir um canal separado** para avisos públicos autenticamente publicados por INMET, Alerta Rio, COR.Rio e Defesa Civil RJ, respeitando **direito de retransmissão em aplicativo comercial**.
+- Cada aviso exibido deve conter instituição emissora, fonte/link, fenômeno ou orientação emitida, abrangência municipal real, horário de emissão, validade, severidade original e estado ativo/retirado. Não inventar duração nem cobertura.
+- Diferenciar **aviso meteorológico** (INMET) de **alerta de risco/proteção à vida** (Defesa Civil). Nenhum modelo internacional revoga alerta oficial. Não converter automaticamente estágio de cidade/risco de deslizamento em alerta P0.
+- Quando a autorização de republicação não estiver comprovada, oferecer apenas **link oficial direto** para consulta; não copiar texto, mapas, áudios ou imagem.
+- O INMET já dispõe do contrato `/v1/public/rj-status` de avisos. Por segurança, o Android só poderá lê-lo com a variável explícita `BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED=true` após autorização e validação do backend; a resposta é sanitizada para remover risco hidrológico, medições, produtos marítimos e outros conteúdos. Por padrão esta variável é **false**.
+- Para Alerta Rio, COR.Rio e Defesa Civil RJ, os links oficiais são disponibilizados imediatamente na tela de alertas; retransmissão automática fica pendente de feeds autenticados e licença específica. Não alegar que estejam conectados.
+- Alertas de emergência da Defesa Civil no próprio Android/Cell Broadcast seguem independentes; não atrasar um risco imediato pela rechecagem interna de 30 minutos, nem tentar interceptar/duplicar notificações de sistema.
+- Atualizar alertas ativos em cadência compatível com gravidade e validade (rechecagem de 1 min na integração inicial, reduzindo com autorização e SLA conforme nível); retirar imediatamente quando fonte comunicar cancelamento e preservar histórico com indicação de encerramento.
+- Referências públicas conferidas: https://avisos.inmet.gov.br/ ; https://www.sistema-alerta-rio.com.br/alertas/ ; https://cor.rio/ ; https://defesacivil.rj.gov.br/ .
+- **Restrições:** https://www.sistema-alerta-rio.com.br/institucional/termos-de-uso/ e https://cor.rio/politica-de-privacidade/ . A visibilidade pública de aviso NÃO significa licença automática para reproduzir integralmente em app comercial.
+
+### Situação de implementação
+- Branch isolada: `policy/rj-official-public-alerts-and-international-arbitration-20261116`.
+- Política de arbitragem internacional e filtros de alertas criados; execução operacional do segundo provedor internacional **ainda não conectada**.
+- Android: links oficiais para quatro instituições, canal INMET condicionado a autorização explícita; fluxo de meteorologia brasileira pública permanece desligado.
+- Os 13 agentes, fontes excluídas, job NOAA e backups não foram alterados nesta branch.
+- Testes adicionados; APK e integração real dependem de validação de código, licenças, URLs e implantação.
