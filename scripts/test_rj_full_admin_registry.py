@@ -50,9 +50,14 @@ class FullAdminRegistryTest(unittest.TestCase):
         ui = read("app/src/main/java/br/com/blaise/rj/MainActivity.kt")
         self.assertIn('testTag("reference-three-column-dashboard")', ui)
         self.assertIn('testTag("reference-lower-dashboard")', ui)
-        self.assertIn("observation.source", ui)
-        self.assertIn("observation.observedAt.atZone(", ui)
+        # The city cards now receive licensed international estimates, not
+        # Brazilian observations. Keep strict city/source/time provenance and
+        # the explicit missing-value fallback.
+        self.assertIn("international?.temperatureC", ui)
         self.assertIn('?: "— °C"', ui)
+        self.assertIn("Fonte: ${international.source}", ui)
+        self.assertIn("international.validAt.atZone(", ui)
+        self.assertIn("LocalInternational92.current?.municipality(city.ibgeCode,clock)", ui)
 
 
 if __name__ == "__main__":
