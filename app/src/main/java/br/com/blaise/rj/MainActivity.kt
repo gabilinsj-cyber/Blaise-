@@ -2046,8 +2046,6 @@ private fun PublicOfficialWarningRibbon(
         snapshot.warningsFor(city.ibgeCode, now).map { city.name to it }
     }.distinctBy { it.second.id }
     if (valid.isEmpty()) return
-    val issued = valid.first().second.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("public-official-warning-ribbon"),
@@ -2055,7 +2053,7 @@ private fun PublicOfficialWarningRibbon(
         border = BorderStroke(1.dp, WarningAmber),
     ) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Aviso público no INMET • emissão $issued. Confira o aviso no portal oficial.",
+            Text("O INMET publica avisos meteorológicos. Consulte a página oficial.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.weight(1f))
             TextButton(onClick = { uri.openUri("https://avisos.inmet.gov.br/") }) {
@@ -2418,7 +2416,7 @@ private fun LiveNewsHeadlines(scope: String, modifier: Modifier = Modifier) {
         headlines.forEach { item ->
             Text("Notícia publicada: consulte a reportagem na fonte oficial.", color = Color.White,
                 style = MaterialTheme.typography.labelSmall)
-            Text("Agência Brasil • publicação ${formatInformationTime(item.publishedAt)}", color = Muted,
+            Text("Fonte: Agência Brasil", color = Muted,
                 style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { uri.openUri(item.url) }) { Text("Saiba mais ›", color = Gold) }
         }
