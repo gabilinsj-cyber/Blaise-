@@ -1,4 +1,5 @@
 import { collectNoaaWave } from './noaa-wave-collector.mjs';
+import { createOfficialAlertLinksHttpHandler } from './official-alert-links-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
 import { createScientificAccess } from './blaise-scientific-access.mjs';
@@ -148,7 +149,11 @@ function sendRuntimeJson(res, statusCode, body) {
 
 async function main() {
   const config = loadConfig();
-  const sourceWorkerConfig = loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined });
+  const sourceWorkerConfig = Object.freeze({
+    ...loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined }),
+    municipalNoticeLinksOnly: true,
+    defesaCivilRioAssetsEnabled: false,
+  });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
@@ -218,7 +223,8 @@ async function main() {
   const scientificHandler = createScientificHttpHandler(
     dashboardDataHandler, { canReadReports, store: scientificStore }
   );
-  const server = http.createServer(createDrainingHandler(scientificHandler, readiness));
+  const officialLinksHandler = createOfficialAlertLinksHttpHandler(scientificHandler);
+  const server = http.createServer(createDrainingHandler(officialLinksHandler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;
