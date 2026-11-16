@@ -26,6 +26,7 @@ import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.geo.RjMunicipalMap
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -768,34 +769,66 @@ private fun HomeScreen(
 
 @Composable
 private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
+    val clock = LocalObservationClock.current
+    val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }
+    val layers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
+    var activeLayer by remember { mutableStateOf("Radar") }
     DashboardSection(
-        title = "ESTADO DO RIO DE JANEIRO",
-        subtitle = "Radar • chuva • temperatura • vento • nuvens",
+        title = "ESTADO DO RIO DE JANEIRO • 92 MUNICÍPIOS",
+        subtitle = "Mapa próprio com limites IBGE • dados meteorológicos por fonte e validade",
         modifier = modifier,
     ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            layers.forEach { layer ->
+                Surface(
+                    modifier = Modifier.clickable { activeLayer = layer }.padding(end = 3.dp),
+                    color = if (layer == activeLayer) Color(0xFF1260B5) else NavyRaised,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Divider),
+                ) {
+                    Text(layer, color = Color.White,
+                        fontWeight = if (layer == activeLayer) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
+                }
+            }
+        }
         Surface(
             modifier = Modifier.fillMaxWidth().height(310.dp).testTag("expanded-radar-map"),
             color = Color(0xFF071421),
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, Divider),
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(18.dp),
-                ) {
-                    Text("MAPA METEOROLÓGICO DO RJ", color = Gold, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Aguardando frames oficiais Alerta Rio/CEMADEN com municípios, fonte e horário.",
-                        color = Muted,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text("Janela operacional: últimos 30 minutos", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+            RjMunicipalMap(snapshot, Modifier.fillMaxSize())
+        }
+        val inmetWarnings = snapshot?.warnings?.count { it.current(clock) }
+        val activeObservations = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock) }
+        when (activeLayer) {
+            "Radar" -> Text("Radar real: sem frames homologados nesta consulta. Malha geográfica não representa precipitação.",
+                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+            "Chuva" -> {
+                Text("Chuva acumulada: indisponível até existir medição aprovada com cobertura territorial.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                StatusLine("Avisos de chuva INMET", inmetWarnings?.toString() ?: "Indisponível")
+            }
+            "Temperatura" -> {
+                Text("Estações INMET verificadas: ${activeObservations.size}. Não representam toda a área do município.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                activeObservations.take(3).forEach { obs ->
+                    StatusLine(obs.station, obs.temperatureC?.let { "%.1f °C".format(java.util.Locale("pt", "BR"), it) }
+                        ?: "Temperatura indisponível")
                 }
             }
+            "Vento" -> activeObservations.take(3).forEach { obs ->
+                StatusLine(obs.station, obs.windKmh?.let { "%.1f km/h".format(java.util.Locale("pt", "BR"), it) }
+                    ?: "Vento indisponível")
+            }
+            "Nuvens" -> Text("Cobertura de nuvens indisponível nesta consulta. Não há camada visual sem fonte e horário validados.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
         }
-        // Municipal notices are links only; no Alerta Rio gauge polling.
+        Text("Geografia: IBGE • contornos oficiais • ampliar com dois dedos • Sem mapa de terceiros.",
+            color = Gold, style = MaterialTheme.typography.labelSmall)
     }
 }
 
