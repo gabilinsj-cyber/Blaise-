@@ -121,7 +121,12 @@ const validAlert = {
   signatureOrTrustedFeedVerified:true,permissionToRepublish:true, now,
 };
 test('public alerts require a verified issuer, municipality, active issuance and permission',()=>{
-  assert.equal(assessOfficialPublicAlert(validAlert).action,'SHOW_OFFICIAL_ALERT');
+  const publicResult=assessOfficialPublicAlert(validAlert);
+  assert.equal(publicResult.action,'LINK_ONLY');
+  assert.equal(publicResult.event,undefined);
+  assert.equal(publicResult.severity,undefined);
+  assert.equal(publicResult.municipalityIbges,undefined);
+  assert.equal(publicResult.officialUrl,'https://avisos.inmet.gov.br/');
   assert.equal(assessOfficialPublicAlert({...validAlert,permissionToRepublish:false}).action,'LINK_ONLY');
   assert.equal(assessOfficialPublicAlert({...validAlert,withdrawn:true}).action,'BLOCK');
   assert.equal(assessOfficialPublicAlert({...validAlert,severity:''}).action,'BLOCK');
