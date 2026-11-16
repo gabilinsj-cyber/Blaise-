@@ -14,6 +14,15 @@ class RjSourceProtocolContractTest(unittest.TestCase):
         self.assertIn('"text/html,application/xhtml+xml;q=0.9"', SOURCE)
         self.assertIn('"application/json"', SOURCE)
 
+    def test_blocked_html_is_not_treated_as_station_measurements(self):
+        self.assertIn('SOURCE_PAGE_NOT_MEASUREMENTS', SOURCE)
+        self.assertIn('SOURCE_JSON_MISSING', SOURCE)
+        self.assertIn('body.contains("Dados Meteorol"', SOURCE)
+        self.assertIn('body.contains("<table"', SOURCE)
+        self.assertIn('if (isInmet && body.trimStart().firstOrNull()', SOURCE)
+        self.assertIn('catch (error: CancellationException)', SOURCE)
+        self.assertNotIn('runCatching { currentCityBlocking(request) }', SOURCE)
+
     def test_source_fails_closed_when_stale_or_unavailable(self):
         self.assertIn('failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT"', SOURCE)
         self.assertIn('"Medição oficial indisponível"', (
