@@ -14,9 +14,18 @@ import {
 const now = new Date('2026-11-16T12:00:00Z');
 
 test('review disabled by default even when source is Brazilian and interval elapsed', () => {
-  for (const sourceId of ['INMET', 'ALERTA_RIO', 'DEFESA_CIVIL_RJ']) {
+  for (const sourceId of ['INMET', 'DEFESA_CIVIL_RJ']) {
     assert.deepEqual(planBrazilianInternalReview({sourceId, now}),
       {allowed: false, reason: 'AUTHORIZATION_REQUIRED'});
+  }
+});
+test('Alerta Rio and COR.Rio cannot be selected for meteorological review', () => {
+  for(const sourceId of ['ALERTA_RIO','COR_RIO']) {
+    const status=planBrazilianInternalReview({
+      sourceId,licenseAllowsInternalComparison:true,now,
+    });
+    assert.equal(status.allowed,false);
+    assert.equal(status.reason,'SOURCE_NOT_REVIEW_ONLY');
   }
 });
 test('authorized internal review no more frequently than every 30 minutes', () => {
