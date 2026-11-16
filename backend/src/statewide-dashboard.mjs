@@ -9,6 +9,8 @@ export const STATEWIDE_DASHBOARD_PATH = '/v1/data/municipalities';
 export const STATEWIDE_DASHBOARD_CONTRACT = 'RJ_92_MUNICIPALITIES_V1';
 export const STATEWIDE_DASHBOARD_MAX_BYTES = 1024 * 1024;
 const currentStates = new Set(['CURRENT', 'CURRENT_DEGRADED']);
+// Ceiling applies to current observations, not to still-valid CAP warning periods.
+export const MAX_CURRENT_OBSERVATION_AGE_MS = 12 * 60_000;
 const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 
 // Approved responsibilities, not a claim that all portals supply an operational feed.
@@ -94,7 +96,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const active = status?.enabled === true && status?.started === true;
   const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
   const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
-  const hydroReady = ready(hydro, nowMillis, 30 * 60_000) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
+  const hydroReady = ready(hydro, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
   const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
   const records = hydroReady ? hydro.snapshot.records : [];
   const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
@@ -118,7 +120,7 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   const unresolved = warnings.some(item => item.attribution === 'UNRESOLVED_RJ_AREA');
   const municipalities = RJ_MUNICIPALITIES.map(city => {
     const item = byIbge.get(city.ibge);
-    const validRisk = item && freshStamp(item.observedAt, nowMillis, 30 * 60_000)
+    const validRisk = item && freshStamp(item.observedAt, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS)
       && Number.isInteger(item.priority) && item.priority >= 1 && item.priority <= 5;
     return {
       ibge: city.ibge,
