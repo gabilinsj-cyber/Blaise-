@@ -291,15 +291,16 @@ fun BlaiseApp(
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
     var publicStatusLastAttempt by remember { mutableStateOf<Instant?>(null) }
-    val publicRjClient = remember {
-        PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
-    }
-    val statewideClient = remember(context) {
-        StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
-    }
-    val dashboardClient = remember(context) {
-        DashboardDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
-    }
+    // Brazilian meteorology is review-only on the authorized backend.
+    // Do not fetch/rebroadcast official readings or warnings through this APK.
+    // Cell Broadcast / native government emergency notifications remain intact.
+    val publicRjClient: PublicRjStatusHttpsClient? = remember { null }
+    // Existing statewide payload mixes local official meteorological inputs;
+    // fail closed until international-only provenance is independently audited.
+    val statewideClient: StatewideDataHttpsClient? = remember { null }
+    // Do not publish weather-derived admin values without approved origin and license.
+    // A verified international-only backend endpoint will replace this gate.
+    val dashboardClient: DashboardDataHttpsClient? = remember { null }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
@@ -333,8 +334,8 @@ fun BlaiseApp(
         if (!powerOn) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                rioStations = weatherClient.currentRioStations()
-                delay(60_000)
+                rioStations = emptyList() // Official station observations are private backend review only.
+                delay(1_800_000)
             }
         }
     }
@@ -757,7 +758,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     latest?.let { "Medição oficial: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}" }
-                        ?: "Medições oficiais: aguardando dados válidos",
+                        ?: "Medições internacionais: aguardando fonte autorizada",
                     color = Muted,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.weight(1f),
@@ -919,7 +920,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             }
             is ConversationAction.Query -> {
                 loading = true
-                answer = "Consultando fonte oficial para ${action.request.localScope ?: action.request.city.name}…"
+                answer = "Consultando fonte internacional autorizada para ${action.request.localScope ?: action.request.city.name}…"
                 queryJob = scope.launch {
                     val result = try {
                         val request = action.request
@@ -1643,7 +1644,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         else if (stationSample != null && stationSeries != null)
                             "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
                         else if (selectedLayer == "Radar")
-                            "Radar: aguardando quadro georreferenciado oficial, recente e licenciado. Nenhuma chuva foi simulada."
+                            "Radar: aguardando produto internacional georreferenciado, recente e licenciado. Nenhuma chuva foi simulada."
                         else "$selectedLayer: sem medição pontual recente validada; mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         color = if (stationSample != null || selectedLayer == "Radar" && liveRadar != null) Color.White else WarningAmber,
@@ -1654,7 +1655,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("● Mapa desenhado pelo Blaise • estação INMET só com medição válida", modifier = Modifier.weight(1f),
+            Text("● Mapa próprio Blaise • medições internacionais licenciadas, quando disponíveis", modifier = Modifier.weight(1f),
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { enlarged = !enlarged }) {
                 Text(if (enlarged) "Reduzir" else "Ampliar")
@@ -1709,7 +1710,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
             modifier = Modifier.testTag("map-extra-status"))
         OutlinedButton(
             onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
-        ) { Text("▶ Últimos 30 minutos de radar • aguardando frames oficiais") }
+        ) { Text("▶ Últimos 30 minutos de radar • aguardando quadros internacionais autorizados") }
         OutlinedButton(onClick = { onNavigate("Mapa") }, modifier = Modifier.fillMaxWidth()) {
             Text("Mais camadas e mapa do RJ")
         }
