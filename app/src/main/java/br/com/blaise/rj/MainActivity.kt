@@ -863,14 +863,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val latestNews by rememberUpdatedState(LocalNews.current)
     val latestSeismic by rememberUpdatedState(LocalSeismic.current)
     val currentWarnings = publicOfficial?.warningsFor(selectedCity.ibgeCode, clock).orEmpty()
-    val municipalRisk = publicOfficial?.municipality(selectedCity.ibgeCode, clock)
-        ?.risk?.takeIf { it.current(clock) }
-    val officialRiskText = municipalRisk?.let { risk ->
-        val issued = risk.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
-        "CEMADEN-RJ / Defesa Civil: risco hidrológico ${risk.label}, nível ${risk.level}; " +
-            "emissão ${issued} (Brasília)."
-    } ?: "Risco hidrológico municipal: sem boletim validado nesta consulta."
+    val officialRiskText = "Segurança municipal: consulte orientações no portal oficial da Defesa Civil RJ: https://defesacivil.rj.gov.br/"
     val officialWarningText = if (currentWarnings.isEmpty())
         "Avisos INMET municipais: cobertura não comprovada; não indica ausência de risco."
     else currentWarnings.joinToString("\n") { warning ->
@@ -2101,27 +2094,6 @@ private fun StatewideMunicipalitiesPanel() {
     }
 }
 
-/** Animate the verified 1–5 bulletin level, never derive it from a CAP word. */
-@Composable
-private fun PulsingRiskLabel(text: String, level: Int) {
-    val color = when (level) {
-        1 -> StableGreen
-        2, 3 -> WarningAmber
-        4 -> Color(0xFFFF8A50)
-        5 -> Color(0xFFE576FF)
-        else -> Muted
-    }
-    val alpha = if (level in 3..5) {
-        val transition = rememberInfiniteTransition(label = "risk-level-pulse")
-        val value by transition.animateFloat(
-            initialValue = 1f, targetValue = 0.55f,
-            animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
-            label = "risk-level-alpha",
-        )
-        value
-    } else 1f
-    Text(text, color = color.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
-}
 
 /** Histories remain locally preserved but source texts and alert levels are not republished. */
 @Composable
