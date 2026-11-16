@@ -41,9 +41,11 @@ class OriginalLiveDashboardLayoutTest(unittest.TestCase):
             "@Composable\nprivate fun BackendRainfallPanel", 1
         )[0]
         self.assertIn('?: "— °C"', city_panel)
-        self.assertIn('"Medição oficial indisponível"', city_panel)
-        self.assertIn("observation.observedAt.atZone(", city_panel)
-        self.assertIn("observation.source", city_panel)
+        self.assertIn('"Estimativa internacional atual não confirmada"', city_panel)
+        self.assertIn("international.validAt.atZone(", city_panel)
+        self.assertIn("Fonte: ${international.source}", city_panel)
+        self.assertIn("LocalInternational92.current?.municipality(city.ibgeCode,clock)", city_panel)
+        self.assertIn('"Estimativa internacional atual • modelo, não estação"', city_panel)
         self.assertNotIn('Text("28°C")', city_panel)
         self.assertNotIn('Text("27°C")', city_panel)
 
