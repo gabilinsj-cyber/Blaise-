@@ -185,14 +185,16 @@ export function assessOfficialPublicAlert({
     return Object.freeze({action:'BLOCK',reason:'WITHDRAWN_OR_NOT_ACTIVE'});
   if (checkedAt > now || now.getTime() - checkedAt.getTime() > 5 * 60_000)
     return Object.freeze({action:'BLOCK',reason:'OFFICIAL_FEED_NOT_RECENTLY_CHECKED'});
-  if (!permissionToRepublish)
-    return Object.freeze({action:'LINK_ONLY',sourceId,officialUrl:url.href,
-      reason:'REPUBLICATION_RIGHTS_NOT_CONFIRMED'});
-  return Object.freeze({action:'SHOW_OFFICIAL_ALERT',sourceId,officialUrl:url.href,
-    issuedAt:issuedAt.toISOString(),expiresAt:expiresAt.toISOString(),
-    checkedAt:checkedAt.toISOString(),event,severity,
-    municipalityIbges:[...affectedMunicipalities],
-    reason:'VERIFIED_AUTHORIZED_PUBLIC_ALERT'});
+  // Revised rule: NEVER republish any issuer text, risk level 1–5 or
+  // severity in the Blaise client, even if broader rights are granted.
+  // Show only a neutral sentence with a link to the source authority.
+  return Object.freeze({
+    action:'LINK_ONLY', sourceId, officialUrl:url.href,
+    phrase:'Aviso público oficial: consulte o comunicado na página da autoridade.',
+    checkedAt:checkedAt.toISOString(),
+    issuedAt:issuedAt.toISOString(),
+    reason:'VERIFIED_OFFICIAL_LINK_ONLY',
+  });
 }
 
 
