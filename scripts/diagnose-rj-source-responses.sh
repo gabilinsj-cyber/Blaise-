@@ -55,7 +55,7 @@ if rio_path.is_file():
         'DADOS_METEOROL': 'Dados Meteorol' in html,
         'ORVALHO': 'P. de Orvalho' in html,
         'UMIDADE': 'Umi. do Ar' in html,
-        'TABELA_HTML': bool(re.search(r'<table\\b', html, re.I)),
+        'TABELA_HTML': bool(re.search(r'<table\b', html, re.I)),
     }
     for key, present in markers.items():
         print('ALERTA_RIO_' + key + ':', 'SIM' if present else 'NAO')
