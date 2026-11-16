@@ -10,7 +10,7 @@ class RjSourceProtocolContractTest(unittest.TestCase):
     def test_explicit_official_source_urls_and_formats(self):
         self.assertIn('https://apitempo.inmet.gov.br/estacoes/T', SOURCE)
         self.assertIn('https://websempre.rio.rj.gov.br/estacoes/', SOURCE)
-        self.assertIn('if (URL(url).host.equals("websempre.rio.rj.gov.br", ignoreCase = true))', SOURCE)
+        self.assertIn('val isAlertaRio = host.equals("websempre.rio.rj.gov.br", ignoreCase = true)', SOURCE)
         self.assertIn('"text/html,application/xhtml+xml;q=0.9"', SOURCE)
         self.assertIn('"application/json"', SOURCE)
 
