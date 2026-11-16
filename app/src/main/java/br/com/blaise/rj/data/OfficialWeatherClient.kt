@@ -23,35 +23,13 @@ class OfficialWeatherClient {
         }
     }
 
-    /** Separate station network: these readings never stand in for Centro or another municipality. */
-    suspend fun currentRioStations(): List<CityWeatherObservation> = withContext(Dispatchers.IO) {
-        try {
-            val url = "https://websempre.rio.rj.gov.br/estacoes/"
-            AlertaRioObservationParser.parse(get(url)).map { row ->
-                CityWeatherObservation(3304557, row.station, "Alerta Rio", url, row.observedAt,
-                    row.temperatureC, row.humidityPercent, row.windKmh, 1800)
-            }.filter { it.current(Instant.now()) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+    /** Municipal sources are link-only; no direct Alerta Rio meteorological polling. */
+    suspend fun currentRioStations(): List<CityWeatherObservation> = emptyList()
 
     private fun currentCityBlocking(request: WeatherRequest): CityWeatherResult {
         val scope = request.localScope
-        if (request.city.ibgeCode == 3304557 && scope != null) {
-            if (AlertaRioObservationParser.stations.none { normalizedSpeech(it) == normalizedSpeech(scope) }) {
-                return CityWeatherResult(request.city.ibgeCode, scope,
-                    unavailableReason = "Não há medição de $scope confirmada nesta consulta. Informe uma estação para consultar sua área de cobertura.")
-            }
-            val url = "https://websempre.rio.rj.gov.br/estacoes/"
-            val row = AlertaRioObservationParser.parse(get(url)).firstOrNull { normalizedSpeech(it.station) == normalizedSpeech(scope) }
-            return CityWeatherResult(request.city.ibgeCode, scope, row?.let {
-                CityWeatherObservation(request.city.ibgeCode, it.station, "Alerta Rio", url, it.observedAt,
-                    it.temperatureC, it.humidityPercent, it.windKmh, 1800)
-            })
-        }
+        if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
+            unavailableReason = "Cobertura de $scope ainda não confirmada por uma estação INMET autorizada. A fonte municipal foi desativada.")
         val today = LocalDate.now(zone)
         val catalog = JSONArray(get("https://apitempo.inmet.gov.br/estacoes/T"))
         val station = (0 until catalog.length()).map { catalog.getJSONObject(it) }.firstOrNull {
