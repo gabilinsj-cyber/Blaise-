@@ -2202,13 +2202,13 @@ private fun OfficialSafetySourcesPanel() {
         modifier = Modifier.fillMaxWidth().testTag("rj-official-safety-links"),
     ) {
         Text(
-            "Somente avisos públicos autênticos e vigentes com origem, horário e " +
-                "área confirmados podem aparecer aqui. Links não comprovam alerta ativo.",
+            "Acesse os avisos no site de cada autoridade. O Blaise publica apenas " +
+                "uma frase neutra e o link oficial. Links não comprovam alerta ativo.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         Text(
             if (BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED)
-                "Canal de avisos do INMET autorizado e sujeito à confirmação do servidor."
-            else "Retransmissão automática pendente de autorização. Consulte os canais oficiais.",
+                "Quando confirmado, o aviso INMET terá somente uma frase e link para o portal."
+            else "Links para consulta: níveis e orientações permanecem nas páginas oficiais.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
         br.com.blaise.rj.data.RjOfficialPublicAlertLinks.entries.forEach { item ->
             TextButton(
@@ -2391,7 +2391,7 @@ private fun NewsScreen() {
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "NOTICIÁRIO LOCAL",
-        subtitle = "3 principais notícias recentes com data/hora e fonte",
+        subtitle = "Frase de consulta, instituição, data e link oficial • sem republicar manchetes",
     ) {
         Text("Rio de Janeiro", color = Gold)
         LiveNewsHeadlines("RJ")
