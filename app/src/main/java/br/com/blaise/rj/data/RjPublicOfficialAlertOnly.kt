@@ -20,6 +20,14 @@ object RjPublicOfficialAlertOnly {
         if (!snapshot.current(now)) return null
         val authorizedWarnings = snapshot.warnings.filter {
             it.sourceUrl == INMET_ALERT_ORIGIN && it.current(now)
+        }.map { warning ->
+            // Only an existence pointer survives the trust boundary. The
+            // issuer's original text, level and severity are never passed to
+            // UI, news, voice, map or customer-facing calculation modules.
+            warning.copy(
+                event = "Consulte o aviso na fonte oficial.",
+                severity = "Detalhes no portal",
+            )
         }
         val ids = authorizedWarnings.map { it.id }.toSet()
         return snapshot.copy(
