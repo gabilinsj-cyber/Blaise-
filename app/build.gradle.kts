@@ -41,6 +41,7 @@ android {
     buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId = "br.com.blaise.rj"
+        manifestPlaceholders["appLabel"] = "Blaise V6 RJ"
         minSdk = 26
         targetSdk = 35
         versionCode = 6000002
@@ -74,6 +75,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            manifestPlaceholders["appLabel"] = "Blaise V6 RJ (Debug)"
             buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
         }
         release {
@@ -90,6 +92,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".admin"
             versionNameSuffix = "-admin"
+            manifestPlaceholders["appLabel"] = "Blaise V6 RJ - Administrador"
             buildConfigField("boolean", "BLAISE_OFFLINE_DORA", "true")
             buildConfigField("boolean", "BLAISE_ADMIN", "true")
             // Owner-only local test: installable with SDK debug signing if no
