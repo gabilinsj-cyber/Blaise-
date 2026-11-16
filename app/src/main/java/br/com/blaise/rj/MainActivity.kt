@@ -466,11 +466,7 @@ fun BlaiseApp(
         LocalSeismic provides if (powerOn) liveSeismic else null,
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
-        LocalOfficialWarningHistory provides if (
-            powerOn && BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED
-        ) warningHistory.filter { it.sourceUrl ==
-            br.com.blaise.rj.data.RjPublicOfficialAlertOnly.INMET_ALERT_ORIGIN
-        } else emptyList(), // Preserve history; show only authorized official notices.
+        LocalOfficialWarningHistory provides emptyList(), // Preserve stored history privately; never republish older warning texts/levels.
         LocalOfficialMarineHistory provides emptyList(), // Preserve archive; exclude old Brazilian marine products.
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
