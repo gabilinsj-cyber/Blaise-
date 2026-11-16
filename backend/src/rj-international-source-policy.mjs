@@ -159,7 +159,7 @@ export const OFFICIAL_PUBLIC_ALERT_SOURCES = Object.freeze({
  * IMPORTANT: no direct fetch, scraping, scheduling, or artificial P0 here.
  */
 export function assessOfficialPublicAlert({
-  sourceId, officialUrl, id, event, issuedAt, expiresAt,
+  sourceId, officialUrl, id, event, severity, issuedAt, expiresAt, checkedAt,
   affectedMunicipalities, publiclyIssued = false,
   signatureOrTrustedFeedVerified = false,
   permissionToRepublish = false,
@@ -174,19 +174,23 @@ export function assessOfficialPublicAlert({
     return Object.freeze({action:'BLOCK',reason:'UNVERIFIED_OFFICIAL_URL'});
   }
   if (!publiclyIssued || !signatureOrTrustedFeedVerified ||
-      !validTime(issuedAt) || !validTime(expiresAt) ||
+      !validTime(issuedAt) || !validTime(expiresAt) || !validTime(checkedAt) ||
       !id || !event || typeof event !== 'string' || event.length > 120 ||
+      typeof severity !== 'string' || severity.length === 0 || severity.length > 80 ||
       !Array.isArray(affectedMunicipalities) || affectedMunicipalities.length === 0 ||
       !affectedMunicipalities.every(code => Number.isInteger(code) && code >= 3300000 && code < 3400000)) {
     return Object.freeze({action:'BLOCK',reason:'OFFICIAL_PROVENANCE_OR_SCOPE_MISSING'});
   }
   if (withdrawn || issuedAt > now || expiresAt <= now || expiresAt <= issuedAt)
     return Object.freeze({action:'BLOCK',reason:'WITHDRAWN_OR_NOT_ACTIVE'});
+  if (checkedAt > now || now.getTime() - checkedAt.getTime() > 5 * 60_000)
+    return Object.freeze({action:'BLOCK',reason:'OFFICIAL_FEED_NOT_RECENTLY_CHECKED'});
   if (!permissionToRepublish)
     return Object.freeze({action:'LINK_ONLY',sourceId,officialUrl:url.href,
       reason:'REPUBLICATION_RIGHTS_NOT_CONFIRMED'});
   return Object.freeze({action:'SHOW_OFFICIAL_ALERT',sourceId,officialUrl:url.href,
     issuedAt:issuedAt.toISOString(),expiresAt:expiresAt.toISOString(),
-    event,municipalityIbges:[...affectedMunicipalities],
+    checkedAt:checkedAt.toISOString(),event,severity,
+    municipalityIbges:[...affectedMunicipalities],
     reason:'VERIFIED_AUTHORIZED_PUBLIC_ALERT'});
 }
