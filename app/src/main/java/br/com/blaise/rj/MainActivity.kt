@@ -1403,11 +1403,59 @@ private fun ScientificReadoutsPanel(city: City, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Administrator-only catalogue. No provider call, API key, or privileged
+ * operation takes place when the operator opens this panel.
+ */
+@Composable
+private fun AdminScientificCatalogPanel() {
+    var showMethods by remember { mutableStateOf(false) }
+    DashboardSection(
+        title = "BLAISE • CALCULADORA CIENTÍFICA INTEGRADA",
+        subtitle = "Inventário dos métodos armazenados no backend",
+        modifier = Modifier.fillMaxWidth().testTag("admin-scientific-catalogue"),
+    ) {
+        Text("37 métodos científicos cadastrados no código • cálculos reais dependem de " +
+            "entradas recentes, validadas, autorizadas e com mesma validade temporal.",
+            color = Color.White, style = MaterialTheme.typography.labelSmall)
+        Text("Os resultados locais, quando disponíveis, aparecem na seção Cálculos. " +
+            "CAPE, CIN, radar, ondas, fusão e trajetórias exigem dados específicos do backend. " +
+            "Nenhum cálculo é um aviso oficial.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        OutlinedButton(
+            onClick = { showMethods = true },
+            modifier = Modifier.fillMaxWidth().testTag("admin-scientific-methods"),
+        ) { Text("Consultar métodos científicos cadastrados") }
+    }
+    if (showMethods) {
+        AlertDialog(
+            onDismissRequest = { showMethods = false },
+            title = { Text("Métodos científicos • backend") },
+            text = {
+                Column(Modifier.heightIn(max = 530.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(BlaiseScientificCatalog.STATUS, color = WarningAmber,
+                        style = MaterialTheme.typography.labelSmall)
+                    BlaiseScientificCatalog.methods.groupBy { it.domain }.forEach { (domain, methods) ->
+                        Text(domain, color = Gold, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall)
+                        methods.forEach { method ->
+                            Text("• ${method.id}", color = Color.White,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showMethods = false }) { Text("Fechar") } },
+        )
+    }
+}
+
 @Composable
 private fun AgentStatusPanel(modifier: Modifier = Modifier) {
     var details by remember { mutableStateOf(false) }
     DashboardSection(
-        title = "BLAISE • 11 AGENTES, INCLUINDO PESQUISA IA",
+        title = "BLAISE • 13 FUNÇÕES DE AGENTES CADASTRADAS",
         subtitle = "Roteamento por fenômeno, 92 municípios e Atlântico adjacente",
         modifier = modifier.testTag("ten-agents-panel"),
     ) {
@@ -1417,7 +1465,7 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
         val latestFailure = LocalWeatherAudits.current.lastOrNull { "UNAVAILABLE" in it.reason || "MISMATCH" in it.reason || it.reason.startsWith("SOURCE_FAILURE") }
         latestFailure?.let { Text("Auditoria de fonte • IBGE ${it.municipalityIbge} • ${it.reason}",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall) }
-        Text("11 agentes cadastrados • agente de pesquisa IA por solicitação. Consulta online ainda exige integração autorizada.",
+        Text("13 agentes especificados; o cadastro não comprova que todos estejam executando. Saúde real somente via supervisor autenticado.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
         val seismic = LocalSeismic.current
         val news = LocalNews.current
@@ -1428,19 +1476,20 @@ private fun AgentStatusPanel(modifier: Modifier = Modifier) {
             else "Noticiário • aguardando RSS atual", color = Muted, style = MaterialTheme.typography.labelSmall)
         OutlinedButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)) {
-            Text(if (details) "Recolher funções dos 11 agentes" else "Ver funções dos 11 agentes")
+            Text(if (details) "Recolher funções dos 13 agentes" else "Ver funções dos 13 agentes")
         }
         if (details) {
             AlertDialog(
                 onDismissRequest = { details = false },
-                title = { Text("Funções dos 11 agentes") },
+                title = { Text("Funções dos 13 agentes") },
                 text = {
                     Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        BlaiseAgentDashboard.elevenAgents.forEach { agent ->
+                        BlaiseAgentDashboard.allAgents.forEach { agent ->
                             Text("${agent.index}. ${agent.name}", color = Color.White, fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.labelSmall)
                             Text(agent.responsibility, color = Muted, style = MaterialTheme.typography.labelSmall)
+                            Text(agent.deploymentStatus, color = WarningAmber, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 },
@@ -2493,6 +2542,7 @@ private fun MoreScreen(
         Text("Edição administrativa • voz Dora feminina offline. " +
             "Operações privilegiadas exigem autorização no servidor.", color = Muted)
         br.com.blaise.rj.admin.RjOwnerQuestionBankPanel()
+        AdminScientificCatalogPanel()
     } else {
         br.com.blaise.rj.voice.RjFemaleVoiceSettingsPanel()
     }
