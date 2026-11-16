@@ -98,10 +98,13 @@ export function privateVerificationAudit({sourceId, checkedAt, outcome} = {}) {
  * the most recently queried provider.
  */
 export function arbitrateWithSecondInternationalSource({
-  discrepancyFlag = false,
+  discrepancyFlag = false, comparisonPermissionConfirmed = false,
   current, alternative, now,
 } = {}) {
   if (!validTime(now)) return Object.freeze({action: 'UNAVAILABLE', reason: 'INVALID_CLOCK'});
+  // A restricted Brazilian reading cannot trigger derived commercial decisions
+  // without a confirmed comparison right, even when the reading is transient.
+  if (discrepancyFlag && !comparisonPermissionConfirmed) return Object.freeze({action:'UNAVAILABLE',reason:'COMPARISON_NOT_AUTHORIZED'});
   const valid = row => row && permitPublicInternationalValue({...row, now}) &&
     typeof row.phenomenon === 'string' && row.phenomenon.length > 0 &&
     typeof row.unit === 'string' && row.unit.length > 0 &&
