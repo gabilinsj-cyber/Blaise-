@@ -10,6 +10,7 @@
  * coordinates, never invented/reprojected/interpolated radar.
  */
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
+import { RJ_92_REPRESENTATIVE_BY_IBGE } from './rj-municipal-representative-points.mjs';
 
 export const RJ_INTERNATIONAL_92_CONTRACT='BLAISE_RJ_INTERNATIONAL_92_V1';
 export const RJ_INTERNATIONAL_92_PATH='/v1/data/international-weather';
@@ -31,6 +32,9 @@ function normalize(row, nowMs) {
   if(!source||row.status!==source.status||row.type!=='PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT'||
      row.officialObservation!==false||row.officialAlert!==false||row.radarFrame!==false||
      row.attributionRequired!==true||row.originalMapPreserved!==true)return null;
+  const target=RJ_92_REPRESENTATIVE_BY_IBGE.get(String(row.ibge));
+  if(!target || Math.abs(row.latitude-target.latitude)>0.005 ||
+     Math.abs(row.longitude-target.longitude)>0.005) return null;
   const timestamp=time(row.validAt),receivedAt=time(row.retrievedAt);
   if(!Number.isFinite(timestamp)||!Number.isFinite(receivedAt)||
      timestamp>nowMs+60_000||receivedAt>nowMs+60_000||
