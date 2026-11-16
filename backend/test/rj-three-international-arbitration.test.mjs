@@ -65,6 +65,15 @@ test('invalid international provider cannot be substituted for valid internation
   assert.equal(r.action,'REQUEST_THIRD_INTERNATIONAL_SOURCE');
   assert.equal(r.provisionalSourceId,'OPENWEATHER');
 });
+test('third provider unavailable: publish the best remaining valid international source',()=>{
+  const r=chooseFromThreeInternationalSources({
+    candidates:[a,b],thirdAttempted:true,now,
+  });
+  assert.equal(r.action,'PUBLISH_VALID_INTERNATIONAL');
+  assert.equal(r.sourceId,'OPENWEATHER');
+  assert.equal(r.strategy,'INTERNATIONAL_QUALITY');
+});
+
 test('when one international observation is valid, divergence never causes unavailable',()=>{
   const r=chooseFromThreeInternationalSources({candidates:[a,{...b,expiresAt:new Date(now.valueOf()-1)}],now});
   assert.equal(r.action,'PUBLISH_VALID_INTERNATIONAL');
