@@ -153,6 +153,9 @@ async function main() {
     ...loadOfficialSourceWorkerConfig({ ...process.env, BLAISE_INEA_STATION_URL: undefined }),
     municipalNoticeLinksOnly: true,
     defesaCivilRioAssetsEnabled: false,
+    // CEMADEN-RJ legacy URL is hosted by excluded Defesa Civil RJ;
+    // await separate verified CEMADEN federal integration before re-enabling rainfall.
+    cemadenRjEnabled: false,
   });
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
