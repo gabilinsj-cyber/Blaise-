@@ -99,7 +99,7 @@ export function validateAgent14BrazilianReference({
   if (!bounds || record.unit !== bounds.unit ||
       typeof record.value !== 'number' ||
       record.value < bounds.min || record.value > bounds.max ||
-      record.value === 9999 || !/^33\\d{5}$/.test(String(record.scopeId)) ||
+      record.value === 9999 || !/^33\d{5}$/.test(String(record.scopeId)) ||
       typeof record.stationId !== 'string' || record.stationId.length < 2)
     return null;
   if (record.sourceId !== 'INMET' || record.stationOwner !== 'INMET' ||
