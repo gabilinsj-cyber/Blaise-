@@ -205,7 +205,13 @@ class OfficialWeatherClient {
     private fun get(url: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
-        conn.setRequestProperty("Accept", "application/json")
+        // Alerta Rio publishes a station HTML table. INMET publishes JSON.
+        // Ask for the correct representation without weakening validation.
+        conn.setRequestProperty("Accept",
+            if (URL(url).host.equals("websempre.rio.rj.gov.br", ignoreCase = true))
+                "text/html,application/xhtml+xml;q=0.9"
+            else
+                "application/json")
         try {
             if (conn.responseCode != 200) throw OfficialWeatherSourceFailure("HTTP_${conn.responseCode}")
             return conn.inputStream.use { input ->
