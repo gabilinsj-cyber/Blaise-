@@ -237,10 +237,12 @@ export function chooseFromThreeInternationalSources({
   const sourceCount=unique.length;
   // A third source is required only when two independent, comparable products
   // disagree beyond their scientifically declared, dimension-specific tolerance.
-  if (sourceCount===2 && unique.every(row=>typeof row.comparisonTolerance === 'number' &&
-      Number.isFinite(row.comparisonTolerance) && row.comparisonTolerance >= 0) &&
+  if (sourceCount===2 &&
       Math.abs(unique[0].value-unique[1].value) >
-        Math.max(unique[0].comparisonTolerance,unique[1].comparisonTolerance)) {
+        Math.max(...unique.map(row =>
+          typeof row.comparisonTolerance === 'number' &&
+          Number.isFinite(row.comparisonTolerance) && row.comparisonTolerance >= 0
+            ? row.comparisonTolerance : 0))) {
     const preferred=[...unique].sort((a,b)=>b.qualityScore-a.qualityScore)[0];
     return Object.freeze({
       action:'REQUEST_THIRD_INTERNATIONAL_SOURCE',
