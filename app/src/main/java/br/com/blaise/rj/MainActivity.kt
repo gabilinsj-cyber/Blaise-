@@ -291,10 +291,16 @@ fun BlaiseApp(
     var publicStatusRefreshRequest by remember { mutableStateOf(0) }
     var publicStatusLastManualRefresh by remember { mutableStateOf(Instant.EPOCH) }
     var publicStatusLastAttempt by remember { mutableStateOf<Instant?>(null) }
-    // Brazilian meteorology is review-only on the authorized backend.
-    // Do not fetch/rebroadcast official readings or warnings through this APK.
-    // Cell Broadcast / native government emergency notifications remain intact.
-    val publicRjClient: PublicRjStatusHttpsClient? = remember { null }
+    // Separate SAFETY ALERT relay, not a weather measurement feed.
+    // Only enabled with explicit permission to republish the INMET warnings.
+    // COR.Rio, Alerta Rio and Defesa Civil are linked to official websites
+    // until dedicated permission-verified warning-only feeds are configured.
+    // Native government Cell Broadcast alerts are not intercepted or delayed.
+    val publicRjClient = remember {
+        if (BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED)
+            PublicRjStatusHttpsClient.create(BuildConfig.BLAISE_RJ_PUBLIC_STATUS_BASE_URL)
+        else null
+    }
     // Existing statewide payload mixes local official meteorological inputs;
     // fail closed until international-only provenance is independently audited.
     val statewideClient: StatewideDataHttpsClient? = remember { null }
@@ -377,7 +383,17 @@ fun BlaiseApp(
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 publicStatusLastAttempt = Instant.now()
-                publicRjStatus = publicRjClient.fetch()
+                val fetched = publicRjClient.fetch()
+                publicRjStatus = when (fetched) {
+                    is PublicRjStatusResult.Available ->
+                        br.com.blaise.rj.data.RjPublicOfficialAlertOnly
+                            .sanitize(fetched.snapshot, Instant.now())
+                            ?.let(PublicRjStatusResult::Available)
+                            ?: PublicRjStatusResult.Unavailable
+                    else -> PublicRjStatusResult.Unavailable
+                }
+                // Safety alerts require their own fast refresh and do not
+                // inherit the 30-minute private meteorological review cycle.
                 delay(60_000)
             }
         }
@@ -450,7 +466,11 @@ fun BlaiseApp(
         LocalSeismic provides if (powerOn) liveSeismic else null,
         LocalInmetHourlySeries provides if (powerOn) citySnapshots[city1.ibgeCode]?.currentSeries(observationClock) else null,
         LocalObservationClock provides observationClock,
-        LocalOfficialWarningHistory provides emptyList(), // Preserve archive; never republish previously cached Brazilian warnings.
+        LocalOfficialWarningHistory provides if (
+            powerOn && BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED
+        ) warningHistory.filter { it.sourceUrl ==
+            br.com.blaise.rj.data.RjPublicOfficialAlertOnly.INMET_ALERT_ORIGIN
+        } else emptyList(), // Preserve history; show only authorized official notices.
         LocalOfficialMarineHistory provides emptyList(), // Preserve archive; exclude old Brazilian marine products.
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
     BlaiseDashboard(
@@ -2290,6 +2310,41 @@ private fun MapScreen(city1: City, city2: City) {
     }
 }
 
+/**
+ * Official safety channels remain reachable even when a third-party
+ * republication license or an authenticated alert-only API is unavailable.
+ * These are navigation links; do not claim any alert is currently active.
+ */
+@Composable
+private fun OfficialSafetySourcesPanel() {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    DashboardSection(
+        title = "ALERTAS PÚBLICOS • FONTES OFICIAIS",
+        subtitle = "INMET • Alerta Rio • COR.Rio • Defesa Civil RJ",
+        modifier = Modifier.fillMaxWidth().testTag("rj-official-safety-links"),
+    ) {
+        Text(
+            "Somente avisos públicos autênticos e vigentes com origem, horário e " +
+                "área confirmados podem aparecer aqui. Links não comprovam alerta ativo.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+        Text(
+            if (BuildConfig.BLAISE_RJ_PUBLIC_ALERT_RELAY_AUTHORIZED)
+                "Canal de avisos do INMET autorizado e sujeito à confirmação do servidor."
+            else "Retransmissão automática pendente de autorização. Consulte os canais oficiais.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        br.com.blaise.rj.data.RjOfficialPublicAlertLinks.entries.forEach { item ->
+            TextButton(
+                onClick = { uri.openUri(item.page) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Consultar ${item.issuer}", color = Gold) }
+        }
+        Text(
+            "Alertas de emergência do sistema Android/Defesa Civil continuam independentes. " +
+                "Não dependem das revisões meteorológicas de 30 minutos.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
 @Composable
 private fun AlertsScreen(city1: City, city2: City) {
     DashboardSection(
@@ -2308,6 +2363,8 @@ private fun AlertsScreen(city1: City, city2: City) {
         Text("Sem nova emissão: sair da lista ativa em 12 horas ou no vencimento oficial anterior. Histórico por mais 12 horas após esse encerramento, com exclusão local na próxima checagem ou abertura. Notificações de encerramento fora do aplicativo ainda não estão implementadas.", color = Muted)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
+    Spacer(Modifier.height(14.dp))
+    OfficialSafetySourcesPanel()
     Spacer(Modifier.height(14.dp))
     MarineWarningHistoryPanel()
     DashboardSection(
