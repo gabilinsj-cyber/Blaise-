@@ -8,6 +8,7 @@ import { createPaidDashboardDataHttpHandler } from './dashboard-data-http.mjs';
 import { createRjPublicStatusHandler } from './rj-public-status-http.mjs';
 import { createRjSourceReadinessHandler } from './rj-source-readiness.mjs';
 import { createRjAgent13OperatorHttpHandler } from './rj-agent13-operator-http.mjs';
+import {createRjInternational92FirestoreReader} from './rj-international-92-firestore-reader.mjs';
 import { createRjResearchHttpHandler } from './rj-research-http.mjs';
 import { createRjDynamicResearchAgent } from './blaise-rj-dynamic-research.mjs';
 import { createInmetP0RuntimePublisher } from './inmet-p0-runtime.mjs';
@@ -196,10 +197,21 @@ async function main() {
   });
   // The former maritime paid route is retired for RJ. Do not compose
   // a legacy provider handler into the production HTTP request chain.
+  // Server-owned, read-only international weather cache for all 92 cities.
+  // The flag defaults OFF. This does not schedule 92 provider requests or
+  // bypass the Agent 13 shared 900/day quota and 10-minute provider cache.
+  const internationalCacheReader=createRjInternational92FirestoreReader({
+    projectId:process.env.GOOGLE_CLOUD_PROJECT || config.firebaseProjectId,
+    enabled:process.env.BLAISE_RJ_INTL_PAID_READ_ENABLED==='true' &&
+      process.env.BLAISE_OPENWEATHER_COMMERCIAL_USE_VERIFIED==='true',
+  });
   const dashboardDataHandler = createPaidDashboardDataHttpHandler(coreHandler, {
     config,
     gateway,
     sourceWorker,
+    internationalRowsReader:internationalCacheReader.configured ?
+      ()=>internationalCacheReader.read() : null,
+    internationalLicenseConfirmed: internationalCacheReader.configured,
     metrics,
   });
   // Public official alerts/risk status does not require a Google Play purchase,
