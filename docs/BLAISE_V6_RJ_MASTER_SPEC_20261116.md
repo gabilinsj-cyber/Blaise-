@@ -134,3 +134,27 @@ Esta seção **complementa e prevalece** sobre a política internacional anterio
 7. **Notícias nacionais/internacionais:** exibir somente frase genérica que conduz à notícia, nome da fonte e link de origem. Não transcrever manchete, corpo da matéria ou outros detalhes; a data pode ser verificada internamente, sem reproduzir o texto original. Link de terceiro não comprova atualidade além do timestamp verificado.
 8. **Emergências:** alertas governamentais nativos (Cell Broadcast) não são bloqueados nem atrasados; modelo internacional não cancela orientações da Defesa Civil. A verificação meteorológica de 30 minutos não rege esses alertas.
 9. **Estado técnico:** política e verificações de código na branch `policy/rj-three-international-link-only-20261116`. Não existe ainda orquestrador real que faça três requisições internacionais, nem alimentação licenciada e validada no APK. Testes estáticos/unitários não equivalem a validação operacional ou aprovação legal. Preservar projeto original, 13 agentes, job NOAA, backups e todas as exclusões persistentes.
+
+## Nova regra visual de alertas — 16/11/2026 (estágios 1 a 5)
+
+**Esta seção prevalece sobre a antiga orientação de não exibir números e cores.** Usar apenas metadados oficiais suficientemente verificados, sem reproduzir os textos integrais de terceiros. A classificação 1–5 pertence ao Blaise e **não equivale automaticamente** à escala oficial de qualquer emissor. O mapeamento de cada fonte depende de regras revisadas, verificáveis, autorização e validade.
+
+| Estágio Blaise | Fundo hexadecimal | Escrita | Frase curta do Blaise |
+|---|---|---|---|
+| 1 | `#4ADE80` verde | preto/negrito | Atenção baixa: consulte a orientação oficial |
+| 2 | `#A3E635` verde-limão | preto/negrito | Atenção preventiva: consulte a orientação oficial |
+| 3 | `#FACC15` amarelo | preto/negrito | Atenção meteorológica: consulte a orientação oficial |
+| 4 | `#FB923C` laranja | preto/negrito | Alerta elevado: consulte a orientação oficial |
+| 5 | `#F87171` vermelho | preto/negrito | Alerta extremo: consulte imediatamente a orientação oficial |
+
+Layout: número grande na frente, frase curta em negrito preto, fonte, data/hora de verificação, e link direto para **a publicação ou página oficial HTTPS** da entidade. Sem copiar seu boletim, notícia ou imagem.
+
+**Estágio 5:** uma única fala curta em português: “Blaise V6 Rio de Janeiro. Atenção: alerta no estágio cinco confirmado para uma cidade selecionada. Abra a fonte oficial para orientações e informações.” Em seguida três bipes audíveis e três vibrações (200ms/pulso, apenas quando dispositivo e usuário habilitarem). Permissões Android e modo Não Perturbe devem ser respeitados. A fala usa voz do sistema já configurada no Blaise quando disponível.
+
+**Disparo único por transição:** ao entrar em 5 partindo de 1–4 ou ao detectar um novo alerta distinto já emitido em 5, registrar persistentemente identificador autenticado do aviso, instituição, município e último estágio; atualização da tela, reabertura e reconsulta não repetem o áudio/bipes/vibrações. O mesmo aviso só poderá voltar a disparar após sair efetivamente de 5 e voltar a 5 com evento de atualização novo e verificado. Não permitir pacotes fora de ordem rearmar o aviso.
+
+**Avisos governamentais nativos (Cell Broadcast)** continuam prioritários e nunca são interceptados, limitados pelo Blaise ou ocultados.
+
+**Gate de segurança:** nenhum som/vibração é disparado a partir de um texto genérico, valor meteorológico, previsão, número inferido ou link sozinho. Exigir origem HTTPS conhecida, identificação/autenticidade do boletim, localidade confirmada, revisão de mapeamento, direitos de exibir estágio/metadata, tempo atual e validade. Não anunciar “1 — sem risco” sem evidência de cobertura.
+
+**Estado técnico em 16/11/2026:** branch `policy/rj-five-stage-alert-audio-once-20261116` contém modelo de estágios, componente visual reutilizável, controle local persistente de evento e player de fala/bipe/vibração. **O novo feed autenticado com estágio 1–5 ainda não foi conectado ao app, push em segundo plano não está validado e o APK não foi compilado.** Portanto estas rotinas não representam um alerta operacional ativo. Nenhuma alteração ao aplicativo original, job NOAA, 13 agentes ou backups.
