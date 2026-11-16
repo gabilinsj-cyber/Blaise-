@@ -79,20 +79,24 @@ data class DashboardMarineReading(
     }
 }
 
+data class DashboardOfficialNotice(val id: String, val name: String, val message: String, val url: String)
+
 data class DashboardDataSnapshot(
     val generatedAt: Instant,
     val mode: String,
     val sourceCount: Int,
     val currentSourceCount: Int,
-    val rainfall: DashboardRainfallSummary,
+    val rainfall: DashboardRainfallSummary?,
+    val officialNoticeLinks: List<DashboardOfficialNotice> = emptyList(),
     val sources: List<DashboardOfficialSourceState>,
     val marine: DashboardMarineReading? = null,
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
             !value.isAfter(now) && java.time.Duration.between(value, now).seconds <= limit
-        return ageWithin(generatedAt, 120) && ageWithin(rainfall.observedAt, 900) &&
-            rainfall.fetchedAt?.let { ageWithin(it, if (mode == "severe") 120 else 900) } == true
+        return ageWithin(generatedAt, 120) &&
+            (rainfall == null || (ageWithin(rainfall.observedAt, 900) &&
+                rainfall.fetchedAt?.let { ageWithin(it, if (mode == "severe") 120 else 900) } == true))
     }
 }
 
@@ -142,28 +146,29 @@ object DashboardDataParser {
     private val acceptedSourceStates = setOf("CURRENT", "CURRENT_DEGRADED", "STALE", "UNAVAILABLE")
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
-        require(payload.keys == topLevelKeys || payload.keys == topLevelKeys + "marine")
+        require(payload.keys.containsAll(topLevelKeys) &&
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
-        require(payload["scope"] == "RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL")
+        require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
         val generatedAt = instant(payload["generatedAt"])
         val mode = string(payload["mode"], 3, 16)
         require(mode == "normal" || mode == "severe")
-        val sourceCount = boundedInt(payload["sourceCount"], 1, 64)
-        val currentSourceCount = boundedInt(payload["currentSourceCount"], 1, sourceCount)
+        val sourceCount = boundedInt(payload["sourceCount"], 0, 64)
+        val currentSourceCount = boundedInt(payload["currentSourceCount"], 0, sourceCount)
 
-        val rainfallMap = stringMap(payload["rainfall"])
-        require(rainfallMap.keys == rainfallKeys)
-        require(rainfallMap["sourceId"] == DASHBOARD_DATA_RAINFALL_SOURCE_ID)
-        require(rainfallMap["coverage"] == DASHBOARD_DATA_RAINFALL_COVERAGE)
-        val rainfallState = string(rainfallMap["state"], 3, 32)
-        require(rainfallState == "CURRENT" || rainfallState == "CURRENT_DEGRADED")
-        string(rainfallMap["reason"], 1, 96)
-        val stationCount = boundedInt(rainfallMap["stationCount"], DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT, DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT)
-        val wetStationCount = boundedInt(rainfallMap["wetStationCount"], 0, stationCount)
-        val missingValueCount = nullableBoundedInt(rainfallMap["missingValueCount"], 0, stationCount * 14)
-        val rainfall = DashboardRainfallSummary(
-            state = rainfallState,
+        val rainfallMap = payload["rainfall"]?.let(::stringMap)
+        if (rainfallMap != null) require(rainfallMap.keys == rainfallKeys)
+        if (rainfallMap != null) require(rainfallMap["sourceId"] == DASHBOARD_DATA_RAINFALL_SOURCE_ID)
+        if (rainfallMap != null) require(rainfallMap["coverage"] == DASHBOARD_DATA_RAINFALL_COVERAGE)
+        val rainfallState = rainfallMap?.let { string(it["state"], 3, 32) }
+        if (rainfallMap != null) require(rainfallState == "CURRENT" || rainfallState == "CURRENT_DEGRADED")
+        if (rainfallMap != null) string(rainfallMap["reason"], 1, 96)
+        val stationCount = rainfallMap?.let { boundedInt(it["stationCount"], DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT, DASHBOARD_DATA_ALERTA_RIO_STATION_COUNT) } ?: 0
+        val wetStationCount = rainfallMap?.let { boundedInt(it["wetStationCount"], 0, stationCount) } ?: 0
+        val missingValueCount = rainfallMap?.let { nullableBoundedInt(it["missingValueCount"], 0, stationCount * 14) }
+        val rainfall = rainfallMap?.let { DashboardRainfallSummary(
+            state = rainfallState ?: throw IllegalArgumentException("invalid_rain_state"),
             observedAt = instant(rainfallMap["observedAt"]),
             fetchedAt = nullableInstant(rainfallMap["fetchedAt"]),
             stationCount = stationCount,
@@ -172,7 +177,10 @@ object DashboardDataParser {
             max15mMm = nullableRainMm(rainfallMap["max15mMm"]),
             max1hMm = nullableRainMm(rainfallMap["max1hMm"]),
             max24hMm = nullableRainMm(rainfallMap["max24hMm"]),
-        )
+        ) }
+        if (payload.containsKey("rainfallAvailability")) {
+            require(payload["rainfallAvailability"] == if (rainfall == null) "UNAVAILABLE" else "AVAILABLE")
+        }
 
         val sourceValues = payload["sources"] as? List<*> ?: throw IllegalArgumentException("invalid_sources")
         require(sourceValues.size == sourceCount)
@@ -238,12 +246,24 @@ object DashboardDataParser {
         require(privacy["rawStationPayloadExposed"] == false)
         require(privacy["userLocationStored"] == false)
 
+        val notices = (payload["officialNoticeLinks"] as? List<*>)?.map { raw ->
+            val value = stringMap(raw)
+            require(value.keys == setOf("id", "name", "message", "url"))
+            val id = identifier(value["id"])
+            val url = string(value["url"], 12, 180)
+            require((id == "alerta-rio" && url == "https://www.sistema-alerta-rio.com.br/alertas/") ||
+                (id == "defesa-civil-rj" && url == "https://defesacivil.rj.gov.br/"))
+            DashboardOfficialNotice(id, string(value["name"], 3, 64), string(value["message"], 10, 300), url)
+        }.orEmpty()
+        require(notices.size <= 2 && notices.map { it.id }.toSet().size == notices.size)
+
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
             mode = mode,
             sourceCount = sourceCount,
             currentSourceCount = currentSourceCount,
             rainfall = rainfall,
+            officialNoticeLinks = notices,
             sources = sources,
             marine = marine,
         )
