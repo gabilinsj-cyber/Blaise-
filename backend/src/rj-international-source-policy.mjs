@@ -61,13 +61,15 @@ export function internalDifferenceAction({permissionConfirmed = false, differenc
 export function permitPublicInternationalValue({
   sourceId, productLicensedForCommercialApp = false,
   productAttributionSatisfied = false,
-  type, observedAt, expiresAt,
+  type, displayedAs, observedAt, expiresAt,
   municipalityMatch = false, independentlyObtained = false,
   now,
 } = {}) {
   if (!INTERNATIONAL_CANDIDATES.includes(sourceId)) return false;
   if (!productLicensedForCommercialApp || !productAttributionSatisfied) return false;
   if (!['OBSERVATION', 'FORECAST', 'MODEL'].includes(type)) return false;
+  // Never label satellite/model estimates or forecasts as direct observations.
+  if (displayedAs !== type) return false;
   if (!municipalityMatch || !independentlyObtained) return false;
   if (![observedAt, expiresAt, now].every(validTime)) return false;
   return observedAt <= now && now <= expiresAt;
