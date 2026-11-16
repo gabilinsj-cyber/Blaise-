@@ -206,6 +206,7 @@ private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF26669E)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
+private val LocalInternational92 = compositionLocalOf<br.com.blaise.rj.data.RjInternational92Snapshot?> { null }
 private val LocalMunicipalSnapshots = compositionLocalOf<Map<Int, br.com.blaise.rj.data.MunicipalWeatherSnapshot>> { emptyMap() }
 private val LocalWeatherCities = compositionLocalOf<List<City>> { emptyList() }
 private val LocalWeatherAudits = compositionLocalOf<List<br.com.blaise.rj.data.MunicipalWeatherAudit>> { emptyList() }
@@ -255,6 +256,11 @@ fun BlaiseApp(
     var silentMode by remember { mutableStateOf(uiPreferences.getBoolean("silent_mode", false)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val weatherClient = remember { OfficialWeatherClient() }
+    val internationalClient = remember(context.packageName) {
+        br.com.blaise.rj.data.RjInternational92Client.create(
+            BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
+    }
+    var internationalSnapshot by remember { mutableStateOf<br.com.blaise.rj.data.RjInternational92Snapshot?>(null) }
     val informationClient = remember { br.com.blaise.rj.data.LiveInformationClient() }
     var liveNews by remember { mutableStateOf<br.com.blaise.rj.data.NewsSnapshot?>(null) }
     var liveSeismic by remember { mutableStateOf<br.com.blaise.rj.data.SeismicSnapshot?>(null) }
@@ -426,6 +432,24 @@ fun BlaiseApp(
             }
         }
     }
+    // International-only, entitlement-protected feed. It is a read of an
+    // already-validated backend snapshot; no mobile OpenWeather API key.
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle, internationalClient) {
+        internationalSnapshot = null
+        val candidate = verifiedPurchase
+        val client = internationalClient
+        if (!powerOn || billingSnapshot !is BillingEntitlementSnapshot.Active ||
+            candidate == null || client == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                internationalSnapshot = client.fetch(candidate)
+                    ?.takeIf { it.current(Instant.now()) }
+                // UI can poll more often than the provider refresh, but only
+                // its own backend. Provider budget/caching is server controlled.
+                delay(60_000)
+            }
+        }
+    }
     val officialFeedState = remember(officialFeedEvidence, observationClock) {
         OfficialFeedStatusPolicy.state(officialFeedEvidence, observationClock)
     }
@@ -458,6 +482,7 @@ fun BlaiseApp(
                     municipalities = result.snapshot.municipalities.map { it.copy(warningIds = it.warningIds.filter(ids::contains)) }))
             } ?: statewideDashboard) else StatewideDataResult.Unavailable,
         LocalRioStations provides if (powerOn) rioStations else emptyList(),
+        LocalInternational92 provides if (powerOn) internationalSnapshot else null,
         LocalCityWeather provides if (powerOn) citySnapshots.mapValues { it.value.currentReport(observationClock) } else emptyMap(),
         LocalMunicipalSnapshots provides if (powerOn) citySnapshots else emptyMap(),
         LocalWeatherCities provides listOf(city1, city2),
@@ -1571,6 +1596,9 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
         ) {
             Box(Modifier.fillMaxSize()) {
                 RioGeographicBase(Modifier.fillMaxSize(), mapZoom)
+                RjInternational92MapOverlay(
+                    LocalInternational92.current,
+                    snapshotTime, selectedLayer, mapZoom, Modifier.fillMaxSize())
                 if (selectedLayer == "Radar") {
                     RjRadarSpatialOverlay(
                         liveRadar, snapshotTime, mapZoom, Modifier.fillMaxSize(),
@@ -1650,8 +1678,10 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                         else if (stationSample != null && stationSeries != null)
                             "$selectedLayer • ponto medido INMET: ${stationSeries.stationName} • ${stationSample.first.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília). Não é radar nem cobertura municipal."
                         else if (selectedLayer == "Radar")
-                            "Radar: aguardando produto internacional georreferenciado, recente e licenciado. Nenhuma chuva foi simulada."
-                        else "$selectedLayer: sem medição pontual recente validada; mapas interpolados indisponíveis.",
+                            "Radar: aguardando quadros medidos e licenciados. Nenhuma chuva foi simulada."
+                        else if (LocalInternational92.current?.values?.values?.any { it.current(snapshotTime) } == true)
+                            "$selectedLayer • pontos de estimativa internacional do modelo, fonte e horário nos cartões; sem interpolação."
+                        else "$selectedLayer: sem estimativa internacional atual; mapas interpolados indisponíveis.",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         color = if (stationSample != null || selectedLayer == "Radar" && liveRadar != null) Color.White else WarningAmber,
                         style = MaterialTheme.typography.labelSmall,
@@ -3191,6 +3221,7 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    val international = LocalInternational92.current?.municipality(city.ibgeCode,clock)
     val scientificValues = ScientificDashboardPolicy.derive(observation, clock)
     val feelsLike = scientificValues.firstOrNull { it.title == "Sensação térmica" }
     val context = LocalContext.current
@@ -3254,22 +3285,23 @@ private fun CityPanel(
                 Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             Text(
-                observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
+                international?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
                 color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium,
             )
             Text(
-                if (observation == null) "Medição oficial indisponível" else "Medição oficial com horário válido",
-                color = if (observation == null) WarningAmber else StableGreen,
+                if (international == null) "Estimativa internacional atual não confirmada" else "Estimativa internacional atual • modelo, não estação",
+                color = if (international == null) WarningAmber else StableGreen,
                 style = MaterialTheme.typography.labelSmall,
             )
-            if (feelsLike != null) {
-                Text("Sensação térmica calculada: ${feelsLike.value}",
+            international?.feelsLikeC?.let {
+                Text("Sensação térmica estimada: " +
+                    String.format(java.util.Locale("pt","BR"),"%.1f °C",it),
                     color = Gold, style = MaterialTheme.typography.labelSmall)
             }
-            if (observation != null) {
+            if (international != null) {
                 Text(
-                    "Fonte: ${observation.source} • estação ${observation.station} • " +
-                        observation.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    "Fonte: ${international.source} • modelo meteorológico • " +
+                        international.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
                             .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
                         " (Brasília)",
                     color = Muted, style = MaterialTheme.typography.labelSmall,
@@ -3278,9 +3310,9 @@ private fun CityPanel(
             fun metric(value: Double?, unit: String) = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "—"
-            Text("Umidade ${metric(observation?.humidityPercent, "%")}  •  Vento ${metric(observation?.windKmh, "km/h")}",
+            Text("Umidade ${metric(international?.humidityPct, "%")}  •  Vento ${metric(international?.windKmh, "km/h")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
+            Text("Rajada ${metric(international?.gustKmh, "km/h")}  •  Chuva 1h ${metric(international?.rainMm1h, "mm")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             if (compact) {
                 val currentPublic = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
@@ -3314,9 +3346,11 @@ private fun CityPanel(
                 Text(if (details) "Ocultar detalhes" else "Ver detalhes")
             }
             if (details) {
-                Text(report?.summary(clock) ?: "Nenhum dado meteorológico atual confirmado para este município.",
+                Text(international?.let { "Estimativa do modelo ${it.source}, válida em ${it.validAt}. " +
+                    "Temperatura ${metric(it.temperatureC,"°C")}; sensação ${metric(it.feelsLikeC,"°C")}." }
+                    ?: "Nenhuma estimativa internacional atual confirmada para este município.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
-                Text("Sensação térmica, UV, chance de chuva e rajadas: apenas com fonte oficial válida.",
+                Text("Somente dados internacionais licenciados com origem e horário verificados.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
                 Text("Avisos: ver seção Alertas. Ausência de dados não significa ausência de risco.",
                     color = WarningAmber, style = MaterialTheme.typography.labelSmall)
