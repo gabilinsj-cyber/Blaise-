@@ -13,7 +13,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
+/** Direct observations are restricted to INMET; every answer revalidates measurement age. */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
