@@ -6,6 +6,9 @@ import {
   internalDifferenceAction,
   permitPublicInternationalValue,
   privateVerificationAudit,
+  arbitrateWithSecondInternationalSource,
+  assessOfficialPublicAlert,
+  OFFICIAL_PUBLIC_ALERT_SOURCES,
 } from '../src/rj-international-source-policy.mjs';
 
 const now = new Date('2026-11-16T12:00:00Z');
@@ -57,4 +60,82 @@ test('internal audit stores only source, timestamp and outcome',()=>{
   const r=privateVerificationAudit({sourceId:'INMET',checkedAt:now,outcome:'UNAVAILABLE'});
   assert.deepEqual(Object.keys(r),['sourceId','checkedAt','outcome']);
   assert.equal(JSON.stringify(r).includes('temperature'),false);
+});
+
+
+const cleanWeather = {
+  sourceId:'NOAA', productLicensedForCommercialApp:true, productAttributionSatisfied:true,
+  type:'OBSERVATION', displayedAs:'OBSERVATION', observedAt:new Date(now.getTime()-30000),
+  expiresAt:new Date(now.getTime()+300000), municipalityMatch:true,
+  independentlyObtained:true, phenomenon:'windKmh', unit:'km/h', scopeId:'3304557',
+  qualityScore:0.62, independentProviderEvidence:true, verifiedOwnObservationTime:true,
+};
+test('Brazilian discrepancy can only trigger second international review with permission',()=>{
+  const b={...cleanWeather,sourceId:'OPENWEATHER',qualityScore:0.85};
+  assert.deepEqual(arbitrateWithSecondInternationalSource({
+    discrepancyFlag:true, current:cleanWeather, alternative:b, now,
+  }), {action:'UNAVAILABLE',reason:'COMPARISON_NOT_AUTHORIZED'});
+  assert.deepEqual(arbitrateWithSecondInternationalSource({
+    discrepancyFlag:true,comparisonPermissionConfirmed:true,
+    current:cleanWeather,alternative:b,now,
+  }), {action:'REPLACE_WITH_SECOND_INTERNATIONAL',sourceId:'OPENWEATHER',
+    displayType:'OBSERVATION',reason:'HIGHER_VERIFIED_QUALITY'});
+});
+test('refuses invalid, stale, noncomparable or same international source',()=>{
+  const base={discrepancyFlag:true,comparisonPermissionConfirmed:true,current:cleanWeather,now};
+  assert.equal(arbitrateWithSecondInternationalSource({...base}).action,'KEEP_PRIMARY_RECHECK_PENDING');
+  assert.equal(arbitrateWithSecondInternationalSource({...base,
+    alternative:{...cleanWeather,sourceId:'OPENWEATHER',qualityScore:0.9,
+      phenomenon:'temperatureC'}}).reason,'NON_COMPARABLE_INTERNATIONAL_PRODUCTS');
+  assert.equal(arbitrateWithSecondInternationalSource({...base,
+    alternative:{...cleanWeather,qualityScore:0.9}}).reason,'NON_COMPARABLE_INTERNATIONAL_PRODUCTS');
+  assert.equal(arbitrateWithSecondInternationalSource({...base,
+    alternative:{...cleanWeather,sourceId:'OPENWEATHER',expiresAt:new Date(now.getTime()-1)}}
+  ).reason,'SECOND_INTERNATIONAL_SOURCE_UNAVAILABLE');
+  assert.equal(arbitrateWithSecondInternationalSource({...base,
+    alternative:{...cleanWeather,sourceId:'OPENWEATHER',qualityScore:0.9,
+      independentProviderEvidence:false}}).reason,'INDEPENDENCE_OR_TIME_NOT_VERIFIED');
+  assert.equal(arbitrateWithSecondInternationalSource({...base,
+    alternative:{...cleanWeather,sourceId:'OPENWEATHER',qualityScore:0.5}}
+  ).reason,'NO_VERIFIED_QUALITY_IMPROVEMENT');
+});
+test('approximate model value must retain model label during independent replacement',()=>{
+  const model={...cleanWeather,type:'MODEL',displayedAs:'MODEL',phenomenon:'rainMm',
+    sourceId:'NOAA'};
+  const replacement={...model,sourceId:'JAXA_GSMAP',qualityScore:0.8};
+  assert.equal(arbitrateWithSecondInternationalSource({
+    discrepancyFlag:true,comparisonPermissionConfirmed:true,
+    current:model,alternative:replacement,now,
+  }).displayType,'MODEL');
+  assert.equal(arbitrateWithSecondInternationalSource({
+    discrepancyFlag:true,comparisonPermissionConfirmed:true,
+    current:model,alternative:{...replacement,displayedAs:'OBSERVATION'},now,
+  }).reason,'SECOND_INTERNATIONAL_SOURCE_UNAVAILABLE');
+});
+const validAlert = {
+  sourceId:'INMET', officialUrl:'https://avisos.inmet.gov.br/',
+  id:'sample-alert-1',event:'Aviso de tempestade', issuedAt:new Date(now.getTime()-60000),
+  expiresAt:new Date(now.getTime()+3600000),
+  affectedMunicipalities:[3304557], publiclyIssued:true,
+  signatureOrTrustedFeedVerified:true,permissionToRepublish:true, now,
+};
+test('public alerts require a verified issuer, municipality, active issuance and permission',()=>{
+  assert.equal(assessOfficialPublicAlert(validAlert).action,'SHOW_OFFICIAL_ALERT');
+  assert.equal(assessOfficialPublicAlert({...validAlert,permissionToRepublish:false}).action,'LINK_ONLY');
+  assert.equal(assessOfficialPublicAlert({...validAlert,withdrawn:true}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,expiresAt:new Date(now.getTime()-1)}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,publiclyIssued:false}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,signatureOrTrustedFeedVerified:false}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,affectedMunicipalities:[]}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,officialUrl:'https://cor.rio.evil.example/'}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,sourceId:'NOAA'}).action,'BLOCK');
+});
+test('official public alert policy includes four allowed publishers without silent fake notices',()=>{
+  assert.deepEqual(Object.keys(OFFICIAL_PUBLIC_ALERT_SOURCES).sort(),
+    ['INMET','ALERTA_RIO','COR_RIO','DEFESA_CIVIL_RJ'].sort());
+  const rio=assessOfficialPublicAlert({...validAlert,sourceId:'ALERTA_RIO',
+    officialUrl:'https://www.sistema-alerta-rio.com.br/alertas/',
+    permissionToRepublish:false});
+  assert.equal(rio.action,'LINK_ONLY');
+  assert.equal(rio.issuedAt,undefined); // no false copied alert metadata
 });
