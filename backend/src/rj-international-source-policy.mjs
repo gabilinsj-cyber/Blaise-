@@ -210,7 +210,7 @@ export function assessOfficialPublicAlert({
  */
 export function chooseFromThreeInternationalSources({
   candidates = [], brazilianReference = null,
-  comparisonPermissionConfirmed = false, now,
+  comparisonPermissionConfirmed = false, thirdAttempted = false, now,
 } = {}) {
   if (!validTime(now) || !Array.isArray(candidates) || candidates.length > 3)
     return Object.freeze({action:'UNAVAILABLE',reason:'INVALID_INPUT'});
@@ -237,7 +237,7 @@ export function chooseFromThreeInternationalSources({
   const sourceCount=unique.length;
   // A third source is required only when two independent, comparable products
   // disagree beyond their scientifically declared, dimension-specific tolerance.
-  if (sourceCount===2 &&
+  if (!thirdAttempted && sourceCount===2 &&
       Math.abs(unique[0].value-unique[1].value) >
         Math.max(...unique.map(row =>
           typeof row.comparisonTolerance === 'number' &&
@@ -253,6 +253,8 @@ export function chooseFromThreeInternationalSources({
       reason:'TWO_INTERNATIONAL_PRODUCTS_DIVERGE',
     });
   }
+  // If the third provider could not deliver a qualified product, reselect
+  // the best valid international source instead of looping or hiding readings.
   let strategy='INTERNATIONAL_QUALITY';
   let chosen;
   const referenceReady = comparisonPermissionConfirmed && brazilianReference &&
