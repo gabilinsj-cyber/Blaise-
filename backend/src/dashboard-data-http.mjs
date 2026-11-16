@@ -4,6 +4,7 @@ import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID } from './official-source-worker.mjs';
 import { ServiceBusyError, createConcurrencyGate } from './resilience.mjs';
 import { verifyPurchasePayload } from './server.mjs';
+import { RJ_INTERNATIONAL_92_PATH, RJ_INTERNATIONAL_92_CONTRACT, buildRjInternational92Snapshot } from './rj-international-92-snapshot.mjs';
 
 export const DASHBOARD_DATA_HTTP_PATH = '/v1/data/dashboard';
 export const DASHBOARD_DATA_HTTP_CONTRACT = 'PAID_OFFICIAL_DASHBOARD_SNAPSHOT_V1';
@@ -63,7 +64,7 @@ function setCommonHeaders(res) {
 function sendJson(res, statusCode, body) {
   setCommonHeaders(res);
   const serialized = JSON.stringify(body);
-  if (Buffer.byteLength(serialized, 'utf8') > (body.contract === STATEWIDE_DASHBOARD_CONTRACT ? STATEWIDE_DASHBOARD_MAX_BYTES : DASHBOARD_DATA_HTTP_MAX_RESPONSE_BYTES)) {
+  if (Buffer.byteLength(serialized, 'utf8') > (body.contract === RJ_INTERNATIONAL_92_CONTRACT ? 128*1024 : body.contract === STATEWIDE_DASHBOARD_CONTRACT ? STATEWIDE_DASHBOARD_MAX_BYTES : DASHBOARD_DATA_HTTP_MAX_RESPONSE_BYTES)) {
     throw new Error('dashboard_response_too_large');
   }
   res.statusCode = statusCode;
@@ -194,6 +195,10 @@ export function createPaidDashboardDataHttpHandler(
     config,
     gateway,
     sourceWorker,
+    // Injection is a verified backend-only read of already collected actual
+    // international provider rows. Never called for unentitled users.
+    internationalRowsReader = null,
+    internationalLicenseConfirmed = false,
     metrics = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
     clock = () => Date.now(),
@@ -213,7 +218,7 @@ export function createPaidDashboardDataHttpHandler(
   const gate = createConcurrencyGate({ maxConcurrent });
 
   return async (req, res) => {
-    if (req.url !== DASHBOARD_DATA_HTTP_PATH && req.url !== STATEWIDE_DASHBOARD_PATH) return delegate(req, res);
+    if (![DASHBOARD_DATA_HTTP_PATH, STATEWIDE_DASHBOARD_PATH, RJ_INTERNATIONAL_92_PATH].includes(req.url)) return delegate(req, res);
 
     increment(metrics, 'requests_total');
     try {
@@ -232,9 +237,17 @@ export function createPaidDashboardDataHttpHandler(
       const result = await gate.run(async () => {
         const entitlement = await verifyPurchasePayload(payload, { config, gateway });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
-        const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
-          ? buildStatewideDashboardSnapshot(sourceWorker, { nowMillis: clock() })
-          : buildPaidDashboardSnapshot(sourceWorker, { nowMillis: clock() });
+        const snapshot = req.url === RJ_INTERNATIONAL_92_PATH
+          ? typeof internationalRowsReader === 'function' && internationalLicenseConfirmed === true
+            ? buildRjInternational92Snapshot({
+                providerRows: await internationalRowsReader(),
+                nowMs: clock(),
+                licenseUseConfirmed: true,
+              })
+            : null
+          : req.url === STATEWIDE_DASHBOARD_PATH
+            ? buildStatewideDashboardSnapshot(sourceWorker, { nowMillis: clock() })
+            : buildPaidDashboardSnapshot(sourceWorker, { nowMillis: clock() });
         return snapshot
           ? Object.freeze({ kind: 'snapshot', snapshot })
           : Object.freeze({ kind: 'unavailable' });
