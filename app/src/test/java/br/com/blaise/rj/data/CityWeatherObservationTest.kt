@@ -25,6 +25,16 @@ class CityWeatherObservationTest {
         assertFalse(measurement().copy(temperatureC = null, humidityPercent = null, windKmh = null).current(now))
     }
 
+    @Test fun `current observations expire immediately after 12 minutes`() {
+        val exact = measurement().copy(observedAt = now.minusSeconds(720), maxAgeSeconds = 7200)
+        assertTrue(exact.current(now))
+        assertFalse(exact.current(now.plusMillis(1)))
+        val older = exact.copy(observedAt = now.minusSeconds(721))
+        assertFalse(older.current(now))
+        val fallback = measurement().copy(observedAt = now.minusSeconds(360))
+        assertTrue(fallback.summary(now).contains("contingência"))
+    }
+
     @Test fun `local clock expires a previously valid display without refreshing source timestamp`() {
         val sample = measurement()
         val report = CityWeatherResult(3303302, null, sample)
