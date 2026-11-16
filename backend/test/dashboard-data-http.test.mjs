@@ -162,8 +162,11 @@ test('paid dashboard snapshot projects only bounded current Alerta Rio rainfall 
   assert.equal(counters.dashboard_denied_total, 0);
 });
 
-test('dashboard projection fails closed when official rainfall cache is stale', () => {
-  assert.equal(buildPaidDashboardSnapshot(currentWorker({ state: 'STALE' }), { nowMillis: NOW }), null);
+test('dashboard indicates unavailable rainfall without inventing data when station cache is stale', () => {
+  const snapshot = buildPaidDashboardSnapshot(currentWorker({ state: 'STALE' }), { nowMillis: NOW });
+  assert.equal(snapshot.rainfall, null);
+  assert.equal(snapshot.rainfallAvailability, 'UNAVAILABLE');
+  assert.equal(snapshot.officialNoticeLinks.length, 2);
 });
 
 test('paid dashboard endpoint denies inactive subscriptions without source disclosure', async () => {
