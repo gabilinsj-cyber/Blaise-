@@ -269,7 +269,7 @@ fun BlaiseApp(
                     cities.map { city -> async {
                         city.ibgeCode to weatherClient.currentCity(br.com.blaise.rj.assistant.WeatherRequest(
                             city, "temperatura umidade vento", java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")),
-                            if (city.ibgeCode == rio.ibgeCode) "Centro do Rio" else null,
+                            null, // municipality-level INMET station; never claim a Centro-specific measurement
                         ))
                     } }.map { it.await() }.toMap()
                 }
@@ -388,6 +388,7 @@ private fun BlaiseDashboard(
                         AppHeader(powerOn, onPowerChange)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
+                        OfficialMunicipalLinksStrip()
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -794,7 +795,7 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
                 }
             }
         }
-        RioStationMeasurementsPanel()
+        // Municipal notices are links only; no Alerta Rio gauge polling.
     }
 }
 
@@ -1486,6 +1487,40 @@ private fun BillingPanel(
     }
 }
 
+/** Links fixos para páginas oficiais: não representam verificação de alertas ativos. */
+@Composable
+private fun OfficialMunicipalLinksStrip() {
+    val context = LocalContext.current
+    val links = listOf(
+        Triple("Defesa Civil RJ", "Consulte avisos oficiais de riscos e emergências no estado.",
+            "https://defesacivil.rj.gov.br/"),
+        Triple("Alerta Rio", "Consulte avisos oficiais de chuvas na cidade do Rio.",
+            "https://www.sistema-alerta-rio.com.br/alertas/"),
+    )
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NavyRaised),
+        border = BorderStroke(1.dp, Divider),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("AVISOS OFICIAIS • LINKS", color = Gold, fontWeight = FontWeight.Bold)
+            links.forEach { (name, phrase, url) ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text(phrase, color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick = {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                    }) { Text("Página oficial") }
+                }
+            }
+            Text("Links informativos; não confirmam alerta ativo. Consulte também os avisos INMET.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @Composable
 private fun OfficialStatusBanner(state: OfficialFeedState) {
     val (headline, detail, color) = when (state) {
@@ -1570,21 +1605,24 @@ private fun CityPanel(
 
 @Composable
 private fun BackendRainfallPanel() {
-    val response = LocalBackendDashboard.current
     val clock = LocalObservationClock.current
-    val snapshot = (response as? DashboardDataNetworkResult.Available)?.snapshot?.takeIf { it.current(clock) }
-    DashboardSection(title = "CHUVA OBSERVADA • REDE ALERTA RIO", subtitle = "Município do Rio • resumo das estações") {
-        if (snapshot == null) {
-            Text(if (response is DashboardDataNetworkResult.Denied) "Dados completos disponíveis após verificação de acesso." else "Dados de chuva indisponíveis no momento.", color = Muted)
-        } else {
-            val rain = snapshot.rainfall
-            fun mm(value: Double?) = value?.let { String.format(java.util.Locale("pt", "BR"), "%.1f mm", it) } ?: "Indisponível"
-            StatusLine("Maior acumulado em estação • 15 min", mm(rain.max15mMm))
-            StatusLine("Maior acumulado em estação • 1 hora", mm(rain.max1hMm))
-            StatusLine("Maior acumulado em estação • 24 horas", mm(rain.max24hMm))
-            Text("Fonte: Alerta Rio • ${rain.stationCount} estações • medição ${rain.observedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted)
-            Text("Máximos da rede, não média da cidade nem medição do Centro ou de Niterói.", color = Muted, style = MaterialTheme.typography.labelSmall)
-        }
+    val response = LocalBackendDashboard.current
+    val statewide = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(clock) }
+    DashboardSection(
+        title = "CHUVA OBSERVADA • FONTES APROVADAS",
+        subtitle = "INMET • CEMADEN • horários e cobertura validados",
+    ) {
+        Text(
+            if (response is DashboardDataNetworkResult.Denied)
+                "Medições adicionais exigem assinatura verificada."
+            else "Acumulados de chuva indisponíveis nesta consulta.",
+            color = Muted,
+        )
+        val warnings = statewide?.warnings?.filter { it.current(clock) }.orEmpty()
+        StatusLine("Avisos INMET recebidos", if (statewide == null) "Indisponível" else "${warnings.size} avisos válidos no inventário")
+        Text("Aviso não é medição de chuva. Nenhum valor será inferido de alertas ou de imagens.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
