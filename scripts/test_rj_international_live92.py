@@ -18,7 +18,7 @@ DOC=read('docs/RJ_INTERNATIONAL_92_LIVE_ROLLOUT_20261116.md')
 
 class International92IntegrationChecks(unittest.TestCase):
     def test_ninety_two_geographically_matched_cc0_points(self):
-        self.assertEqual(len(re.findall(r"ibge:'33\\d{5}',name:",MAP)),92)
+        self.assertEqual(len(re.findall(r"ibge:'33\d{5}',name:",MAP)),92)
         self.assertIn('geodata-br',MAP)
         self.assertIn('RJ_92_REPRESENTATIVE_BY_IBGE',MAP)
         self.assertIn('Math.abs(row.latitude-target.latitude)>0.005',COLLECTOR)
