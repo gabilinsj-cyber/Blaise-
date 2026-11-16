@@ -539,7 +539,7 @@ private fun BlaiseDashboard(
                             )
                         } else {
                             AppHeader(powerOn, onPowerChange, onSelectSection)
-                            AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                            AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn, compact = true)
                         }
                         OfficialStatusBanner(officialFeedState, onSelectSection)
                         PublicOfficialWarningRibbon(city1, city2, onSelectSection)
@@ -736,7 +736,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavi
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
-                    Text("Clima e Tempo", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                    Text(if (BuildConfig.BLAISE_ADMIN) "Administrador • acesso protegido" else "Clima e Tempo", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
                     Text("Rio de Janeiro • $time", color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
                 val powerColor = if (powerOn) StableGreen else AlertRed
@@ -1270,19 +1270,20 @@ private fun HomeScreen(
             }
         }
     } else {
-        // Portrait: preserve the weather map as the first, largest panel.
+        // Portrait: show the two municipality cards immediately, then the large,
+        // source-attributed map. Reuse existing views; never substitute mock data.
+        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
+        Spacer(Modifier.height(10.dp))
         ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
         Spacer(Modifier.height(10.dp))
-                RjOriginalLiveOverview(
-                    first = city1, second = city2,
-                    reports = LocalCityWeather.current,
-                    rioStations = LocalRioStations.current,
-                    backend = LocalBackendDashboard.current,
-                    now = LocalObservationClock.current,
-                    onSources = { onNavigate("Mais") },
-                )
-        Spacer(Modifier.height(10.dp))
-        CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
+        RjOriginalLiveOverview(
+            first = city1, second = city2,
+            reports = LocalCityWeather.current,
+            rioStations = LocalRioStations.current,
+            backend = LocalBackendDashboard.current,
+            now = LocalObservationClock.current,
+            onSources = { onNavigate("Mais") },
+        )
         Spacer(Modifier.height(10.dp))
         MarineAndRiskRow(false, onNavigate)
         Spacer(Modifier.height(10.dp))
