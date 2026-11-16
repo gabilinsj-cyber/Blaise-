@@ -841,7 +841,7 @@ private fun RioStationMeasurementsPanel() {
     val clock = LocalObservationClock.current
     val stations = LocalRioStations.current.filter { it.current(clock) }
     var expanded by remember { mutableStateOf(false) }
-    Text("MEDIÇÕES • ESTAÇÕES ALERTA RIO", color = Gold, fontWeight = FontWeight.Bold)
+    Text("MEDIÇÕES • ESTAÇÕES OFICIAIS", color = Gold, fontWeight = FontWeight.Bold)
     Text("Cobertura de cada estação; não são dados do Centro, de Niterói ou de São Gonçalo.", color = Muted, style = MaterialTheme.typography.labelSmall)
     if (stations.isEmpty()) {
         Text("Nenhuma medição recente validada nesta consulta.", color = Muted)
@@ -950,7 +950,7 @@ private fun StatewideMunicipalitiesPanel() {
                     Text(city.name, color = Color.White, fontWeight = FontWeight.Bold)
                     val risk = row?.risk?.takeIf { it.current(clock) }
                     Text(if (risk == null) "Risco hidrológico: indisponível ou desatualizado." else
-                        "Risco hidrológico: ${risk.label} • CEMADEN-RJ • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
+                        "Risco hidrológico: ${risk.label} • fonte histórica em revisão • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
                     val warnings = snapshot?.warnings?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
                     warnings.forEach { warning ->
                         Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
@@ -1000,7 +1000,7 @@ private fun MapScreen(city1: City, city2: City) {
     ) {
         PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
-        StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
+        StatusLine("Geo-Rio", "Aguardando riscos georreferenciados por fonte aprovada")
         StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
     }
 }
@@ -1039,7 +1039,7 @@ private fun AlertsScreen(city1: City, city2: City) {
 private fun TrafficScreen() {
     DashboardSection(
         title = "TRÂNSITO • EVENTOS",
-        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Defesa Civil • Guarda Municipal",
+        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Guarda Municipal",
     ) {
         FinalDashboardSpec.trafficEvents.forEach { event -> StatusLine(event, "Aguardando ocorrência oficial") }
     }
@@ -1334,12 +1334,12 @@ readings.forEach { r ->
 private fun RiskPanel(modifier: Modifier) {
     DashboardSection(
         title = "RISCO • TRÂNSITO",
-        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Defesa Civil",
+        subtitle = "COR.Rio • CET-Rio • Geo-Rio",
         modifier = modifier,
     ) {
         StatusLine("Alagamentos", "Sem conclusão até receber fonte válida")
         StatusLine("Interdições", "Aguardando fonte oficial")
-        StatusLine("Deslizamento", "Aguardando Geo-Rio/Defesa Civil")
+        StatusLine("Deslizamento", "Aguardando informação Geo-Rio validada")
         StatusLine("Rotas alternativas", "Indisponíveis sem evento confirmado")
     }
 }
