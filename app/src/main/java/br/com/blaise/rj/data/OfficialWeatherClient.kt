@@ -44,7 +44,7 @@ class OfficialWeatherClient {
         val instant = Instant.now()
         val valid = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
             OfficialWeatherParser.observedAt(row)?.let { row to it }
-        }.filter { Duration.between(it.second, instant).seconds in 0..7200 }.maxByOrNull { it.second }
+        }.filter { Duration.between(it.second, instant).seconds in 0..MAX_CURRENT_OBSERVATION_AGE_SECONDS }.maxByOrNull { it.second }
             ?: return CityWeatherResult(request.city.ibgeCode, scope,
                 unavailableReason = "Sem medição INMET recente confirmada para ${request.city.name}.")
         if (scope != null) return CityWeatherResult(request.city.ibgeCode, scope,
@@ -53,7 +53,7 @@ class OfficialWeatherClient {
             request.city.ibgeCode, "${station.optString("DC_NOME")} ($code)", "INMET", url, valid.second,
             OfficialWeatherParser.number(valid.first, "TEM_INS", -20.0, 55.0),
             OfficialWeatherParser.number(valid.first, "UMD_INS", 0.0, 100.0),
-            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), 7200,
+            OfficialWeatherParser.number(valid.first, "VEN_VEL", 0.0, 100.0)?.times(3.6), MAX_CURRENT_OBSERVATION_AGE_SECONDS,
         ))
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
