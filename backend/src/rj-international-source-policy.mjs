@@ -194,3 +194,97 @@ export function assessOfficialPublicAlert({
     municipalityIbges:[...affectedMunicipalities],
     reason:'VERIFIED_AUTHORIZED_PUBLIC_ALERT'});
 }
+
+
+/**
+ * Public-facing arbitration of up to 3 independently fetched international
+ * products. Brazilian measurements are reference-only, transient, and used
+ * to rank sources ONLY with separately confirmed comparison/derivative rights.
+ * We never return, persist or display the Brazilian reference itself.
+ *
+ * All products must have the same phenomenon, unit, geographic footprint,
+ * observation/model type, and comparable valid times. Weather models and
+ * observations are never combined. With three international sources and no
+ * permitted Brazilian reference, prefer the international consensus (medoid).
+ * Disagreement alone never suppresses an otherwise valid international value.
+ */
+export function chooseFromThreeInternationalSources({
+  candidates = [], brazilianReference = null,
+  comparisonPermissionConfirmed = false, now,
+} = {}) {
+  if (!validTime(now) || !Array.isArray(candidates) || candidates.length > 3)
+    return Object.freeze({action:'UNAVAILABLE',reason:'INVALID_INPUT'});
+  const eligible=candidates.filter(row=>row &&
+    permitPublicInternationalValue({...row,now}) &&
+    typeof row.value === 'number' && Number.isFinite(row.value) &&
+    typeof row.scopeId === 'string' && row.scopeId.length > 0 &&
+    typeof row.phenomenon === 'string' && row.phenomenon.length > 0 &&
+    typeof row.unit === 'string' && row.unit.length > 0 &&
+    typeof row.qualityScore === 'number' && Number.isFinite(row.qualityScore) &&
+    row.qualityScore >= 0 && row.qualityScore <= 1 &&
+    row.independentProviderEvidence === true &&
+    row.verifiedOwnObservationTime === true);
+  if (!eligible.length)
+    return Object.freeze({action:'UNAVAILABLE',reason:'NO_VALID_INTERNATIONAL_SOURCE'});
+  const first=eligible[0];
+  const comparable=eligible.filter(row =>
+    row.scopeId === first.scopeId && row.phenomenon === first.phenomenon &&
+    row.unit === first.unit && row.type === first.type &&
+    row.displayedAs === first.displayedAs &&
+    Math.abs(row.observedAt.valueOf()-first.observedAt.valueOf()) <= 15*60_000);
+  const unique=[...new Map(comparable.map(row=>[row.sourceId,row])).values()];
+  if (!unique.length) return Object.freeze({action:'UNAVAILABLE',reason:'INCOMPARABLE_SOURCES'});
+  const sourceCount=unique.length;
+  // A third source is required only when two independent, comparable products
+  // disagree beyond their scientifically declared, dimension-specific tolerance.
+  if (sourceCount===2 && unique.every(row=>typeof row.comparisonTolerance === 'number' &&
+      Number.isFinite(row.comparisonTolerance) && row.comparisonTolerance >= 0) &&
+      Math.abs(unique[0].value-unique[1].value) >
+        Math.max(unique[0].comparisonTolerance,unique[1].comparisonTolerance)) {
+    const preferred=[...unique].sort((a,b)=>b.qualityScore-a.qualityScore)[0];
+    return Object.freeze({
+      action:'REQUEST_THIRD_INTERNATIONAL_SOURCE',
+      provisionalSourceId:preferred.sourceId,
+      provisionalValue:preferred.value,
+      unit:preferred.unit,phenomenon:preferred.phenomenon,
+      displayType:preferred.type,
+      reason:'TWO_INTERNATIONAL_PRODUCTS_DIVERGE',
+    });
+  }
+  let strategy='INTERNATIONAL_QUALITY';
+  let chosen;
+  const referenceReady = comparisonPermissionConfirmed && brazilianReference &&
+    typeof brazilianReference.value === 'number' &&
+    Number.isFinite(brazilianReference.value) &&
+    brazilianReference.unit === first.unit &&
+    brazilianReference.phenomenon === first.phenomenon &&
+    brazilianReference.scopeId === first.scopeId &&
+    validTime(brazilianReference.observedAt) &&
+    Math.abs(brazilianReference.observedAt.valueOf()-first.observedAt.valueOf())<=15*60_000;
+  if (referenceReady && sourceCount >= 2) {
+    // All candidates remain independently licensed international values.
+    strategy='CLOSEST_TO_PERMITTED_BRAZILIAN_REFERENCE';
+    chosen=[...unique].sort((a,b) =>
+      Math.abs(a.value-brazilianReference.value) - Math.abs(b.value-brazilianReference.value) ||
+      b.qualityScore-a.qualityScore)[0];
+  } else if (sourceCount>=3) {
+    // Robust medoid: smallest total distance to other international products.
+    strategy='INTERNATIONAL_CONSENSUS';
+    chosen=[...unique].sort((a,b)=>{
+      const da=unique.reduce((sum,v)=>sum+Math.abs(a.value-v.value),0);
+      const db=unique.reduce((sum,v)=>sum+Math.abs(b.value-v.value),0);
+      return da-db || b.qualityScore-a.qualityScore;
+    })[0];
+  } else {
+    chosen=[...unique].sort((a,b)=>b.qualityScore-a.qualityScore)[0];
+  }
+  return Object.freeze({
+    action:'PUBLISH_VALID_INTERNATIONAL',
+    sourceId:chosen.sourceId,value:chosen.value,
+    unit:chosen.unit,phenomenon:chosen.phenomenon,
+    scopeId:chosen.scopeId,displayType:chosen.type,
+    observedAt:chosen.observedAt.toISOString(),
+    validUntil:chosen.expiresAt.toISOString(),
+    strategy,
+  });
+}
