@@ -878,25 +878,22 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     val officialWarningText = if (currentWarnings.isEmpty())
         "Avisos INMET municipais: cobertura não comprovada; não indica ausência de risco."
     else currentWarnings.joinToString("\n") { warning ->
-        "INMET: ${warning.event} (${warning.severity}), válido até " +
-            warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) +
-            " (Brasília)."
+        "Há um aviso público do INMET. Consulte a publicação na fonte oficial: https://avisos.inmet.gov.br/"
     }
     val otherCities = LocalWeatherCities.current.filter { it.ibgeCode != selectedCity.ibgeCode }.distinctBy { it.ibgeCode }
     val secondCityBulletin = otherCities.joinToString("\n\n") { city ->
         val measurement = reports[city.ibgeCode]?.summary(clock) ?: "Sem medição atual validada."
         val warnings = publicOfficial?.warningsFor(city.ibgeCode, clock).orEmpty()
         "${city.name}: $measurement" + if (warnings.isEmpty()) "\nSem aviso vigente confirmado nesta consulta; não indica ausência de risco."
-        else "\n" + warnings.joinToString("\n") { "INMET: ${it.event}, válido até ${formatInformationTime(it.expires)}." }
+        else "\nAviso público do INMET: consulte https://avisos.inmet.gov.br/"
     }
     val bulletinText = "Centro do Rio: $centre\n\n${selectedCity.name}: $chosen" +
         "\n\n${officialRiskText}\n${officialWarningText}" +
         if (secondCityBulletin.isNotEmpty()) "\n\n$secondCityBulletin\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
         else "\n\nAtualizado ${formatInformationTime(clock)}. Fonte e horário pertencem a cada produto."
     fun brief(text: String) = text.trim().replace(". ", "; ").trimEnd('.')
-    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte riscos e avisos do boletim" else chosen)}." +
-        if (currentWarnings.isNotEmpty()) " INMET: ${currentWarnings.size} aviso(s) vigente(s) com atribuição municipal confirmada." else ""
+    val bulletinSummary = "Centro do Rio: ${brief(centre)}. ${if (selectedCity.ibgeCode == 3304557) "Demais dados" else selectedCity.name}: ${brief(if (selectedCity.ibgeCode == 3304557) "Consulte os links oficiais de avisos" else chosen)}." +
+        if (currentWarnings.isNotEmpty()) " Consulte avisos públicos na fonte INMET: https://avisos.inmet.gov.br/" else ""
     if (showQuickHelp) {
         AlertDialog(
             onDismissRequest = { showQuickHelp = false },
@@ -2040,7 +2037,7 @@ private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate
  * Official municipal data shown only with the municipality IBGE, source,
  * issuance time and a fresh snapshot. Risk level is never itself a P0 alert.
  */
-/** Visible only for exact-IBGE, still-valid INMET warnings. Never a synthetic P0. */
+/** Verified INMET warning triggers a neutral link, not a reproduced warning. */
 @Composable
 private fun PublicOfficialWarningRibbon(
     first: City, second: City, onNavigate: (String) -> Unit,
@@ -2053,30 +2050,20 @@ private fun PublicOfficialWarningRibbon(
         snapshot.warningsFor(city.ibgeCode, now).map { city.name to it }
     }.distinctBy { it.second.id }
     if (valid.isEmpty()) return
-    val warning = valid.first()
-    val issued = warning.second.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+    val issued = valid.first().second.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("public-official-warning-ribbon"),
-        color = Color(0xFF50202B),
-        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF50202B), shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, WarningAmber),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("⚠ INMET", color = WarningAmber, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelSmall)
-            val updateLabel = AlertValidityPolicy.updateLabel(AlertValidityPolicy.updateAge(warning.second.sent, now))
-            Text("${warning.first} • ${warning.second.event} • ${warning.second.severity} • ${issued}" +
-                (updateLabel?.let { " • $it" } ?: ""),
+        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Aviso público no INMET • emissão $issued. Confira o aviso no portal oficial.",
                 color = Color.White, style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.weight(1f))
-            TextButton(onClick = { onNavigate("Alertas") },
-                modifier = Modifier.testTag("public-warning-view-all")) {
-                Text("Ver avisos", color = Gold, style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { uri.openUri("https://avisos.inmet.gov.br/") }) {
+                Text("Abrir fonte", color = Gold)
             }
         }
     }
@@ -2349,7 +2336,7 @@ private fun OfficialSafetySourcesPanel() {
 private fun AlertsScreen(city1: City, city2: City) {
     DashboardSection(
         title = "ALERTAS POR MUNICÍPIO",
-        subtitle = "Escala 1–5 • níveis 3, 4 e 5 pulsantes quando comprovados",
+        subtitle = "Somente frase de orientação e acesso às páginas oficiais • sem exibir níveis",
     ) {
         Text(city1.name, color = Gold, fontWeight = FontWeight.Bold)
         PublicMunicipalStatusLine(city1.ibgeCode)
@@ -2543,7 +2530,8 @@ private fun LiveNewsHeadlines(scope: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         if (headlines.isEmpty()) Text("Sem manchetes recentes validadas para $scope nesta consulta.", color = Muted)
         headlines.forEach { item ->
-            Text(item.title, color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Notícia publicada: consulte a reportagem na fonte oficial.", color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
             Text("Agência Brasil • publicação ${formatInformationTime(item.publishedAt)}", color = Muted,
                 style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { uri.openUri(item.url) }) { Text("Saiba mais ›", color = Gold) }
