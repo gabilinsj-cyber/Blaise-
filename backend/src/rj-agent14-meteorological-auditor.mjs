@@ -79,10 +79,29 @@ export function inspectAgent14AiLead({officialUrl} = {}) {
  * Defesa Civil emergency bulletins are not temperature readings.
  * INMET mapped partner stations (including Alerta Rio) are excluded.
  */
+// Conservative physics guards catch INMET missing-sensor markers (9999/null),
+// implausible units and unverified station-to-city associations. Source-specific
+// calibration and quality flags must additionally be checked upstream.
+const INMET_REFERENCE_BOUNDS = Object.freeze({
+  temperatureC: Object.freeze({unit:'°C',min:-60,max:65}),
+  thermalSensationC: Object.freeze({unit:'°C',min:-80,max:80}),
+  windKmh: Object.freeze({unit:'km/h',min:0,max:400}),
+  rainMm: Object.freeze({unit:'mm',min:0,max:1200}),
+  humidityPct: Object.freeze({unit:'%',min:0,max:100}),
+  pressureHpa: Object.freeze({unit:'hPa',min:800,max:1100}),
+});
+
 export function validateAgent14BrazilianReference({
   record, comparisonUseLicensed = false, now,
 } = {}) {
   if (!record || !validDate(now)) return null;
+  const bounds=INMET_REFERENCE_BOUNDS[record.phenomenon];
+  if (!bounds || record.unit !== bounds.unit ||
+      typeof record.value !== 'number' ||
+      record.value < bounds.min || record.value > bounds.max ||
+      record.value === 9999 || !/^33\\d{5}$/.test(String(record.scopeId)) ||
+      typeof record.stationId !== 'string' || record.stationId.length < 2)
+    return null;
   if (record.sourceId !== 'INMET' || record.stationOwner !== 'INMET' ||
       record.containsPartnerData === true || record.aiGenerated === true ||
       !record.authenticatedPrimaryStation || !comparisonUseLicensed ||
