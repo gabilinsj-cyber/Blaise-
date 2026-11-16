@@ -24,7 +24,7 @@ object RjInternationalWeatherPolicy {
         "NOAA", "EUMETSAT", "JAXA GSMaP", "OpenWeatherMap"
     )
     val internalReviewOnlySources = listOf(
-        "INMET", "Alerta Rio", "Defesa Civil RJ"
+        "INMET", "Defesa Civil RJ"
     )
     const val PUBLIC_UNAVAILABLE_MESSAGE =
         "Dados meteorológicos internacionais atuais ainda não conectados ou " +
