@@ -505,6 +505,11 @@ export function createOfficialSourceWorker({
     });
   }
 
+  // Keep startup safe when no approved live source is enabled. Never poll an excluded source as fallback.
+  if (tasks.length === 0) {
+    tasks.push({ id: 'no-live-source-configured', run: async () => {} });
+  }
+
   const scheduler = createOfficialSourceScheduler({
     tasks,
     now,
