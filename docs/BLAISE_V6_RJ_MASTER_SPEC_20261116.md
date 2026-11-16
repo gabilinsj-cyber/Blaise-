@@ -62,3 +62,11 @@ No Android, sensação térmica e ponto de orvalho são calculados de uma **esta
 Branch isolada `integration/rj-v6-full-admin-20261116` herdada de `ui/rj-original-live-layout-20261116`: layout RJ atualizado, catálogo Android dos 37 métodos, cadastro dos 13 agentes com status não presumido, rótulos distintos Debug/Admin/Cliente e testes estáticos de regressão.
 
 **Não houve liberação de um APK final nesta etapa**; o código da branch precisa de validação completa antes de compilar, instalar e distribuir.
+
+## Diagnóstico operacional — 16/11/2026 09h44 (Cloud Shell)
+- INMET `https://apitempo.inmet.gov.br/estacoes/T`: `curl exit 56` / `HTTP 000` / `Connection reset by peer`. Não chegou payload válido. Isto **não comprova** que o catálogo esteja desativado globalmente.
+- Alerta Rio `https://websempre.rio.rj.gov.br/estacoes/`: `HTTP 200`, `text/html`, **247 bytes**; sem tabela, sem identificadores `Dados Meteorol`, `P. de Orvalho` ou `Umi. do Ar`; possível página de bloqueio/login. **Não usar como medição.**
+- Correção na branch isolada: `OfficialWeatherClient.get` exige formato compatível e rejeita HTML de controle de acesso com status `SOURCE_PAGE_NOT_MEASUREMENTS` e conteúdo INMET não JSON como `SOURCE_JSON_MISSING`. A identificação HTTP é transparente; não simular navegador nem contornar controle de acesso.
+- Teste de protocolo foi atualizado, mas **a nova compilação Android e a coleta operacional ainda não estão validadas**.
+- Próximo passo: receber fonte oficial licenciada/endpoint de observações com resposta utilizável; testar acesso e estrutura no backend isolado. ArcGIS/Geo-Rio fornece **metadados geográficos de estações** e não deve ser promovido a dados meteorológicos instantâneos.
+- Manter `indisponível` por município quando não há medição atual do local. Não usar histórico, mapas, estações vizinhas, imagens ilustrativas ou previsão como medição atual.
