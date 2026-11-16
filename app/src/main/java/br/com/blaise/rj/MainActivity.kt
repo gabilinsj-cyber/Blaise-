@@ -389,6 +389,7 @@ private fun BlaiseDashboard(
                         AppHeader(powerOn, onPowerChange)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
+                        CurrentInmetAlertsStrip(onSelectSection)
                         OfficialMunicipalLinksStrip()
 
                         when (selectedSection) {
@@ -450,6 +451,8 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val displayedClock = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+        .format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")))
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         shape = RoundedCornerShape(18.dp),
@@ -464,6 +467,7 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
                 Text("Clima e Tempo • Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                Text(displayedClock, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
                 Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             val statusColor = if (powerOn) StableGreen else AlertRed
@@ -1516,6 +1520,43 @@ private fun BillingPanel(
                 Text(message, color = if (code == BillingClient.BillingResponseCode.OK) Gold else WarningAmber)
             }
             Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("Atualizar assinatura") }
+        }
+    }
+}
+
+/** The last-hour banner is sourced only from a current, timestamped INMET inventory. */
+@Composable
+private fun CurrentInmetAlertsStrip(onSelectSection: (String) -> Unit) {
+    val clock = LocalObservationClock.current
+    val state = LocalStatewideDashboard.current
+    val snapshot = (state as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
+    val currentAlerts = snapshot?.warnings?.filter { it.current(clock) }
+        ?.sortedByDescending { it.sent }
+        .orEmpty()
+    val top = currentAlerts.firstOrNull()
+    val accent = if (top != null) AlertRed else WarningAmber
+    Card(
+        colors = CardDefaults.cardColors(containerColor = if (top != null) Color(0xFF53121F) else NavyRaised),
+        border = BorderStroke(1.dp, accent),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("ÚLTIMA HORA • INMET", color = accent, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    if (top == null)
+                        "Nenhum alerta válido confirmado nesta consulta. A cobertura pode estar indisponível."
+                    else "${top.event} • ${top.severity} • emissão ${top.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}",
+                    color = Color.White, style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            TextButton(onClick = { onSelectSection("Alertas") }) {
+                Text(if (currentAlerts.isEmpty()) "Consultar" else "Ver todos (${currentAlerts.size})",
+                    color = GoldSoft)
+            }
         }
     }
 }
