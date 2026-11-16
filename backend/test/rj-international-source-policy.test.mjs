@@ -114,7 +114,8 @@ test('approximate model value must retain model label during independent replace
 });
 const validAlert = {
   sourceId:'INMET', officialUrl:'https://avisos.inmet.gov.br/',
-  id:'sample-alert-1',event:'Aviso de tempestade', issuedAt:new Date(now.getTime()-60000),
+  id:'sample-alert-1',event:'Aviso de tempestade',severity:'PERIGO_POTENCIAL',
+  checkedAt:new Date(now.getTime()-5000), issuedAt:new Date(now.getTime()-60000),
   expiresAt:new Date(now.getTime()+3600000),
   affectedMunicipalities:[3304557], publiclyIssued:true,
   signatureOrTrustedFeedVerified:true,permissionToRepublish:true, now,
@@ -123,6 +124,8 @@ test('public alerts require a verified issuer, municipality, active issuance and
   assert.equal(assessOfficialPublicAlert(validAlert).action,'SHOW_OFFICIAL_ALERT');
   assert.equal(assessOfficialPublicAlert({...validAlert,permissionToRepublish:false}).action,'LINK_ONLY');
   assert.equal(assessOfficialPublicAlert({...validAlert,withdrawn:true}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,severity:''}).action,'BLOCK');
+  assert.equal(assessOfficialPublicAlert({...validAlert,checkedAt:new Date(now.getTime()-600000)}).action,'BLOCK');
   assert.equal(assessOfficialPublicAlert({...validAlert,expiresAt:new Date(now.getTime()-1)}).action,'BLOCK');
   assert.equal(assessOfficialPublicAlert({...validAlert,publiclyIssued:false}).action,'BLOCK');
   assert.equal(assessOfficialPublicAlert({...validAlert,signatureOrTrustedFeedVerified:false}).action,'BLOCK');
