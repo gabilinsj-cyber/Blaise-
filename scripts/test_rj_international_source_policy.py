@@ -39,7 +39,7 @@ class InternationalSourceOnlyContractTest(unittest.TestCase):
             with self.subTest(source=forbidden):
                 self.assertIn(forbidden, DOC)
         self.assertIn('INTERNATIONAL_FEED_VERIFIED_AND_CONNECTED = false', POLICY)
-        self.assertIn('publicação', DOC.lower())
+        self.assertIn('medição meteorológica publicada', DOC.lower())
         self.assertIn('Nenhuma informação internacional atual foi confirmada', DOC)
 
 
