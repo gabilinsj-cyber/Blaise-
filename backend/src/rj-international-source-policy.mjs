@@ -191,8 +191,6 @@ export function assessOfficialPublicAlert({
   return Object.freeze({
     action:'LINK_ONLY', sourceId, officialUrl:url.href,
     phrase:'Aviso público oficial: consulte o comunicado na página da autoridade.',
-    checkedAt:checkedAt.toISOString(),
-    issuedAt:issuedAt.toISOString(),
     reason:'VERIFIED_OFFICIAL_LINK_ONLY',
   });
 }
