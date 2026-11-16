@@ -28,7 +28,7 @@ test('no restricted source may be used as display provider', () => {
   for(const sourceId of ['INMET','ALERTA_RIO','DEFESA_CIVIL_RJ','INEA','MARINHA_BRASIL','WINDY','COPERNICUS']) {
     assert.equal(permitPublicInternationalValue({
       sourceId, productLicensedForCommercialApp:true, productAttributionSatisfied:true,
-      type:'OBSERVATION', observedAt: new Date(now.valueOf()-60000),
+      type:'OBSERVATION', displayedAs:'OBSERVATION', observedAt: new Date(now.valueOf()-60000),
       expiresAt: new Date(now.valueOf()+60000), municipalityMatch:true,
       independentlyObtained:true, now,
     }), false);
@@ -36,7 +36,7 @@ test('no restricted source may be used as display provider', () => {
 });
 test('international provider also needs product licence, correct type, location and freshness',()=>{
   const sample={sourceId:'NOAA',productLicensedForCommercialApp:true,
-    productAttributionSatisfied:true,type:'OBSERVATION',
+    productAttributionSatisfied:true,type:'OBSERVATION',displayedAs:'OBSERVATION',
     observedAt:new Date(now.valueOf()-60000),
     expiresAt:new Date(now.valueOf()+60000),
     municipalityMatch:true,independentlyObtained:true,now};
@@ -46,6 +46,7 @@ test('international provider also needs product licence, correct type, location 
   }
   assert.equal(permitPublicInternationalValue({...sample,expiresAt:new Date(now.valueOf()-1)}),false);
   assert.equal(permitPublicInternationalValue({...sample,type:'UNKNOWN'}),false);
+  assert.equal(permitPublicInternationalValue({...sample,type:'MODEL'}),false); // no model as observed
 });
 test('official difference never corrects or overwrites international value',()=>{
   assert.equal(internalDifferenceAction(), 'NO_COMPARISON_AUTHORIZED');
