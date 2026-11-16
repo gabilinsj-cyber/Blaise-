@@ -25,7 +25,7 @@ const candidate=(sourceId,value,qualityScore)=>({
 const candidates=[candidate('NOAA',25.0,0.8),candidate('OPENWEATHER',27.2,0.9),candidate('EUMETSAT',24.7,0.7)];
 const inmet={
   sourceId:'INMET',stationOwner:'INMET',containsPartnerData:false,
-  authenticatedPrimaryStation:true,aiGenerated:false,
+  authenticatedPrimaryStation:true,aiGenerated:false,stationId:'A601',
   value:24.8,scopeId:'3304557',phenomenon:'temperatureC',unit:'°C',
   observedAt:new Date(now.valueOf()-60000),
 };
@@ -66,6 +66,16 @@ test('INMET station owned, authenticated, licensed and fresh necessary for compa
   }),null);
   assert.equal(validateAgent14BrazilianReference({
     record:{...inmet,aiGenerated:true},comparisonUseLicensed:true,now
+  }),null);
+  for(const bad of [
+    {...inmet,value:9999},
+    {...inmet,value:-999},
+    {...inmet,value:null},
+    {...inmet,unit:'K'},
+    {...inmet,scopeId:'9999999'},
+    {...inmet,stationId:''},
+  ]) assert.equal(validateAgent14BrazilianReference({
+    record:bad,comparisonUseLicensed:true,now
   }),null);
   assert.equal(validateAgent14BrazilianReference({
     record:{...inmet,observedAt:new Date(now.valueOf()-86400000)},
