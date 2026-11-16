@@ -12,7 +12,7 @@ const config={
 const payload={packageName:'br.com.blaise.rj',purchaseToken:'token-for-test',
  productIds:['monthly.test']};
 const verifiedRow={
- ibge:'3304557',latitude:-22.9068,longitude:-43.1729,
+ ibge:'3304557',latitude:-23.0738,longitude:-43.1987,
  status:'AVAILABLE_PROVIDER_CURRENT_ESTIMATE',
  type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
  sourceId:'OPENWEATHER_ONECALL4_CURRENT',officialObservation:false,officialAlert:false,
