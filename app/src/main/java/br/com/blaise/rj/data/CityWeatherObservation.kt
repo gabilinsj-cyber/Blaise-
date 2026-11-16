@@ -22,7 +22,7 @@ data class CityWeatherObservation(
     val maxAgeSeconds: Long,
 ) {
     fun current(now: Instant): Boolean = maxAgeSeconds in 1..7200 &&
-        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..minOf(maxAgeSeconds, MAX_CURRENT_OBSERVATION_AGE_SECONDS) &&
+        !observedAt.isAfter(now) && Duration.between(observedAt, now).toMillis() in 0..(minOf(maxAgeSeconds, MAX_CURRENT_OBSERVATION_AGE_SECONDS) * 1000L) &&
         sourceUrl.startsWith("https://") &&
         listOfNotNull(temperatureC, humidityPercent, windKmh).isNotEmpty() &&
         (temperatureC == null || temperatureC.isFinite() && temperatureC in -30.0..60.0) &&
