@@ -1238,37 +1238,50 @@ private fun HomeScreen(
     // The approved reference is a three-column CONTROL CENTER on landscape,
     // but remains a single vertically scrollable dashboard on phones.
     if (wide) {
+        // Faithful three-column composition from the approved RJ interface.
+        // All readings and alerts still originate from validated live data providers.
         Row(
             Modifier.fillMaxWidth().testTag("reference-three-column-dashboard"),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
             verticalAlignment = Alignment.Top,
         ) {
             Column(Modifier.weight(0.91f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.fillMaxWidth(), onNavigate)
+                CityPanel("Cidade 1", city1, "Escolher cidade 1", onChooseCity1, Modifier.fillMaxWidth(), onNavigate, compact = true)
                 MarinePanel(Modifier.fillMaxWidth(), onNavigate)
                 ForecastPanel(Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(1.92f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 ExpandedRadarPanel(Modifier.fillMaxWidth(), onNavigate)
-                DailyChartPanel(city1, Modifier.fillMaxWidth())
-                RjOriginalLiveOverview(
-                    first = city1, second = city2,
-                    reports = LocalCityWeather.current,
-                    rioStations = LocalRioStations.current,
-                    backend = LocalBackendDashboard.current,
-                    now = LocalObservationClock.current,
-                    onSources = { onNavigate("Mais") },
-                )
-                ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
             }
             Column(Modifier.weight(0.94f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.fillMaxWidth(), onNavigate)
+                CityPanel("Cidade 2", city2, "Escolher cidade 2", onChooseCity2, Modifier.fillMaxWidth(), onNavigate, compact = true)
                 TrafficSummaryPanel(Modifier.fillMaxWidth(), onNavigate)
-                RiskPanel(Modifier.fillMaxWidth())
-                AirQualitySummaryPanel(Modifier.fillMaxWidth(), onNavigate)
-                CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
             }
         }
+        Spacer(Modifier.height(9.dp))
+        // Lower dashboard: graph, air and landslide risk, news and seismic alerts.
+        Row(
+            Modifier.fillMaxWidth().testTag("reference-lower-dashboard"),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            DailyChartPanel(city1, Modifier.weight(1.92f))
+            Column(Modifier.weight(0.91f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                AirQualitySummaryPanel(Modifier.fillMaxWidth(), onNavigate)
+                RiskPanel(Modifier.fillMaxWidth())
+            }
+            CompactNewsAndSeismicPanel(Modifier.weight(0.94f), onNavigate)
+        }
+        Spacer(Modifier.height(9.dp))
+        RjOriginalLiveOverview(
+            first = city1, second = city2,
+            reports = LocalCityWeather.current,
+            rioStations = LocalRioStations.current,
+            backend = LocalBackendDashboard.current,
+            now = LocalObservationClock.current,
+            onSources = { onNavigate("Mais") },
+        )
+        ScientificReadoutsPanel(city1, Modifier.fillMaxWidth())
     } else {
         // Portrait: show the two municipality cards immediately, then the large,
         // source-attributed map. Reuse existing views; never substitute mock data.
@@ -3252,6 +3265,7 @@ private fun CityPanel(
     onChoose: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigate: ((String) -> Unit)? = null,
+    compact: Boolean = false,
 ) {
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
@@ -3313,9 +3327,11 @@ private fun CityPanel(
                     }
                 }
             }
-            Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
-            Text(label, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
-            Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
+            if (!compact) {
+                Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleSmall)
+                Text(label, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
+                Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
             Text(
                 observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C",
                 color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium,
@@ -3345,7 +3361,22 @@ private fun CityPanel(
                 color = Muted, style = MaterialTheme.typography.labelSmall)
             Text("Rajada ${metric(observation?.windGustKmh, "km/h")}  •  Chuva 1h ${metric(observation?.hourlyRainMm, "mm")}",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
-            PublicMunicipalStatusLine(city.ibgeCode)
+            if (compact) {
+                val currentPublic = (LocalPublicRjStatus.current as? PublicRjStatusResult.Available)
+                    ?.snapshot?.takeIf { it.current(clock) }
+                val verifiedWarnings = currentPublic?.warningsFor(city.ibgeCode, clock)
+                Text(
+                    when {
+                        verifiedWarnings == null -> "Avisos e riscos oficiais: aguardando verificação atual"
+                        verifiedWarnings.isNotEmpty() -> "Avisos oficiais vigentes: ${verifiedWarnings.size} • consulte os detalhes"
+                        else -> "Avisos oficiais: nenhum confirmado nesta consulta; cobertura não garantida"
+                    },
+                    color = if (verifiedWarnings?.isNotEmpty() == true) WarningAmber else Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            } else {
+                PublicMunicipalStatusLine(city.ibgeCode)
+            }
             if (onNavigate != null) {
                 TextButton(
                     onClick = { onNavigate("Alertas") },
