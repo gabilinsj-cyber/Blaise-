@@ -2,15 +2,15 @@
  * Blaise V6 RJ - policy for commercially licensed international weather data.
  *
  * No fetches, jobs, scheduled checks, or credential access occur in this module.
- * Brazilian official data is exclusively an internal, consent/licence-gated
- * comparison source and cannot directly produce public displayed values.
+ * INMET-owned station data is an internal, license-gated comparison source;
+ * Defesa Civil RJ is alert-context only, never a thermometer and cannot directly produce public displayed values.
  *
  * Emergency warnings are not weather measurements and are subject to their own
  * official authorized relay channel; do not interfere with native Cell Broadcast.
  */
 export const BRAZILIAN_REVIEW_INTERVAL_MS = 30 * 60_000;
 export const BRAZILIAN_REVIEW_SOURCES = Object.freeze([
-  'INMET', 'ALERTA_RIO', 'DEFESA_CIVIL_RJ',
+  'INMET', 'DEFESA_CIVIL_RJ',
 ]);
 export const INTERNATIONAL_CANDIDATES = Object.freeze([
   'NOAA', 'EUMETSAT', 'JAXA_GSMAP', 'OPENWEATHER',
