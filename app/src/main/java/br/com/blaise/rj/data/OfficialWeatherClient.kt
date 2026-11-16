@@ -16,10 +16,17 @@ import java.util.Locale
 
 private class OfficialWeatherSourceFailure(val code: String) : java.io.IOException(code)
 
-/** Official INMET and Alerta Rio endpoints; every answer revalidates measurement age. */
+/** Legacy source parser retained for compatibility, but collection is disabled in
+ * public Android clients under the 2026-11-16 international-only policy.
+ * Separate authorized review occurs server-side, never through these methods.
+ */
 class OfficialWeatherClient {
     private val zone = ZoneId.of("America/Sao_Paulo")
     suspend fun currentCity(request: WeatherRequest): CityWeatherResult = withContext(Dispatchers.IO) {
+        if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK) {
+            return@withContext CityWeatherResult(request.city.ibgeCode, request.localScope,
+                unavailableReason = RjInternationalWeatherPolicy.PUBLIC_UNAVAILABLE_MESSAGE)
+        }
         try {
             currentCityBlocking(request)
         } catch (error: CancellationException) {
@@ -32,6 +39,12 @@ class OfficialWeatherClient {
 
     /** One acquisition feeds cards, charts, map and assistant for this municipality. */
     suspend fun citySnapshot(request: WeatherRequest): MunicipalWeatherSnapshot = withContext(Dispatchers.IO) {
+        if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK) {
+            return@withContext MunicipalWeatherSnapshot(
+                CityWeatherResult(request.city.ibgeCode, request.localScope,
+                    unavailableReason = RjInternationalWeatherPolicy.PUBLIC_UNAVAILABLE_MESSAGE),
+                null, Instant.now(), RjInternationalWeatherPolicy.REASON_CODE)
+        }
         try {
             if (request.localScope != null) {
                 MunicipalWeatherSnapshot(currentCityBlocking(request), null, Instant.now())
@@ -52,6 +65,8 @@ class OfficialWeatherClient {
 
     /** Separate station network: these readings never stand in for Centro or another municipality. */
     suspend fun currentRioStations(): List<CityWeatherObservation> = withContext(Dispatchers.IO) {
+        if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK)
+            return@withContext emptyList()
         try {
             val url = "https://websempre.rio.rj.gov.br/estacoes/"
             AlertaRioObservationParser.parse(get(url)).map { row ->
@@ -72,6 +87,8 @@ class OfficialWeatherClient {
      */
     suspend fun recentMunicipalityHourlySeries(city: City): InmetHourlySeries? =
         withContext(Dispatchers.IO) {
+            if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK)
+                return@withContext null
             try {
                 recentMunicipalityHourlySeriesBlocking(city)
             } catch (error: CancellationException) {
@@ -191,6 +208,8 @@ class OfficialWeatherClient {
         ))
     }
     suspend fun answer(request: WeatherRequest, severity: Int = 1): String = withContext(Dispatchers.IO) {
+        if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK)
+            return@withContext RjInternationalWeatherPolicy.PUBLIC_UNAVAILABLE_MESSAGE
         // The bulletin scheduler controls polling frequency. Do not cache rendered answers:
         // retrieval age cannot extend the validity of the underlying observation.
         val result = try {
@@ -211,6 +230,9 @@ class OfficialWeatherClient {
     }
 
     private fun get(url: String): String {
+        // Defense in depth: legacy source code cannot issue direct GETs in this APK.
+        if (!RjInternationalWeatherPolicy.ALLOW_BRAZILIAN_OBSERVATIONS_IN_APK)
+            throw OfficialWeatherSourceFailure("BRAZILIAN_METEOROLOGY_REVIEW_ONLY")
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8000; conn.readTimeout = 8000; conn.instanceFollowRedirects = false
         // Alerta Rio publishes a station HTML table. INMET publishes JSON.
