@@ -6,6 +6,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** Hard freshness ceiling for displayed *current* observations, including fallback values. */
+const val MAX_CURRENT_OBSERVATION_AGE_SECONDS = 12L * 60L
+
 /** An observation is a station measurement, never a municipal average or forecast. */
 data class CityWeatherObservation(
     val municipalityIbge: Int,
@@ -19,7 +22,7 @@ data class CityWeatherObservation(
     val maxAgeSeconds: Long,
 ) {
     fun current(now: Instant): Boolean = maxAgeSeconds in 1..7200 &&
-        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= maxAgeSeconds &&
+        !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds in 0..minOf(maxAgeSeconds, MAX_CURRENT_OBSERVATION_AGE_SECONDS) &&
         sourceUrl.startsWith("https://") &&
         listOfNotNull(temperatureC, humidityPercent, windKmh).isNotEmpty() &&
         (temperatureC == null || temperatureC.isFinite() && temperatureC in -30.0..60.0) &&
@@ -33,7 +36,9 @@ data class CityWeatherObservation(
             humidityPercent?.let { "umidade ${number(it)}%" },
             windKmh?.let { "vento médio ${number(it)} km/h" },
         ).joinToString(", ")
-        return "$values. Fonte: $source, estação $station, ${observedAt.atZone(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília)."
+        val ageMinutes = Duration.between(observedAt, now).toMinutes()
+        val quality = if (ageMinutes >= 5) "contingência (medição com $ageMinutes min)" else "observação recente ($ageMinutes min)"
+        return "$values. Fonte: $source, estação $station, ${observedAt.atZone(ZoneId.of("America/Sao_Paulo")).format(DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília), $quality."
     }
 
     private fun number(value: Double) = String.format(Locale("pt", "BR"), "%.1f", value)
