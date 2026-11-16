@@ -95,16 +95,19 @@ object BlaiseAgentDashboard {
     // not runtime telemetry: server-side authenticated health is authoritative.
     val allAgents: List<BlaiseAgentUi> = elevenAgents + listOf(
         BlaiseAgentUi(12, "Blaise GeoFusion RJ",
-            "Integração geográfica das estações Alerta Rio, correspondência por município e fusão apenas de observações independentes comparáveis",
-            "Cadastrado • autenticação/licença e execução real não confirmadas no aplicativo"),
+            "Georreferenciamento de estações no mapa próprio; medições Alerta Rio não entram no desempate meteorológico",
+            "Cadastrado • sem coleta meteorológica do Alerta Rio na interface pública"),
         BlaiseAgentUi(13, "Blaise OpenWeather RJ",
             "OpenWeatherMap complementar sob demanda • cache e contador persistente de 900 consultas diárias • supervisor isolado",
             "Cadastrado • não consulta o provedor pelo painel • execução Cloud Run não confirmada"),
+        BlaiseAgentUi(14, "Blaise Auditor Meteorológico Internacional RJ",
+            "Referência de estação própria do INMET, comparações internacionais até três fontes e pesquisa GPT apenas auxiliar",
+            "Cadastrado • backend isolado: apenas política de auditoria; sem conexão GPT, coleta agendada ou dados ao vivo"),
     )
     init {
         require(elevenAgents.size == 11)
         require(elevenAgents.map { it.index } == (1..11).toList())
-        require(allAgents.size == 13)
-        require(allAgents.map { it.index } == (1..13).toList())
+        require(allAgents.size == 14)
+        require(allAgents.map { it.index } == (1..14).toList())
     }
 }
