@@ -750,10 +750,8 @@ private fun RjReferenceLandscapeHeader(
 @Composable
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit, onNavigate: (String) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     val clock = LocalObservationClock.current
-    val latest = (
-        LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt } +
-        LocalRioStations.current.filter { it.current(clock) && it.source == "Alerta Rio" }.map { it.observedAt }
-    ).maxOrNull()
+    val latest = LocalInternational92.current?.takeIf { it.current(clock) }
+        ?.values?.values?.filter { it.current(clock) }?.maxOfOrNull { it.validAt }
     val time = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM • HH:mm"))
     Card(
@@ -1617,7 +1615,10 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier, onNavigate: (Strin
                 ) {
                     Column(Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
                         Text("MAPA PRÓPRIO • BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                        Text("92 municípios • não é radar", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        val count = LocalInternational92.current?.takeIf { it.current(snapshotTime) }
+                            ?.values?.values?.count { it.current(snapshotTime) } ?: 0
+                        Text("92 municípios • $count pontos internacionais validados • não é radar",
+                            color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 Column(
@@ -1839,6 +1840,15 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     var period by remember { mutableStateOf("Hoje") }
     val stationSeries = LocalMunicipalSnapshots.current[chartCity.ibgeCode]?.historySeries()
     val now = LocalObservationClock.current
+    val modelPoint = LocalInternational92.current?.municipality(chartCity.ibgeCode,now)
+    val modelValue = modelPoint?.let {
+        when (variable) {
+            "Temperatura" -> it.temperatureC
+            "Sensação térmica" -> it.feelsLikeC
+            "Chuva" -> it.rainMm1h
+            else -> it.windKmh
+        }
+    }
     val metric = when (variable) {
         "Temperatura" -> InmetMetric.TEMPERATURE
         "Sensação térmica" -> InmetMetric.THERMAL_SENSATION
@@ -1952,9 +1962,13 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
                 if (readings.size < 2) {
                     Surface(color = Color(0xEF07192F), shape = RoundedCornerShape(9.dp),
                         border = BorderStroke(1.dp, WarningAmber)) {
-                        Text(if(period == "Próximos dias") "Previsão sem produto validado; nenhuma curva inventada" else "$variable: histórico validado indisponível",
+                        Text(if (period=="Hoje" && modelValue != null)
+                            "$variable: ${String.format(java.util.Locale("pt", "BR"),"%.1f",modelValue)} $unit • somente um ponto de modelo, histórico ainda não disponível"
+                        else if(period == "Próximos dias") "Previsão sem produto validado; nenhuma curva inventada"
+                        else "$variable: histórico validado indisponível",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+                            color = if (period=="Hoje" && modelValue != null) Color.White else WarningAmber,
+                            style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center)
                     }
                 }
