@@ -25,9 +25,13 @@ class RjSourceProtocolContractTest(unittest.TestCase):
 
     def test_source_fails_closed_when_stale_or_unavailable(self):
         self.assertIn('failures.lastOrNull() ?: "NO_CURRENT_LOCAL_MEASUREMENT"', SOURCE)
-        self.assertIn('"Medição oficial indisponível"', (
-            Path(__file__).resolve().parents[1]
-            / "app/src/main/java/br/com/blaise/rj/MainActivity.kt").read_text(encoding="utf-8"))
+        # Brazilian station reads must stay disabled in the client, while
+        # international estimate failure has a visible missing-data state.
+        ui = (Path(__file__).resolve().parents[1]
+              / "app/src/main/java/br/com/blaise/rj/MainActivity.kt").read_text(encoding="utf-8")
+        self.assertIn('"Estimativa internacional atual não confirmada"', ui)
+        self.assertIn('LocalInternational92.current?.municipality(city.ibgeCode,clock)', ui)
+        self.assertIn('?: "— °C"', ui)
         self.assertIn('if (conn.responseCode != 200)', SOURCE)
 
 
