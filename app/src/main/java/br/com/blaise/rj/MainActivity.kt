@@ -997,7 +997,7 @@ private fun MapScreen(city1: City, city2: City) {
         PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio / Defesa Civil", "Aguardando risco, sirenes e pontos de apoio")
-        StatusLine("Alerta Rio / CEMADEN", "Aguardando radar e chuva com horário por frame")
+        StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
     }
 }
 
@@ -1344,7 +1344,7 @@ private fun RiskPanel(modifier: Modifier) {
 private fun RadarPanel() {
     DashboardSection(
         title = "RADAR • ÚLTIMOS 30 MIN",
-        subtitle = "Alerta Rio • CEMADEN",
+        subtitle = "Fontes aprovadas • sem radar municipal excluído",
         modifier = Modifier.fillMaxWidth(),
     ) {
         Surface(
@@ -1356,7 +1356,7 @@ private fun RadarPanel() {
             Box(contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("RADAR REAL", color = Gold, fontWeight = FontWeight.Bold)
-                    Text("Frames reais aparecerão aqui quando a ingestão oficial estiver disponível.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 20.dp))
+                    Text("Frames reais aparecerão aqui somente quando a fonte aprovada fornecer imagens licenciadas e com horário.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 20.dp))
                     Text("Sem interpolação • horário e fonte em cada frame", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
                 }
             }
