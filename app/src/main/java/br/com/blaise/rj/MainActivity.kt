@@ -3187,57 +3187,26 @@ private fun BillingPanel(
 
 @Composable
 private fun OfficialStatusBanner(state: OfficialFeedState, onNavigate: (String) -> Unit) {
-    val (headline, detail, accent) = when (state) {
-        OfficialFeedState.CURRENT_CLEAR -> Triple(
-            "STATUS OFICIAL • SEM P0 CONFIRMADO",
-            "Somente para a cobertura e vigência da evidência oficial consultada.",
-            StableGreen,
-        )
-        OfficialFeedState.CURRENT_P0 -> Triple(
-            "ÚLTIMA HORA • ALERTA P0",
-            "Alerta oficial ativo. Consulte orientações, fonte e horário no painel de alertas.",
-            AlertRed,
-        )
-        OfficialFeedState.STALE -> Triple(
-            "STATUS OFICIAL • DESATUALIZADO",
-            "Sem confirmação atual; consulte os canais da Defesa Civil.",
-            WarningAmber,
-        )
-        OfficialFeedState.UNAVAILABLE -> Triple(
-            "STATUS OFICIAL • AGUARDANDO DADOS",
-            "Não presumimos ausência de alerta sem evidência oficial válida.",
-            WarningAmber,
-        )
-    }
+    // Neither a severity scale nor the content of an external warning is
+    // reproduced in this commercial app. Native government emergency
+    // notifications on the device remain completely independent.
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("official-alert-ribbon"),
-        color = if (state == OfficialFeedState.CURRENT_P0) Color(0xFF4B101B) else Color(0xFF14283F),
+        color = Color(0xFF14283F),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, accent),
+        border = BorderStroke(1.dp, WarningAmber),
     ) {
-        BoxWithConstraints {
-            val singleLine = maxWidth >= 690.dp
-            Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp,
-                vertical = if (singleLine) 2.dp else 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("⚠", color = accent, fontWeight = FontWeight.Black)
-                if (singleLine) {
-                    Text(headline, color = accent, fontWeight = FontWeight.ExtraBold,
-                        style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1, modifier = Modifier.weight(1f))
-                } else {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(headline, color = accent, fontWeight = FontWeight.ExtraBold,
-                            style = MaterialTheme.typography.labelSmall)
-                        Text(detail, color = Color.White, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                TextButton(onClick = { onNavigate("Alertas") },
-                    modifier = Modifier.testTag("alerts-ribbon-open")) {
-                    Text("Ver alertas", color = Gold, style = MaterialTheme.typography.labelSmall)
-                }
+        Row(Modifier.fillMaxWidth().padding(9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("⚠", color = WarningAmber)
+            Text("Alertas públicos: consulte a publicação na fonte oficial.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f))
+            TextButton(onClick = { onNavigate("Alertas") },
+                modifier = Modifier.testTag("alerts-ribbon-open")) {
+                Text("Links oficiais", color = Gold,
+                    style = MaterialTheme.typography.labelSmall)
             }
         }
     }
