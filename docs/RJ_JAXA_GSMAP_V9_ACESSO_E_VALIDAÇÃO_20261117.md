@@ -1,4 +1,16 @@
 # Blaise V6 RJ — JAXA GSMaP v9: cadastro, acesso e homologação
+
+## DECISÃO MAIS RECENTE — JAXA RETIRADA DA OPERAÇÃO (17/11/2026)
+**Esta seção prevalece sobre o plano anterior deste documento.** O proprietário condicionou qualquer uso de chuva atual a informação comprovada com idade máxima de **30 minutos**, sem apresentar uma **estimativa por satélite** como medição atual. Após verificação da documentação JAXA:
+- **GSMaP_NRT v9:** atraso nominal de aproximadamente **4 horas**; não atende.
+- **GSMaP_NOW (v8 revisada):** produto global atualizado **a cada 30 minutos**, porém é uma **estimativa extrapolada**, inclusive para hora atual, com precisão qualitativamente inferior à NRT. Cadência de 30 minutos **não garante** limite permanente de frescor do produto ou ausência de períodos sem atualização.
+- Resultado: **JAXA_GSMAP EXCLUÍDA** da lista de fontes operacionais, das candidatas a `rainAccumulatedMm`/`oceanRainMm`, do inventário de fornecedores exibidos ao cliente e de qualquer uso de chuva atual. Nenhum dado JAXA será utilizado como medição ou valor substituto; não ativar as credenciais, coleta, jobs de produção, rastreadores nem painel sem nova ordem expressa.
+- Os scripts de staging JAXA e testes científicos são **históricos, sem execução automática de coleta real**, e não habilitam a integração. O cadastro feito pelo usuário pode ser mantido no site JAXA sem ser utilizado.
+- Chuva atual no Blaise: **somente observação O de rede licenciada e verificada, com horário de observação válido e idade máxima de 30 minutos**; enquanto nenhuma rede elegível estiver homologada, a exibição deverá ser **INDISPONÍVEL**, nunca um zero ou uma chuva prevista/estimada.
+- NASA IMERG permanece apenas como **pesquisa interna**, não como dado de chuva atual do cliente. Previsão de chuva P do ECMWF/DWD/NOAA deve ser apresentada explicitamente como previsão futura, jamais como observação.
+- Referências JAXA: https://sharaku.eorc.jaxa.jp/GSMaP/guide.html ; https://sharaku.eorc.jaxa.jp/GSMaP/faq/GSMaP_faq06.html ; https://sharaku.eorc.jaxa.jp/GSMaP/document/new/DataFormatDescription_NOW.pdf .
+
+---
 **17/11/2026 — documentação operacional na PR #157, sem ativação de produção.**
 
 ## Cadastro e segurança
