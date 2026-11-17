@@ -6,6 +6,7 @@
  */
 import {createRjMetNorwayFirestoreStore} from './rj-met-norway-firestore-store.mjs';
 import {createRjMetNorwayLocationforecastCollector} from './rj-met-norway-locationforecast.mjs';
+import {projectMetNorwayAdminCoverageEvidence} from './rj-met-norway-admin-evidence.mjs';
 
 const points=Object.freeze({
   '3304557':Object.freeze({lat:-22.9068,lon:-43.1729,verifiedByBackend:true}),
@@ -49,7 +50,12 @@ export async function initializeOptionalMetNorwayRuntime({
       collectCity:async(ibge)=>{
         const point=points[String(ibge)];
         if(!point)return {status:'UNAVAILABLE',reason:'UNVERIFIED_CITY_COORDINATES',forecast:null};
-        return collector.collect({municipalityIbge:String(ibge),point});
+        const result=await collector.collect({municipalityIbge:String(ibge),point});
+        return result.status==='FORECAST_AVAILABLE'
+          ?Object.freeze({...result,adminEvidence:projectMetNorwayAdminCoverageEvidence(result,{
+            termsAcceptedByHuman:true,backendVerified:true
+          })})
+          :result;
       }
     });
   }catch{
