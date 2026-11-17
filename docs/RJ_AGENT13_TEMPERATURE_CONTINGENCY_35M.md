@@ -20,8 +20,8 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 
 **Proposta isolada / não ativada em produção.**
 
-- Implementado: decisão pura fail-closed por variável; rejeição de fontes sem auditoria; filtro que só retorna temperatura/sensação; validade 35 min e rotulagem de estimativa; transação Firestore de cooldown municipal + quota global; testes automatizados.
-- **Ainda NÃO conectado ao aplicativo:** fonte oficial auditada para os três medidores de cada variável e município; entrada do inventário no processo de contingência; cache de contingência 35 min acessível por município; referências geográficas comprovadas de todos os 92 municípios; associação à interface e testes instrumentados.
+- Implementado: decisão fail-closed por variável; rejeição de fontes sem auditoria; filtro que só retorna temperatura/sensação; validade 35 min e rotulagem de estimativa; transação Firestore de cooldown municipal + quota global; cache Firestore apenas com os dois campos térmicos e expiração baseada no `validAt` de origem; coletor com uma única requisição One Call, somente para Rio e Niterói calibrados; ligação ao serviço interno do Agente 13 sob chave separada `BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED`, cujo padrão é **desativado**; testes automatizados.
+- **Ainda NÃO ativado no aplicativo:** inventário real e auditado dos três medidores por variável/município; alimentação desse inventário por adaptadores oficiais homologados e permitidos; referências geográficas verificadas para os demais 90 municípios; invocação controlada do coletor pelo backend; integração de exibição à interface original; testes instrumentados do fluxo de assinante e canário. **Somente testes simulados foram realizados para a nova exceção**. Os testes de coleta real anteriores foram da modalidade de 12 minutos da PR #156.
 - O endpoint atual da PR #156 continua com a regra anterior de até 12 min e os pontos calibrados de Rio/Niterói. **Não alterar sua semântica nem ativar a nova exceção** antes de concluir as dependências.
 - Nenhum robô de sondagem de todos os municípios; não há polling agendado.
 - Qualquer implantação no Cloud Run exige revisão, credenciais mínimas, canário separado, métricas de quota, teste de faturamento e aprovação explícita.
@@ -30,3 +30,9 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 
 - OpenWeather One Call API 4.0, `/data/4.0/onecall/current`: https://openweathermap.org/api/one-call-4
 - Fonte oficial deve ser sempre atribuída por variável e município. Alerta Rio/Defesa Civil não devem ser assumidos como estações de temperatura quando apenas divulgam alertas.
+
+## Observações de segurança
+
+- Nenhuma URL pública/rota HTTP foi adicionada para ativar a contingência. Uma eventual futura rota autenticada não deve receber `prioritySources` informadas pelo cliente.
+- Os exemplos `INMET`, `INPE_CPTEC` e `ECMWF_IFS` usados nos testes são **fixtures simuladas**; não constituem três medidores homologados de temperatura em todos os municípios.
+- A implementação isolada não altera a janela de 12 minutos da interface já publicada para os demais fenômenos.
