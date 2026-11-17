@@ -37,7 +37,7 @@ class OfficialAlertRibbonPolicyTest {
         assertTrue(OfficialAlertRibbonPolicy.legend().all { !it.activeValidatedAlert })
     }
 
-    @Test fun onlyFourHighestVerifiedAlertsAppearOnTopAndRestStayInMais() {
+    @Test fun fourPermanentOfficialSourcesStayOnTopAndExtraWarningsGoToMais() {
         val records = (1..6).map { index ->
             evidence(if (index == 6) 5 else index).copy(
                 warningId = "verified-unique-$index"
@@ -45,11 +45,26 @@ class OfficialAlertRibbonPolicyTest {
         }
         val page = OfficialAlertRibbonPolicy.layout(records, now)
         assertEquals(4, page.visible.size)
-        assertEquals(2, page.additional.size)
-        assertEquals(listOf(5, 5, 4, 3), page.visible.map { it.presentation.level })
-        assertEquals(listOf(2, 1), page.additional.map { it.presentation.level })
-        assertTrue(page.visible.all { it.presentation.activeValidatedAlert })
+        assertEquals(OfficialAlertRibbonPolicy.portals.map { it.id },
+            page.visible.map { it.portal.id })
+        // Even six warnings from just one source must not remove the other portals.
+        assertEquals(listOf(null, null, null, 5), page.visible.map { it.presentation.level })
+        assertEquals(5, page.additional.size)
+        assertEquals(listOf(5, 4, 3, 2, 1), page.additional.map { it.presentation.level })
         assertTrue(page.additional.all { it.presentation.activeValidatedAlert })
+        assertTrue(page.visible.take(3).all { !it.presentation.activeValidatedAlert })
+    }
+
+    @Test fun eachPortalShowsItsHighestVerifiedWarningButNeverDuplicatesInMais() {
+        val alerts = listOf(
+            evidence(2).copy(portalId = "alerta-rio", warningId = "rio-warning-1"),
+            evidence(4).copy(portalId = "alerta-rio", warningId = "rio-warning-2"),
+            evidence(3).copy(portalId = "inmet-avisos", warningId = "inmet-warning-1"),
+        )
+        val page = OfficialAlertRibbonPolicy.layout(alerts, now)
+        assertEquals(listOf(4, null, 3, null), page.visible.map { it.presentation.level })
+        assertEquals(listOf("rio-warning-1"), page.additional.map { it.warningId })
+        assertEquals("alerta-rio", page.additional.first().portal.id)
     }
 
     @Test fun unverifiedAlertsAreNotPutInMaisAndFourNeutralLinksRemain() {
