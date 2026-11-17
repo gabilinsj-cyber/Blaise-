@@ -3,9 +3,6 @@ on:
   pull_request:
     paths:
       - .github/workflows/rj-staging-live-sources.yml
-      - backend/scripts/probe-international-live-staging.mjs
-      - backend/scripts/probe-noaa-wave-staging.mjs
-      - backend/src/rj-source-sector-matrix.mjs
   workflow_dispatch:
 permissions:
   contents: read
