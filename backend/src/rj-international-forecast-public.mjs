@@ -23,7 +23,7 @@ export function projectRjInternationalForecast(forecast,{now=Date.now()}={}){
      forecast.sourceUrl!=='https://api.met.no/weatherapi/locationforecast/2.0/complete'||
      forecast.license!=='CC BY 4.0')return null;
   const valid=timestamp(forecast.validAt),issued=timestamp(forecast.issuedAt),checked=timestamp(forecast.checkedAt);
-  if(![valid,issued,checked].every(Number.isFinite)||issued>valid||
+  if(![valid,issued,checked].every(Number.isFinite)||
      valid>now||now-valid>90*60_000||issued>now||now-issued>12*60*60_000||
      checked>now||now-checked>120_000)return null;
   const v=forecast.values||{},h=forecast.hourly||{};
