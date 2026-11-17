@@ -70,8 +70,8 @@ object ScientificMemoryPolicy {
             input.sourceId !in weatherSources || !input.sourceUrl.startsWith("https://") ||
             input.nature != "P" ||
             input.validAt.isAfter(now) || input.checkedAt.isAfter(now) ||
-            Duration.between(input.checkedAt, now).seconds !in 0..720 ||
-            Duration.between(input.validAt, now).seconds !in 0..43_200 ||
+            Duration.between(input.checkedAt, now).seconds !in 0L..720L ||
+            Duration.between(input.validAt, now).seconds !in 0L..43_200L ||
             !valid(input.temperatureC, -20.0, 50.0) ||
             !valid(input.humidityPercent, 1.0, 100.0)) return emptyList()
         val t = input.temperatureC
