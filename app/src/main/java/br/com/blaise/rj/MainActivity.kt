@@ -26,6 +26,8 @@ import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.data.Agent13CurrentHttpsClient
+import br.com.blaise.rj.data.Agent13CurrentResult
 import br.com.blaise.rj.geo.RjMunicipalMap
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import androidx.compose.runtime.CompositionLocalProvider
@@ -201,6 +203,8 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
+private val LocalAgent13Reports = compositionLocalOf<Map<Int, Agent13CurrentResult>> { emptyMap() }
+private val LocalAgent13Request = compositionLocalOf<(Int) -> Unit> { {} }
 
 private val BlaiseScheme = darkColorScheme(
     primary = Gold,
@@ -237,12 +241,21 @@ fun BlaiseApp(
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
+    var agent13Reports by remember { mutableStateOf<Map<Int, Agent13CurrentResult>>(emptyMap()) }
+    val agent13Scope = rememberCoroutineScope()
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     val statewideClient = remember(context) {
         StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
     }
     val dashboardClient = remember(context) {
         DashboardDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
+    }
+    val agent13Client = remember(context) {
+        Agent13CurrentHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
+    }
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot) {
+        // Never preserve modeled estimates in local storage or across entitlements.
+        agent13Reports = emptyMap()
     }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -312,7 +325,22 @@ fun BlaiseApp(
     }
 
     CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
-        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable) {
+        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable,
+        LocalAgent13Reports provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) agent13Reports else emptyMap(),
+        LocalAgent13Request provides { ibge ->
+            val candidate = verifiedPurchase
+            val client = agent13Client
+            if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active &&
+                candidate != null && client != null && ibge in setOf(3304557, 3303302) &&
+                agent13Reports[ibge] !is Agent13CurrentResult.Loading
+            ) {
+                agent13Reports = agent13Reports + (ibge to Agent13CurrentResult.Loading)
+                // Explicit button tap only: no background polling or automatic provider call.
+                client.fetch(candidate, ibge) { result ->
+                    agent13Scope.launch { agent13Reports = agent13Reports + (ibge to result) }
+                }
+            }
+        }) {
     BlaiseDashboard(
         city1 = city1,
         city2 = city2,
@@ -1650,6 +1678,10 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    val agent13State = LocalAgent13Reports.current[city.ibgeCode]
+    val agent13Estimate = (agent13State as? Agent13CurrentResult.Available)
+        ?.estimate?.takeIf { it.current(clock) }
+    val requestAgent13 = LocalAgent13Request.current
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1672,6 +1704,23 @@ private fun CityPanel(
             StatusLine("Índice UV", "Indisponível")
             StatusLine("Chance de chuva", "Indisponível")
             StatusLine("Rajadas / nuvens", "Indisponíveis")
+            if (city.ibgeCode in setOf(3304557, 3303302)) {
+                Text("OPENWEATHER • ESTIMATIVA DE MODELO", color = Gold, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall)
+                Text(when {
+                    agent13Estimate != null -> agent13Estimate.summary(clock)
+                    agent13State is Agent13CurrentResult.Loading -> "Consultando estimativa autorizada..."
+                    agent13State is Agent13CurrentResult.Denied -> "Acesso à estimativa não autorizado."
+                    else -> "Estimativa indisponível ou vencida. Não substitui a medição oficial."
+                }, color = Muted, style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(onClick = { requestAgent13(city.ibgeCode) }, modifier = Modifier.fillMaxWidth(),
+                    enabled = agent13State !is Agent13CurrentResult.Loading) {
+                    Text("Consultar estimativa")
+                }
+            } else {
+                Text("OpenWeather: ponto municipal ainda não validado; sem estimativa nesta cidade.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
         }
     }
