@@ -54,3 +54,22 @@ INMET: permanece **apenas como referência interna de divergência meteorológic
 - Backend: `official-alert-links-http.mjs` com URLs informativas (não inventário de severidade), `blaise-scientific-*.mjs`.
 - Testes: `OfficialAlertRibbonPolicyTest.kt` e `app/src/testAdmin/.../ScientificMemoryPolicyTest.kt`. CI obrigatório antes de merge.
 - **Pendente**: fluxo end-to-end de evidência de alertas atualizado por fonte oficial e licenciado; dispositivos físicos; Firebase admin real e autorização no backend; uso de dados meteorológicos internacionais realmente obtidos, validados e exibidos no Android; release gate.
+
+## Conexão de previsões internacionais na interface (PR #157)
+- `backend/src/rj-met-norway-runtime-optional.mjs` mantém coletor desligado até aceite humano explícito de Terms, User-Agent real e Firestore. A função `readCachedCity` apenas consulta payload previamente recebido, sem chamada externa, respeitando dados atuais e cache local por até 60 segundos.
+- `backend/src/rj-international-forecast-public.mjs` projeta os campos estritamente validados da previsão ECMWF/IFS distribuída por MET Norway: temperatura, sensação estimada, umidade, vento, rajadas, pressão, ponto de orvalho, nuvens, chuva/probabilidade **previstas para a próxima hora**, UV de **céu limpo**; registra `issuedAt`, `validAt`, `checkedAt`, licença e fonte. Natureza: **P** (previsão do modelo), campos derivados **E**. Não são medições **O**.
+- `backend/src/dashboard-data-http.mjs` acrescenta `internationalForecasts` apenas em resposta a POST autenticado, com assinatura ativa; se os outros coletores estão desligados mas há modelo validado, retorna snapshot meteorológico do modelo, sem inventar observação ou aviso. Se falta qualquer resultado válido, permanece indisponível.
+- `backend/src/runtime.mjs` conecta opcionalmente o cache ao endpoint existente, sem inicialização de coleta na solicitação do cliente. Coleta periódica não habilitada.
+- `app/src/main/java/br/com/blaise/rj/data/DashboardDataClient.kt` lê somente contrato/modelo/fonte e horários explícitos, rejeitando dados sem correspondência, vencidos e duplicados.
+- `app/src/main/java/br/com/blaise/rj/MainActivity.kt` mostra resultados em **cartões das cidades** e nas **camadas textuais do mapa próprio** (temperatura, vento, nuvens e chuva futura), com crédito MET Norway/ECMWF e informação de que NÃO é medição local. A interface solicita o endpoint com assinatura verificada aproximadamente a cada 30 segundos, mas isso **não altera a frequência de atualização da fonte ou a validade do dado**.
+- O catálogo geográfico do coletor opcional tem **somente Rio de Janeiro e Niterói**. Os outros 90 municípios permanecem sem valores internacionais até validar coordenadas, altitude, licença, qualidade e fontes. Não interpolar como se fosse mapa observacional.
+- As camadas de radar, risco, cheias, oceano e alertas ativos continuam bloqueadas até ingestão e verificação real de seus produtos. Não fazer parecer que uma camada do mapa de municípios represente precipitação ou risco mensurado.
+- A calculadora do administrador preserva 19 métodos e cinco fórmulas manuais. **Cálculos automáticos a partir de feed real ainda dependem de integração administrativa autenticada**, que não se confunde com a previsão pública.
+- Ambiente de produção, User-Agent de contato real, aceite dos termos (pessoa operadora), autorização IAM/Firestore e deploy não são fornecidos/assumidos por este commit. Sem sucesso de CI, validação de dados reais no backend e rollout firmado não afirmar que o APK dos clientes ou dos administradores foi atualizado.
+
+### Plano mínimo de homologação
+1. Finalizar CI backend + Android e testes de contratos/segurança; verificar tamanho do APK.
+2. Responsável humano verificar e aceitar os termos da MET Norway, autorizar utilização comercial e definir credenciais ambientais e acesso de leitura Firestore.
+3. Executar coleta controlada em staging dos dois municípios, registrar fonte, emissão, validade, hora de checagem e qualidade sem armazenar informações pessoais.
+4. Confirmar que o endpoint pago entrega previsão **somente** quando houver modelo verificado e que nunca publica `INMET`/`CEMADEN` como medição, nem imagens/radar não licenciados.
+5. Testar em dispositivo físico com duas cidades, status offline, trocas de cidade, alertas e atualizações de 30 segundos respeitando período da fonte. Só depois publicar APK/AAB aprovado.
