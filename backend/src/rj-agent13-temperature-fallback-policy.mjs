@@ -19,6 +19,12 @@ export const RJ_AGENT13_PRIORITY_SOURCE_MAX_AGE_MS=12*60_000;
 export const RJ_AGENT13_FALLBACK_FIELDS=Object.freeze(['temperatureC','feelsLikeC']);
 const RJ_IBGE=new Set(RJ_MUNICIPALITIES.map(m=>m.ibge));
 const SOURCE_STATES=new Set(['CURRENT','UNAVAILABLE','STALE','INVALID']);
+// Excluded municipal bodies only provide alert links; excluded international
+// sources cannot be silently reintroduced as temperature instruments.
+const EXCLUDED_TEMPERATURE_SOURCE_IDS=new Set([
+  'ALERTA_RIO','DEFESA_CIVIL_RJ','INEA','MARINHA_DO_BRASIL',
+  'WINDY','COPERNICUS'
+]);
 const validTime=(time,now,ageLimit)=>{
   const ms=Date.parse(time);
   return Number.isFinite(ms)&&ms<=now&&now-ms<=ageLimit;
@@ -39,6 +45,7 @@ function checkedPriority(readings,now){
     const r=readings[rank-1];
     if(r?.rank!==rank||typeof r.sourceId!=='string'||
        !/^[A-Z][A-Z0-9_-]{1,63}$/.test(r.sourceId)||ids.has(r.sourceId)||
+       EXCLUDED_TEMPERATURE_SOURCE_IDS.has(r.sourceId)||
        r.verifiedByBackend!==true||!SOURCE_STATES.has(r.status)||
        !validTime(r.checkedAt,now,RJ_AGENT13_PRIORITY_SOURCE_MAX_AGE_MS))
       return false;
