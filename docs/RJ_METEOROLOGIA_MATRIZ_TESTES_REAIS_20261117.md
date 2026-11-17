@@ -1,5 +1,8 @@
 # Blaise V6 RJ — 17/11/2026: quem mede, estima e prevê; testes reais e status da interface
 
+**ATUALIZAÇÃO PRIORITÁRIA (17/11/2026): JAXA EXCLUÍDA.** Por exigência do usuário, nenhum produto GSMaP_NRT (latência ~4 horas) nem GSMaP_NOW (estimativa/extrapolação publicada a cada 30 minutos) pode alimentar chuva atual do Blaise. A JAXA foi retirada das fontes operacionais e da interface pública; qualquer referência histórica a JAXA como fonte principal abaixo está **revogada**. Chuva atual exige observação O licenciada, comprovada e com no máximo 30 minutos de idade. Sem fonte ativa homologada: **INDISPONÍVEL**. NASA IMERG permanece somente na pesquisa interna, não no cliente como chuva atual. Política efetiva em `backend/src/rj-source-sector-matrix.mjs`; documento vigente `docs/RJ_OPERACAO_REAL_GATES_92_CIDADES_20261117.md`.
+
+
 **Escopo:** atualização da PR #157. Este documento não certifica todos os fornecedores, não é autorização de deploy, não atesta simultaneidade de valores em 92 cidades, nem contém dados fictícios. O=observação; E=estimativa/derivação; P=previsão numérica.
 
 ## 1) Responsabilidade por setor — fontes e produtos
