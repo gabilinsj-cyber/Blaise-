@@ -1144,6 +1144,39 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    ScientificMemoryPanel()
+}
+
+@Composable
+private fun ScientificMemoryPanel() {
+    DashboardSection(
+        title = "BLAISE VECTOR RJ • CALCULADORA CIENTÍFICA",
+        subtitle = "Memória científica preservada • resultados apenas com dados internacionais homologados",
+    ) {
+        StatusLine("Núcleo backend", "${ScientificMemoryPolicy.BACKEND_REGISTERED_METHOD_COUNT} métodos matemáticos cadastrados")
+        StatusLine("Diagnósticos Android", "${ScientificMemoryPolicy.androidDerivedMethods.size} métodos numéricos protegidos por validade e proveniência")
+        ScientificMemoryPolicy.backendGroups.forEach { group ->
+            Text(group.name, color = Gold, fontWeight = FontWeight.Bold)
+            Text(group.methods.joinToString(" • "), color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
+        }
+        Text("Complementos térmicos: ${ScientificMemoryPolicy.androidDerivedMethods.joinToString(" • ")}",
+            color = Color.White, style = MaterialTheme.typography.labelSmall)
+        // No public or synthetic provider readings are created in the user interface.
+        val authorizedLiveScientificInputs: BlaiseScientificInput? = null
+        val computed = ScientificMemoryPolicy.calculate(authorizedLiveScientificInputs, LocalObservationClock.current)
+        if (computed.isEmpty()) {
+            Text("Cálculos atuais: INDISPONÍVEIS — aguardando entrada auditada, licenciada e atual.",
+                color = WarningAmber, fontWeight = FontWeight.Bold)
+        } else {
+            computed.forEach { reading ->
+                StatusLine(reading.title, String.format(java.util.Locale("pt", "BR"),
+                    "%.1f %s • %s", reading.value, reading.unit, reading.method))
+            }
+        }
+        Text("Cálculo Blaise não é medição, aviso oficial, previsão de impacto ou autorização para alerta. A memória interna não armazena dados pessoais.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
