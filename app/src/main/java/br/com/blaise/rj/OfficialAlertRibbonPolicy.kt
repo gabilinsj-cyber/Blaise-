@@ -18,6 +18,10 @@ data class VerifiedBlaiseAlertEvidence(
     val checkedAt: Instant,
     val validFrom: Instant,
     val validUntil: Instant,
+    // Publication or actual revision timestamp from the official source.
+    // This is NOT a time the Blaise service last checked the page.
+    // Null means not verified: no active alert may be displayed.
+    val sourceUpdatedAt: Instant? = null,
     val rjCoverageValidated: Boolean,
     val verifiedByBackend: Boolean,
 )
@@ -41,6 +45,8 @@ data class OfficialAlertRibbonPage(
 
 object OfficialAlertRibbonPolicy {
     const val MAX_TOP_ALERTS = 4
+    const val MAX_OFFICIAL_SOURCE_SILENCE_HOURS = 6L
+    private const val MAX_SOURCE_SILENCE_SECONDS = MAX_OFFICIAL_SOURCE_SILENCE_HOURS * 3600L
     // No SharedPreferences, Room, SQLite, Firestore or local files for notices.
     // UI receives only ephemeral, backend-verified metadata; nothing is
     // written by this pure presentation policy. Never copy a source bulletin.
@@ -117,6 +123,13 @@ object OfficialAlertRibbonPolicy {
         val fallback = OfficialAlertRibbonPresentation(false, null, 0xFFEBF0F5.toInt(),
             "ALERTAS NÃO VERIFICADOS — consulte a página oficial.")
         if (portals.none { it.id == portalId } || evidence == null) return fallback
+        // An HTTP success or fresh backend check does not refresh a stale
+        // authority bulletin. Do not extend active status without a verified
+        // timestamp from the issuing authority itself.
+        val sourceTime = evidence.sourceUpdatedAt ?: return fallback
+        val sourceSilenceSeconds = Duration.between(sourceTime, now).seconds
+        if (sourceTime.isAfter(evidence.checkedAt) ||
+            sourceSilenceSeconds !in 0L..MAX_SOURCE_SILENCE_SECONDS) return fallback
         if (evidence.portalId != portalId || !evidence.verifiedByBackend ||
             !evidence.rjCoverageValidated || evidence.warningId.length !in 4..160 ||
             evidence.level !in 1..5 ||
