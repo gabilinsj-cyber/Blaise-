@@ -14,7 +14,7 @@ object FinalDashboardSpec {
     const val DEFAULT_POWER_STATE = "LIGADO"
     const val ASSISTANT_PROMPT = "Como posso ajudar?"
     const val RADAR_WINDOW_MINUTES = 30
-    const val MAX_INLINE_ALERTS_PER_CITY = 3
+    const val MAX_INLINE_ALERTS_PER_CITY = 4
     const val HOME_LOCAL_NEWS_COUNT = 2
     const val HOME_INTERNATIONAL_NEWS_COUNT = 1
     const val HOME_SEISMIC_EVENT_COUNT = 2
