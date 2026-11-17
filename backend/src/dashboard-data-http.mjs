@@ -1,5 +1,6 @@
 import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
+import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 import {projectRjInternationalForecast} from './rj-international-forecast-public.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
@@ -42,15 +43,28 @@ function parseRequest(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new ClientInputError('invalid_dashboard_request');
   }
-  const allowed = new Set(['packageName', 'purchaseToken', 'productIds']);
+  const required = new Set(['packageName', 'purchaseToken', 'productIds']);
+  const optional = new Set(['municipalityIbges']);
   const keys = Object.keys(payload);
-  if (keys.length !== allowed.size || keys.some((key) => !allowed.has(key))) {
+  if (keys.some(key => !required.has(key) && !optional.has(key)) ||
+      [...required].some(key => !keys.includes(key))) {
     throw new ClientInputError('invalid_dashboard_request_shape');
+  }
+  // Only 2 requested municipalities are read per paid dashboard call.
+  // Older Android builds default to Rio/Niterói without enumerating 92 cache docs.
+  const input = payload.municipalityIbges ?? ['3304557','3303302'];
+  const validCodes = new Set(RJ_MUNICIPALITIES.map(x=>x.ibge));
+  if (!Array.isArray(input) || input.length < 1 || input.length > 2 ||
+      input.some(code => !(typeof code==='string'||Number.isInteger(code)) ||
+        !validCodes.has(String(code))) ||
+      new Set(input.map(String)).size !== input.length) {
+    throw new ClientInputError('invalid_municipal_selection');
   }
   return Object.freeze({
     packageName: payload.packageName,
     purchaseToken: payload.purchaseToken,
     productIds: payload.productIds,
+    municipalityIbges:Object.freeze(input.map(String))
   });
 }
 
@@ -279,7 +293,7 @@ export function createPaidDashboardDataHttpHandler(
         let forecasts=[];
         if(!isStatewide && readInternationalForecasts){
           try{
-            const candidates=await readInternationalForecasts();
+            const candidates=await readInternationalForecasts(payload.municipalityIbges);
             // Cache validation may finish after this request began. Use the actual
             // post-read clock to avoid rejecting legitimate freshly checked data.
             nowMillis=Date.now();
