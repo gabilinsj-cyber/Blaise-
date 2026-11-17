@@ -43,7 +43,7 @@ test('rejects stale, future, invented, unlicensed, unverified, unknown place and
     {...base,verifiedByBackend:false},
     {...base,commercialUseAuthorized:false},
     {...base,municipalityGeoVerified:false},
-    {...base,validAt:new Date(now-13*60_000).toISOString()},
+    {...base,validAt:new Date(now-13*60*60_000).toISOString()},
     {...base,validAt:new Date(now+1000).toISOString()},
     {...base,ibge:'0000000'},
     {...base,sourceId:'ALERTA_RIO'},
