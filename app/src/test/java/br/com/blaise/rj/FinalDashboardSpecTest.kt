@@ -32,4 +32,13 @@ class FinalDashboardSpecTest {
         assertTrue(FinalDashboardSpec.shouldNotifySeismicEvent(7.0, true))
         assertTrue(FinalDashboardSpec.shouldNotifySeismicEvent(8.1, true))
     }
+    @Test fun `thermal source hierarchy stays internal and is not active on subscriber UI`() {
+        assertTrue(FinalDashboardSpec.THERMAL_DIAGNOSTICS_ADMIN_ONLY)
+        assertFalse(FinalDashboardSpec.THERMAL_FALLBACK_INTEGRATED)
+        assertEquals(35, FinalDashboardSpec.THERMAL_FALLBACK_INTERVAL_MINUTES)
+        assertEquals(900, FinalDashboardSpec.THERMAL_DAILY_PROVIDER_BUDGET)
+        assertEquals("OpenWeather/Agente 13", FinalDashboardSpec.THERMAL_LAST_RESORT)
+        assertFalse(FinalDashboardSpec.officialSources.any { it.contains("Agente 13") })
+    }
+
 }
