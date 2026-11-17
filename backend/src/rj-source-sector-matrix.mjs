@@ -86,7 +86,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   domesticComparisonOnly:Object.freeze(['INMET','CEMADEN']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
-  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST']),
+  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),
   satelliteVisualReference:Object.freeze({
     id:'RAMMB_CIRA_SLIDER',url:'https://rammb-slider.cira.colostate.edu/',
     underlyingSensor:'NOAA_GOES_19_ABI',type:'EXTERNAL_LINK_ONLY',
