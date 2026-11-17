@@ -1,5 +1,6 @@
 import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
+import {projectRjInternationalForecast} from './rj-international-forecast-public.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
@@ -230,6 +231,7 @@ export function createPaidDashboardDataHttpHandler(
     metrics = null,
     subscriberVerifier = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
+    readInternationalForecasts = null,
   } = {},
 ) {
   if (typeof delegate !== 'function') throw new Error('dashboard_http_delegate_invalid');
@@ -238,6 +240,8 @@ export function createPaidDashboardDataHttpHandler(
   if (!sourceWorker || typeof sourceWorker.status !== 'function' || typeof sourceWorker.readSource !== 'function') {
     throw new Error('dashboard_http_source_worker_invalid');
   }
+  if (readInternationalForecasts !== null && typeof readInternationalForecasts !== 'function')
+    throw new Error('forecast_provider_invalid');
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 1_000) {
     throw new Error('dashboard_http_concurrency_invalid');
   }
@@ -270,11 +274,42 @@ export function createPaidDashboardDataHttpHandler(
       const result = await gate.run(async () => {
         const entitlement = await verifyPurchasePayload(payload, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
-        const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
-          ? buildStatewideDashboardSnapshot(sourceWorker)
-          : buildPaidDashboardSnapshot(sourceWorker);
-        return snapshot
-          ? Object.freeze({ kind: 'snapshot', snapshot })
+        const nowMillis=Date.now();
+        const isStatewide=req.url===STATEWIDE_DASHBOARD_PATH;
+        let forecasts=[];
+        if(!isStatewide && readInternationalForecasts){
+          try{
+            const candidates=await readInternationalForecasts();
+            if(Array.isArray(candidates) && candidates.length<=2){
+              forecasts=candidates.map(candidate=>
+                projectRjInternationalForecast(candidate,{now:nowMillis}))
+                .filter(Boolean);
+              if(new Set(forecasts.map(x=>x.ibge)).size!==forecasts.length)
+                forecasts=[];
+            }
+          }catch{
+            forecasts=[]; // Loss of optional source never invents weather or breaks billing.
+          }
+        }
+        const snapshot=isStatewide
+          ?buildStatewideDashboardSnapshot(sourceWorker,{nowMillis})
+          :buildPaidDashboardSnapshot(sourceWorker,{nowMillis});
+        const effective=isStatewide? snapshot :
+          snapshot? (forecasts.length?Object.freeze({...snapshot,
+            internationalForecasts:Object.freeze(forecasts)}):snapshot) :
+          forecasts.length?Object.freeze({
+            contract:DASHBOARD_DATA_HTTP_CONTRACT,
+            generatedAt:new Date(nowMillis).toISOString(),mode:'normal',
+            scope:'RJ_APPROVED_SOURCES',sourceCount:0,currentSourceCount:0,
+            rainfall:null,rainfallAvailability:'UNAVAILABLE',
+            officialNoticeLinks:OFFICIAL_ALERT_LINKS,
+            marine:null,sources:Object.freeze([]),
+            internationalForecasts:Object.freeze(forecasts),
+            privacy:Object.freeze({purchaseTokenExposed:false,
+              rawStationPayloadExposed:false,userLocationStored:false})
+          }):null;
+        return effective
+          ? Object.freeze({ kind: 'snapshot', snapshot:effective })
           : Object.freeze({ kind: 'unavailable' });
       });
 
