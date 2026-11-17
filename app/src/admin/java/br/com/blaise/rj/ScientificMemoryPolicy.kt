@@ -38,6 +38,18 @@ data class BlaiseScientificResult(
     val officialAlert: Boolean = false,
     val mayTriggerAlert: Boolean = false,
 )
+/** Input is typed by the administrator; not a reading downloaded from an agency. */
+data class AdminManualScientificResult(
+    val title: String,
+    val value: Double,
+    val unit: String,
+    val method: String,
+    val nature: String = "CÁLCULO MANUAL — NÃO É OBSERVAÇÃO",
+    val officialAlert: Boolean = false,
+    val officialMeasurement: Boolean = false,
+    val mayTriggerAlert: Boolean = false,
+)
+
 data class BlaiseScienceGroup(val name: String, val methods: List<String>)
 
 object ScientificMemoryPolicy {
@@ -112,4 +124,52 @@ object ScientificMemoryPolicy {
         }
         return out.toList()
     }
+    /** Scientific scratchpad available ONLY in the separate admin APK.
+     * No history, network calls, role escalation, location, or alert publication.
+     * No default values or fabricated meteorological readings.
+     */
+    fun calculateManualInputs(
+        temperatureC: Double?, humidityPercent: Double?, windKmh: Double?
+    ): List<AdminManualScientificResult> {
+        val t = temperatureC?.takeIf { valid(it, -20.0, 50.0) } ?: return emptyList()
+        val rh = humidityPercent?.takeIf { valid(it, 1.0, 100.0) } ?: return emptyList()
+        if (windKmh != null && !valid(windKmh, 0.0, 250.0)) return emptyList()
+        val results = mutableListOf<AdminManualScientificResult>()
+        fun add(title: String, value: Double, unit: String, method: String) {
+            if (value.isFinite() && kotlin.math.abs(value) < 1e7)
+                results.add(AdminManualScientificResult(title, value, unit, method))
+        }
+        // Pair the temperature and relative humidity entered by the administrator.
+        val gamma = ln(rh / 100.0) + 17.625 * t / (243.04 + t)
+        val dewPoint = 243.04 * gamma / (17.625 - gamma)
+        if (valid(dewPoint, -80.0, 50.0))
+            add("Ponto de orvalho", dewPoint, "°C", "Magnus")
+
+        val saturationKpa = 0.6108 * exp(17.27 * t / (t + 237.3))
+        add("Déficit de pressão de vapor", saturationKpa * (1.0 - rh / 100.0), "kPa", "VPD")
+
+        if (rh in 5.0..99.0) {
+            val wetBulb = t * atan(0.151977 * sqrt(rh + 8.313659)) +
+                atan(t + rh) - atan(rh - 1.676331) +
+                0.00391838 * rh.pow(1.5) * atan(0.023101 * rh) - 4.686035
+            if (valid(wetBulb, -40.0, 55.0))
+                add("Bulbo úmido aproximado", wetBulb, "°C", "Stull")
+        }
+        if (t <= 10.0 && windKmh != null && windKmh >= 4.8) {
+            val factor = windKmh.pow(0.16)
+            add("Vento-frio estimado", 13.12 + 0.6215 * t -
+                11.37 * factor + 0.3965 * t * factor, "°C", "Wind chill")
+        } else if (t >= 27.0 && rh >= 40.0) {
+            val f = 1.8 * t + 32.0
+            var hi = -42.379 + 2.04901523 * f + 10.14333127 * rh -
+                0.22475541 * f * rh - 0.00683783 * f.pow(2.0) -
+                0.05481717 * rh.pow(2.0) + 0.00122874 * f.pow(2.0) * rh +
+                0.00085282 * f * rh.pow(2.0) - 0.00000199 * f.pow(2.0) * rh.pow(2.0)
+            if (rh > 85.0 && f in 80.0..87.0)
+                hi += (rh - 85.0) / 10.0 * ((87.0 - f) / 5.0)
+            add("Índice de calor estimado", (hi - 32.0) / 1.8, "°C", "Rothfusz")
+        }
+        return results.toList()
+    }
+
 }
