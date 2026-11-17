@@ -61,12 +61,15 @@ test('CAMS exception limited to MET Norway clear-sky UV; domestic only compariso
   assert.ok(policy.expresslyExcludedDirectSources.includes('COPERNICUS_DIRECT'));
   assert.ok(policy.expresslyExcludedDirectSources.includes('JAXA_GSMAP'));
   assert.ok(policy.expresslyExcludedDirectSources.includes('NASA_GPM_IMERG'));
+  assert.ok(policy.expresslyExcludedDirectSources.includes('ZOOM_EARTH'));
+  assert.equal(matrix.find(x=>x.id==='CLOUDS').products[0].sourceId,'NOAA_GOES');
+  assert.equal(matrix.find(x=>x.id==='SATELLITE_VISUAL_RJ').products[0].sourceId,'RAMMB_CIRA_SLIDER');
   assert.equal(policy.currentRainObservation.maxAgeMinutes,30);
   assert.deepEqual(policy.currentRainObservation.acceptedKinds,['O']);
   assert.equal(policy.currentRainObservation.acceptedLicensedRainGaugeSources.length,0);
   assert.equal(policy.currentRainObservation.satelliteRainEstimateAllowed,false);
   assert.equal(policy.currentRainObservation.missingDataStatus,'UNAVAILABLE');
   const ids=matrix.flatMap(s=>s.products.map(p=>p.sourceId));
-  for(const excluded of ['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','INMET','CEMADEN','JAXA_GSMAP','NASA_GPM_IMERG','NASA_MUR_SST','NASA_SAT'])
+  for(const excluded of ['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','INMET','CEMADEN','JAXA_GSMAP','NASA_GPM_IMERG','NASA_MUR_SST','NASA_SAT','ZOOM_EARTH'])
     assert.ok(!ids.includes(excluded));
 });
