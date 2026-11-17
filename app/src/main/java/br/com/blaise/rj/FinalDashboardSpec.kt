@@ -36,6 +36,19 @@ object FinalDashboardSpec {
         "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
+    // Thermal-source priority applies only to temperature and feels-like.
+    // These are targets for integration, NOT claims of live municipal coverage.
+    val thermalSourcePriority = listOf("INMET", "DWD/ICON Global", "NOAA/GFS")
+    const val THERMAL_VISUAL_CROSSCHECK = "Meteologix/Kachelmannwetter"
+    const val THERMAL_LAST_RESORT = "OpenWeather/Agente 13"
+    const val THERMAL_FALLBACK_INTERVAL_MINUTES = 35
+    const val THERMAL_DAILY_PROVIDER_BUDGET = 900
+
+    // Until backend-verified source inventories, licensed model ingestion and
+    // authenticated thermal-only response exist, the app cannot trigger any
+    // automatic or manual paid OpenWeather fallback through the city panel.
+    const val THERMAL_FALLBACK_INTEGRATED = false
+
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
     fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
