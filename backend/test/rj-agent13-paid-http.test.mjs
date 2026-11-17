@@ -91,7 +91,7 @@ test('rejects model reading older than 12 minutes and reading from future',()=>{
 test('active purchase may explicitly request one bounded city model estimate',async()=>{
   let collectionCount=0;
   await withHttp(handlerWith({agent13Runtime:{configured:true,async collect({target,now}){
-    collectionCount++;assert.equal(target.ibge,targetIbge);assert.equal(now,NOW);
+    collectionCount++;assert.equal(target.ibge,targetIbge);assert.equal(now,undefined);
     return sample;
   }}}),async base=>{
     const r=await request(base);
@@ -152,4 +152,25 @@ test('disabled or malformed request never calls provider',async()=>{
     assert.equal(invalidCity.status,400);
   });
   assert.equal(collections,0);
+});
+
+test('HTTP projects current data using clock after collecting, never request-start time',async()=>{
+  let ticks=0;
+  const later=structuredClone(sample);
+  later.weather.validAt=new Date(NOW+1000).toISOString();
+  later.weather.retrievedAt=new Date(NOW+2000).toISOString();
+  const clock=()=>{ticks++;return NOW+2000;};
+  const handler=handlerWith({
+    clock,
+    agent13Runtime:{configured:true,async collect({now}){
+      assert.equal(now,undefined);
+      return later;
+    }}
+  });
+  await withHttp(handler,async base=>{
+    const response=await request(base);
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).validAt,new Date(NOW+1000).toISOString());
+  });
+  assert.equal(ticks,1);
 });
