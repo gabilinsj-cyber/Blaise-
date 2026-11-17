@@ -183,8 +183,14 @@ async function main() {
   });
   console.log(`blaise_met_norway_runtime:${metNorwayRuntime.state}`);
   const readInternationalForecasts=metNorwayRuntime.configured===true
-    ?async()=>Promise.all(metNorwayRuntime.supportedMunicipalities.map(code=>
-      metNorwayRuntime.readCachedCity(code)))
+    ?async(requestedCodes=['3304557','3303302'])=>{
+      const known=new Set(metNorwayRuntime.supportedMunicipalities);
+      if(!Array.isArray(requestedCodes)||requestedCodes.length<1||
+        requestedCodes.length>2||new Set(requestedCodes).size!==requestedCodes.length||
+        requestedCodes.some(code=>typeof code!=='string'||!known.has(code)))
+        return [];
+      return Promise.all(requestedCodes.map(code=>metNorwayRuntime.readCachedCity(code)));
+    }
     :null;
 
 
