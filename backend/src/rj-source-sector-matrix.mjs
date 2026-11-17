@@ -40,12 +40,12 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
-  sector('RAIN_SATELLITE_LAND','Chuva estimada por satélite sobre o RJ (somente análise científica interna)',[
-    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','pesquisa interna, nunca chuva atual do cliente')
-  ],'JAXA GSMaP removida por decisão do proprietário: nenhuma estimativa de satélite deve representar chuva atual. NASA IMERG continua apenas para pesquisa e não é pluviômetro.'),
-  sector('RAIN_SATELLITE_OCEAN','Chuva estimada no Atlântico (somente análise científica interna)',[
-    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','pesquisa interna, nunca chuva atual do cliente')
-  ],'Estimativa retrospectiva oceânica de pesquisa, sem autorização para substituir medição de precipitação com idade máxima de 30 minutos.'),
+  sector('SATELLITE_VISUAL_RJ','Imagens de nuvens e sistemas sobre o RJ',[
+    O('RAMMB_CIRA_SLIDER','GOES19_ABI_VISUAL_LINK','GOES_EAST','somente link externo a imagens GOES-19')
+  ],'Link de consulta visual ao RAMMB/CIRA SLIDER; sem ingestão, cópia de imagens ou extração de chuva em mm. Não é nova fonte independente do GOES/NOAA.'),
+  sector('SATELLITE_VISUAL_ATLANTIC','Imagens de nuvens e sistemas no Atlântico Sul',[
+    O('RAMMB_CIRA_SLIDER','GOES19_ABI_VISUAL_LINK','GOES_EAST','somente link externo a imagens GOES-19')
+  ],'Observação de estruturas de nuvens e tempestades pelo GOES via visualizador externo. Não mede precipitação, não gera alertas automáticos.' ),
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     O('EUMETSAT_SAT','METEOSAT_IMAGES','EUMETSAT_METEOSAT','cobertura conforme produto'),
@@ -67,8 +67,7 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   ],'Dados são previsões marítimas; a maré astronômica requer fonte distinta.'),
   sector('SST','Temperatura da superfície do mar',[
     E('EUMETSAT_OSI_SAF','OSI_207_C','GOES_EAST_ABI','principal candidato'),
-    E('NOAA_COASTWATCH','ACSPO_GOES_EAST','GOES_EAST_ABI','comparação correlacionada'),
-    E('NASA_MUR_SST','MUR_L4_SST','BLENDED_MULTI_SAT','referência composta')
+    E('NOAA_COASTWATCH','ACSPO_GOES_EAST','GOES_EAST_ABI','comparação correlacionada')
   ],'O mesmo GOES/ABI aparece em dois processamentos: NÃO são sensores independentes. Validar máscara e período.'),
   sector('CLEAR_SKY_UV','UV previsto em céu limpo',[
     P('COPERNICUS_CAMS_UV_VIA_MET_NO','ultraviolet_index_clear_sky','CAMS','única exceção Copernicus')
@@ -87,7 +86,14 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   domesticComparisonOnly:Object.freeze(['INMET','CEMADEN']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
-  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP']),
+  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST']),
+  satelliteVisualReference:Object.freeze({
+    id:'RAMMB_CIRA_SLIDER',url:'https://rammb-slider.cira.colostate.edu/',
+    underlyingSensor:'NOAA_GOES_19_ABI',type:'EXTERNAL_LINK_ONLY',
+    authorizedEmbeddedImagery:false,providesRainMm:false,
+    independentFromNoaa:false,operatorValidatedFreshness:false,
+    maxAcceptableImageAgeMinutes:30
+  }),
   currentRainObservation:Object.freeze({
     maxAgeMinutes:30,
     acceptedKinds:Object.freeze(['O']),
