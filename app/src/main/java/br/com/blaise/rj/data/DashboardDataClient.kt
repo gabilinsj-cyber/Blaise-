@@ -79,6 +79,37 @@ data class DashboardMarineReading(
     }
 }
 
+/** A model forecast is NOT a local observed weather reading.
+ * The backend must have verified origin, timestamps, license and geographic scope.
+ */
+data class DashboardInternationalForecast(
+    val ibge: Int,
+    val issuedAt: Instant,
+    val validAt: Instant,
+    val checkedAt: Instant,
+    val temperatureC: Double?,
+    val feelsLikeC: Double?,
+    val humidityPct: Double?,
+    val pressureHpa: Double?,
+    val dewPointC: Double?,
+    val cloudPct: Double?,
+    val windKmh: Double?,
+    val gustKmh: Double?,
+    val uvClearSkyIndex: Double?,
+    val precipitationNextHourMm: Double?,
+    val precipitationProbabilityNextHourPct: Double?,
+) {
+    val sourceLabel = "MET Norway / ECMWF IFS"
+    val uvSourceLabel = "CAMS via MET Norway • céu limpo"
+    val isOfficialObservation = false
+    val mayCreateAlerts = false
+    fun current(now: Instant): Boolean =
+        !issuedAt.isAfter(now) && !validAt.isAfter(now) && !checkedAt.isAfter(now) &&
+        java.time.Duration.between(issuedAt, now).seconds in 0L..43_200L &&
+        java.time.Duration.between(validAt, now).seconds in 0L..5_400L &&
+        java.time.Duration.between(checkedAt, now).seconds in 0L..120L
+}
+
 data class DashboardOfficialNotice(val id: String, val name: String, val message: String, val url: String)
 
 data class DashboardDataSnapshot(
@@ -90,6 +121,7 @@ data class DashboardDataSnapshot(
     val officialNoticeLinks: List<DashboardOfficialNotice> = emptyList(),
     val sources: List<DashboardOfficialSourceState>,
     val marine: DashboardMarineReading? = null,
+    val internationalForecasts: List<DashboardInternationalForecast> = emptyList(),
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
@@ -147,7 +179,7 @@ object DashboardDataParser {
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
         require(payload.keys.containsAll(topLevelKeys) &&
-            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks") })
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
@@ -265,6 +297,53 @@ object DashboardDataParser {
         }.orEmpty()
         require(notices.size <= 4 && notices.map { it.id }.toSet().size == notices.size)
 
+        val forecastKeys = setOf(
+            "ibge", "sourceId", "modelOrigin", "uvOrigin", "kind",
+            "issuedAt", "validAt", "checkedAt", "temperatureC", "feelsLikeC",
+            "humidityPct", "pressureHpa", "dewPointC", "cloudPct", "windKmh",
+            "gustKmh", "uvClearSkyIndex", "precipitationNextHourMm",
+            "precipitationProbabilityNextHourPct", "credit", "sourceUrl", "license"
+        )
+        val forecasts = (payload["internationalForecasts"] as? List<*>)?.map { raw ->
+            val m = stringMap(raw)
+            require(m.keys == forecastKeys)
+            require(m["ibge"] in listOf("3304557", "3303302"))
+            require(m["sourceId"] == "MET_NORWAY_LOCATIONFORECAST_2")
+            require(m["modelOrigin"] == "ECMWF_IFS")
+            require(m["uvOrigin"] == "COPERNICUS_CAMS_UV_VIA_MET_NO")
+            require(m["kind"] == "MODEL_FORECAST_NOT_LOCAL_MEASUREMENT")
+            require(m["sourceUrl"] == "https://api.met.no/weatherapi/locationforecast/2.0/complete")
+            require(m["license"] == "CC BY 4.0")
+            require(m["credit"] == "MET Norway / ECMWF IFS (UV céu limpo: CAMS via MET Norway)")
+            val issuedAt = instant(m["issuedAt"])
+            val validAt = instant(m["validAt"])
+            val checkedAt = instant(m["checkedAt"])
+            // Check observed clock time (not response-generated time) in UI too.
+            fun metric(key: String, low: Double, high: Double): Double? {
+                val v = m[key] ?: return null
+                val n = (v as? Number)?.toDouble() ?: throw IllegalArgumentException("invalid_model_field")
+                require(n.isFinite() && n in low..high)
+                return n
+            }
+            DashboardInternationalForecast(
+                ibge = (m["ibge"] as String).toInt(),
+                issuedAt = issuedAt, validAt = validAt, checkedAt = checkedAt,
+                temperatureC = metric("temperatureC", -60.0, 65.0),
+                feelsLikeC = metric("feelsLikeC", -80.0, 80.0),
+                humidityPct = metric("humidityPct", 0.0, 100.0),
+                pressureHpa = metric("pressureHpa", 800.0, 1150.0),
+                dewPointC = metric("dewPointC", -90.0, 65.0),
+                cloudPct = metric("cloudPct", 0.0, 100.0),
+                windKmh = metric("windKmh", 0.0, 400.0),
+                gustKmh = metric("gustKmh", 0.0, 550.0),
+                uvClearSkyIndex = metric("uvClearSkyIndex", 0.0, 25.0),
+                precipitationNextHourMm = metric("precipitationNextHourMm", 0.0, 500.0),
+                precipitationProbabilityNextHourPct = metric("precipitationProbabilityNextHourPct", 0.0, 100.0),
+            )
+        }.orEmpty()
+        require(forecasts.size <= 2 && forecasts.map { it.ibge }.toSet().size == forecasts.size)
+        require(forecasts.all { it.current(generatedAt) })
+
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
             mode = mode,
@@ -274,6 +353,7 @@ object DashboardDataParser {
             officialNoticeLinks = notices,
             sources = sources,
             marine = marine,
+            internationalForecasts = forecasts,
         )
     }
 
