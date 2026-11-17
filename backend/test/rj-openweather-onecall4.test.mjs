@@ -124,6 +124,40 @@ test('stale or wrong-city weather cannot be shown as real time',async()=>{
     assert.equal(result.status,'UNAVAILABLE');
   }
 });
+test('a shared cache may never turn an observation older than 12 minutes into current data',async()=>{
+  let requests=0;
+  const stale={...structuredClone(payload),
+    data:[{...payload.data[0],dt:Math.floor((NOW-13*60_000)/1000)}]};
+  const cached=Object.freeze({
+    status:'AVAILABLE_PROVIDER_CURRENT_ESTIMATE',
+    sourceId:'OPENWEATHER_ONECALL4_CURRENT',
+    ibge:target.ibge,latitude:target.latitude,longitude:target.longitude,
+    validAt:new Date(NOW-13*60_000).toISOString(),
+    retrievedAt:new Date(NOW-10_000).toISOString(),
+    values:{temperatureC:99}
+  });
+  const {client}=make({},{
+    cache:{async get(){return cached;},async set(){throw Error('must not cache invalid provider data');}},
+    budget:{async tryReserve(){return false;}},
+    fetchImpl:async()=>{requests++;return new Response(JSON.stringify(stale),{status:200,headers:{'content-type':'application/json'}});}
+  });
+  const result=await client.getCurrent({target,now:NOW});
+  assert.equal(result.status,'UNAVAILABLE');
+  assert.equal(result.reason,'DAILY_PROVIDER_BUDGET_EXHAUSTED');
+  assert.equal(requests,0);
+});
+
+test('a value exactly 12 minutes old is valid, 12 minutes plus one second is expired',async()=>{
+  for(const [delta,expected] of [[720_000,'AVAILABLE_PROVIDER_CURRENT_ESTIMATE'],[721_000,'UNAVAILABLE']]){
+    const data={...payload,data:[{...payload.data[0],dt:Math.floor((NOW-delta)/1000)}]};
+    const {client}=make({}, {fetchImpl:async()=>new Response(JSON.stringify(data),{
+      status:200,headers:{'content-type':'application/json'}
+    })});
+    const result=await client.getCurrent({target,now:NOW});
+    assert.equal(result.status,expected);
+  }
+});
+
 test('provider errors never expose API key or request URL in results',async()=>{
   const {client}=make({}, {fetchImpl:async()=>new Response(JSON.stringify({
     cod:401,message:'wrong api key'
