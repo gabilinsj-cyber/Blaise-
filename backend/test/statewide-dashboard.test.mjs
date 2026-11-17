@@ -37,9 +37,9 @@ test('all 92 canonical municipality rows remain but INMET/CEMADEN payloads never
     row.hydrologicalRisk.sourceUrl===null && row.warningIds.length===0 &&
     row.warningCoverage==='UNAVAILABLE'));
   assert.equal(JSON.stringify(out).includes('domestic fixture'),false);
-  // Static URL referrals are allowed, source values/worker inventory are not.
-  assert.ok(out.officialNoticeLinks.some(link=>link.id==='cemaden-rj-riscos'));
-  assert.ok(out.officialNoticeLinks.some(link=>link.id==='inmet-avisos'));
+  // Only municipal official alert links are public; domestic comparisons stay private.
+  assert.deepEqual(out.officialNoticeLinks.map(link=>link.id), ['defesa-civil-rj', 'alerta-rio']);
+  assert.ok(out.officialNoticeLinks.every(link=>!/(inmet|cemaden)/i.test(link.id+' '+link.url)));
   assert.ok(out.sources.every(source=>!/(inmet|cemaden)/i.test(source.id+' '+source.name)));
   assert.ok(out.officialNoticeLinks.every(link=>!Object.hasOwn(link,'level')&&!Object.hasOwn(link,'severity')));
 });
