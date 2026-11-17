@@ -316,3 +316,45 @@ test('expired optional model never turns source-unavailable into fabricated weat
     assert.deepEqual(await response.json(),{error:'source_unavailable'});
   });
 });
+
+test('paid dashboard requests only two selected IBGE municipalities after entitlement verification',async()=>{
+  let readCodes=null;
+  const {handler}=handlerWith({
+    sourceWorker:currentWorker({enabled:false}),
+    readInternationalForecasts:async codes=>{
+      readCodes=codes;
+      return [{...syntheticModelForecastForTest(),ibge:'3304904'}];
+    }
+  });
+  await withServer(handler,async base=>{
+    const request=validRequest({municipalityIbges:[3304904,3304557]});
+    const response=await post(base,request);
+    assert.equal(response.status,200);
+    const body=await response.json();
+    assert.deepEqual(readCodes,['3304904','3304557']);
+    assert.equal(body.internationalForecasts.length,1);
+    assert.equal(body.internationalForecasts[0].ibge,'3304904');
+  });
+});
+
+test('invalid, duplicated or excessive municipality selections fail before purchase verification',async()=>{
+  let authCalls=0,sourceCalls=0;
+  const {handler}=handlerWith({
+    gateway:{async getSubscription(){authCalls++;return activeSubscription();}},
+    readInternationalForecasts:async()=>{sourceCalls++;return [];}
+  });
+  await withServer(handler,async base=>{
+    for(const selection of [
+      [3304557,3303302,3304904],
+      [3304557,3304557],
+      [3309999],
+      ['unsafe-id'],
+      []
+    ]){
+      const response=await post(base,validRequest({municipalityIbges:selection}));
+      assert.equal(response.status,400);
+    }
+  });
+  assert.equal(authCalls,0);
+  assert.equal(sourceCalls,0);
+});
