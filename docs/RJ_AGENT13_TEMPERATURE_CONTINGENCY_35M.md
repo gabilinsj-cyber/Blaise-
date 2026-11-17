@@ -36,3 +36,27 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 - Nenhuma URL pública/rota HTTP foi adicionada para ativar a contingência. Uma eventual futura rota autenticada não deve receber `prioritySources` informadas pelo cliente.
 - Os exemplos `INMET`, `INPE_CPTEC` e `ECMWF_IFS` usados nos testes são **fixtures simuladas**; não constituem três medidores homologados de temperatura em todos os municípios.
 - A implementação isolada não altera a janela de 12 minutos da interface já publicada para os demais fenômenos.
+
+
+## Priorização complementar aprovada em 17/11/2026 — Meteologix/Kachelmannwetter
+
+**Ordem de decisão para temperatura e sensação térmica no RJ (por município e variável):**
+
+1. **INMET**: observação real de estação representativa, quando disponível, licenciada e com `validAt` confiável.
+2. **DWD/ICON Global**: previsão/modelo de temperatura, com rodada, horário válido, grade e posição geográfica identificados.
+3. **NOAA/GFS**: previsão/modelo global independente do ICON, com rodada, horário válido, grade e posição geográfica identificados.
+4. **Meteologix/Kachelmannwetter**: **conferência e eventual desempate**, inicialmente só por inspeção visual do site `https://meteologix.com/br`, **não coletor nem quarto medidor independente**. Seus mapas incluem ICON, GFS e ECMWF: uma representação do mesmo ICON/GFS não acrescenta evidência independente. Se a Meteologix disponibilizar produto próprio ou observação distinta **na API devidamente licenciada**, verificar a origem de cada produto, independência, termos e horários antes de qualquer ativação.
+5. **Agente 13 / OpenWeather One Call 4.0**: **última contingência**. Somente para o(s) campo(s) térmico(s) sem valor confiável após as etapas anteriores, com intervalo mínimo de 35 minutos por município, cache compartilhado e 900 chamadas/dia em todas as consultas OpenWeather.
+
+**Divergência:** comparação exige mesma variável/unidade, mesma área representativa, instantes compatíveis e natureza claramente distinguida (estação vs modelo). Divergência por si só **não invalida** uma observação oficial correta e **não autoriza sobrescrita automática**. Sinalizar discrepância, verificar rodada/erros e fonte original e somente classificar o campo como indisponível/inconclusivo se houver evidência técnica documentada de invalidade. Abrir exceção de consulta OpenWeather por discrepância só após essa auditoria. O algoritmo atual da PR #157 permanece **fail-closed** e ainda **não implementa** resolução independente de divergências, nem coleta dados da Meteologix.
+
+**Licenciamento:** o site pode ser usado para consulta visual de comparação, não para espelhamento, raspagem automatizada, replicação de mapas ou publicação no Blaise. Os termos gerais do site restringem uso comercial; a API é um **produto separado**, sujeito a contratação de pacote Business e licença de cada produto/dado para uso em aplicativo público. Consulta visual gratuita **não equivale a uma API comercial gratuita**. Não habilitar nenhuma integração Meteologix antes de autorização/licenciamento, preço e endpoint contratual confirmados.
+
+**Fontes:**
+- Site: https://meteologix.com/br
+- Modelos para o Brasil: https://meteologix.com/br/model-charts/standard/temperature.html
+- API comercial: https://www.business.meteologix.com/en/api
+- Termos do site: https://meteologix.com/br/site/tos
+- Termos da API: https://accounts.meteologix.com/static/api-nutzungsbedingungen?_locale=en
+
+**Sem mudanças em produção ou precedência geral de fenômenos não térmicos.** Earth Nullschool continua apenas como outro visualizador interno, não um medidor independente. Alertas oficiais seguem somente por links de Alerta Rio e Defesa Civil RJ, sem coleta meteorológica dessas instituições.
