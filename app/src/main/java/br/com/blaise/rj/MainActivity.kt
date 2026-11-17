@@ -283,7 +283,8 @@ fun BlaiseApp(
             }
         }
     }
-    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot,
+        city1.ibgeCode, city2.ibgeCode, lifecycle) {
         backendDashboard = DashboardDataNetworkResult.Unavailable
         val candidate = verifiedPurchase
         val client = dashboardClient
@@ -291,7 +292,7 @@ fun BlaiseApp(
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 backendDashboard = suspendCancellableCoroutine { continuation ->
-                    client.fetch(candidate) { result -> if (continuation.isActive) continuation.resume(result) }
+                    client.fetch(candidate, listOf(city1.ibgeCode, city2.ibgeCode)) { result -> if (continuation.isActive) continuation.resume(result) }
                 }
                 delay(30_000)
             }
