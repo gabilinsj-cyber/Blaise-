@@ -71,3 +71,21 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 **INMET e CEMADEN na comparação interna:** INMET serve como referência de observação térmica **somente quando houver estação com valor recente, coordenadas e uso permitido**. CEMADEN contribui com observações de chuva/contexto de risco hidrológico e checagem meteorológica cruzada; o coletor CEMADEN existente NÃO mede temperatura ou sensação térmica. Não marcar CEMADEN como um termômetro térmico nem como quarta evidência independente de temperatura a menos que um produto térmico específico, licenciado e validado seja realmente integrado. Visualizações Meteologix e Earth Nullschool não devem ser contadas como medições independentes dos mesmos modelos subjacentes.
 
 **Situação no Android:** o botão manual de consulta OpenWeather e o relatório detalhado de modelo foram retirados do painel municipal na PR #157, preservando a apresentação de observação válida com fonte e hora. O aplicativo do cliente NÃO pode acionar o fallback pago enquanto `THERMAL_FALLBACK_INTEGRATED=false`. A implementação do serviço interno continua isolada e desativada até haver três verificações térmicas reais e auditadas. Não declarar valores fictícios nem disponibilidade para todos os 92 municípios.
+
+
+## Breezy Weather / AccuWeather: referência visual para umidade, UV e fenômenos complementares (17/11/2026)
+
+- **Papel permitido atualmente:** `Breezy Weather` é um aplicativo Android FOSS e uma referência de consulta humana para administradores; seus documentos e repositório são acessíveis pela web. **Não é uma API de dados de uso comercial autorizada para Blaise** e não constitui um novo medidor independente da AccuWeather.
+- A documentação das fontes do Breezy confirma que sua integração AccuWeather disponibiliza **umidade, UV, temperatura, ponto de orvalho, pressão, vento e visibilidade**, mas requer chave de API. A chave incluída no Breezy é destinada ao uso do próprio Breezy, não a consultas feitas pelo Blaise, nem à extração de dados ou ao espelhamento por integrações não licenciadas.
+- **Licença:** o portal AccuWeather distingue avaliação/trial e assinaturas comerciais. Seus termos para a licença Starter restringem o uso a fins pessoais/não comerciais e impõem limitações à redistribuição, combinação com outras fontes e uso para avaliação/treinamento algorítmico. O aplicativo Blaise V6 RJ é comercial: nenhuma coleta, cálculo, validação automatizada, exibição de dado, cópia de chave ou integração Breezy/AccuWeather deve ser ativada sem contrato específico que permita o caso de uso. A licença de código LGPL do aplicativo Breezy não licencia dados de provedores terceiros.
+- **Umidade do ar:** a rotina operacional futura deverá priorizar observação INMET comprovada quando representativa, depois dados de fontes internacionais aprovadas e devidamente licenciadas; identificar natureza de cada valor, horário de origem e cobertura espacial.
+- **Índice UV:** somente usar produto UV diretamente fornecido por fonte autorizada, com época de validade e cobertura do RJ demonstradas; não inferir UV de temperatura, nebulosidade ou radiação solar global sem modelo UV validado. Mantém-se `Indisponível` até existir integração comprovada.
+- **Atualidade:** para umidade e UV aplicam-se os critérios de atualidade próprios do fenômeno e do produto. **Não transportar a exceção de 35 minutos da contingência térmica** para UV, umidade, raios, chuva ou vento. Uma previsão com rodada recente não pode ser anunciada como estação observada em tempo real.
+- **Privacidade/interface:** clientes veem somente valores válidos, fonte e hora específicos, ou `Indisponível`; não veem app de comparação, agentes, chaves, cálculos ou divergências. Uso visual interno não autoriza copiar telas, mapas, dados, capturas ou logotipos do Breezy ou AccuWeather para a interface.
+- **Status:** apenas política documentada na PR #157, sem coletor de AccuWeather, sem consulta externa, sem alteração no app em produção e sem gastar chamadas OpenWeather.
+
+Referências verificadas:
+- https://github.com/breezy-weather/breezy-weather
+- https://github.com/breezy-weather/breezy-weather/blob/main/docs/SOURCES.md
+- https://developer.accuweather.com/documentation/overview
+- https://developer.accuweather.com/documentation/terms-of-use
