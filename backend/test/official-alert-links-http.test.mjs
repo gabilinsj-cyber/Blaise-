@@ -9,10 +9,9 @@ import {
 } from '../src/official-alert-links-http.mjs';
 
 test('official notice links are static, source-scoped and do not invent active alerts', async () => {
-  assert.equal(OFFICIAL_ALERT_LINKS.length, 4);
-  assert.ok(OFFICIAL_ALERT_LINKS.some(x=>x.id==='inmet-avisos'&&x.url==='https://avisos.inmet.gov.br/'));
-  assert.ok(OFFICIAL_ALERT_LINKS.some(x=>x.id==='cemaden-rj-riscos'&&
-    x.url==='https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/mapa/'));
+  assert.equal(OFFICIAL_ALERT_LINKS.length, 2);
+  assert.deepEqual(OFFICIAL_ALERT_LINKS.map(x => x.id), ['defesa-civil-rj', 'alerta-rio']);
+  assert.ok(OFFICIAL_ALERT_LINKS.every(x => !/inmet|cemaden/i.test(x.id + ' ' + x.url)));
   assert.equal(OFFICIAL_ALERT_LINKS.some(x=>Object.hasOwn(x,'severity')||Object.hasOwn(x,'level')),false);
   assert.ok(OFFICIAL_ALERT_LINKS.every(x => x.url.startsWith('https://')));
   assert.ok(OFFICIAL_ALERT_LINKS.every(x => x.message && !x.message.includes('ATIVO')));
