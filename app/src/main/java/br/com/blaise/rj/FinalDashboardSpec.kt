@@ -30,10 +30,15 @@ object FinalDashboardSpec {
         "Queda de árvore/poste", "Túneis fechados", "Deslizamentos", "Obras", "Rotas alternativas"
     )
 
+    // Approved source/reference catalog only. A name here is NOT proof
+    // that a live connector, a local station or a commercial licence exists.
+    // NASA/JAXA/Zoom Earth/Marinha/Windy/INEA are excluded.
     val officialSources = listOf(
-        "NOAA", "ECMWF/IFS", "DWD/ICON",
-        "NASA", "JAXA/GSMaP", "EUMETSAT", "OpenWeather",
-        "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
+        "NOAA", "NOAA GOES-19", "NOAA GFS-Wave",
+        "ECMWF/IFS", "DWD/ICON Global", "meteoblue NEMS10",
+        "EUMETSAT", "RAMMB/CIRA SLIDER",
+        "OpenWeather/Agente 13", "INPE/CPTEC",
+        "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
     // Admin-only thermal comparison order; never render this inventory,
