@@ -1014,7 +1014,7 @@ private fun AlertsScreen(city1: City, city2: City) {
     ) {
         StatusLine(city1.name, "Sem conclusão até receber evidência oficial válida")
         StatusLine(city2.name, "Sem conclusão até receber evidência oficial válida")
-        Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
+        Text("Até 4 alertas prioritários ficam na faixa superior. Do quinto em diante, consulte Mais.", color = Gold)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
