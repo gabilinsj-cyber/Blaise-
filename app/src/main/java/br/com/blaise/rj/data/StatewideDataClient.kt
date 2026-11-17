@@ -16,7 +16,7 @@ import java.util.concurrent.Executors
 
 const val STATEWIDE_DATA_PATH = "/v1/data/municipalities"
 
-data class StatewideRisk(val state: String, val label: String?, val level: Int?, val observedAt: Instant?, val sourceUrl: String, val region: String?) {
+data class StatewideRisk(val state: String, val label: String?, val level: Int?, val observedAt: Instant?, val sourceUrl: String?, val region: String?) {
     fun current(now: Instant): Boolean = state in setOf("CURRENT", "CURRENT_DEGRADED") &&
         level != null && level in 1..5 && label != null && observedAt != null &&
         !observedAt.isAfter(now) && Duration.between(observedAt, now).seconds <= MAX_CURRENT_OBSERVATION_AGE_SECONDS
@@ -43,7 +43,9 @@ data class StatewideSnapshot(val generatedAt: Instant, val workerActive: Boolean
         require(warnings.all { w -> w.municipalityIbges.all { RioMunicipalities.byIbgeCode(it) != null } && w.expires > w.onset })
         require(municipalities.all { city -> city.warningIds.all { id -> warnings.any { it.id == id && city.ibge in it.municipalityIbges } } })
         require(sources.size in 1..32 && sources.map { it.id }.toSet().size == sources.size)
-        require(sources.none { it.id.contains("inea", ignoreCase = true) })
+        require(sources.none { listOf("inea", "inmet", "cemaden").any { excluded -> it.id.contains(excluded, ignoreCase = true) || it.name.contains(excluded, ignoreCase = true) } })
+        require(warnings.isEmpty()) // Legacy INMET/CEMADEN warnings cannot feed subscriber data.
+        require(municipalities.all { it.risk.state == "UNAVAILABLE" && it.risk.level == null && it.risk.label == null && it.risk.sourceUrl == null })
     }
     fun current(now: Instant) = !generatedAt.isAfter(now) && Duration.between(generatedAt, now).seconds <= 120
 }
@@ -63,8 +65,10 @@ object StatewideDataParser {
             val risk = row.getJSONObject("hydrologicalRisk")
             val state = risk.getString("state")
             require(state in setOf("CURRENT", "CURRENT_DEGRADED", "STALE", "UNAVAILABLE"))
-            val sourceUrl = risk.getString("sourceUrl")
-            require(sourceUrl == "https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/municipio/?action=hidro")
+            // Reject legacy CEMADEN payload instead of silently forwarding it.
+            val sourceUrl = optional(risk, "sourceUrl")
+            require(state == "UNAVAILABLE" && sourceUrl == null && risk.isNull("level") &&
+                risk.isNull("label") && risk.isNull("observedAt") && risk.isNull("region"))
             val coverage = row.getString("warningCoverage")
             require(coverage in setOf("UNAVAILABLE", "INVENTORY_LIMIT", "PARTIAL_UNRESOLVED_AREAS", "EXACT_IBGE_ONLY"))
             StatewideMunicipality(row.getString("ibge").toInt(), row.getString("name"), row.getBoolean("seaFacing"),
@@ -72,12 +76,9 @@ object StatewideDataParser {
                     optional(risk, "observedAt")?.let(Instant::parse), sourceUrl, optional(risk, "region")),
                 strings(row.getJSONArray("warningIds")), coverage)
         }
-        val warnings = map(root.getJSONArray("warnings")) { row ->
-            require(row.getString("sourceUrl") == "https://apiprevmet3.inmet.gov.br/avisos/rss")
-            StatewideWarning(row.getString("id"), row.getString("event"), row.getString("severity"),
-                Instant.parse(row.getString("sent")), Instant.parse(row.getString("onset")), Instant.parse(row.getString("expires")),
-                strings(row.getJSONArray("municipalityIbges")).map(String::toInt), row.getString("attribution"))
-        }
+        // No domestic comparison provider may publish warnings to this contract.
+        require(root.getJSONArray("warnings").length() == 0)
+        val warnings = emptyList<StatewideWarning>()
         val sources = map(root.getJSONArray("sources")) { row -> StatewideSource(row.getString("id"), row.getString("name"),
             strings(row.getJSONArray("products")), row.getString("scope"), row.getString("state"), optional(row, "connectedProduct")) }
         return StatewideSnapshot(Instant.parse(root.getString("generatedAt")), root.getBoolean("workerActive"), municipalities, warnings, sources, MarineDataParser.parse(root.optJSONArray("marine")))
