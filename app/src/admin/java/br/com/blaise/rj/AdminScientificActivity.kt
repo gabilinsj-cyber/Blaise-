@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
+import java.util.Locale
 import com.google.firebase.auth.FirebaseAuth
 
 /**
@@ -62,7 +67,59 @@ class AdminScientificActivity : ComponentActivity() {
                             }
                         }
                         Spacer(Modifier.height(16.dp))
-                        Text("Cálculos atuais: INDISPONÍVEIS — aguardando dados autorizados, atualizados e validados no servidor.")
+                        Text("CÁLCULOS OPERACIONAIS: indisponíveis até chegar dado internacional homologado.")
+                        Text("CALCULADORA MANUAL • ENTRADAS DO ADMINISTRADOR",
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("Use números apenas para análise privada. Não são leituras de estação nem dados atuais.")
+                        var tempText by remember { mutableStateOf("") }
+                        var humidityText by remember { mutableStateOf("") }
+                        var windText by remember { mutableStateOf("") }
+                        var attempted by remember { mutableStateOf(false) }
+                        var results by remember { mutableStateOf<List<AdminManualScientificResult>>(emptyList()) }
+                        fun asNumber(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()
+                        OutlinedTextField(
+                            value = tempText,
+                            onValueChange = { tempText = it; results = emptyList(); attempted = false },
+                            label = { Text("Temperatura (°C)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("admin-science-temperature"),
+                        )
+                        OutlinedTextField(
+                            value = humidityText,
+                            onValueChange = { humidityText = it; results = emptyList(); attempted = false },
+                            label = { Text("Umidade relativa (%)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("admin-science-humidity"),
+                        )
+                        OutlinedTextField(
+                            value = windText,
+                            onValueChange = { windText = it; results = emptyList(); attempted = false },
+                            label = { Text("Vento (km/h) • opcional") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("admin-science-wind"),
+                        )
+                        Button(
+                            onClick = {
+                                attempted = true
+                                results = ScientificMemoryPolicy.calculateManualInputs(
+                                    asNumber(tempText), asNumber(humidityText),
+                                    if (windText.isBlank()) null else asNumber(windText)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("admin-science-calculate"),
+                        ) { Text("Calcular — análise privada") }
+                        if (attempted && results.isEmpty())
+                            Text("Entradas ausentes ou inválidas. Temperatura: −20 a 50 °C; umidade: 1–100%; vento: 0–250 km/h.")
+                        results.forEach { result ->
+                            Text(
+                                result.title + ": " + String.format(Locale("pt", "BR"), "%.2f %s", result.value, result.unit) +
+                                " • " + result.method,
+                                modifier = Modifier.testTag("admin-science-result"),
+                            )
+                        }
+                        if (results.isNotEmpty())
+                            Text("CÁLCULO MANUAL — NÃO É MEDIÇÃO OFICIAL, ALERTA OU PREVISÃO VALIDADA.")
+                        Text("Nenhum valor digitado é enviado ao backend ou guardado como histórico pessoal.")
                         Text("Somente cálculos internos; nenhuma saída constitui aviso oficial ou cria alerta.")
                     }
                 }
