@@ -5,6 +5,7 @@ import br.com.blaise.rj.billing.FirebaseSubscriberAccess
 
 import br.com.blaise.rj.billing.LocalPurchaseState
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
+import br.com.blaise.rj.cities.RioMunicipalities
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -307,7 +308,9 @@ object DashboardDataParser {
         val forecasts = (payload["internationalForecasts"] as? List<*>)?.map { raw ->
             val m = stringMap(raw)
             require(m.keys == forecastKeys)
-            require(m["ibge"] in listOf("3304557", "3303302"))
+            val municipalityCode = (m["ibge"] as? String)?.toIntOrNull()
+                ?: throw IllegalArgumentException("invalid_model_ibge")
+            require(RioMunicipalities.byIbgeCode(municipalityCode) != null)
             require(m["sourceId"] == "MET_NORWAY_LOCATIONFORECAST_2")
             require(m["modelOrigin"] == "ECMWF_IFS")
             require(m["uvOrigin"] == "COPERNICUS_CAMS_UV_VIA_MET_NO")
@@ -418,23 +421,37 @@ class DashboardDataHttpsClient private constructor(
 ) {
     private val endpointUrl = URL(endpoint)
 
-    fun fetch(candidate: PlayPurchaseCandidate, callback: (DashboardDataNetworkResult) -> Unit) {
+    fun fetch(candidate: PlayPurchaseCandidate, callback: (DashboardDataNetworkResult) -> Unit) =
+        fetch(candidate, emptyList(), callback)
+
+    /** At most two IBGE IDs; never sends user GPS or 92-place fanout. */
+    fun fetch(
+        candidate: PlayPurchaseCandidate,
+        municipalityIbges: List<Int>,
+        callback: (DashboardDataNetworkResult) -> Unit,
+    ) {
         if (candidate.state != LocalPurchaseState.PURCHASED
             || candidate.purchaseToken.isBlank()
             || candidate.productIds.isEmpty()
+            || municipalityIbges.size > 2
+            || municipalityIbges.size != municipalityIbges.toSet().size
+            || municipalityIbges.any { RioMunicipalities.byIbgeCode(it) == null }
         ) {
             callback(DashboardDataNetworkResult.Unavailable)
             return
         }
         executor.execute {
             callback(
-                runCatching { fetchBlocking(candidate) }
+                runCatching { fetchBlocking(candidate, municipalityIbges) }
                     .getOrDefault(DashboardDataNetworkResult.Unavailable),
             )
         }
     }
 
-    private fun fetchBlocking(candidate: PlayPurchaseCandidate): DashboardDataNetworkResult {
+    private fun fetchBlocking(
+        candidate: PlayPurchaseCandidate,
+        municipalityIbges: List<Int>,
+    ): DashboardDataNetworkResult {
         val bearer = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
             FirebaseSubscriberAccess.authorizationHeader() ?: return DashboardDataNetworkResult.Unavailable else null
         val connection = endpointUrl.openConnection() as? HttpURLConnection
@@ -450,12 +467,13 @@ class DashboardDataHttpsClient private constructor(
             connection.setRequestProperty("Cache-Control", "no-store")
             if (bearer != null) connection.setRequestProperty("Authorization", bearer)
 
-            val payload = JSONObject()
+            val request = JSONObject()
                 .put("packageName", packageName)
                 .put("purchaseToken", candidate.purchaseToken)
                 .put("productIds", JSONArray(candidate.productIds))
-                .toString()
-                .toByteArray(Charsets.UTF_8)
+            if (municipalityIbges.isNotEmpty())
+                request.put("municipalityIbges", JSONArray(municipalityIbges))
+            val payload = request.toString().toByteArray(Charsets.UTF_8)
             connection.setFixedLengthStreamingMode(payload.size)
             connection.outputStream.use { it.write(payload) }
 
