@@ -11,6 +11,7 @@ class OfficialAlertRibbonPolicyTest {
         checkedAt = Instant.parse("2026-11-17T15:59:00Z"),
         validFrom = Instant.parse("2026-11-17T15:00:00Z"),
         validUntil = Instant.parse("2026-11-17T18:00:00Z"),
+        sourceUpdatedAt = Instant.parse("2026-11-17T15:58:00Z"),
         rjCoverageValidated = true, verifiedByBackend = verified,
     )
 
@@ -29,6 +30,43 @@ class OfficialAlertRibbonPolicyTest {
         assertNull(OfficialAlertRibbonPolicy.present("openweather-agent13", old, now).level)
         assertTrue(OfficialAlertRibbonPolicy.layout(listOf(old), now)
             .visible.all { !it.presentation.activeValidatedAlert })
+    }
+
+    @Test fun sixHourLimitUsesOfficialPublicationNotLastBackendCheck() {
+        val checkNow = Instant.parse("2026-11-17T16:00:00Z")
+        val updatedSixHoursAgo = evidence(5).copy(
+            checkedAt = checkNow.minusSeconds(10),
+            sourceUpdatedAt = checkNow.minusSeconds(6 * 3600),
+            validFrom = checkNow.minusSeconds(7 * 3600),
+            validUntil = checkNow.plusSeconds(3600),
+        )
+        assertEquals(6L, OfficialAlertRibbonPolicy.MAX_OFFICIAL_SOURCE_SILENCE_HOURS)
+        assertEquals(5, OfficialAlertRibbonPolicy.present(
+            "inpe-cptec-avisos", updatedSixHoursAgo, checkNow).level)
+        val staleEvenIfCheckedNow = updatedSixHoursAgo.copy(
+            sourceUpdatedAt = checkNow.minusSeconds(6 * 3600 + 1),
+            checkedAt = checkNow,
+        )
+        val state = OfficialAlertRibbonPolicy.present(
+            "inpe-cptec-avisos", staleEvenIfCheckedNow, checkNow)
+        assertFalse(state.activeValidatedAlert)
+        assertNull(state.level)
+        assertTrue(state.message.contains("NÃO VERIFICADOS"))
+        val page = OfficialAlertRibbonPolicy.layout(listOf(staleEvenIfCheckedNow), checkNow)
+        assertTrue(page.visible.all { !it.presentation.activeValidatedAlert })
+        assertTrue(page.additional.isEmpty())
+    }
+
+    @Test fun noAuthorityUpdateTimestampOrFutureTimestampFailsClosed() {
+        val missing = evidence(4).copy(sourceUpdatedAt = null)
+        assertNull(OfficialAlertRibbonPolicy.present(
+            "inpe-cptec-avisos", missing, now).level)
+        val future = evidence(4).copy(sourceUpdatedAt = now.plusSeconds(1))
+        assertNull(OfficialAlertRibbonPolicy.present(
+            "inpe-cptec-avisos", future, now).level)
+        val afterCheck = evidence(4).copy(sourceUpdatedAt = now)
+        assertNull(OfficialAlertRibbonPolicy.present(
+            "inpe-cptec-avisos", afterCheck, now).level)
     }
 
     @Test fun fourDirectLinksAreApprovedWithoutActiveWarningClaim() {
