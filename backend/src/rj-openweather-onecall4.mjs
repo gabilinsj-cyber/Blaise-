@@ -25,10 +25,11 @@ export const RJ_OPENWEATHER_CACHE_MS=60_000;
 export const RJ_OPENWEATHER_MAX_CURRENT_AGE_MS=12*60_000;
 const RJ_CODES=new Set(RJ_MUNICIPALITIES.map(c=>String(c.ibge)));
 const finite=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max;
-const missing=(reason)=>Object.freeze({
+const missing=(reason,diagnostic=null)=>Object.freeze({
   contract:RJ_OPENWEATHER_ONECALL4_CONTRACT,status:'UNAVAILABLE',reason,
   data:null,officialObservation:false,officialAlert:false,radarFrame:false,
-  automaticAlertAuthorized:false
+  automaticAlertAuthorized:false,
+  ...(diagnostic ? {diagnostic:Object.freeze(diagnostic)} : {})
 });
 function verifiedTarget(target){
   return target&&RJ_CODES.has(String(target.ibge))&&
@@ -49,8 +50,22 @@ function normalize(payload,target,now){
     !finite(item.temp,-60,65))
     return missing('PROVIDER_CURRENT_TEMPERATURE_INVALID');
   const validMs=item.dt*1000;
-  if(validMs>now||now-validMs>RJ_OPENWEATHER_MAX_CURRENT_AGE_MS)
-    return missing('PROVIDER_CURRENT_VALUE_STALE_OR_FUTURE');
+  // Separate stale readings from future-dated readings without ever
+  // treating a future forecast as a current observation. The diagnostic
+  // contains only UTC times and integer deltas, never a key, URL, location,
+  // meteorological value, or raw provider response.
+  if(validMs>now)
+    return missing('PROVIDER_CURRENT_VALUE_FUTURE',{
+      sourceValidAt:new Date(validMs).toISOString(),
+      checkedAt:new Date(now).toISOString(),
+      offsetSeconds:Math.ceil((validMs-now)/1000)
+    });
+  if(now-validMs>RJ_OPENWEATHER_MAX_CURRENT_AGE_MS)
+    return missing('PROVIDER_CURRENT_VALUE_STALE',{
+      sourceValidAt:new Date(validMs).toISOString(),
+      checkedAt:new Date(now).toISOString(),
+      ageSeconds:Math.floor((now-validMs)/1000)
+    });
   const windMs=presentNumber(item.wind_speed,0,110);
   const gustMs=presentNumber(item.wind_gust,0,140);
   const humidity=presentNumber(item.humidity,0,100);
