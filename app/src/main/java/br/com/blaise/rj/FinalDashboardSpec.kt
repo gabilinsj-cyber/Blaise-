@@ -37,7 +37,7 @@ object FinalDashboardSpec {
         "NOAA", "NOAA GOES-19", "NOAA GFS-Wave",
         "ECMWF/IFS", "DWD/ICON Global", "meteoblue NEMS10",
         "EUMETSAT", "RAMMB/CIRA SLIDER",
-        "OpenWeather/Agente 13", "INPE/CPTEC",
+        "OpenWeather", "INPE/CPTEC",
         "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
