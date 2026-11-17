@@ -64,9 +64,8 @@ try {
     console.log('BLOQUEADO: Firestore ou integracao nao configurados.');
     process.exitCode=1;
   } else {
-    const now=Date.now();
-    const data=await agent.collect({target:TARGET,now});
-    const projected=projectAgent13CurrentEstimate(data,TARGET.ibge,now);
+    const data=await agent.collect({target:TARGET});
+    const projected=projectAgent13CurrentEstimate(data,TARGET.ibge,Date.now());
     if(!projected){
       console.log('SEM DADO ATUAL VALIDO: '+String(data.reason??'fonte indisponivel').replace(/[^A-Z0-9_]/g,'').slice(0,64));
       if(data.diagnostic&&
