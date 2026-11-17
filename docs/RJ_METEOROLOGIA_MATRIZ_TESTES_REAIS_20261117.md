@@ -1,5 +1,8 @@
 # Blaise V6 RJ — 17/11/2026: quem mede, estima e prevê; testes reais e status da interface
 
+**DECISÃO FINAL MAIS RECENTE:** NASA GPM/IMERG, NASA SAT, NASA MUR SST e JAXA GSMaP **removidas** dos candidatos operacionais e da interface. **RAMMB/CIRA SLIDER (GOES-19)** assume apenas a referência **visual externa**, não chuva medida/estimada em mm, com proveniência NOAA e sem independência instrumental. `rainNowMm`, `rainAccumulatedMm`, `oceanRainMm` não aceitam esses fornecedores como dados numéricos. Em caso de ausência de fonte observacional licenciada com idade ≤30 min: `INDISPONÍVEL`. Demais descrições antigas NASA/JAXA abaixo são registro histórico revogado. Veja `docs/RJ_RAMMB_CIRA_SUBSTITUICAO_JAXA_NASA_20261117.md`.
+
+
 **ATUALIZAÇÃO PRIORITÁRIA (17/11/2026): JAXA EXCLUÍDA.** Por exigência do usuário, nenhum produto GSMaP_NRT (latência ~4 horas) nem GSMaP_NOW (estimativa/extrapolação publicada a cada 30 minutos) pode alimentar chuva atual do Blaise. A JAXA foi retirada das fontes operacionais e da interface pública; qualquer referência histórica a JAXA como fonte principal abaixo está **revogada**. Chuva atual exige observação O licenciada, comprovada e com no máximo 30 minutos de idade. Sem fonte ativa homologada: **INDISPONÍVEL**. NASA IMERG permanece somente na pesquisa interna, não no cliente como chuva atual. Política efetiva em `backend/src/rj-source-sector-matrix.mjs`; documento vigente `docs/RJ_OPERACAO_REAL_GATES_92_CIDADES_20261117.md`.
 
 
