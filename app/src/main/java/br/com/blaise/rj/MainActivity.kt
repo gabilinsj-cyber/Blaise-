@@ -26,6 +26,7 @@ import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.data.DashboardInternationalForecast
 import br.com.blaise.rj.geo.RjMunicipalMap
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import androidx.compose.runtime.CompositionLocalProvider
@@ -201,6 +202,7 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
+private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
 // Until a signed and audited backend warning contract exists, this list stays empty.
 private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
@@ -314,7 +316,12 @@ fun BlaiseApp(
     }
 
     CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
-        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable
+        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable,
+        LocalInternationalForecasts provides if (powerOn &&
+            billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
+            (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.internationalForecasts
+                ?.filter { it.current(observationClock) }?.associateBy { it.ibge }.orEmpty()
+            else emptyMap()
     ) {
     BlaiseDashboard(
         city1 = city1,
@@ -453,6 +460,7 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latestForecast = LocalInternationalForecasts.current.values.map { it.validAt }.maxOrNull()
     val displayedClock = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")))
     Card(
@@ -470,7 +478,12 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
                 Text("Clima e Tempo • Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
                 Text(displayedClock, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
-                Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    latest?.let { "Última observação verificada: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" }
+                        ?: latestForecast?.let { "Previsão ECMWF/IFS válida para ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • não é medição" }
+                        ?: "Dados internacionais ainda indisponíveis",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                )
             }
             val statusColor = if (powerOn) StableGreen else AlertRed
             val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
@@ -1665,6 +1678,8 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
+    // Cached ECMWF forecasts are kept separate from real station observations.
+    val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(clock) }
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1676,17 +1691,46 @@ private fun CityPanel(
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.height(2.dp))
-            Text(observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-            Text(report?.summary(clock) ?: "Consultando medição oficial…", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Text(
+                (observation?.temperatureC ?: model?.temperatureC)?.let {
+                    String.format(java.util.Locale("pt", "BR"), "%.1f °C", it)
+                } ?: "Indisponível",
+                color = Color.White, fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            if (observation != null) {
+                Text(report?.summary(clock) ?: "Observação indisponível",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            } else if (model != null) {
+                Text("PREVISÃO DE MODELO • MET Norway / ECMWF IFS • NÃO É MEDIÇÃO LOCAL",
+                    color = GoldSoft, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall)
+                val forecastTime = model.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                val checkedTime = model.checkedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                Text("Previsão válida: $forecastTime • verificada: $checkedTime • Brasília",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("Créditos: MET Norway / ECMWF; UV céu limpo: CAMS via MET Norway • CC BY 4.0",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            } else {
+                Text("Dados internacionais indisponíveis para esta cidade",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
             fun metric(value: Double?, unit: String): String = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "Indisponível"
-            StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
-            StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", "Indisponível")
-            StatusLine("Índice UV", "Indisponível")
-            StatusLine("Chance de chuva", "Indisponível")
-            StatusLine("Rajadas / nuvens", "Indisponíveis")
+            StatusLine("Umidade", metric(observation?.humidityPercent ?: model?.humidityPct, "%"))
+            StatusLine("Vento médio", metric(observation?.windKmh ?: model?.windKmh, "km/h"))
+            StatusLine("Sensação térmica", metric(model?.feelsLikeC, "°C") +
+                if (model?.feelsLikeC != null) " • estimativa" else "")
+            StatusLine("UV céu limpo (não observado)", metric(model?.uvClearSkyIndex, "índice"))
+            StatusLine("Prob. chuva próxima hora", metric(model?.precipitationProbabilityNextHourPct, "%"))
+            StatusLine("Chuva prevista na próxima hora", metric(model?.precipitationNextHourMm, "mm"))
+            StatusLine("Rajadas previstas", metric(model?.gustKmh, "km/h"))
+            StatusLine("Nuvens previstas", metric(model?.cloudPct, "%"))
+            StatusLine("Pressão prevista", metric(model?.pressureHpa, "hPa"))
+            StatusLine("Ponto de orvalho estimado", metric(model?.dewPointC, "°C"))
             // Agent identities, comparison calculations and provider controls
             // belong only in the administrator application, never this panel.
             // The observation summary above labels its actual source and time.
