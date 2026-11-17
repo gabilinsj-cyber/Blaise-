@@ -5,6 +5,8 @@ import java.time.Instant
 
 /**
  * Official portals are links, not evidence that an alert is active.
+ * The official alert metadata is ephemeral during rendering; this class
+ * performs no disk/database/cache write and never owns a copied bulletin.
  * No scraping, no copied bulletins and no conversion from provider colors.
  * The five Blaise bands may only be rendered from backend-verified risk evidence.
  */
@@ -39,6 +41,13 @@ data class OfficialAlertRibbonPage(
 
 object OfficialAlertRibbonPolicy {
     const val MAX_TOP_ALERTS = 4
+    // No SharedPreferences, Room, SQLite, Firestore or local files for notices.
+    // UI receives only ephemeral, backend-verified metadata; nothing is
+    // written by this pure presentation policy. Never copy a source bulletin.
+    const val PERSIST_OFFICIAL_NOTICES = false
+    const val PERSIST_OFFICIAL_NOTICE_HISTORY = false
+    const val DISPLAY_PROVIDER_ALERT_BODY = false
+    const val ACCEPT_OPENWEATHER_AS_OFFICIAL_WARNING_SOURCE = false
     val portals: List<OfficialAlertPortal> = listOf(
         OfficialAlertPortal("alerta-rio", "Alerta Rio",
             "Veja os avisos oficiais para o município do Rio de Janeiro.",
