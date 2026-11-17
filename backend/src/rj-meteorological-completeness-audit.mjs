@@ -11,8 +11,10 @@ const sources = Object.freeze({
   // INMET and CEMADEN deliberately absent: internal Brazilian comparison
   // inputs are not eligible as data suppliers to Blaise V6 RJ.
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
-  NOAA_GFS_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
-  NOAA_GLM: 'O', JAXA_GSMAP: 'E', EUMETSAT_SAT: 'O',
+  NOAA_GFS_WAVE: 'P', ECMWF_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
+  NOAA_GLM: 'O', JAXA_GSMAP: 'E', NASA_GPM_IMERG: 'E',
+  EUMETSAT_SAT: 'O', EUMETSAT_OSI_SAF_SST: 'E',
+  NOAA_COASTWATCH_SST: 'E', NASA_MUR_SST: 'E',
   // User-authorized 17/11/2026: Copernicus CAMS strictly via MET Norway/Yr
   // for the clear-sky UV product; not a direct Copernicus collector.
   COPERNICUS_CAMS_UV_VIA_MET_NO: 'P',
@@ -30,15 +32,15 @@ const definitions = [
   ['uvIndex','index',0,25,[['NOAA_UVI','P']]],
   ['uvClearSkyIndex','index',0,25,[['COPERNICUS_CAMS_UV_VIA_MET_NO','P']]],
   // MET Norway uses ECMWF forecast: same ECMWF model, not extra independent input.
-  ['rainNextHourForecastMm','mm',0,500,[['ECMWF_IFS','P']]],
+  ['rainNextHourForecastMm','mm',0,500,[['ECMWF_IFS','P'],['NOAA_GFS','P'],['DWD_ICON_GLOBAL','P']]],
   ['rainNextHourProbabilityPct','%',0,100,[['ECMWF_IFS','P']]],
   ['dewPointC','°C',-90,65,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
   ['pressureHpa','hPa',800,1100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['windKmh','km/h',0,400,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['gustKmh','km/h',0,504,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['rainNowMm','mm',0,500,[]],
-  ['rainAccumulatedMm','mm',0,2500,[['JAXA_GSMAP','E']]],
-  ['oceanRainMm','mm',0,2500,[['JAXA_GSMAP','E']]],
+  ['rainAccumulatedMm','mm',0,2500,[['JAXA_GSMAP','E'],['NASA_GPM_IMERG','E']]],
+  ['oceanRainMm','mm',0,2500,[['JAXA_GSMAP','E'],['NASA_GPM_IMERG','E']]],
   ['cloudPct','%',0,100,[['EUMETSAT_SAT','O'],['NASA_SAT','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['visibilityKm','km',0,250,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['solarRadiationWm2','W/m²',0,1800,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
@@ -46,9 +48,13 @@ const definitions = [
   ['hailProbabilityPct','%',0,100,[['ECMWF_IFS','P'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['cycloneLandRiskPct','%',0,100,[['ECMWF_IFS','E'],['NOAA_GFS','E']]],
   ['cycloneSeaRiskPct','%',0,100,[['ECMWF_IFS','E'],['NOAA_GFS','E']]],
-  ['waveHeightM','m',0,35,[['NOAA_GFS_WAVE','P']]],
-  ['swellPeriodS','s',0,40,[['NOAA_GFS_WAVE','P']]],
+  ['waveHeightM','m',0,35,[['NOAA_GFS_WAVE','P'],['ECMWF_WAVE','P']]],
+  ['swellPeriodS','s',0,40,[['NOAA_GFS_WAVE','P'],['ECMWF_WAVE','P']]],
   ['seaCurrentMs','m/s',0,10,[['NOAA_RTOFS','P']]],
+  // Every sea-surface temperature here is a satellite retrieval or L4 estimate.
+  // Two GOES-East/ABI processors are not independent sensors.
+  ['seaSurfaceTemperatureC','°C',-5,45,[['EUMETSAT_OSI_SAF_SST','E'],
+    ['NOAA_COASTWATCH_SST','E'],['NASA_MUR_SST','E']]],
   ['riverLevelM','m',-50,200,[['ANA_RIVER','O'],['SGB_SACE','O']]],
   ['hydrologicalRiskLevel','level',1,5,[]],
 ];
