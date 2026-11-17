@@ -113,3 +113,20 @@ test('satellite SST and IMERG remain estimated products, never direct thermomete
   const falseStation={...payload,field:'rainNowMm',category:'O'};
   assert.equal(audit([falseStation]).rejectedRecordCount,1);
 });
+
+test('JAXA excluded rainfall source is rejected even with recent authorized-looking records',()=>{
+  assert.equal(Object.hasOwn(RJ_METEOROLOGY_SOURCE_CATEGORIES,'JAXA_GSMAP'),false);
+  const now=Date.parse('2026-11-17T18:00:00Z');
+  const record={...base,
+    field:'rainAccumulatedMm',sourceId:'JAXA_GSMAP',category:'E',
+    datasetId:'GSMAP_NOW_V8',
+    validAt:'2026-11-17T17:45:00Z',
+    issuedAt:'2026-11-17T17:45:00Z',
+    checkedAt:'2026-11-17T17:59:00Z',
+    value:8.2
+  };
+  const audit=buildInternalRjMeteorologyCoverage([record],{now});
+  assert.equal(audit.verifiedValueCount,0);
+  assert.equal(audit.rejectedRecordCount,1);
+  assert.equal(audit.fields.find(x=>x.field==='rainNowMm').coveredMunicipalities,0);
+});
