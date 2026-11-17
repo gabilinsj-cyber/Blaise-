@@ -202,6 +202,12 @@ object DashboardDataParser {
         }
         require(sources.count { it.state == "CURRENT" || it.state == "CURRENT_DEGRADED" } == currentSourceCount)
         require(sources.map { it.sourceId }.toSet().size == sources.size)
+        // Old server revisions must not leak INMET/CEMADEN comparator status
+        // into the subscriber app; reject instead of silently accepting it.
+        require(sources.none {
+            it.sourceId.contains("inmet", ignoreCase = true) ||
+            it.sourceId.contains("cemaden", ignoreCase = true)
+        })
 
 
         val marine = payload["marine"]?.let { raw ->
