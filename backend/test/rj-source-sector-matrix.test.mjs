@@ -25,8 +25,26 @@ test('sector registry lists approved roles without claiming live download',()=>{
 test('MET Norway is same underlying ECMWF family and no duplicate fourth thermometer',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
   const independent=getUnderlyingFamiliesForSector(air.id);
-  assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS']);
-  assert.equal(air.products.length,3);
+  assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS','METEOBLUE_NEMS10']);
+  assert.equal(air.products.length,4);
+  const meta=policy.meteoblueComparison;
+  assert.equal(meta.nominalGridKm,10);
+  assert.equal(meta.commercialApiLicenseVerified,false);
+  assert.equal(meta.serverApiCredentialsInstalled,false);
+  assert.equal(meta.liveNumericIngestionEnabled,false);
+  assert.equal(meta.androidObservedDataEnabled,false);
+  assert.equal(meta.sameEcmwfNoaaDwdInputsNotIndependent,true);
+  assert.equal(meta.learningMultiModelNotIndependentOfConstituentModels,true);
+  for (const id of ['AIR_TEMPERATURE','AIR_PRESSURE_HUMIDITY','WIND_GUST','RAIN_NEXT_HOUR','CLOUDS']) {
+    const sector=matrix.find(x=>x.id===id);
+    const mb=sector.products.filter(x=>x.sourceId==='METEOBLUE_NEMS10');
+    assert.equal(mb.length,1);
+    assert.equal(mb[0].kind,'P');
+    assert.equal(mb[0].liveIngestionConfirmed,false);
+  }
+  for (const id of ['SATELLITE_VISUAL_RJ','SATELLITE_VISUAL_ATLANTIC','LIGHTNING','SST','RIVERS_FLOODS']) {
+    assert.ok(!matrix.find(x=>x.id===id).products.some(x=>x.sourceId==='METEOBLUE_NEMS10'));
+  }
   assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'ECMWF_IFS');
 });
 test('RAMMB/CIRA replaces NASA and JAXA as visual reference only, not rain sensor',()=>{
