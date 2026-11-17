@@ -14,30 +14,30 @@ export const PROBE_TARGETS=Object.freeze([
     id:'NOAA_GFS_WAVE',
     url:'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl',
     kind:'P',family:'NOAA_GFS_WAVE',
-    pattern:/gfs\\.(20\\d{6})/g,format:'date'
+    pattern:/gfs\.(20\d{6})/g,format:'date'
   }),
   Object.freeze({
     id:'DWD_ICON_GLOBAL_T2M',
     url:'https://opendata.dwd.de/weather/nwp/icon/grib/00/t_2m/',
     kind:'P',family:'DWD_ICON',
-    pattern:/icon_global_icosahedral_single-level_(20\\d{8})/g,format:'cycle'
+    pattern:/icon_global_icosahedral_single-level_(20\d{8})/g,format:'cycle'
   }),
   Object.freeze({
     id:'EUMETSAT_OSI_SAF_SST',
     url:'https://osi-saf.eumetsat.int/low-and-mid-latitudes-processing-center',
     kind:'E',family:'GOES_EAST_ABI',
-    pattern:/OSI-207-c[^\\n\\r]{0,240}?(20\\d{6}\\s+\\d{2}:\\d{2})/ig,
+    pattern:/OSI-207-c[^\n\r]{0,240}?(20\d{6}\s+\d{2}:\d{2})/ig,
     format:'production'
   }),
 ]);
 
 const boundedUtc=(v,format)=>{
-  const stamp=String(v).replace(/\\s+/g,' ').trim();
-  if(format==='date'&&/^20\\d{6}$/.test(stamp))
+  const stamp=String(v).replace(/\s+/g,' ').trim();
+  if(format==='date'&&/^20\d{6}$/.test(stamp))
     return Date.parse(stamp.slice(0,4)+'-'+stamp.slice(4,6)+'-'+stamp.slice(6,8)+'T00:00:00Z');
-  if(format==='cycle'&&/^20\\d{8}$/.test(stamp))
+  if(format==='cycle'&&/^20\d{8}$/.test(stamp))
     return Date.parse(stamp.slice(0,4)+'-'+stamp.slice(4,6)+'-'+stamp.slice(6,8)+'T'+stamp.slice(8,10)+':00:00Z');
-  if(format==='production'&&/^20\\d{6} \\d{2}:\\d{2}$/.test(stamp))
+  if(format==='production'&&/^20\d{6} \d{2}:\d{2}$/.test(stamp))
     return Date.parse(stamp.slice(0,4)+'-'+stamp.slice(4,6)+'-'+stamp.slice(6,8)+'T'+stamp.slice(9)+':00Z');
   return NaN;
 };
@@ -126,7 +126,7 @@ if(process.argv[1] && import.meta.url===new URL('file://'+process.argv[1]).href)
     const dir=fileURLToPath(new URL('../../evidence/international-sources/',import.meta.url));
     await mkdir(dir,{recursive:true});
     await writeFile(new URL('../../evidence/international-sources/catalog-probe.json',import.meta.url),
-      JSON.stringify(evidence,null,2)+'\\n',{mode:0o600});
+      JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
     console.log(JSON.stringify(evidence));
   }
 }
