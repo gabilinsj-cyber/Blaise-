@@ -21,9 +21,9 @@ class FinalDashboardSpecTest {
         assertEquals("Samsung Galaxy Store", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_SAMSUNG))
         assertEquals("Amazon Appstore", FinalDashboardSpec.storeDisplayName(FinalDashboardSpec.STORE_AMAZON))
     }
-    @Test fun `more than three city alerts opens additional page`() {
-        assertFalse(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(3))
-        assertTrue(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(4))
+    @Test fun `more than four city alerts opens additional page`() {
+        assertFalse(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(4))
+        assertTrue(FinalDashboardSpec.shouldOpenAdditionalAlertsPage(5))
     }
 
     @Test fun `seismic notification requires magnitude seven and felt in Brazil`() {
