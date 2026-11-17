@@ -52,6 +52,12 @@ object FinalDashboardSpec {
     // automatic or manual paid OpenWeather fallback through the city panel.
     const val THERMAL_FALLBACK_INTEGRATED = false
     const val THERMAL_DIAGNOSTICS_ADMIN_ONLY = true
+    // PUBLIC LINK-ONLY exception (17/11): INMET and INPE/CPTEC warning portals
+    // can be linked from the header. Their bulletin content is not ingested here.
+    // This does not authorize INMET weather inputs or CEMADEN public output.
+    val officialAlertReferralIds = listOf(
+        "alerta-rio", "defesa-civil-rj", "inmet-avisos", "inpe-cptec-avisos"
+    )
     // INMET / CEMADEN are domestic comparison inputs only. Never published.
     const val BRAZIL_DOMESTIC_REFERENCES_ADMIN_ONLY = true
     const val THERMAL_UNAVAILABLE_LABEL = "Indisponível"
