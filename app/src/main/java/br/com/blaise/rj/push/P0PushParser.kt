@@ -28,6 +28,11 @@ object P0PushParser {
         if (id.isEmpty() || id.length > MAX_ID_LENGTH) return null
         if (title.isEmpty() || title.length > MAX_TITLE_LENGTH) return null
         if (source.isEmpty() || source.length > MAX_SOURCE_LENGTH) return null
+        // Comparison-only domestic organizations cannot publish app alerts,
+        // including old queued FCM messages or spoofed source references.
+        if (Regex("inmet|cemaden", RegexOption.IGNORE_CASE).containsMatchIn(source) ||
+            id.startsWith("inmet:", ignoreCase = true) ||
+            id.startsWith("cemaden:", ignoreCase = true)) return null
 
         val issuedAt = data["issuedAt"]?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
         val expiresAt = data["expiresAt"]?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
