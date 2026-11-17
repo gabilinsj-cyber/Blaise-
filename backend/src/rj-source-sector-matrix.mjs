@@ -19,7 +19,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('AIR_TEMPERATURE','Temperatura do ar a 2 m',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal via MET Norway'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação independente'),
-    P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação independente')
+    P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação independente'),
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','modelo NEMS10 sul-americano candidato; API comercial pendente')
   ],'A MET Norway é um distribuidor ECMWF, não um quarto modelo nem observação de termômetro.'),
   sector('THERMAL_SENSATION','Sensação térmica',[
     E('MET_NORWAY_LOCATIONFORECAST_2','apparent_air_temperature','ECMWF_IFS','estimativa do modelo'),
@@ -28,17 +29,20 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('AIR_PRESSURE_HUMIDITY','Umidade e pressão',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
-    P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação')
+    P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','comparação regional não homologada')
   ],'Mesmo ponto, nível atmosférico, unidade e horário de validade.'),
   sector('WIND_GUST','Vento sustentado e rajadas',[
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
-    P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','comparação')
+    P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','comparação'),
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','vento previsto, sem feed habilitado')
   ],'Previsão de rajadas não é anemômetro medindo vento.'),
   sector('RAIN_NEXT_HOUR','Chuva prevista na próxima hora',[
     P('ECMWF_IFS','IFS_GLOBAL_VIA_MET_NO','ECMWF_IFS','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
-    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação')
+    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','chuva futura prevista, não chuva observada')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
   sector('SATELLITE_VISUAL_RJ','Imagens de nuvens e sistemas sobre o RJ',[
     O('RAMMB_CIRA_SLIDER','GOES19_ABI_VISUAL_LINK','GOES_EAST','somente link externo a imagens GOES-19')
@@ -49,7 +53,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     O('EUMETSAT_SAT','METEOSAT_IMAGES','EUMETSAT_METEOSAT','cobertura conforme produto'),
-    P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista')
+    P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista'),
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','nuvens previstas, não imagem de satélite')
   ],'Imagem de nuvem observada não prova granizo ou tornado na superfície.'),
   sector('CYCLONE_LAND','Frentes e ciclones com possível impacto terrestre',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
@@ -87,6 +92,21 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
   expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),
+  meteoblueComparison:Object.freeze({
+    id:'METEOBLUE_NEMS10',
+    service:'meteoblue MultiModel / NEMS10 South America',
+    modelDomain:'NEMSSA',nominalGridKm:10,
+    representation:'P_FORECAST_ONLY',
+    sameEcmwfNoaaDwdInputsNotIndependent:true,
+    modelSpecificNemsIndependentCandidate:true,
+    learningMultiModelNotIndependentOfConstituentModels:true,
+    commercialApiLicenseVerified:false,
+    serverApiCredentialsInstalled:false,
+    liveNumericIngestionEnabled:false,
+    androidObservedDataEnabled:false,
+    projectedToMunicipalObservations:false,
+    useOnlyWithModelAndForecastCycleEvidence:true
+  }),
   satelliteVisualReference:Object.freeze({
     id:'RAMMB_CIRA_SLIDER',url:'https://rammb-slider.cira.colostate.edu/',
     underlyingSensor:'NOAA_GOES_19_ABI',type:'EXTERNAL_LINK_ONLY',
