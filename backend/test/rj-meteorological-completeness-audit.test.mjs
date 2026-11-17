@@ -9,10 +9,10 @@ import {
 const now=Date.parse('2026-11-17T14:00:00Z');
 const t=new Date(now-60_000).toISOString();
 const base=Object.freeze({
-  ibge:'3304557',field:'temperatureC',sourceId:'INMET_STATION',
-  category:'O',value:29.1,validAt:t,checkedAt:t,
+  ibge:'3304557',field:'temperatureC',sourceId:'DWD_ICON_GLOBAL',
+  category:'P',value:29.1,validAt:t,checkedAt:t,issuedAt:t,datasetId:'ICON_GLOBAL_2M',
   verifiedByBackend:true,commercialUseAuthorized:true,
-  municipalityGeoVerified:true,sourceUrl:'https://apitempo.inmet.gov.br/estacao/teste'
+  municipalityGeoVerified:true,sourceUrl:'https://opendata.dwd.de/weather/nwp/icon/'
 });
 const audit=(records)=>buildInternalRjMeteorologyCoverage(records,{now});
 
@@ -29,7 +29,7 @@ test('no record means every category/phenomenon is unavailable for all 92 munici
   assert.equal(v.fields.find(f=>f.field==='temperatureC').unavailableMunicipalities,92);
 });
 
-test('real backend-audited station observation covers only its own municipality and field',()=>{
+test('audited international model covers only its own municipality and field',()=>{
   const v=audit([base]);
   assert.equal(v.verifiedValueCount,1);
   const thermal=v.fields.find(f=>f.field==='temperatureC');
@@ -47,6 +47,8 @@ test('rejects stale, future, invented, unlicensed, unverified, unknown place and
     {...base,validAt:new Date(now+1000).toISOString()},
     {...base,ibge:'0000000'},
     {...base,sourceId:'ALERTA_RIO'},
+    {...base,sourceId:'INMET_STATION',category:'O'},
+    {...base,sourceId:'CEMADEN_PRECIP',category:'O'},
     {...base,sourceId:'COPERNICUS'},
     {...base,value:9999},
     {...base,value:null},
@@ -87,7 +89,7 @@ test('CEMADEN hydrological risk is not a temperature measurement',()=>{
   const b={...base,field:'hydrologicalRiskLevel',sourceId:'CEMADEN_HYDRO_RISK',category:'E',
     value:4,datasetId:'CEMADEN_HYDRO',issuedAt:t};
   const result=audit([a,b]);
-  assert.equal(result.rejectedRecordCount,1);
+  assert.equal(result.rejectedRecordCount,2);
   assert.equal(result.fields.find(x=>x.field==='temperatureC').coveredMunicipalities,0);
-  assert.equal(result.fields.find(x=>x.field==='hydrologicalRiskLevel').coveredMunicipalities,1);
+  assert.equal(result.fields.find(x=>x.field==='hydrologicalRiskLevel').coveredMunicipalities,0);
 });
