@@ -13,6 +13,7 @@
     "start": "node src/runtime.mjs"
   },
   "dependencies": {
+    "@google-cloud/firestore": "9.4.1",
     "google-auth-library": "11.0.2"
   }
 }

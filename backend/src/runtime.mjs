@@ -1,5 +1,6 @@
 import { collectNoaaWave } from './noaa-wave-collector.mjs';
 import { createOfficialAlertLinksHttpHandler } from './official-alert-links-http.mjs';
+import { initializeOptionalAgent13Runtime } from './rj-agent13-runtime-optional.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
 import { createScientificAccess } from './blaise-scientific-access.mjs';
@@ -157,6 +158,18 @@ async function main() {
     // await separate verified CEMADEN federal integration before re-enabling rainfall.
     cemadenRjEnabled: false,
   });
+  // Explicit operator gates only. No provider polling or request at startup.
+  // The Firestore server library must be packaged by an independently reviewed
+  // deployment change before runtime activation; import fails closed otherwise.
+  const agent13Runtime = await initializeOptionalAgent13Runtime({
+    env: process.env,
+    createDatabase: async ({ projectId }) => {
+      const { Firestore } = await import('@google-cloud/firestore');
+      return new Firestore({ projectId, databaseId: '(default)' });
+    },
+  });
+  console.log(`blaise_agent13_runtime:${agent13Runtime.state}`);
+
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
     onRetry: () => metrics.increment('google_play_retry_total'),
