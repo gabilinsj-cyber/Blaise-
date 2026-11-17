@@ -390,7 +390,6 @@ private fun BlaiseDashboard(
                         AppHeader(powerOn, onPowerChange)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
-                        CurrentInmetAlertsStrip(onSelectSection)
                         OfficialMunicipalLinksStrip()
 
                         when (selectedSection) {
@@ -807,7 +806,6 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
         ) {
             RjMunicipalMap(snapshot, Modifier.fillMaxSize())
         }
-        val inmetWarnings = snapshot?.warnings?.count { it.current(clock) }
         val activeObservations = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock) }
         when (activeLayer) {
             "Radar" -> Text("Radar real: sem frames homologados nesta consulta. Malha geográfica não representa precipitação.",
@@ -815,10 +813,10 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
             "Chuva" -> {
                 Text("Chuva acumulada: indisponível até existir medição aprovada com cobertura territorial.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
-                StatusLine("Avisos de chuva INMET", inmetWarnings?.toString() ?: "Indisponível")
+                Text("Chuva: dados internacionais ainda indisponíveis nesta consulta.", color = Muted)
             }
             "Temperatura" -> {
-                Text("Estações INMET verificadas: ${activeObservations.size}. Não representam toda a área do município.",
+                Text("Temperatura: apenas dados internacionais validados são apresentados.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
                 activeObservations.take(3).forEach { obs ->
                     StatusLine(obs.station, obs.temperatureC?.let { "%.1f °C".format(java.util.Locale("pt", "BR"), it) }
@@ -954,7 +952,7 @@ private fun StatewideMunicipalitiesPanel() {
                         "Risco hidrológico: ${risk.label} • fonte histórica em revisão • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
                     val warnings = snapshot?.warnings?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
                     warnings.forEach { warning ->
-                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                        Text("Aviso indisponível sem fonte internacional autorizada.", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     if (warnings.isEmpty()) Text(if (row?.warningCoverage == "EXACT_IBGE_ONLY")
                         "Nenhum aviso municipal atribuído nesta consulta; não confirma ausência de risco."
@@ -1525,43 +1523,6 @@ private fun BillingPanel(
     }
 }
 
-/** The last-hour banner is sourced only from a current, timestamped INMET inventory. */
-@Composable
-private fun CurrentInmetAlertsStrip(onSelectSection: (String) -> Unit) {
-    val clock = LocalObservationClock.current
-    val state = LocalStatewideDashboard.current
-    val snapshot = (state as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
-    val currentAlerts = snapshot?.warnings?.filter { it.current(clock) }
-        ?.sortedByDescending { it.sent }
-        .orEmpty()
-    val top = currentAlerts.firstOrNull()
-    val accent = if (top != null) AlertRed else WarningAmber
-    Card(
-        colors = CardDefaults.cardColors(containerColor = if (top != null) Color(0xFF53121F) else NavyRaised),
-        border = BorderStroke(1.dp, accent),
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("ÚLTIMA HORA • INMET", color = accent, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    if (top == null)
-                        "Nenhum alerta válido confirmado nesta consulta. A cobertura pode estar indisponível."
-                    else "${top.event} • ${top.severity} • emissão ${top.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}",
-                    color = Color.White, style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            TextButton(onClick = { onSelectSection("Alertas") }) {
-                Text(if (currentAlerts.isEmpty()) "Consultar" else "Ver todos (${currentAlerts.size})",
-                    color = GoldSoft)
-            }
-        }
-    }
-}
-
 /** Links fixos para páginas oficiais: não representam verificação de alertas ativos. */
 @Composable
 private fun OfficialMunicipalLinksStrip() {
@@ -1590,7 +1551,7 @@ private fun OfficialMunicipalLinksStrip() {
                     }) { Text("Página oficial") }
                 }
             }
-            Text("Links informativos; não confirmam alerta ativo. Consulte também os avisos INMET.",
+            Text("Links informativos; não confirmam alerta ativo nem fornecem medições meteorológicas.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
@@ -1691,7 +1652,7 @@ private fun BackendRainfallPanel() {
         ?.snapshot?.takeIf { it.current(clock) }
     DashboardSection(
         title = "CHUVA OBSERVADA • FONTES APROVADAS",
-        subtitle = "INMET • CEMADEN • horários e cobertura validados",
+        subtitle = "Produtos internacionais licenciados e com horário validado",
     ) {
         Text(
             if (response is DashboardDataNetworkResult.Denied)
@@ -1699,8 +1660,7 @@ private fun BackendRainfallPanel() {
             else "Acumulados de chuva indisponíveis nesta consulta.",
             color = Muted,
         )
-        val warnings = statewide?.warnings?.filter { it.current(clock) }.orEmpty()
-        StatusLine("Avisos INMET recebidos", if (statewide == null) "Indisponível" else "${warnings.size} avisos válidos no inventário")
+        StatusLine("Dados de chuva internacionais", "Indisponível sem coleta homologada")
         Text("Aviso não é medição de chuva. Nenhum valor será inferido de alertas ou de imagens.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
@@ -1717,7 +1677,7 @@ private fun FooterSources() {
             Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
             Text("Clima • Alertas • Radar • Risco • Mar e Atlântico • Trânsito", color = Color.White)
             Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
-            Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
+            Text("Dados internacionais validados exibem fonte e horário. Sem valores inventados.", color = Gold)
         }
     }
 }
