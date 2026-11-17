@@ -6,10 +6,10 @@ import {
 } from '../src/rj-observation-network-candidates.mjs';
 
 test('all proposed networks remain research only, not live production measurements',()=>{
-  assert.equal(networks.length,4);
+  assert.equal(networks.length,3);
   assert.equal(new Set(networks.map(n=>n.id)).size,4);
   assert.deepEqual(networks.map(n=>n.id),[
-    'WEATHER_UNDERGROUND_PWS','AMBIENT_WEATHER_NETWORK','WEATHERCLOUD','ZOOM_EARTH'
+    'WEATHER_UNDERGROUND_PWS','AMBIENT_WEATHER_NETWORK','WEATHERCLOUD'
   ]);
   assert.ok(networks.every(n=>!n.writtenCommercialPermissionVerified &&
     !n.sourceCredentialsVerified && !n.activeRjStationInventoryVerified &&
@@ -19,12 +19,11 @@ test('all proposed networks remain research only, not live production measuremen
   assert.equal(gate.publishToClient,false);
 });
 
-test('online maps and visual viewers cannot be treated as permitted numeric sources',()=>{
+test('unlicensed weather network maps cannot be treated as numeric sources',()=>{
   const byId=id=>networks.find(n=>n.id===id);
   assert.equal(byId('WEATHERCLOUD').transport,'NO_OFFICIAL_RETRIEVAL_API');
-  assert.equal(byId('ZOOM_EARTH').transport,'PERSONAL_NON_COMMERCIAL_VIEWER');
-  for(const id of ['WEATHERCLOUD','ZOOM_EARTH'])
-    assert.equal(byId(id).measurementKinds.length,0);
+  assert.equal(networks.some(n=>n.id==='ZOOM_EARTH'),false);
+  assert.equal(byId('WEATHERCLOUD').measurementKinds.length,0);
   assert.ok(byId('WEATHER_UNDERGROUND_PWS').restrictions.includes(
     'COMMERCIAL_WRITTEN_AGREEMENT_REQUIRED'));
   assert.ok(byId('AMBIENT_WEATHER_NETWORK').restrictions.includes(
