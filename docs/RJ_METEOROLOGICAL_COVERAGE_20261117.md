@@ -1,5 +1,7 @@
 # Blaise V6 RJ — inventário real O/E/P e pendências (17/11/2026)
 
+> **Exceção posterior de 17/11/2026:** os portais de avisos de **INMET** e **INPE/CPTEC** podem ser exibidos como **links oficiais estáticos no topo da interface**, junto a Alerta Rio e Defesa Civil RJ. Essa autorização não inclui coleta, cópia ou republicação de avisos ou dados no aplicativo nem alteração da política meteorológica de INMET/CEMADEN apenas para comparação interna. Alertas de nível 1–5 só aparecem com evidência de risco Blaise validada; caso contrário a faixa indica 'não verificado'. Consulte `RJ_CIENTIFICO_MEMORIA_E_ALERTAS_SUPERIORES_20261117.md`.
+
 > **Atualização vinculante:** INMET e CEMADEN não fornecem valores, previsões, chuva, avisos ou alertas para o aplicativo Blaise V6 RJ. São apenas referências brasileiras de comparação interna quando fontes internacionais divergem, usando observações licenciadas geograficamente próximas e comparáveis ao RJ. Os caminhos anteriores do Android que consultavam o INMET foram desativados; a API estadual omite ambos, e o worker não pode publicar P0 INMET. O comparador geográfico novo é apenas lógica sem coleta ao vivo. As entradas históricas do inventário abaixo devem ser lidas conforme esta restrição.
 
 ## Status verificado, não presumido
