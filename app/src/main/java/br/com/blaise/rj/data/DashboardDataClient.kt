@@ -258,10 +258,12 @@ object DashboardDataParser {
             val id = identifier(value["id"])
             val url = string(value["url"], 12, 180)
             require((id == "alerta-rio" && url == "https://www.sistema-alerta-rio.com.br/alertas/") ||
-                (id == "defesa-civil-rj" && url == "https://defesacivil.rj.gov.br/"))
+                (id == "defesa-civil-rj" && url == "https://defesacivil.rj.gov.br/") ||
+                (id == "inmet-avisos" && url == "https://avisos.inmet.gov.br/") ||
+                (id == "inpe-cptec-avisos" && url == "https://www.cptec.inpe.br/"))
             DashboardOfficialNotice(id, string(value["name"], 3, 64), string(value["message"], 10, 300), url)
         }.orEmpty()
-        require(notices.size <= 2 && notices.map { it.id }.toSet().size == notices.size)
+        require(notices.size <= 4 && notices.map { it.id }.toSet().size == notices.size)
 
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
