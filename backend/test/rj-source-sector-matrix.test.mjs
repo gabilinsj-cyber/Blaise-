@@ -36,7 +36,7 @@ test('satellite precipitation and marine SST distinguish estimates from observat
   const ocean=matrix.find(s=>s.id==='SST');
   assert.equal(ocean.products[0].family,ocean.products[1].family);
   assert.equal(getUnderlyingFamiliesForSector('SST').length,2);
-  assert.equal(matrix.find(s=>s.id==='RAIN_SATELLITE_LAND').products[0].productId,'GSMAP_V06');
+  assert.equal(matrix.find(s=>s.id==='RAIN_SATELLITE_LAND').products[0].productId,'GSMAP_NRT_ALGORITHM_V9');
 });
 test('CAMS exception limited to MET Norway clear-sky UV; domestic only comparison',()=>{
   assert.equal(matrix.find(s=>s.id==='CLEAR_SKY_UV').products.length,1);
