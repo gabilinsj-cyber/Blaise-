@@ -194,7 +194,10 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
   }
 
   const sources = Array.isArray(status.sources)
-    ? status.sources.map(projectSourceState).filter(Boolean)
+    // INMET/CEMADEN may be consulted internally for geographic divergence,
+    // but their source statuses, values and warnings are never customer data.
+    ? status.sources.map(projectSourceState).filter(source =>
+        source && !/(inmet|cemaden)/i.test(source.sourceId))
     : [];
   const currentSourceCount = sources.filter((source) => CURRENT_STATES.has(source.state)).length;
 
