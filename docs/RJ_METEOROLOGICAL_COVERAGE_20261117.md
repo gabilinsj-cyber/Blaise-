@@ -1,5 +1,7 @@
 # Blaise V6 RJ — inventário real O/E/P e pendências (17/11/2026)
 
+> **Atualização vinculante:** INMET e CEMADEN não fornecem valores, previsões, chuva, avisos ou alertas para o aplicativo Blaise V6 RJ. São apenas referências brasileiras de comparação interna quando fontes internacionais divergem, usando observações licenciadas geograficamente próximas e comparáveis ao RJ. Os caminhos anteriores do Android que consultavam o INMET foram desativados; a API estadual omite ambos, e o worker não pode publicar P0 INMET. O comparador geográfico novo é apenas lógica sem coleta ao vivo. As entradas históricas do inventário abaixo devem ser lidas conforme esta restrição.
+
 ## Status verificado, não presumido
 
 A captura do usuário exibe **fontes candidatas**, não medições. O catálogo oficial dos 92 municípios existe, mas não garante cobertura meteorológica atual.
@@ -14,9 +16,9 @@ A captura do usuário exibe **fontes candidatas**, não medições. O catálogo 
 
 | Fonte ou produto | Código existente | Comprovação atual | Pendência |
 |---|---|---|---|
-| INMET API de estações | `app/.../data/OfficialWeatherClient.kt` | Consulta de temperatura, umidade e vento em cidade com estação exata, até 12 min; não se infere abrangência universal | Validar resposta ao vivo, mover auditoria para backend, cobrir outros municípios via georreferência comprovada |
+| INMET API de estações | Antigo coletor Android desativado na PR #157 | **Só comparação administrativa de divergências internacionais**. Nenhuma leitura INMET pode abastecer cliente, mapa, boletim ou alerta | Homologar coleta interna de estações brasileiras próximas, com horário e georreferência, sem saída pública |
 | INMET CAP/RSS | `backend/src/inmet-source.mjs` | Coletor de **avisos**, não sensor térmico | Não usar como termômetro |
-| CEMADEN RJ | `backend/src/cemaden-rj-source.mjs` | Coleta de **risco hidrológico**, não temperatura | Verificar eventual produto de chuva separado e seu licenciamento |
+| CEMADEN RJ | `backend/src/cemaden-rj-source.mjs` | Dados de risco hidrológico restritos à **consulta interna de divergência**; não mede temperatura e não abastece clientes | Homologar apenas comparações nacionais pertinentes a chuva; nenhuma publicação |
 | NOAA GFS Wave | `backend/src/noaa-wave-collector.mjs` | Coletor para **altura de ondas** onde georreferência comprovada | Não confundir com NOAA/GFS atmosférico; ampliar cobertura/mar conforme autorização |
 | ECMWF/IFS | Inventário `south-america-meteorology.mjs` | Catálogo de **modelo**, sem coletor térmico integrado aos 92 municípios | Baixar e decodificar produtos/grids, rodadas e horários reais |
 | DWD/ICON Global | Catálogo e especificação | Modelo **candidato**, sem coletor térmico integrado aos 92 | Idem, grade global brasileira e licença comercial |
