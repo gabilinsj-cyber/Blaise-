@@ -29,18 +29,29 @@ test('MET Norway is same underlying ECMWF family and no duplicate fourth thermom
   assert.equal(air.products.length,3);
   assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'ECMWF_IFS');
 });
-test('satellite precipitation and marine SST distinguish estimates from observations',()=>{
-  for(const sectorId of ['RAIN_SATELLITE_LAND','RAIN_SATELLITE_OCEAN','SST']){
-    assert.ok(matrix.find(s=>s.id===sectorId).products.every(p=>p.kind==='E'));
-  }
-  const ocean=matrix.find(s=>s.id==='SST');
-  assert.equal(ocean.products[0].family,ocean.products[1].family);
-  assert.equal(getUnderlyingFamiliesForSector('SST').length,2);
-  assert.equal(matrix.find(s=>s.id==='RAIN_SATELLITE_LAND').products[0].productId,'IMERG_EARLY_V07');
-  assert.ok(matrix.filter(s=>s.id.startsWith('RAIN_SATELLITE_')).every(s=>
-    s.products.every(p=>p.sourceId==='NASA_GPM_IMERG')));
-  assert.ok(matrix.filter(s=>s.id.startsWith('RAIN_SATELLITE_')).every(s=>
-    s.title.includes('somente análise científica interna')));
+test('RAMMB/CIRA replaces NASA and JAXA as visual reference only, not rain sensor',()=>{
+  const sectors=['SATELLITE_VISUAL_RJ','SATELLITE_VISUAL_ATLANTIC'].map(id=>
+    matrix.find(x=>x.id===id));
+  assert.equal(sectors.length,2);
+  assert.ok(sectors.every(Boolean));
+  assert.ok(sectors.every(s=>s.products.length===1));
+  assert.ok(sectors.every(s=>s.products[0].sourceId==='RAMMB_CIRA_SLIDER'));
+  assert.ok(sectors.every(s=>s.products[0].kind==='O'));
+  assert.ok(sectors.every(s=>s.products[0].family==='GOES_EAST'));
+  assert.ok(sectors.every(s=>s.products[0].liveIngestionConfirmed===false));
+  assert.equal(getUnderlyingFamiliesForSector('SATELLITE_VISUAL_RJ')[0],'GOES_EAST');
+  assert.ok(!matrix.some(s=>s.id.startsWith('RAIN_SATELLITE_')));
+  const sst=matrix.find(s=>s.id==='SST');
+  assert.ok(sst.products.every(p=>p.kind==='E'));
+  assert.deepEqual(sst.products.map(p=>p.sourceId),['EUMETSAT_OSI_SAF','NOAA_COASTWATCH']);
+  assert.equal(getUnderlyingFamiliesForSector('SST').length,1);
+  assert.equal(policy.satelliteVisualReference.url,'https://rammb-slider.cira.colostate.edu/');
+  assert.equal(policy.satelliteVisualReference.type,'EXTERNAL_LINK_ONLY');
+  assert.equal(policy.satelliteVisualReference.authorizedEmbeddedImagery,false);
+  assert.equal(policy.satelliteVisualReference.providesRainMm,false);
+  assert.equal(policy.satelliteVisualReference.independentFromNoaa,false);
+  assert.equal(policy.satelliteVisualReference.operatorValidatedFreshness,false);
+  assert.equal(policy.satelliteVisualReference.maxAcceptableImageAgeMinutes,30);
 });
 test('CAMS exception limited to MET Norway clear-sky UV; domestic only comparison',()=>{
   assert.equal(matrix.find(s=>s.id==='CLEAR_SKY_UV').products.length,1);
@@ -49,12 +60,13 @@ test('CAMS exception limited to MET Norway clear-sky UV; domestic only compariso
   assert.deepEqual(policy.officialPublicLinks,['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']);
   assert.ok(policy.expresslyExcludedDirectSources.includes('COPERNICUS_DIRECT'));
   assert.ok(policy.expresslyExcludedDirectSources.includes('JAXA_GSMAP'));
+  assert.ok(policy.expresslyExcludedDirectSources.includes('NASA_GPM_IMERG'));
   assert.equal(policy.currentRainObservation.maxAgeMinutes,30);
   assert.deepEqual(policy.currentRainObservation.acceptedKinds,['O']);
   assert.equal(policy.currentRainObservation.acceptedLicensedRainGaugeSources.length,0);
   assert.equal(policy.currentRainObservation.satelliteRainEstimateAllowed,false);
   assert.equal(policy.currentRainObservation.missingDataStatus,'UNAVAILABLE');
   const ids=matrix.flatMap(s=>s.products.map(p=>p.sourceId));
-  for(const excluded of ['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','INMET','CEMADEN','JAXA_GSMAP'])
+  for(const excluded of ['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','INMET','CEMADEN','JAXA_GSMAP','NASA_GPM_IMERG','NASA_MUR_SST','NASA_SAT'])
     assert.ok(!ids.includes(excluded));
 });
