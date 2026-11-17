@@ -40,4 +40,24 @@ class ScientificMemoryPolicyTest {
         assertTrue(ScientificMemoryPolicy.calculate(source(),
             Instant.parse("2026-11-18T16:00:00Z")).isEmpty())
     }
+    @Test fun manualInputsRemainNonOfficialAndRejectInvalidNumbers() {
+        assertTrue(ScientificMemoryPolicy.calculateManualInputs(null, 70.0, null).isEmpty())
+        assertTrue(ScientificMemoryPolicy.calculateManualInputs(30.0, Double.NaN, null).isEmpty())
+        assertTrue(ScientificMemoryPolicy.calculateManualInputs(30.0, 70.0, -1.0).isEmpty())
+        val values = ScientificMemoryPolicy.calculateManualInputs(30.0, 70.0, 10.0)
+        assertTrue(values.any { it.method == "Magnus" })
+        assertTrue(values.any { it.method == "VPD" })
+        assertTrue(values.any { it.method == "Stull" })
+        assertTrue(values.any { it.method == "Rothfusz" })
+        assertTrue(values.all { !it.officialMeasurement && !it.officialAlert && !it.mayTriggerAlert })
+        assertTrue(values.all { it.nature.contains("MANUAL") })
+    }
+
+    @Test fun coldManualInputsRespectWindChillDomain() {
+        val cold = ScientificMemoryPolicy.calculateManualInputs(5.0, 60.0, 16.0)
+        assertTrue(cold.any { it.method == "Wind chill" })
+        val mild = ScientificMemoryPolicy.calculateManualInputs(19.0, 50.0, null)
+        assertFalse(mild.any { it.method == "Wind chill" || it.method == "Rothfusz" })
+    }
+
 }
