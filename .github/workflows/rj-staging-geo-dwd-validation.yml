@@ -1,0 +1,46 @@
+name: RJ IBGE Geometry + DWD Numeric Staging
+on:
+  pull_request:
+    paths:
+      - .github/workflows/rj-staging-geo-dwd-validation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-ibge-92:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Fetch and verify 92 official IBGE polygon interior points
+        run: node backend/scripts/validate-rj-92-ibge-points.mjs --live
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-rj-92-ibge-points-audit
+          path: evidence/ibge-92-points/rj-92-points.json
+          if-no-files-found: warn
+  verify-dwd-icon:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Install trusted numeric GRIB tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2
+          grib_get -V
+      - name: Decode one real ICON-global temperature cycle for RJ when location is supported
+        run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: blaise-rj-real-dwd-icon-evidence
+          path: evidence/international-sources/dwd-icon-rio.json
+          if-no-files-found: warn
