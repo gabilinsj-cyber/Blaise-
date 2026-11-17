@@ -13,6 +13,9 @@ const sources = Object.freeze({
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
   NOAA_GFS_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
   NOAA_GLM: 'O', JAXA_GSMAP: 'E', EUMETSAT_SAT: 'O',
+  // User-authorized 17/11/2026: Copernicus CAMS strictly via MET Norway/Yr
+  // for the clear-sky UV product; not a direct Copernicus collector.
+  COPERNICUS_CAMS_UV_VIA_MET_NO: 'P',
   NASA_SAT: 'O', ANA_RIVER: 'O', SGB_SACE: 'O',
 });
 export const RJ_METEOROLOGY_SOURCE_CATEGORIES = sources;
@@ -25,7 +28,11 @@ const definitions = [
   ['feelsLikeC','°C',-80,80,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
   ['humidityPct','%',0,100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['uvIndex','index',0,25,[['NOAA_UVI','P']]],
-  ['dewPointC','°C',-90,65,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E']]],
+  ['uvClearSkyIndex','index',0,25,[['COPERNICUS_CAMS_UV_VIA_MET_NO','P']]],
+  // MET Norway uses ECMWF forecast: same ECMWF model, not extra independent input.
+  ['rainNextHourForecastMm','mm',0,500,[['ECMWF_IFS','P']]],
+  ['rainNextHourProbabilityPct','%',0,100,[['ECMWF_IFS','P']]],
+  ['dewPointC','°C',-90,65,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
   ['pressureHpa','hPa',800,1100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['windKmh','km/h',0,400,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['gustKmh','km/h',0,504,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
