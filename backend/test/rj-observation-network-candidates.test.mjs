@@ -7,7 +7,7 @@ import {
 
 test('all proposed networks remain research only, not live production measurements',()=>{
   assert.equal(networks.length,3);
-  assert.equal(new Set(networks.map(n=>n.id)).size,4);
+  assert.equal(new Set(networks.map(n=>n.id)).size,3);
   assert.deepEqual(networks.map(n=>n.id),[
     'WEATHER_UNDERGROUND_PWS','AMBIENT_WEATHER_NETWORK','WEATHERCLOUD'
   ]);
