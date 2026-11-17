@@ -1,8 +1,7 @@
 name: RJ OSI SAF SST Numeric Validation
+# External numeric product is probed only by an authorized manual workflow.
+# The first staging run on 17/11/2026 found no discoverable recent NetCDF.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/rj-osisaf-staging-numeric.yml
   workflow_dispatch:
 permissions:
   contents: read
