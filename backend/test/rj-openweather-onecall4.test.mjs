@@ -166,3 +166,27 @@ test('provider errors never expose API key or request URL in results',async()=>{
   assert.equal(result.reason,'OPENWEATHER_PROVIDER_FETCH_FAILED');
   assert.equal(JSON.stringify(result).includes(fakeKey),false);
 });
+
+test('timestamp failures disclose only UTC deltas, never weather or key',async()=>{
+  for(const [delta,reason,metric] of [
+    [-13*60_000,'PROVIDER_CURRENT_VALUE_STALE','ageSeconds'],
+    [60_000,'PROVIDER_CURRENT_VALUE_FUTURE','offsetSeconds']
+  ]){
+    const altered={...payload,data:[{
+      ...payload.data[0],dt:Math.floor((NOW+delta)/1000)
+    }]};
+    const {client,state}=make({}, {fetchImpl:async()=>new Response(JSON.stringify(altered),{
+      status:200,headers:{'content-type':'application/json'}
+    })});
+    const result=await client.getCurrent({target,now:NOW});
+    assert.equal(result.status,'UNAVAILABLE');
+    assert.equal(result.reason,reason);
+    assert.equal(result.diagnostic?.[metric],Math.abs(delta)/1000);
+    assert.equal(result.diagnostic.checkedAt,new Date(NOW).toISOString());
+    assert.equal(result.diagnostic.sourceValidAt,new Date(NOW+delta).toISOString());
+    assert.equal(result.data,null);
+    const serialized=JSON.stringify(result);
+    assert.equal(serialized.includes(fakeKey),false);
+    assert.equal(serialized.includes('"temp"'),false);
+  }
+});
