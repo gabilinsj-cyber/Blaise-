@@ -76,15 +76,16 @@ def check_jaxa_ftp(*, username: str | None = None,
         # Must negotiate encryption BEFORE any login, even for shared
         # distribution credentials. Fail-closed; no FTP plaintext fallback.
         ftp.auth()
-        ftp.prot_p()
         result["secureTransportConfirmed"] = True
         if not username or not password:
             result["state"] = "FTPS_READY_CREDENTIALS_NOT_CONFIGURED"
             return result
 
-        # No ftp user/password in result, errors or logs.
+        # Many FTP servers require authentication before PBSZ/PROT.
+        # Both credentials are already encrypted by AUTH TLS.
         result["credentialsUsed"] = True
         ftp.login(username, password)
+        ftp.prot_p()
         names = ftp.nlst(DIR)
         if len(names) > MAX_ENTRIES:
             result["state"] = "DIRECTORY_TOO_LARGE_FOR_REVIEW"
