@@ -8,7 +8,8 @@
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 
 const sources = Object.freeze({
-  INMET_STATION: 'O', CEMADEN_PRECIP: 'O', CEMADEN_HYDRO_RISK: 'E',
+  // INMET and CEMADEN deliberately absent: internal Brazilian comparison
+  // inputs are not eligible as data suppliers to Blaise V6 RJ.
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
   NOAA_GFS_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
   NOAA_GLM: 'O', JAXA_GSMAP: 'E', EUMETSAT_SAT: 'O',
@@ -20,20 +21,20 @@ export const RJ_METEOROLOGY_SOURCE_CATEGORIES = sources;
 // Each entry is [source ID, O/E/P]. Some derived/model-assisted quantities
 // legitimately use E rather than the model's usual forecast category P.
 const definitions = [
-  ['temperatureC','°C',-60,65,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P'],['INPE_CPTEC','P']]],
-  ['feelsLikeC','°C',-80,80,[['INMET_STATION','E'],['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
-  ['humidityPct','%',0,100,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
+  ['temperatureC','°C',-60,65,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P'],['INPE_CPTEC','P']]],
+  ['feelsLikeC','°C',-80,80,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
+  ['humidityPct','%',0,100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['uvIndex','index',0,25,[['NOAA_UVI','P']]],
-  ['dewPointC','°C',-90,65,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E']]],
-  ['pressureHpa','hPa',800,1100,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
-  ['windKmh','km/h',0,400,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
-  ['gustKmh','km/h',0,504,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
-  ['rainNowMm','mm',0,500,[['CEMADEN_PRECIP','O']]],
-  ['rainAccumulatedMm','mm',0,2500,[['CEMADEN_PRECIP','O'],['JAXA_GSMAP','E']]],
+  ['dewPointC','°C',-90,65,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E']]],
+  ['pressureHpa','hPa',800,1100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
+  ['windKmh','km/h',0,400,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
+  ['gustKmh','km/h',0,504,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
+  ['rainNowMm','mm',0,500,[]],
+  ['rainAccumulatedMm','mm',0,2500,[['JAXA_GSMAP','E']]],
   ['oceanRainMm','mm',0,2500,[['JAXA_GSMAP','E']]],
   ['cloudPct','%',0,100,[['EUMETSAT_SAT','O'],['NASA_SAT','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
-  ['visibilityKm','km',0,250,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
-  ['solarRadiationWm2','W/m²',0,1800,[['INMET_STATION','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
+  ['visibilityKm','km',0,250,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
+  ['solarRadiationWm2','W/m²',0,1800,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['lightningCount','count',0,1000000,[['NOAA_GLM','O']]],
   ['hailProbabilityPct','%',0,100,[['ECMWF_IFS','P'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['cycloneLandRiskPct','%',0,100,[['ECMWF_IFS','E'],['NOAA_GFS','E']]],
@@ -42,7 +43,7 @@ const definitions = [
   ['swellPeriodS','s',0,40,[['NOAA_GFS_WAVE','P']]],
   ['seaCurrentMs','m/s',0,10,[['NOAA_RTOFS','P']]],
   ['riverLevelM','m',-50,200,[['ANA_RIVER','O'],['SGB_SACE','O']]],
-  ['hydrologicalRiskLevel','level',1,5,[['CEMADEN_HYDRO_RISK','E']]],
+  ['hydrologicalRiskLevel','level',1,5,[]],
 ];
 export const RJ_METEOROLOGICAL_FIELDS = Object.freeze(definitions.map(
   ([id,unit,min,max,candidates])=>Object.freeze({
