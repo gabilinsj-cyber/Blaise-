@@ -37,8 +37,11 @@ test('all 92 canonical municipality rows remain but INMET/CEMADEN payloads never
     row.hydrologicalRisk.sourceUrl===null && row.warningIds.length===0 &&
     row.warningCoverage==='UNAVAILABLE'));
   assert.equal(JSON.stringify(out).includes('domestic fixture'),false);
-  assert.equal(JSON.stringify(out).toLowerCase().includes('cemaden'),false);
-  assert.equal(JSON.stringify(out).toLowerCase().includes('inmet'),false);
+  // Static URL referrals are allowed, source values/worker inventory are not.
+  assert.ok(out.officialNoticeLinks.some(link=>link.id==='cemaden-rj-riscos'));
+  assert.ok(out.officialNoticeLinks.some(link=>link.id==='inmet-avisos'));
+  assert.ok(out.sources.every(source=>!/(inmet|cemaden)/i.test(source.id+' '+source.name)));
+  assert.ok(out.officialNoticeLinks.every(link=>!Object.hasOwn(link,'level')&&!Object.hasOwn(link,'severity')));
 });
 
 test('domestic providers cannot be part of public source catalog regardless of worker status',()=>{
