@@ -65,10 +65,11 @@ object OfficialAlertRibbonPolicy {
     )
 
     /**
-     * Exactly four top slots (when unverified, neutral official portal links).
-     * Only independently verified, current Blaise alert records may appear
-     * colored or be ranked by danger. All further verified alerts go to Mais.
-     * This method does not call any public website or accept copied bulletin text.
+     * The four MAIN SOURCES stay visible at the top, in their approved order,
+     * even if one agency publishes multiple verified warnings. Each source
+     * shows its strongest current warning. Every remaining verified warning
+     * appears under Mais, always with the same validated-source official link.
+     * A link alone is never evidence of a current danger level.
      */
     fun layout(evidence: List<VerifiedBlaiseAlertEvidence>, now: Instant): OfficialAlertRibbonPage {
         if (evidence.size > 128) return layout(emptyList(), now)
@@ -83,16 +84,14 @@ object OfficialAlertRibbonPolicy {
                     .thenBy { it.portal.id }
                     .thenBy { it.warningId }
             )
-        val visible = verified.take(MAX_TOP_ALERTS).toMutableList()
-        if (visible.size < MAX_TOP_ALERTS) {
-            for (portal in portals) {
-                if (visible.size == MAX_TOP_ALERTS) break
-                if (visible.none { it.portal.id == portal.id }) {
-                    visible.add(OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)))
-                }
-            }
+        val top = portals.map { portal ->
+            verified.firstOrNull { it.portal.id == portal.id }
+                ?: OfficialAlertRibbonItem(portal, null, present(portal.id, null, now))
         }
-        return OfficialAlertRibbonPage(visible.toList(), verified.drop(MAX_TOP_ALERTS))
+        val selected = top.filter { it.presentation.activeValidatedAlert }
+            .map { it.portal.id to it.warningId }.toSet()
+        val additional = verified.filterNot { (it.portal.id to it.warningId) in selected }
+        return OfficialAlertRibbonPage(top, additional)
     }
 
     fun legend(): List<OfficialAlertRibbonPresentation> = (1..5).map { level ->
