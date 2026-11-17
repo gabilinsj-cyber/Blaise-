@@ -4,6 +4,7 @@
  * license to distribute data. O=observed, E=satellite/derived estimated,
  * P=forecast. Display actual values only after independent provenance checks.
  */
+import {RJ_HG_BRASIL_PRO_PLAN} from './rj-hgbrasil-pro-plan.mjs';
 const product=(sourceId,kind,productId,family,role)=>Object.freeze({
   sourceId,kind,productId,family,role,
   liveIngestionConfirmed:false,validatedRjCoverage:false,
@@ -20,7 +21,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal via MET Norway'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação independente'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação independente'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','modelo NEMS10 sul-americano candidato; API comercial pendente')
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','modelo NEMS10 sul-americano candidato; API comercial pendente'),
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CONDITIONS','HG_BRASIL_AGGREGATED','condições atuais agregadas candidatas: sem licença de redistribuição ou medição instrumental confirmada')
   ],'A MET Norway é um distribuidor ECMWF, não um quarto modelo nem observação de termômetro.'),
   sector('THERMAL_SENSATION','Sensação térmica',[
     E('MET_NORWAY_LOCATIONFORECAST_2','apparent_air_temperature','ECMWF_IFS','estimativa do modelo'),
@@ -30,13 +32,15 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','comparação regional não homologada')
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','comparação regional não homologada'),
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_HUMIDITY','HG_BRASIL_AGGREGATED','umidade da API candidata, não higrômetro local homologado')
   ],'Mesmo ponto, nível atmosférico, unidade e horário de validade.'),
   sector('WIND_GUST','Vento sustentado e rajadas',[
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','comparação'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','vento previsto, sem feed habilitado')
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','vento previsto, sem feed habilitado'),
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_WIND','HG_BRASIL_AGGREGATED','vento/rajadas atuais agregados candidatos, não anemômetro')
   ],'Previsão de rajadas não é anemômetro medindo vento.'),
   sector('RAIN_NEXT_HOUR','Chuva prevista na próxima hora',[
     P('ECMWF_IFS','IFS_GLOBAL_VIA_MET_NO','ECMWF_IFS','principal'),
@@ -54,7 +58,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     O('EUMETSAT_SAT','METEOSAT_IMAGES','EUMETSAT_METEOSAT','cobertura conforme produto'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','nuvens previstas, não imagem de satélite')
+    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','nuvens previstas, não imagem de satélite'),
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CLOUDINESS','HG_BRASIL_AGGREGATED','nebulosidade atual agregada candidata, não sensor verificado')
   ],'Imagem de nuvem observada não prova granizo ou tornado na superfície.'),
   sector('CYCLONE_LAND','Frentes e ciclones com possível impacto terrestre',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
@@ -92,6 +97,17 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
   expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),
+  hgBrasilPro:RJ_HG_BRASIL_PRO_PLAN,
+  openWeatherOtherFieldsAssessment:Object.freeze({
+    recommendedForLaterLicenseReview:Object.freeze(['humidityPct','windKmh','gustKmh']),
+    providerRainMayBeModeled:true,
+    providerRainQualifiesAsObservedGauge:false,
+    extendOperationalAgent13WithoutAudit:false,
+    additionalSourcePublicationEnabled:false,
+    openWeatherDailyInternalMaximum:900,
+    requireIndependentSourceStatusByField:true,
+    sourceMeasurementsNotAssumed:true,
+  }),
   meteoblueComparison:Object.freeze({
     id:'METEOBLUE_NEMS10',
     service:'meteoblue MultiModel / NEMS10 South America',
