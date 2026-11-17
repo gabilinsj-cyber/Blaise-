@@ -1,8 +1,7 @@
 name: RJ IBGE Geometry + DWD Numeric Staging
+# Real external requests run only when the operator dispatches them explicitly.
+# First PR audit validated 92 official IBGE points and decoded DWD GRIB on 17/11/2026.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/rj-staging-geo-dwd-validation.yml
   workflow_dispatch:
 permissions:
   contents: read
