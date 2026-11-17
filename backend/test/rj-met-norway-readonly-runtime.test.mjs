@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initializeOptionalMetNorwayRuntime} from '../src/rj-met-norway-runtime-optional.mjs';
+import officialIbge from '../src/rj-ibge-92-points.json' with {type:'json'};
 const now=Date.parse('2026-11-17T16:00:00Z');
 const baseEnv={
   BLAISE_MET_NORWAY_ENABLED:'true',
@@ -27,7 +28,10 @@ test('read-only cached forecast is revalidated but never calls the upstream MET 
   let reads=0,fetches=0;
   const payload={
     type:'Feature',
-    geometry:{coordinates:[-43.1729,-22.9068]},
+    geometry:{coordinates:(()=>{
+      const point=officialIbge.points.find(p=>p.ibge==='3304557');
+      return [point.lon,point.lat];
+    })()},
     properties:{
       meta:{updated_at:'2026-11-17T15:15:00Z'},
       timeseries:[{
