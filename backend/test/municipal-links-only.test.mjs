@@ -37,7 +37,8 @@ test('link-only municipal sources never poll the excluded live feeds', async () 
 test('comparison source catalog omits excluded providers without removing NOAA', () => {
   const ids = STATEWIDE_SOURCE_RESPONSIBILITIES.map(x => x.id);
   for (const id of ['alerta-rio', 'defesa-civil', 'windy']) assert.equal(ids.includes(id), false);
-  for (const id of ['inmet', 'cemaden-rj', 'noaa', 'ecmwf', 'dwd', 'nasa', 'jaxa', 'eumetsat', 'agente-13-openweather']) {
+  for (const id of ['inmet','cemaden-rj']) assert.equal(ids.includes(id), false);
+  for (const id of ['noaa', 'ecmwf', 'dwd', 'nasa', 'jaxa', 'eumetsat', 'agente-13-openweather']) {
     assert.equal(ids.includes(id), true);
   }
 });
