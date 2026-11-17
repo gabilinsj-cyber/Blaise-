@@ -15,18 +15,6 @@ export const OFFICIAL_ALERT_LINKS = Object.freeze([
     message: 'Consulte os avisos oficiais de chuvas intensas e deslizamentos na cidade do Rio.',
     url: 'https://www.sistema-alerta-rio.com.br/alertas/',
   }),
-  Object.freeze({
-    id: 'inmet-avisos',
-    name: 'INMET',
-    message: 'Consulte diretamente os avisos meteorologicos oficiais e suas areas de validade.',
-    url: 'https://avisos.inmet.gov.br/',
-  }),
-  Object.freeze({
-    id: 'cemaden-rj-riscos',
-    name: 'CEMADEN-RJ',
-    message: 'Consulte diretamente os niveis oficiais de risco hidrologico e deslizamento no RJ.',
-    url: 'https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/mapa/',
-  }),
 ]);
 
 export function createOfficialAlertLinksHttpHandler(delegate) {
