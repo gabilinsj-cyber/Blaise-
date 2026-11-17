@@ -94,7 +94,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   agent13:'OWM_ONLY_IF_ALL_VERIFIED_INTERNATIONAL_TEMPERATURE_FEELS_LIKE_UNAVAILABLE_35M_900_DAY',
   notLiveCollection:true
 });
-export function getIndependentFamiliesForSector(id){
+export function getUnderlyingFamiliesForSector(id){
   const sector=RJ_SOURCE_SECTOR_MATRIX.find(s=>s.id===id);
   if(!sector)return Object.freeze([]);
   return Object.freeze([...new Set(sector.products.map(p=>p.family))]);
