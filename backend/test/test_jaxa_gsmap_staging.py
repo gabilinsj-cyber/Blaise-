@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+import ftplib
 from unittest.mock import patch
 
 SOURCE = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "probe-jaxa-gsmap-staging.py"
@@ -96,7 +97,7 @@ class JaxaV9Tests(unittest.TestCase):
     def test_tls_rejected_fails_closed_without_credentials(self):
         class NoTls(FakeFtps):
             def auth(self):
-                raise RuntimeError("tls blocked")
+                raise ftplib.error_perm("500 AUTH TLS not implemented")
 
         report = jaxa.check_jaxa_ftp(
             username="someone",
