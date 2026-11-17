@@ -4,7 +4,8 @@
  * the server from its shared cache. Never substitutes forecasts for stations,
  * introduces unofficial warnings, or treats ECMWF via MET as independent.
  */
-const allowedCities=new Set(['3304557','3303302']);
+import ibgePoints from './rj-ibge-92-points.json' with { type: 'json' };
+const allowedCities=new Set(ibgePoints.points.map(p=>p.ibge));
 const source='MET_NORWAY_LOCATIONFORECAST_2';
 const weatherOrigin='ECMWF_IFS';
 const uvOrigin='COPERNICUS_CAMS_UV_VIA_MET_NO';
