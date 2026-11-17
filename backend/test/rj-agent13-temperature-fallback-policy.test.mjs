@@ -9,7 +9,7 @@ import {
 const NOW=Date.parse('2026-11-17T12:00:00Z');
 const ibge='3304557';
 const baseline=()=>[1,2,3].map(rank=>({
-  rank,sourceId:['INMET','INPE_CPTEC','ECMWF_IFS'][rank-1],
+  rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
   verifiedByBackend:true,status:'UNAVAILABLE',
   checkedAt:new Date(NOW).toISOString(),
   values:{temperatureC:null,feelsLikeC:null}
