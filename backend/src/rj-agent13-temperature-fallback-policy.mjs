@@ -19,6 +19,12 @@ export const RJ_AGENT13_PRIORITY_SOURCE_MAX_AGE_MS=12*60_000;
 export const RJ_AGENT13_FALLBACK_FIELDS=Object.freeze(['temperatureC','feelsLikeC']);
 const RJ_IBGE=new Set(RJ_MUNICIPALITIES.map(m=>m.ibge));
 const SOURCE_STATES=new Set(['CURRENT','UNAVAILABLE','STALE','INVALID']);
+// Only the three audited international weather models may supply thermal values.
+// Domestic INMET/CEMADEN are review-only and cannot authorize fallback as
+// primary measurements or replace international values in the Blaise app.
+export const RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS=Object.freeze([
+  'DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'
+]);
 // Excluded municipal bodies only provide alert links; excluded international
 // sources cannot be silently reintroduced as temperature instruments.
 const EXCLUDED_TEMPERATURE_SOURCE_IDS=new Set([
@@ -43,7 +49,7 @@ function checkedPriority(readings,now){
   const ids=new Set();
   for(let rank=1;rank<=3;rank++){
     const r=readings[rank-1];
-    if(r?.rank!==rank||typeof r.sourceId!=='string'||
+    if(r?.rank!==rank||r.sourceId!==RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS[rank-1]||typeof r.sourceId!=='string'||
        !/^[A-Z][A-Z0-9_-]{1,63}$/.test(r.sourceId)||ids.has(r.sourceId)||
        EXCLUDED_TEMPERATURE_SOURCE_IDS.has(r.sourceId)||
        r.verifiedByBackend!==true||!SOURCE_STATES.has(r.status)||
