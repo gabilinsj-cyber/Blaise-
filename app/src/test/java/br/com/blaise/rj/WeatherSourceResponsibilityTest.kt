@@ -8,6 +8,13 @@ class WeatherSourceResponsibilityTest {
         val list = WeatherSourceResponsibilities.providers
         assertEquals(12, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
+        val german = list.single { it.id == "DWD_ICON" }
+        assertEquals("DWD_ICON", german.originFamily)
+        assertEquals("P", german.nature)
+        assertTrue(german.sectors.contains("Temperatura do ar a 2 m"))
+        assertTrue(german.sectors.contains("PREVISTA"))
+        assertTrue(german.sectors.contains("não estação física"))
+        assertFalse(german.currentlyIntegratedProduct)
         val met = list.single { it.id == "MET_NO_ECMWF" }
         assertEquals("ECMWF_IFS", met.originFamily)
         assertFalse(list.any {
