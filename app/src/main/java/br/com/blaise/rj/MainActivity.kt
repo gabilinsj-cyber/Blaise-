@@ -1223,6 +1223,7 @@ private fun MoreScreen(
 /** Provenance-aware source availability. A catalogue entry is NOT a live feed. */
 @Composable
 private fun WeatherSourceResponsibilityPanel() {
+    val context = LocalContext.current
     val now = LocalObservationClock.current
     val met = LocalInternationalForecasts.current.values.filter { it.current(now) }
     val noaa = (LocalBackendDashboard.current as? DashboardDataNetworkResult.Available)
@@ -1249,6 +1250,25 @@ private fun WeatherSourceResponsibilityPanel() {
             Text(status, color = if (status.contains("VALIDAD")) StableGreen else Muted,
                 style = MaterialTheme.typography.labelSmall)
         }
+        Text(
+            "RAMMB/CIRA SLIDER: visualizador externo das imagens NOAA GOES-19; não é medidor de chuva e não constitui fonte independente do satélite.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+        )
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(Intent(
+                        Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://rammb-slider.cira.colostate.edu/")
+                    ))
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag("rammb-cira-slider-link"),
+        ) { Text("Abrir imagens GOES-19 • RAMMB/CIRA SLIDER") }
+        Text(
+            "Chuva atual: apenas medição observada válida (O) com até 30 minutos; sem observação homologada, indisponível. NASA e JAXA retiradas.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+        )
         if (met.isNotEmpty()) {
             Text(
                 "ECMWF via MET Norway: " + met.joinToString(" • ") { forecast ->
@@ -1259,7 +1279,7 @@ private fun WeatherSourceResponsibilityPanel() {
         }
         Text("MET Norway distribui ECMWF/IFS; não constitui outro modelo independente. NOAA CoastWatch e OSI SAF podem compartilhar GOES/ABI.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
-        Text("Dados meteorológicos locais fora de Rio e Niterói: indisponíveis até homologação por município. Sem inventar zero.",
+        Text("Os 92 municípios têm coordenadas verificadas, mas valores permanecem indisponíveis por campo e município até coleta e homologação. Nunca substituir ausência por zero.",
             color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
