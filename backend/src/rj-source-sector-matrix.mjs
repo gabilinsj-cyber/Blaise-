@@ -41,11 +41,11 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
   sector('RAIN_SATELLITE_LAND','Chuva estimada por satélite sobre o RJ',[
-    E('JAXA_GSMAP','GSMAP_V06','JAXA_GSMAP','principal, sujeito a latência'),
+    E('JAXA_GSMAP','GSMAP_NRT_ALGORITHM_V9','JAXA_GSMAP','principal, sujeito a latência'),
     E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','comparação multissatélite')
   ],'Estimativas de grade, sem pluviômetro local. NASA e JAXA compartilham sensores: verificar correlação e independência por insumo.'),
   sector('RAIN_SATELLITE_OCEAN','Chuva estimada no Atlântico',[
-    E('JAXA_GSMAP','GSMAP_V06','JAXA_GSMAP','principal'),
+    E('JAXA_GSMAP','GSMAP_NRT_ALGORITHM_V9','JAXA_GSMAP','principal'),
     E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','comparação')
   ],'Estimativas de precipitação oceânica; não inventar observação de navio ou plataforma.'),
   sector('CLOUDS','Nuvens e sistemas convectivos',[
