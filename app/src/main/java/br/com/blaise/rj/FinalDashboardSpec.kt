@@ -56,6 +56,20 @@ object FinalDashboardSpec {
     const val BRAZIL_DOMESTIC_REFERENCES_ADMIN_ONLY = true
     const val THERMAL_UNAVAILABLE_LABEL = "Indisponível"
 
+    // The Blaise 1..5 risk palette is separate from INMET's 3 official colors
+    // and CEMADEN-RJ's risk labels. Never infer a Blaise level from a portal
+    // link or unlicensed upstream content. Server-validated original Blaise
+    // evidence is mandatory. A null result renders NO colored active warning.
+    fun validatedBlaiseNoticeColorArgb(level: Int?, backendValidated: Boolean): Int? =
+        if (!backendValidated) null else when (level) {
+            1 -> 0xFF16803D.toInt() // verde
+            2 -> 0xFFEAB308.toInt() // amarelo
+            3 -> 0xFFEA580C.toInt() // laranja
+            4 -> 0xFFDC2626.toInt() // vermelho
+            5 -> 0xFF7F1D1D.toInt() // vermelho extremo
+            else -> null
+        }
+
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
     fun shouldOpenAdditionalAlertsPage(alertCount: Int): Boolean =
