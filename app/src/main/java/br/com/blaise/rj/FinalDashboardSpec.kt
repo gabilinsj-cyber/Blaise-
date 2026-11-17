@@ -36,8 +36,11 @@ object FinalDashboardSpec {
         "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
-    // Thermal-source priority applies only to temperature and feels-like.
-    // These are targets for integration, NOT claims of live municipal coverage.
+    // Admin-only thermal comparison order; never render this inventory,
+    // agent identities, intermediary measurements, discrepancies or calculations
+    // in the subscriber UI. Clients only see validated thermal values, the
+    // specific displayed value's source/time, or 'Indisponível'.
+    // The list is an integration target, not a claim of live coverage.
     val thermalSourcePriority = listOf("INMET", "DWD/ICON Global", "NOAA/GFS")
     const val THERMAL_VISUAL_CROSSCHECK = "Meteologix/Kachelmannwetter"
     const val THERMAL_LAST_RESORT = "OpenWeather/Agente 13"
@@ -48,6 +51,8 @@ object FinalDashboardSpec {
     // authenticated thermal-only response exist, the app cannot trigger any
     // automatic or manual paid OpenWeather fallback through the city panel.
     const val THERMAL_FALLBACK_INTEGRATED = false
+    const val THERMAL_DIAGNOSTICS_ADMIN_ONLY = true
+    const val THERMAL_UNAVAILABLE_LABEL = "Indisponível"
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
 
