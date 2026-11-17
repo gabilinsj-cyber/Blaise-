@@ -60,3 +60,14 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 - Termos da API: https://accounts.meteologix.com/static/api-nutzungsbedingungen?_locale=en
 
 **Sem mudanças em produção ou precedência geral de fenômenos não térmicos.** Earth Nullschool continua apenas como outro visualizador interno, não um medidor independente. Alertas oficiais seguem somente por links de Alerta Rio e Defesa Civil RJ, sem coleta meteorológica dessas instituições.
+
+
+## Separação obrigatória entre interface do cliente e aplicativo administrativo
+
+**Cliente Blaise V6 RJ:** exibir apenas temperatura e sensação térmica que passaram nas verificações de origem/validade, a fonte **específica do valor usado** e sua hora efetiva; quando faltarem, mostrar `Indisponível`. Não apresentar nomes, números ou lista de agentes, quatro medidores, discrepâncias internas, cálculos, reservas de cota, diagnósticos ou hierarquia de desempate. Preservar o layout original aprovado.
+
+**Administrador:** visualizar o inventário auditável de fontes, disponibilidade por município/variável, modelo/rodada, observação versus previsão, idade do dado, comparações e discrepâncias, decisão, histórico operacional estritamente necessário e reservas diárias agregadas; autenticação administrativa necessária. Não enviar esses campos internos para o aplicativo do cliente.
+
+**INMET e CEMADEN na comparação interna:** INMET serve como referência de observação térmica **somente quando houver estação com valor recente, coordenadas e uso permitido**. CEMADEN contribui com observações de chuva/contexto de risco hidrológico e checagem meteorológica cruzada; o coletor CEMADEN existente NÃO mede temperatura ou sensação térmica. Não marcar CEMADEN como um termômetro térmico nem como quarta evidência independente de temperatura a menos que um produto térmico específico, licenciado e validado seja realmente integrado. Visualizações Meteologix e Earth Nullschool não devem ser contadas como medições independentes dos mesmos modelos subjacentes.
+
+**Situação no Android:** o botão manual de consulta OpenWeather e o relatório detalhado de modelo foram retirados do painel municipal na PR #157, preservando a apresentação de observação válida com fonte e hora. O aplicativo do cliente NÃO pode acionar o fallback pago enquanto `THERMAL_FALLBACK_INTEGRATED=false`. A implementação do serviço interno continua isolada e desativada até haver três verificações térmicas reais e auditadas. Não declarar valores fictícios nem disponibilidade para todos os 92 municípios.
