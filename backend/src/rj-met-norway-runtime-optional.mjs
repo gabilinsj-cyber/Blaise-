@@ -1,17 +1,32 @@
 /**
  * Server-side, opt-in MET Norway global forecast service.
- * Two verified municipal points only; additional 90 locations require a
- * separately reviewed canonical coordinate/altitude catalogue.
- * Never automatically polls or publishes customer-visible values.
+ * 92 municipality interior points validated against official IBGE GeoJSON.
+ * Elevations remain UNKNOWN and are intentionally omitted from requests.
+ * No provider polling, publication or human Terms acceptance is implied.
  */
 import {createRjMetNorwayFirestoreStore} from './rj-met-norway-firestore-store.mjs';
 import {createRjMetNorwayLocationforecastCollector,normalizeMetNorwayRjForecast} from './rj-met-norway-locationforecast.mjs';
 import {projectMetNorwayAdminCoverageEvidence} from './rj-met-norway-admin-evidence.mjs';
+import ibgePoints from './rj-ibge-92-points.json' with { type: 'json' };
+import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 
-const points=Object.freeze({
-  '3304557':Object.freeze({lat:-22.9068,lon:-43.1729,verifiedByBackend:true}),
-  '3303302':Object.freeze({lat:-22.8833,lon:-43.1036,verifiedByBackend:true})
-});
+const officialCodes=new Set(RJ_MUNICIPALITIES.map(x=>x.ibge));
+if(ibgePoints.contract!=='BLAISE_RJ_IBGE_92_INTERIOR_POINTS_CANDIDATE_V1'||
+   ibgePoints.state!=='POLYGON_GEOMETRY_VERIFIED_ALTITUDE_UNVERIFIED'||
+   ibgePoints.municipalityCount!==92||!Array.isArray(ibgePoints.points)||
+   ibgePoints.points.length!==92||
+   !/^[0-9a-f]{64}$/.test(ibgePoints.sourceSha256)||
+   new Set(ibgePoints.points.map(p=>p.ibge)).size!==92||
+   !ibgePoints.points.every(p=>officialCodes.has(p.ibge)&&
+     p.verifiedByBackend===true&&p.altitudeVerified===false&&
+     p.altitudeM===null&&p.geometryStatus==='POINT_INSIDE_IBGE_MUNICIPAL_POLYGON'&&
+     Number.isFinite(p.lat)&&p.lat>=-25&&p.lat<=-20&&
+     Number.isFinite(p.lon)&&p.lon>=-46&&p.lon<=-40)){
+  throw new Error('IBGE_92_GEOREGISTRY_INVALID');
+}
+const points=Object.freeze(Object.fromEntries(ibgePoints.points.map(p=>[
+  p.ibge,Object.freeze({lat:p.lat,lon:p.lon,verifiedByBackend:true})
+])));
 const disabled=(state)=>Object.freeze({
   state,configured:false,automaticSchedulingEnabled:false,
   publishedToAndroid:false,productionEnabled:false,
