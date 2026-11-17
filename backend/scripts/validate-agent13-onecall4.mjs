@@ -69,7 +69,16 @@ try {
     const projected=projectAgent13CurrentEstimate(data,TARGET.ibge,now);
     if(!projected){
       console.log('SEM DADO ATUAL VALIDO: '+String(data.reason??'fonte indisponivel').replace(/[^A-Z0-9_]/g,'').slice(0,64));
-      console.log('Sem aprovacao automatica de assinatura; verifique o painel da OpenWeather.');
+      if(data.diagnostic&&
+          ['PROVIDER_CURRENT_VALUE_STALE','PROVIDER_CURRENT_VALUE_FUTURE'].includes(data.reason)){
+        const d=data.diagnostic;
+        console.log('DIAGNOSTICO_UTC: '+JSON.stringify({
+          sourceValidAt:d.sourceValidAt,checkedAt:d.checkedAt,
+          ...(Number.isSafeInteger(d.ageSeconds)?{ageSeconds:d.ageSeconds}:{}),
+          ...(Number.isSafeInteger(d.offsetSeconds)?{futureSeconds:d.offsetSeconds}:{})
+        }));
+      }
+      console.log('Nenhum dado meteorologico publicado. Uma nova chamada exige autorizacao separada.');
       process.exitCode=1;
     }else{
       console.log(JSON.stringify({
