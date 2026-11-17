@@ -1532,6 +1532,10 @@ private fun OfficialMunicipalLinksStrip() {
             "https://defesacivil.rj.gov.br/"),
         Triple("Alerta Rio", "Consulte avisos oficiais de chuvas na cidade do Rio.",
             "https://www.sistema-alerta-rio.com.br/alertas/"),
+        Triple("INMET", "Consulte os avisos meteorológicos diretamente no portal oficial.",
+            "https://avisos.inmet.gov.br/"),
+        Triple("CEMADEN-RJ", "Consulte os níveis de risco diretamente no painel oficial.",
+            "https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/mapa/"),
     )
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
@@ -1551,7 +1555,18 @@ private fun OfficialMunicipalLinksStrip() {
                     }) { Text("Página oficial") }
                 }
             }
-            Text("Links informativos; não confirmam alerta ativo nem fornecem medições meteorológicas.",
+            // Source links are informational, not evidence of active risk.
+            // Do not show a colored Blaise 1..5 alert until a new independently
+            // validated, timestamped Blaise risk result is connected.
+            val confirmedBlaiseLevel: Int? = null
+            val validatedRiskColor = FinalDashboardSpec.validatedBlaiseNoticeColorArgb(
+                confirmedBlaiseLevel, backendValidated = false
+            )
+            if (validatedRiskColor != null) {
+                Text("Nível Blaise $confirmedBlaiseLevel", color = Color(validatedRiskColor),
+                    fontWeight = FontWeight.Bold)
+            }
+            Text("Consulte os links oficiais. Não há nível Blaise validado nesta seção.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
