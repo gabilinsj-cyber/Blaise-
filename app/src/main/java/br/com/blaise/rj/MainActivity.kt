@@ -388,9 +388,9 @@ private fun BlaiseDashboard(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         AppHeader(powerOn, onPowerChange)
-                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
                         OfficialMunicipalLinksStrip()
+                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -1523,51 +1523,63 @@ private fun BillingPanel(
     }
 }
 
-/** Links fixos para páginas oficiais: não representam verificação de alertas ativos. */
+/** Faixa superior: quatro fontes oficiais e a escala Blaise 1–5.
+ * Sem evidência backend homologada, cada fonte permanece NEUTRA, nunca "sem alertas".
+ * Proibido inferir severidade de cor, portal ou dados de modelo.
+ */
 @Composable
 private fun OfficialMunicipalLinksStrip() {
     val context = LocalContext.current
-    val links = listOf(
-        Triple("Defesa Civil RJ", "Consulte avisos oficiais de riscos e emergências no estado.",
-            "https://defesacivil.rj.gov.br/"),
-        Triple("Alerta Rio", "Consulte avisos oficiais de chuvas na cidade do Rio.",
-            "https://www.sistema-alerta-rio.com.br/alertas/"),
-        Triple("INMET", "Consulte os avisos meteorológicos diretamente no portal oficial.",
-            "https://avisos.inmet.gov.br/"),
-        Triple("CEMADEN-RJ", "Consulte os níveis de risco diretamente no painel oficial.",
-            "https://painelcemadenrj.defesacivil.rj.gov.br/monitoramento/v2/mapa/"),
-    )
+    val now = LocalObservationClock.current
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
-        border = BorderStroke(1.dp, Divider),
+        border = BorderStroke(1.dp, Gold),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("AVISOS OFICIAIS • LINKS", color = Gold, fontWeight = FontWeight.Bold)
-            links.forEach { (name, phrase, url) ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text(phrase, color = Muted, style = MaterialTheme.typography.labelSmall)
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ALERTAS OFICIAIS • CONSULTA DIRETA", color = Gold, fontWeight = FontWeight.ExtraBold)
+            Text("Alerta Rio • Defesa Civil RJ • INMET • INPE/CPTEC. Os links não comprovam alerta ativo.",
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+            OfficialAlertRibbonPolicy.portals.forEach { portal ->
+                // Future integration: inject ONLY server-verified evidence, never guessed values.
+                val presentation = OfficialAlertRibbonPolicy.present(portal.id, evidence = null, now = now)
+                Surface(
+                    color = Color(presentation.backgroundArgb),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("official-link-${portal.id}"),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(portal.name, color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                            Text(presentation.message, color = Color.Black,
+                                fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodySmall)
+                            Text(portal.message, color = Color.Black,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(portal.url)))
+                            }
+                        }) { Text("Ver fonte", color = Color(0xFF053D83), fontWeight = FontWeight.Bold) }
                     }
-                    TextButton(onClick = {
-                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-                    }) { Text("Página oficial") }
                 }
             }
-            // Source links are informational, not evidence of active risk.
-            // Do not show a colored Blaise 1..5 alert until a new independently
-            // validated, timestamped Blaise risk result is connected.
-            val confirmedBlaiseLevel: Int? = null
-            val validatedRiskColor = FinalDashboardSpec.validatedBlaiseNoticeColorArgb(
-                confirmedBlaiseLevel, backendValidated = false
-            )
-            if (validatedRiskColor != null) {
-                Text("Nível Blaise $confirmedBlaiseLevel", color = Color(validatedRiskColor),
-                    fontWeight = FontWeight.Bold)
+            Text("GUIA DE CORES • somente referência; não representa alertas ativos",
+                color = GoldSoft, style = MaterialTheme.typography.labelSmall)
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                OfficialAlertRibbonPolicy.legend().forEach { band ->
+                    Surface(color = Color(band.backgroundArgb), shape = RoundedCornerShape(6.dp)) {
+                        Text("NÍVEL ${band.level}", color = Color.Black, fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                    }
+                }
             }
-            Text("Consulte os links oficiais. Não há nível Blaise validado nesta seção.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
