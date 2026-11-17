@@ -6,11 +6,14 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(11, list.size)
+        assertEquals(9, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val met = list.single { it.id == "MET_NO_ECMWF" }
         assertEquals("ECMWF_IFS", met.originFamily)
-        assertFalse(list.any { it.id.contains("INMET") || it.id.contains("CEMADEN") })
+        assertFalse(list.any {
+            it.id.contains("INMET") || it.id.contains("CEMADEN") ||
+                it.id.contains("JAXA") || it.id.contains("NASA_IMERG")
+        })
         val coast = list.single { it.id == "NOAA_COASTWATCH" }
         val eumetsat = list.single { it.id == "EUMETSAT_OSI_SAF" }
         assertEquals(coast.originFamily, eumetsat.originFamily)
