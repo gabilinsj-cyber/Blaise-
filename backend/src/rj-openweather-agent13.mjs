@@ -58,6 +58,7 @@ export function createBlaiseRjOpenWeatherAgent13({
       status:weather.status==='AVAILABLE_PROVIDER_CURRENT_ESTIMATE'?
         'CURRENT_ESTIMATE_AVAILABLE':'UNAVAILABLE',
       reason:weather.status==='UNAVAILABLE'?weather.reason:null,
+      diagnostic:weather.status==='UNAVAILABLE'?weather.diagnostic??null:null,
       weather:weather.status==='AVAILABLE_PROVIDER_CURRENT_ESTIMATE'?weather:null,
       secretExposed:false,officialObservation:false,officialAlert:false,
       automaticAlertAuthorized:false,networkAttempted:
