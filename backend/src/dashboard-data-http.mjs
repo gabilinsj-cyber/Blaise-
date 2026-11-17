@@ -274,12 +274,15 @@ export function createPaidDashboardDataHttpHandler(
       const result = await gate.run(async () => {
         const entitlement = await verifyPurchasePayload(payload, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
-        const nowMillis=Date.now();
+        let nowMillis=Date.now();
         const isStatewide=req.url===STATEWIDE_DASHBOARD_PATH;
         let forecasts=[];
         if(!isStatewide && readInternationalForecasts){
           try{
             const candidates=await readInternationalForecasts();
+            // Cache validation may finish after this request began. Use the actual
+            // post-read clock to avoid rejecting legitimate freshly checked data.
+            nowMillis=Date.now();
             if(Array.isArray(candidates) && candidates.length<=2){
               forecasts=candidates.map(candidate=>
                 projectRjInternationalForecast(candidate,{now:nowMillis}))
