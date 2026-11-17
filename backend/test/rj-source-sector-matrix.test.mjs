@@ -25,8 +25,8 @@ test('sector registry lists approved roles without claiming live download',()=>{
 test('MET Norway is same underlying ECMWF family and no duplicate fourth thermometer',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
   const independent=getUnderlyingFamiliesForSector(air.id);
-  assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS','METEOBLUE_NEMS10']);
-  assert.equal(air.products.length,4);
+  assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS','METEOBLUE_NEMS10','HG_BRASIL_AGGREGATED']);
+  assert.equal(air.products.length,5);
   const meta=policy.meteoblueComparison;
   assert.equal(meta.nominalGridKm,10);
   assert.equal(meta.commercialApiLicenseVerified,false);
@@ -47,6 +47,33 @@ test('MET Norway is same underlying ECMWF family and no duplicate fourth thermom
   }
   assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'ECMWF_IFS');
 });
+test('HG Brasil Pro remains an unpurchased contract-gated current conditions candidate, not station proof',()=>{
+  const plan=policy.hgBrasilPro;
+  assert.equal(plan.displayedMonthlyPriceBrl,49.9);
+  assert.equal(plan.cityLimit,100);
+  assert.equal(plan.targetCityCodes.length,92);
+  assert.equal(plan.plannedCallsPerDay,2208);
+  assert.equal(plan.subscriptionActive,false);
+  assert.equal(plan.commercialRedistributionPermissionVerified,false);
+  assert.equal(plan.scheduledPollingEnabled,false);
+  assert.equal(plan.publishedToAndroid,false);
+  for(const id of ['AIR_TEMPERATURE','AIR_PRESSURE_HUMIDITY','WIND_GUST','CLOUDS']){
+    const product=matrix.find(s=>s.id===id).products.find(p=>p.sourceId==='HG_BRASIL_WEATHER_PRO');
+    assert.ok(product);
+    assert.equal(product.kind,'E');
+    assert.equal(product.liveIngestionConfirmed,false);
+    assert.equal(product.validatedRjCoverage,false);
+  }
+  for(const id of ['RAIN_NEXT_HOUR','RIVERS_FLOODS','WAVES_SWELL','LIGHTNING']){
+    assert.ok(!matrix.find(s=>s.id===id).products.some(p=>p.sourceId==='HG_BRASIL_WEATHER_PRO'));
+  }
+  assert.deepEqual(policy.openWeatherOtherFieldsAssessment.recommendedForLaterLicenseReview,
+    ['humidityPct','windKmh','gustKmh']);
+  assert.equal(policy.openWeatherOtherFieldsAssessment.extendOperationalAgent13WithoutAudit,false);
+  assert.equal(policy.openWeatherOtherFieldsAssessment.providerRainQualifiesAsObservedGauge,false);
+  assert.equal(policy.currentRainObservation.acceptedLicensedRainGaugeSources.length,0);
+});
+
 test('RAMMB/CIRA replaces NASA and JAXA as visual reference only, not rain sensor',()=>{
   const sectors=['SATELLITE_VISUAL_RJ','SATELLITE_VISUAL_ATLANTIC'].map(id=>
     matrix.find(x=>x.id===id));
