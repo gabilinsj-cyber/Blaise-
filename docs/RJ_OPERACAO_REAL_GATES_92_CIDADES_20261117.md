@@ -1,5 +1,9 @@
 # Blaise V6 RJ — avanço operacional real e gates de lançamento (17/11/2026)
 
+## ÚLTIMA ALTERAÇÃO VIGENTE: RAMMB/CIRA no lugar de JAXA e NASA (17/11/2026)
+A pedido do proprietário, **JAXA GSMaP e todos os candidatos meteorológicos NASA** (IMERG, NASA SAT e NASA MUR SST) foram retirados dos catálogos de coleta e da interface. O novo **RAMMB/CIRA SLIDER** é um **link externo de visualização GOES-19** para nuvens/sistemas no RJ e Atlântico; **não** fornece mm de chuva, medição de chuva O, nem fonte independente da NOAA. O serviço não foi conectado para baixar/espelhar tiles ou imagens. Chuva atual observada mantém limite máximo de 30 minutos e status `indisponível` sem estação/licença/tempo homologados. Esta seção **substitui quaisquer planos JAXA/NASA mencionados abaixo**, mantidos somente como histórico. Implementação e limitações em `docs/RJ_RAMMB_CIRA_SUBSTITUICAO_JAXA_NASA_20261117.md`.
+
+
 ## Alteração vigente: JAXA removida (17/11/2026)
 O cadastro GSMaP foi confirmado anteriormente, mas o proprietário rejeitou estimativas de chuva como dado atual e exigiu observação com idade no máximo 30 minutos. GSMaP_NRT v9 leva ~4h; GSMaP_NOW é atualizado a cada 30min, porém estima/extrapola chuva e não assegura frescor contínuo ≤30min. **JAXA_GSMAP está excluída da operação e do painel Blaise V6 RJ**. Seus antigos testes permanecem apenas como histórico desativado. A regra `rainNowMm` não aceita candidatos enquanto não existir fonte O (sensor/radar licenciado) homologada; ausência = indisponível, nunca zero. NASA IMERG pode permanecer para análise interna retrospectiva, mas não para apresentar chuva atual ao cliente. **Esta seção substitui todas as etapas JAXA abaixo que descreviam potencial liberação.**
 
