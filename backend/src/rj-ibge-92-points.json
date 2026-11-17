@@ -1,0 +1,840 @@
+{
+  "contract": "BLAISE_RJ_IBGE_92_INTERIOR_POINTS_CANDIDATE_V1",
+  "state": "POLYGON_GEOMETRY_VERIFIED_ALTITUDE_UNVERIFIED",
+  "checkedAt": "2026-11-17T17:22:13.000Z",
+  "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/estados/33?intrarregiao=municipio&formato=application%2Fvnd.geo%2Bjson&qualidade=minima",
+  "municipalityCount": 92,
+  "productionActivated": false,
+  "points": [
+    {
+      "ibge": "3300100",
+      "lat": -22.91272,
+      "lon": -44.4394,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300159",
+      "lat": -21.63766,
+      "lon": -42.12458,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300209",
+      "lat": -22.7461,
+      "lon": -42.32362,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300225",
+      "lat": -22.21384,
+      "lon": -43.10942,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300233",
+      "lat": -22.7762,
+      "lon": -41.95949,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300258",
+      "lat": -22.9309,
+      "lon": -42.18631,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300308",
+      "lat": -22.46279,
+      "lon": -43.91194,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300407",
+      "lat": -22.54177,
+      "lon": -44.20687,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300456",
+      "lat": -22.71748,
+      "lon": -43.37615,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300506",
+      "lat": -22.23387,
+      "lon": -42.34928,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300605",
+      "lat": -21.22844,
+      "lon": -41.5835,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300704",
+      "lat": -22.58147,
+      "lon": -42.08572,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300803",
+      "lat": -22.47122,
+      "lon": -42.74119,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300902",
+      "lat": -21.43688,
+      "lon": -41.84378,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300936",
+      "lat": -22.1754,
+      "lon": -41.659,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3300951",
+      "lat": -22.03862,
+      "lon": -43.24271,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301009",
+      "lat": -21.91902,
+      "lon": -41.3484,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301108",
+      "lat": -21.91846,
+      "lon": -42.36146,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301157",
+      "lat": -21.53675,
+      "lon": -41.50265,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301207",
+      "lat": -21.85998,
+      "lon": -42.53518,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301306",
+      "lat": -22.44431,
+      "lon": -42.15819,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301405",
+      "lat": -22.12806,
+      "lon": -41.84173,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301504",
+      "lat": -22.03799,
+      "lon": -42.36392,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301603",
+      "lat": -22.11238,
+      "lon": -42.48681,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301702",
+      "lat": -22.59264,
+      "lon": -43.31128,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301801",
+      "lat": -22.49576,
+      "lon": -43.62874,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301850",
+      "lat": -22.47906,
+      "lon": -42.9864,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301876",
+      "lat": -22.83145,
+      "lon": -42.21198,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3301900",
+      "lat": -22.75565,
+      "lon": -42.87653,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302007",
+      "lat": -22.84773,
+      "lon": -43.80551,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302056",
+      "lat": -21.41481,
+      "lon": -41.65919,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302106",
+      "lat": -21.72775,
+      "lon": -42.08175,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302205",
+      "lat": -21.27089,
+      "lon": -41.84476,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302254",
+      "lat": -22.4417,
+      "lon": -44.56299,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302270",
+      "lat": -22.65488,
+      "lon": -43.61003,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302304",
+      "lat": -21.22488,
+      "lon": -42.11953,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302403",
+      "lat": -22.28205,
+      "lon": -41.96402,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302452",
+      "lat": -22.01354,
+      "lon": -42.26991,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302502",
+      "lat": -22.56968,
+      "lon": -43.11823,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302601",
+      "lat": -22.91033,
+      "lon": -44.0254,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302700",
+      "lat": -22.9292,
+      "lon": -42.80802,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302809",
+      "lat": -22.5329,
+      "lon": -43.74079,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302858",
+      "lat": -22.8032,
+      "lon": -43.458,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3302908",
+      "lat": -22.49777,
+      "lon": -43.43751,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303005",
+      "lat": -21.41511,
+      "lon": -42.16304,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303104",
+      "lat": -21.0405,
+      "lon": -41.94264,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303203",
+      "lat": -22.81605,
+      "lon": -43.41707,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303302",
+      "lat": -22.8833,
+      "lon": -43.1036,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303401",
+      "lat": -22.35224,
+      "lon": -42.46948,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303500",
+      "lat": -22.5936,
+      "lon": -43.50511,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303609",
+      "lat": -22.64382,
+      "lon": -43.75034,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303708",
+      "lat": -22.18725,
+      "lon": -43.29084,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303807",
+      "lat": -23.27692,
+      "lon": -44.67857,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303856",
+      "lat": -22.34727,
+      "lon": -43.39623,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303906",
+      "lat": -22.43935,
+      "lon": -43.19934,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3303955",
+      "lat": -22.53045,
+      "lon": -43.97868,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304003",
+      "lat": -22.61677,
+      "lon": -43.93351,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304102",
+      "lat": -20.97158,
+      "lon": -42.07393,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304110",
+      "lat": -22.46171,
+      "lon": -44.34107,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304128",
+      "lat": -22.3628,
+      "lon": -44.2429,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304144",
+      "lat": -22.74704,
+      "lon": -43.58674,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304151",
+      "lat": -22.1106,
+      "lon": -41.42396,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304201",
+      "lat": -22.5607,
+      "lon": -44.48552,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304300",
+      "lat": -22.7375,
+      "lon": -42.57087,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304409",
+      "lat": -22.82793,
+      "lon": -44.07882,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304508",
+      "lat": -22.17205,
+      "lon": -43.53852,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304524",
+      "lat": -22.42282,
+      "lon": -41.94361,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304557",
+      "lat": -22.9317,
+      "lon": -43.46582,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304607",
+      "lat": -21.99511,
+      "lon": -41.92595,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304706",
+      "lat": -21.4849,
+      "lon": -42.12825,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304755",
+      "lat": -21.31218,
+      "lon": -41.13296,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304805",
+      "lat": -21.6071,
+      "lon": -41.73781,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3304904",
+      "lat": -22.8456,
+      "lon": -42.99534,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305000",
+      "lat": -21.88249,
+      "lon": -41.0706,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305109",
+      "lat": -22.79354,
+      "lon": -43.36981,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305133",
+      "lat": -21.32842,
+      "lon": -41.91415,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305158",
+      "lat": -22.17655,
+      "lon": -42.93494,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305208",
+      "lat": -22.78085,
+      "lon": -42.13618,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305307",
+      "lat": -21.87885,
+      "lon": -42.11346,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305406",
+      "lat": -22.06115,
+      "lon": -42.87177,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305505",
+      "lat": -22.89077,
+      "lon": -42.53082,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305554",
+      "lat": -22.78728,
+      "lon": -43.70644,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305604",
+      "lat": -22.56905,
+      "lon": -42.39533,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305703",
+      "lat": -22.16222,
+      "lon": -42.65381,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305752",
+      "lat": -22.77275,
+      "lon": -42.72923,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305802",
+      "lat": -22.29935,
+      "lon": -42.87195,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3305901",
+      "lat": -22.10993,
+      "lon": -42.12401,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3306008",
+      "lat": -22.1207,
+      "lon": -43.1027,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3306107",
+      "lat": -22.2346,
+      "lon": -43.89646,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3306156",
+      "lat": -20.86542,
+      "lon": -41.82121,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3306206",
+      "lat": -22.44334,
+      "lon": -43.65167,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    },
+    {
+      "ibge": "3306305",
+      "lat": -22.52345,
+      "lon": -44.09204,
+      "verifiedByBackend": true,
+      "geometryStatus": "POINT_INSIDE_IBGE_MUNICIPAL_POLYGON",
+      "altitudeM": null,
+      "altitudeVerified": false
+    }
+  ],
+  "sourceSha256": "e40ff0e8b87be8e95cc88b1197c28e0c831a9c825baa6b4e99a9ced063631be8",
+  "sourceResponseBytes": 46987
+}
