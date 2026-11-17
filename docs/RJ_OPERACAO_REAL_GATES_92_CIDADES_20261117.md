@@ -1,5 +1,9 @@
 # Blaise V6 RJ — avanço operacional real e gates de lançamento (17/11/2026)
 
+## Alteração vigente: JAXA removida (17/11/2026)
+O cadastro GSMaP foi confirmado anteriormente, mas o proprietário rejeitou estimativas de chuva como dado atual e exigiu observação com idade no máximo 30 minutos. GSMaP_NRT v9 leva ~4h; GSMaP_NOW é atualizado a cada 30min, porém estima/extrapola chuva e não assegura frescor contínuo ≤30min. **JAXA_GSMAP está excluída da operação e do painel Blaise V6 RJ**. Seus antigos testes permanecem apenas como histórico desativado. A regra `rainNowMm` não aceita candidatos enquanto não existir fonte O (sensor/radar licenciado) homologada; ausência = indisponível, nunca zero. NASA IMERG pode permanecer para análise interna retrospectiva, mas não para apresentar chuva atual ao cliente. **Esta seção substitui todas as etapas JAXA abaixo que descreviam potencial liberação.**
+
+
 Registro administrativo da PR #157. **Não é declaração de integração ativa em produção**.
 
 ## Concluído tecnicamente nesta etapa
