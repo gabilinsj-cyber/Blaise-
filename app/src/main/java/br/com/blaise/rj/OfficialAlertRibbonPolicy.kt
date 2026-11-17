@@ -26,7 +26,19 @@ data class OfficialAlertRibbonPresentation(
     val message: String,
 )
 
+data class OfficialAlertRibbonItem(
+    val portal: OfficialAlertPortal,
+    val warningId: String?,
+    val presentation: OfficialAlertRibbonPresentation,
+)
+
+data class OfficialAlertRibbonPage(
+    val visible: List<OfficialAlertRibbonItem>,
+    val additional: List<OfficialAlertRibbonItem>,
+)
+
 object OfficialAlertRibbonPolicy {
+    const val MAX_TOP_ALERTS = 4
     val portals: List<OfficialAlertPortal> = listOf(
         OfficialAlertPortal("alerta-rio", "Alerta Rio",
             "Veja os avisos oficiais para o município do Rio de Janeiro.",
@@ -51,6 +63,37 @@ object OfficialAlertRibbonPolicy {
         "NÍVEL 4 — Perigo elevado: siga as recomendações das autoridades.",
         "NÍVEL 5 — Perigo extremo: siga imediatamente as orientações das autoridades.",
     )
+
+    /**
+     * Exactly four top slots (when unverified, neutral official portal links).
+     * Only independently verified, current Blaise alert records may appear
+     * colored or be ranked by danger. All further verified alerts go to Mais.
+     * This method does not call any public website or accept copied bulletin text.
+     */
+    fun layout(evidence: List<VerifiedBlaiseAlertEvidence>, now: Instant): OfficialAlertRibbonPage {
+        if (evidence.size > 128) return layout(emptyList(), now)
+        val verified = evidence.mapNotNull { record ->
+            val portal = portals.firstOrNull { it.id == record.portalId } ?: return@mapNotNull null
+            val presentation = present(portal.id, record, now)
+            if (!presentation.activeValidatedAlert) null
+            else OfficialAlertRibbonItem(portal, record.warningId, presentation)
+        }.distinctBy { it.portal.id to it.warningId }
+            .sortedWith(
+                compareByDescending<OfficialAlertRibbonItem> { it.presentation.level ?: 0 }
+                    .thenBy { it.portal.id }
+                    .thenBy { it.warningId }
+            )
+        val visible = verified.take(MAX_TOP_ALERTS).toMutableList()
+        if (visible.size < MAX_TOP_ALERTS) {
+            for (portal in portals) {
+                if (visible.size == MAX_TOP_ALERTS) break
+                if (visible.none { it.portal.id == portal.id }) {
+                    visible.add(OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)))
+                }
+            }
+        }
+        return OfficialAlertRibbonPage(visible.toList(), verified.drop(MAX_TOP_ALERTS))
+    }
 
     fun legend(): List<OfficialAlertRibbonPresentation> = (1..5).map { level ->
         OfficialAlertRibbonPresentation(
