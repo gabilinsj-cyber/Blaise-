@@ -6,7 +6,7 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(10, list.size)
+        assertEquals(11, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val met = list.single { it.id == "MET_NO_ECMWF" }
         assertEquals("ECMWF_IFS", met.originFamily)
@@ -18,6 +18,11 @@ class WeatherSourceResponsibilityTest {
         val eumetsat = list.single { it.id == "EUMETSAT_OSI_SAF" }
         assertEquals(coast.originFamily, eumetsat.originFamily)
         assertEquals("E", eumetsat.nature)
+        val meteoblue = list.single { it.id == "METEOBLUE_NEMS10" }
+        assertEquals("P", meteoblue.nature)
+        assertEquals("METEOBLUE_NEMS10", meteoblue.originFamily)
+        assertFalse(meteoblue.currentlyIntegratedProduct)
+        assertTrue(meteoblue.sectors.contains("não homologada"))
         val slider = list.single { it.id == "RAMMB_CIRA_SLIDER" }
         assertEquals("GOES_EAST", slider.originFamily)
         assertEquals("O", slider.nature)
@@ -30,7 +35,8 @@ class WeatherSourceResponsibilityTest {
             val state = WeatherSourceResponsibilities.availability(
                 item.id, false, false, false)
             assertTrue(state.contains("SEM") || state.contains("NÃO HOMOLOGADA") ||
-                state.contains("CONSULTA VISUAL EXTERNA"))
+                state.contains("CONSULTA VISUAL EXTERNA") ||
+                state.contains("PREVISÃO CANDIDATA"))
         }
         assertEquals("COLETA DO PRODUTO NÃO HOMOLOGADA",
             WeatherSourceResponsibilities.availability("DWD_ICON", true, true, true))
