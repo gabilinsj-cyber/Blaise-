@@ -1143,8 +1143,12 @@ private fun MoreScreen(
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
-    Spacer(Modifier.height(14.dp))
-    ScientificMemoryPanel()
+    // Scientific formulas/method inventories are diagnostic-only, not customer UI.
+    // Future admin release requires a separate authenticated administrator role.
+    if (BuildConfig.DEBUG) {
+        Spacer(Modifier.height(14.dp))
+        ScientificMemoryPanel()
+    }
 }
 
 @Composable
