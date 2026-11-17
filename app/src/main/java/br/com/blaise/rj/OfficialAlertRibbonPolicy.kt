@@ -71,8 +71,8 @@ object OfficialAlertRibbonPolicy {
             evidence.level !in 1..5 ||
             evidence.checkedAt.isAfter(now) || evidence.validFrom.isAfter(now) ||
             !evidence.validUntil.isAfter(now) ||
-            Duration.between(evidence.checkedAt, now).toMinutes() !in 0..12 ||
-            Duration.between(evidence.validFrom, evidence.validUntil).toDays() > 7 ||
+            Duration.between(evidence.checkedAt, now).seconds !in 0L..720L ||
+            Duration.between(evidence.validFrom, evidence.validUntil).seconds > 7L * 24L * 3600L ||
             !evidence.validUntil.isAfter(evidence.validFrom)) return fallback
         return OfficialAlertRibbonPresentation(
             activeValidatedAlert = true,
