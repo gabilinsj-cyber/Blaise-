@@ -42,13 +42,13 @@ Se todos os 92 municípios precisassem de uma consulta a cada 35 minutos durante
 
 ## Priorização complementar aprovada em 17/11/2026 — Meteologix/Kachelmannwetter
 
-**Ordem de decisão para temperatura e sensação térmica no RJ (por município e variável):**
+**Ordem vigente para temperatura e sensação térmica no RJ (por município e variável):**
 
-1. **INMET**: observação real de estação representativa, quando disponível, licenciada e com `validAt` confiável.
-2. **DWD/ICON Global**: previsão/modelo de temperatura, com rodada, horário válido, grade e posição geográfica identificados.
-3. **NOAA/GFS**: previsão/modelo global independente do ICON, com rodada, horário válido, grade e posição geográfica identificados.
-4. **Meteologix/Kachelmannwetter**: **conferência e eventual desempate**, inicialmente só por inspeção visual do site `https://meteologix.com/br`, **não coletor nem quarto medidor independente**. Seus mapas incluem ICON, GFS e ECMWF: uma representação do mesmo ICON/GFS não acrescenta evidência independente. Se a Meteologix disponibilizar produto próprio ou observação distinta **na API devidamente licenciada**, verificar a origem de cada produto, independência, termos e horários antes de qualquer ativação.
-5. **Agente 13 / OpenWeather One Call 4.0**: **última contingência**. Somente para o(s) campo(s) térmico(s) sem valor confiável após as etapas anteriores, com intervalo mínimo de 35 minutos por município, cache compartilhado e 900 chamadas/dia em todas as consultas OpenWeather.
+1. **DWD/ICON Global** — produto internacional previsto/modelado, com grade, rodada e validade identificados.
+2. **NOAA/GFS atmosférico** — produto internacional independente do ICON, com georreferência, rodada e validade.
+3. **ECMWF/IFS** — terceiro modelo internacional, sem converter previsão em medição de estação.
+4. **Meteologix/Kachelmannwetter** — conferência visual administrativa; não é um quarto medidor quando reproduz os modelos anteriores. **INMET e CEMADEN** só podem ser consultados internamente para esclarecer divergências mediante estação/produto nacional próximo, com licença, horário e variável comparáveis; não fornecem qualquer valor ao app.
+5. **Agente 13 / OpenWeather One Call 4.0** — última contingência, somente para campos térmicos indisponíveis após a auditoria das fontes internacionais; sem substituir valores válidos e sem usar dados nacionais na interface, com as regras de 35 minutos e 900 consultas/dia.
 
 **Divergência:** comparação exige mesma variável/unidade, mesma área representativa, instantes compatíveis e natureza claramente distinguida (estação vs modelo). Divergência por si só **não invalida** uma observação oficial correta e **não autoriza sobrescrita automática**. Sinalizar discrepância, verificar rodada/erros e fonte original e somente classificar o campo como indisponível/inconclusivo se houver evidência técnica documentada de invalidade. Abrir exceção de consulta OpenWeather por discrepância só após essa auditoria. O algoritmo atual da PR #157 permanece **fail-closed** e ainda **não implementa** resolução independente de divergências, nem coleta dados da Meteologix.
 
