@@ -1678,10 +1678,6 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
-    val agent13State = LocalAgent13Reports.current[city.ibgeCode]
-    val agent13Estimate = (agent13State as? Agent13CurrentResult.Available)
-        ?.estimate?.takeIf { it.current(clock) }
-    val requestAgent13 = LocalAgent13Request.current
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1704,22 +1700,15 @@ private fun CityPanel(
             StatusLine("Índice UV", "Indisponível")
             StatusLine("Chance de chuva", "Indisponível")
             StatusLine("Rajadas / nuvens", "Indisponíveis")
-            if (city.ibgeCode in setOf(3304557, 3303302)) {
-                Text("OPENWEATHER • ESTIMATIVA DE MODELO", color = Gold, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelSmall)
-                Text(when {
-                    agent13Estimate != null -> agent13Estimate.summary(clock)
-                    agent13State is Agent13CurrentResult.Loading -> "Consultando estimativa autorizada..."
-                    agent13State is Agent13CurrentResult.Denied -> "Acesso à estimativa não autorizado."
-                    else -> "Estimativa indisponível ou vencida. Não substitui a medição oficial."
-                }, color = Muted, style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = { requestAgent13(city.ibgeCode) }, modifier = Modifier.fillMaxWidth(),
-                    enabled = agent13State !is Agent13CurrentResult.Loading) {
-                    Text("Consultar estimativa")
-                }
-            } else {
-                Text("OpenWeather: ponto municipal ainda não validado; sem estimativa nesta cidade.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            // Internal source comparison and collector controls are never rendered in
+            // the subscriber screen. The value's own provenance remains visible
+            // in the official observation summary above, with a timestamp.
+            // Only a future authenticated thermal-only server response may
+            // populate missing thermal fields, after independent audit.
+            if (!FinalDashboardSpec.THERMAL_FALLBACK_INTEGRATED) {
+                Text("Sensação térmica: indisponível sem dado validado.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.testTag("thermal-fallback-unavailable"))
             }
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
         }
