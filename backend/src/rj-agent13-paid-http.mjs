@@ -142,9 +142,9 @@ export function createPaidAgent13HttpHandler(delegate, {
         const target = CALIBRATED_TARGETS.get(ibge);
         if (!target || agent13Runtime.configured !== true)
           return { kind: 'unavailable' };
-        const now = clock();
-        const result = await agent13Runtime.collect({ target, now });
-        const estimate = projectAgent13CurrentEstimate(result, ibge, now);
+        const result = await agent13Runtime.collect({ target });
+        // Re-check model timestamps at the moment the HTTP response is made.
+        const estimate = projectAgent13CurrentEstimate(result, ibge, clock());
         return estimate ? { kind: 'current', estimate } : { kind: 'unavailable' };
       });
       if (outcome.kind === 'denied') send(res, 403, { error: 'access_denied' });
