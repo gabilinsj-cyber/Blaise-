@@ -1145,6 +1145,22 @@ private fun MoreScreen(
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
+    // Only the physically separate admin build can even open this activity.
+    if (BuildConfig.APPLICATION_ID == "br.com.blaise.rj.admin") {
+        val context = LocalContext.current
+        Spacer(Modifier.height(14.dp))
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent().setClassName(context.packageName,
+                            "br.com.blaise.rj.AdminScientificActivity")
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag("admin-scientific-calculator"),
+        ) { Text("Calculadora científica • administradores") }
+    }
     Spacer(Modifier.height(14.dp))
     val additional = OfficialAlertRibbonPolicy.layout(
         LocalVerifiedBlaiseWarnings.current, LocalObservationClock.current
