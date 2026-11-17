@@ -33,7 +33,7 @@ export function identifyDwd2mCandidate(index,cycle,{now=Date.now()}={}){
     const cyc=m[2],lead=Number(m[3]);
     if(cyc.slice(8)!==cycle||lead>36)continue;
     const issued=Date.parse(cyc.slice(0,4)+'-'+cyc.slice(4,6)+'-'+cyc.slice(6,8)+
-      'T'+cyc.slice(8)+'00:00Z');
+      'T'+cyc.slice(8)+':00:00Z');
     const validAt=issued+lead*3600_000;
     if(Number.isFinite(issued)&&issued<=now&&now-issued<=24*3600_000&&
       validAt<=now&&now-validAt<=3*3600_000)
