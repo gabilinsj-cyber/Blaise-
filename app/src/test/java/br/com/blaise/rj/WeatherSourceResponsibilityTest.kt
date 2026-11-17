@@ -6,7 +6,7 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(12, list.size)
+        assertEquals(13, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val german = list.single { it.id == "DWD_ICON" }
         assertEquals("DWD_ICON", german.originFamily)
@@ -30,6 +30,12 @@ class WeatherSourceResponsibilityTest {
         assertFalse(owm.currentlyIntegratedProduct)
         assertTrue(owm.sectors.contains("temperatura e sensação térmica"))
         assertFalse(owm.sectors.contains("avisos"))
+        val hg = list.single { it.id == "HG_BRASIL_WEATHER_PRO" }
+        assertEquals("E", hg.nature)
+        assertEquals("HG_BRASIL_AGGREGATED", hg.originFamily)
+        assertFalse(hg.currentlyIntegratedProduct)
+        assertTrue(hg.sectors.contains("autorização escrita"))
+        assertTrue(hg.sectors.contains("Não comprova estação física"))
         val meteoblue = list.single { it.id == "METEOBLUE_NEMS10" }
         assertEquals("P", meteoblue.nature)
         assertEquals("METEOBLUE_NEMS10", meteoblue.originFamily)
@@ -49,8 +55,11 @@ class WeatherSourceResponsibilityTest {
             assertTrue(state.contains("SEM") || state.contains("NÃO HOMOLOGADA") ||
                 state.contains("CONSULTA VISUAL EXTERNA") ||
                 state.contains("PREVISÃO CANDIDATA") ||
-                state.contains("CONTINGÊNCIA TÉRMICA CONDICIONAL"))
+                state.contains("CONTINGÊNCIA TÉRMICA CONDICIONAL") ||
+                state.contains("AGUARDANDO ASSINATURA E AUTORIZAÇÃO COMERCIAL"))
         }
+        assertTrue(WeatherSourceResponsibilities.availability(
+            "HG_BRASIL_WEATHER_PRO", true, true, true).contains("AGUARDANDO"))
         assertEquals("COLETA DO PRODUTO NÃO HOMOLOGADA",
             WeatherSourceResponsibilities.availability("DWD_ICON", true, true, true))
         assertEquals("PREVISÃO VALIDADA NO BACKEND",
