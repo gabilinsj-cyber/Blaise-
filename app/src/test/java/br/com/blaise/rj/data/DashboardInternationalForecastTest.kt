@@ -59,7 +59,7 @@ class DashboardInternationalForecastTest {
             model() + ("sourceId" to "INMET"),
             model() + ("kind" to "OFFICIAL_STATION_OBSERVATION"),
             model() + ("credit" to "unknown"),
-            model() + ("ibge" to "3304904"),
+            model() + ("ibge" to "3309999"),
             model() + ("checkedAt" to "2026-11-17T15:45:00Z"),
             model() + ("temperatureC" to Double.NaN),
         )
