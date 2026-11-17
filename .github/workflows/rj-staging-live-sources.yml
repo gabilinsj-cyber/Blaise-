@@ -1,8 +1,7 @@
 name: RJ International Staging Live Sources
+# External providers are probed ONLY after an explicit human workflow run.
+# An earlier one-time pull_request proof passed on 2026-11-17.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/rj-staging-live-sources.yml
   workflow_dispatch:
 permissions:
   contents: read
