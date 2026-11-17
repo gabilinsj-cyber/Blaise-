@@ -23,7 +23,7 @@ object WeatherSourceResponsibilities {
             "Comparação de ondas e swell", "P", "ECMWF_WAVE", false),
         WeatherSourceResponsibility("NASA_IMERG", "NASA GPM / IMERG",
             "Chuva estimada por satélite em terra e no mar", "E", "NASA_IMERG", false),
-        WeatherSourceResponsibility("JAXA_GSMAP", "JAXA GSMaP V06",
+        WeatherSourceResponsibility("JAXA_GSMAP", "JAXA GSMaP (algoritmo v9)",
             "Chuva estimada por satélite em terra e no mar", "E", "JAXA_GSMAP", false),
         WeatherSourceResponsibility("EUMETSAT_OSI_SAF", "EUMETSAT OSI SAF",
             "Temperatura estimada da superfície do mar", "E", "GOES_EAST_ABI", false),
