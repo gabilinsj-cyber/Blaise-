@@ -190,3 +190,43 @@ test('timestamp failures disclose only UTC deltas, never weather or key',async()
     assert.equal(serialized.includes('"temp"'),false);
   }
 });
+
+test('live call checks UTC after fetch, not frozen request-start clock',async()=>{
+  const model={...payload,data:[{
+    ...payload.data[0],dt:Math.floor((NOW+2_000)/1_000)
+  }]};
+  let tick=0,requests=0;
+  const clock=()=>tick++===0?NOW:NOW+2_300;
+  const {client,state}=make({clock},{
+    fetchImpl:async()=>{
+      requests++;
+      return new Response(JSON.stringify(model),{
+        status:200,headers:{'content-type':'application/json'}
+      });
+    }
+  });
+  const result=await client.getCurrent({target});
+  assert.equal(result.status,'AVAILABLE_PROVIDER_CURRENT_ESTIMATE');
+  assert.equal(result.validAt,new Date(NOW+2_000).toISOString());
+  assert.equal(result.retrievedAt,new Date(NOW+2_300).toISOString());
+  assert.equal(state.reservations,1);
+  assert.equal(requests,1);
+  assert.equal(tick,2);
+});
+
+test('real future-dated values remain rejected using a fresh response clock',async()=>{
+  const model={...payload,data:[{
+    ...payload.data[0],dt:Math.floor((NOW+60_000)/1_000)
+  }]};
+  let tick=0;
+  const {client,state}=make({clock:()=>tick++===0?NOW:NOW+1_000},{
+    fetchImpl:async()=>new Response(JSON.stringify(model),{
+      status:200,headers:{'content-type':'application/json'}
+    })
+  });
+  const result=await client.getCurrent({target});
+  assert.equal(result.status,'UNAVAILABLE');
+  assert.equal(result.reason,'PROVIDER_CURRENT_VALUE_FUTURE');
+  assert.equal(result.diagnostic?.offsetSeconds,59);
+  assert.equal(state.reservations,1);
+});
