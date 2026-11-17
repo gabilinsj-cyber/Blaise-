@@ -7,17 +7,17 @@ import java.time.Instant
 
 class StatewideSnapshotTest {
     private val now = Instant.parse("2026-10-08T10:00:00Z")
-    private val risk = StatewideRisk("CURRENT", "ALTO", 4, now.minusSeconds(60), "https://fixture.invalid", "Fixture")
-    private val sources = listOf(StatewideSource("inmet", "INMET", listOf("avisos"), "Fixture", "CURRENT", "avisos"))
+    private val risk = StatewideRisk("UNAVAILABLE", null, null, null, null, null)
+    private val sources = listOf(StatewideSource("noaa", "NOAA", listOf("ondas"), "Fixture", "NOT_CONNECTED", null))
     private fun cities() = RioMunicipalities.all.map { city ->
-        StatewideMunicipality(city.ibgeCode, city.name, false, risk, emptyList(), "EXACT_IBGE_ONLY")
+        StatewideMunicipality(city.ibgeCode, city.name, false, risk, emptyList(), "UNAVAILABLE")
     }
     @Test fun canonicalAllMunicipalitiesKeepSourceValidity() {
         val sample = StatewideSnapshot(now, true, cities(), emptyList(), sources)
         assertEquals(92, sample.municipalities.size)
         assertTrue(sample.current(now))
         assertFalse(sample.current(now.plusSeconds(121)))
-        assertTrue(risk.current(now))
+        assertFalse(risk.current(now))
         assertFalse(risk.copy(observedAt = now.minusSeconds(1801)).current(now))
         assertFalse(risk.copy(observedAt = now.plusSeconds(1)).current(now))
         assertFalse(risk.copy(state = "STALE").current(now))
