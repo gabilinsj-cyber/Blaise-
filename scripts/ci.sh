@@ -39,7 +39,7 @@ cp backend/package-lock.json evidence/backend-package-lock.json
 ./gradlew --no-daemon --continue \
   clean \
   lintDebug lintRelease \
-  testDebugUnitTest testReleaseUnitTest \
+  testDebugUnitTest testReleaseUnitTest testAdminUnitTest \
   assembleDebug assembleRelease assembleDebugAndroidTest \
   bundleRelease
 
