@@ -41,4 +41,23 @@ class FinalDashboardSpecTest {
         assertFalse(FinalDashboardSpec.officialSources.any { it.contains("Agente 13") })
     }
 
+    @Test fun `no active color without independently validated Blaise notice`() {
+        for (level in 1..5) {
+            assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(level, false))
+        }
+        assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(null, true))
+        assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(0, true))
+        assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(6, true))
+    }
+
+    @Test fun `validated Blaise 1 to 5 risk levels have distinct colors`() {
+        val colors = (1..5).map { level ->
+            FinalDashboardSpec.validatedBlaiseNoticeColorArgb(level, true)
+        }
+        assertTrue(colors.all { it != null })
+        assertEquals(5, colors.filterNotNull().toSet().size)
+        assertEquals(0xFF16803D.toInt(), colors.first())
+        assertEquals(0xFF7F1D1D.toInt(), colors.last())
+    }
+
 }
