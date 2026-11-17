@@ -822,29 +822,52 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
             RjMunicipalMap(snapshot, Modifier.fillMaxSize())
         }
         val activeObservations = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock) }
+        val activeForecasts = LocalInternationalForecasts.current.values
+            .filter { it.current(clock) }.sortedBy { it.ibge }
+        fun forecastCity(code: Int): String =
+            RioMunicipalities.byIbgeCode(code)?.name ?: "Município não identificado"
+        fun modelMetric(value: Double?, unit: String): String =
+            value?.let { String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit) }
+                ?: "Indisponível"
+        fun provenance(row: DashboardInternationalForecast): String {
+            val at = row.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+            return " • previsão ECMWF/IFS $at"
+        }
         when (activeLayer) {
             "Radar" -> Text("Radar real: sem frames homologados nesta consulta. Malha geográfica não representa precipitação.",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             "Chuva" -> {
-                Text("Chuva acumulada: indisponível até existir medição aprovada com cobertura territorial.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
-                Text("Chuva: dados internacionais ainda indisponíveis nesta consulta.", color = Muted)
-            }
-            "Temperatura" -> {
-                Text("Temperatura: apenas dados internacionais validados são apresentados.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
-                activeObservations.take(3).forEach { obs ->
-                    StatusLine(obs.station, obs.temperatureC?.let { "%.1f °C".format(java.util.Locale("pt", "BR"), it) }
-                        ?: "Temperatura indisponível")
+                Text("Chuva observada acumulada: indisponível sem medição autorizada.",
+                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                activeForecasts.forEach { row ->
+                    StatusLine(forecastCity(row.ibge),
+                        "Próxima hora: " + modelMetric(row.precipitationNextHourMm, "mm") +
+                            " • prob. " + modelMetric(row.precipitationProbabilityNextHourPct, "%") +
+                            provenance(row))
                 }
             }
-            "Vento" -> activeObservations.take(3).forEach { obs ->
-                StatusLine(obs.station, obs.windKmh?.let { "%.1f km/h".format(java.util.Locale("pt", "BR"), it) }
-                    ?: "Vento indisponível")
+            "Temperatura" -> {
+                activeObservations.take(3).forEach { obs ->
+                    StatusLine(obs.station, modelMetric(obs.temperatureC, "°C") + " • observação verificada")
+                }
+                activeForecasts.forEach { row ->
+                    StatusLine(forecastCity(row.ibge),
+                        modelMetric(row.temperatureC, "°C") + provenance(row))
+                }
             }
-            "Nuvens" -> Text("Cobertura de nuvens indisponível nesta consulta. Não há camada visual sem fonte e horário validados.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+            "Vento" -> activeForecasts.forEach { row ->
+                StatusLine(forecastCity(row.ibge), modelMetric(row.windKmh, "km/h") + provenance(row))
+            }
+            "Nuvens" -> activeForecasts.forEach { row ->
+                StatusLine(forecastCity(row.ibge), modelMetric(row.cloudPct, "%") + provenance(row))
+            }
         }
+        if(activeForecasts.isEmpty() && activeObservations.isEmpty())
+            Text("Camada meteorológica indisponível • nenhuma observação ou previsão internacional válida nesta consulta.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Valores indicados são pontos municipais, NÃO uma superfície contínua estimada nem radar ao vivo.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Geografia: IBGE • contornos oficiais • ampliar com dois dedos • Sem mapa de terceiros.",
             color = Gold, style = MaterialTheme.typography.labelSmall)
     }
@@ -1008,14 +1031,17 @@ private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, on
 
 @Composable
 private fun MapScreen(city1: City, city2: City) {
+    ExpandedRadarPanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "MAPA DE RISCO • ESTADO DO RJ",
-        subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
+        subtitle = "Visão territorial: Estado + ${city1.name} + ${city2.name}",
     ) {
-        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio", "Aguardando riscos georreferenciados por fonte aprovada")
         StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
+        Text("Contornos próprios IBGE não equivalem a uma camada de risco validada.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
