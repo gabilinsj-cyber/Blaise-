@@ -12,13 +12,13 @@ const sources = Object.freeze({
   // inputs are not eligible as data suppliers to Blaise V6 RJ.
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
   NOAA_GFS_WAVE: 'P', ECMWF_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
-  NOAA_GLM: 'O', NASA_GPM_IMERG: 'E',
+  NOAA_GLM: 'O',
   EUMETSAT_SAT: 'O', EUMETSAT_OSI_SAF_SST: 'E',
-  NOAA_COASTWATCH_SST: 'E', NASA_MUR_SST: 'E',
+  NOAA_COASTWATCH_SST: 'E',
   // User-authorized 17/11/2026: Copernicus CAMS strictly via MET Norway/Yr
   // for the clear-sky UV product; not a direct Copernicus collector.
   COPERNICUS_CAMS_UV_VIA_MET_NO: 'P',
-  NASA_SAT: 'O', ANA_RIVER: 'O', SGB_SACE: 'O',
+  ANA_RIVER: 'O', SGB_SACE: 'O',
 });
 export const RJ_METEOROLOGY_SOURCE_CATEGORIES = sources;
 
@@ -31,6 +31,8 @@ const definitions = [
   ['humidityPct','%',0,100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['uvIndex','index',0,25,[['NOAA_UVI','P']]],
   ['uvClearSkyIndex','index',0,25,[['COPERNICUS_CAMS_UV_VIA_MET_NO','P']]],
+  // RAMMB/CIRA is link-only, shares GOES with NOAA: no numeric field accepts it.
+  // NASA and JAXA excluded from all active meteorological candidates.
   // JAXA excluded: GSMaP_NRT ~4h; GSMaP_NOW 30-min cadence remains
   // an EXTRAPOLATED ESTIMATE and cannot count as current O/actual rain.
   // No rain-gauge provider authorized: rainNowMm must remain unavailable.
@@ -42,9 +44,9 @@ const definitions = [
   ['windKmh','km/h',0,400,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['gustKmh','km/h',0,504,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['rainNowMm','mm',0,500,[]],
-  ['rainAccumulatedMm','mm',0,2500,[['NASA_GPM_IMERG','E']]],
-  ['oceanRainMm','mm',0,2500,[['NASA_GPM_IMERG','E']]],
-  ['cloudPct','%',0,100,[['EUMETSAT_SAT','O'],['NASA_SAT','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
+  ['rainAccumulatedMm','mm',0,2500,[]],
+  ['oceanRainMm','mm',0,2500,[]],
+  ['cloudPct','%',0,100,[['EUMETSAT_SAT','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['visibilityKm','km',0,250,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['solarRadiationWm2','W/m²',0,1800,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['lightningCount','count',0,1000000,[['NOAA_GLM','O']]],
@@ -57,7 +59,7 @@ const definitions = [
   // Every sea-surface temperature here is a satellite retrieval or L4 estimate.
   // Two GOES-East/ABI processors are not independent sensors.
   ['seaSurfaceTemperatureC','°C',-5,45,[['EUMETSAT_OSI_SAF_SST','E'],
-    ['NOAA_COASTWATCH_SST','E'],['NASA_MUR_SST','E']]],
+    ['NOAA_COASTWATCH_SST','E']]],
   ['riverLevelM','m',-50,200,[['ANA_RIVER','O'],['SGB_SACE','O']]],
   ['hydrologicalRiskLevel','level',1,5,[]],
 ];
