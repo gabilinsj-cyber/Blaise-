@@ -286,7 +286,12 @@ export function createPaidDashboardDataHttpHandler(
       }
       const payload = parseRequest(await readJson(req, DASHBOARD_DATA_HTTP_MAX_REQUEST_BYTES));
       const result = await gate.run(async () => {
-        const entitlement = await verifyPurchasePayload(payload, { config, gateway, authenticatedUid });
+        // Keep municipality selection OUT of the strict Google Play entitlement payload.
+        const entitlement = await verifyPurchasePayload({
+          packageName:payload.packageName,
+          purchaseToken:payload.purchaseToken,
+          productIds:payload.productIds
+        }, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
         let nowMillis=Date.now();
         const isStatewide=req.url===STATEWIDE_DASHBOARD_PATH;
