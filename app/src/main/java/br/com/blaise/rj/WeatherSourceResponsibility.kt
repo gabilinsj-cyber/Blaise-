@@ -17,6 +17,9 @@ object WeatherSourceResponsibilities {
             "Comparação de temperatura, chuva, vento e sistemas", "P", "NOAA_GFS", false),
         WeatherSourceResponsibility("DWD_ICON", "DWD ICON Global",
             "Comparação de temperatura, vento, pressão e chuva", "P", "DWD_ICON", false),
+        WeatherSourceResponsibility("OPENWEATHER_AGENT13", "OpenWeather One Call 4.0 • Agente 13",
+            "Contingência somente de temperatura e sensação térmica estimadas quando DWD, NOAA e ECMWF estiverem indisponíveis.",
+            "E", "OPENWEATHER_MODELED_CURRENT", false),
         WeatherSourceResponsibility("METEOBLUE_NEMS10", "meteoblue • NEMS10 / MultiModel",
             "Comparação de previsões de temperatura, vento, chuva futura e nuvens; API comercial não homologada.",
             "P", "METEOBLUE_NEMS10", false),
@@ -38,7 +41,7 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 11)
+        require(providers.size == 12)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
         require(providers.none {
@@ -52,6 +55,7 @@ object WeatherSourceResponsibilities {
         hasClearSkyUv: Boolean
     ): String = when (id) {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
+        "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
         "METEOBLUE_NEMS10" -> "PREVISÃO CANDIDATA • API E LICENÇA NÃO HOMOLOGADAS"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
