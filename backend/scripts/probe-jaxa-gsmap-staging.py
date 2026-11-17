@@ -21,6 +21,7 @@ import ftplib
 import json
 import os
 import socket
+import ssl
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -71,7 +72,7 @@ def check_jaxa_ftp(*, username: str | None = None,
     }
     ftp = None
     try:
-        ftp = ftp_factory(timeout=TIMEOUT_S)
+        ftp = ftp_factory(timeout=TIMEOUT_S, context=ssl.create_default_context())
         ftp.connect(HOST, PORT, timeout=TIMEOUT_S)
         # Must negotiate encryption BEFORE any login, even for shared
         # distribution credentials. Fail-closed; no FTP plaintext fallback.
