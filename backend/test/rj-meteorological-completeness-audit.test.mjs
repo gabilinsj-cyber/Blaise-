@@ -93,3 +93,23 @@ test('CEMADEN hydrological risk is not a temperature measurement',()=>{
   assert.equal(result.fields.find(x=>x.field==='temperatureC').coveredMunicipalities,0);
   assert.equal(result.fields.find(x=>x.field==='hydrologicalRiskLevel').coveredMunicipalities,0);
 });
+
+test('satellite SST and IMERG remain estimated products, never direct thermometers or gauges',()=>{
+  const sst=RJ_METEOROLOGICAL_FIELDS.find(x=>x.id==='seaSurfaceTemperatureC');
+  assert.equal(sst.unit,'°C');
+  assert.deepEqual(sst.candidates.map(x=>x.sourceId),[
+    'EUMETSAT_OSI_SAF_SST','NOAA_COASTWATCH_SST','NASA_MUR_SST'
+  ]);
+  assert.ok(sst.candidates.every(x=>x.category==='E'));
+  assert.equal(RJ_METEOROLOGY_SOURCE_CATEGORIES.NASA_GPM_IMERG,'E');
+  assert.equal(RJ_METEOROLOGY_SOURCE_CATEGORIES.ECMWF_WAVE,'P');
+  const payload={...base,
+    field:'oceanRainMm',sourceId:'NASA_GPM_IMERG',category:'E',
+    value:1.7,datasetId:'IMERG_EARLY_V07',sourceUrl:'https://gpm.nasa.gov/data/imerg'};
+  const coverage=audit([payload]);
+  assert.equal(coverage.verifiedValueCount,1);
+  assert.equal(coverage.fields.find(x=>x.field==='oceanRainMm').coveredMunicipalities,1);
+  assert.equal(coverage.fields.find(x=>x.field==='rainNowMm').coveredMunicipalities,0);
+  const falseStation={...payload,field:'rainNowMm',category:'O'};
+  assert.equal(audit([falseStation]).rejectedRecordCount,1);
+});
