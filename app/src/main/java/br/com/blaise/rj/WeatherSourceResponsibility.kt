@@ -21,6 +21,9 @@ object WeatherSourceResponsibilities {
         WeatherSourceResponsibility("OPENWEATHER_AGENT13", "OpenWeather One Call 4.0",
             "Contingência somente de temperatura e sensação térmica estimadas quando DWD, NOAA e ECMWF estiverem indisponíveis.",
             "E", "OPENWEATHER_MODELED_CURRENT", false),
+        WeatherSourceResponsibility("HG_BRASIL_WEATHER_PRO", "HG Brasil Weather",
+            "Condições atuais agregadas: temperatura, umidade, vento e nuvens. Plano ainda não contratado; requer autorização escrita para exibir dados no app pago. Não comprova estação física.",
+            "E", "HG_BRASIL_AGGREGATED", false),
         WeatherSourceResponsibility("METEOBLUE_NEMS10", "meteoblue • NEMS10 / MultiModel",
             "Comparação de previsões de temperatura, vento, chuva futura e nuvens; API comercial não homologada.",
             "P", "METEOBLUE_NEMS10", false),
@@ -42,7 +45,7 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 12)
+        require(providers.size == 13)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
         require(providers.none {
@@ -58,6 +61,7 @@ object WeatherSourceResponsibilities {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
         "METEOBLUE_NEMS10" -> "PREVISÃO CANDIDATA • API E LICENÇA NÃO HOMOLOGADAS"
+        "HG_BRASIL_WEATHER_PRO" -> "AGUARDANDO ASSINATURA E AUTORIZAÇÃO COMERCIAL • NÃO É ESTAÇÃO MEDIDA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "CAMS_UV_VIA_MET" -> if (hasClearSkyUv) "PREVISÃO DE CÉU LIMPO VALIDADA" else "SEM DADO VÁLIDO RECEBIDO"
