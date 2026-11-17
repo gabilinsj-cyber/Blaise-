@@ -166,7 +166,9 @@ test('dashboard indicates unavailable rainfall without inventing data when stati
   const snapshot = buildPaidDashboardSnapshot(currentWorker({ state: 'STALE' }), { nowMillis: NOW });
   assert.equal(snapshot.rainfall, null);
   assert.equal(snapshot.rainfallAvailability, 'UNAVAILABLE');
-  assert.equal(snapshot.officialNoticeLinks.length, 2);
+  assert.equal(snapshot.officialNoticeLinks.length, 4);
+  assert.ok(snapshot.officialNoticeLinks.some(x=>x.id==='inmet-avisos'));
+  assert.ok(snapshot.officialNoticeLinks.some(x=>x.id==='cemaden-rj-riscos'));
 });
 
 test('paid dashboard endpoint denies inactive subscriptions without source disclosure', async () => {
