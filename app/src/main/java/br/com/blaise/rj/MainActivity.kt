@@ -1184,6 +1184,8 @@ private fun MoreScreen(
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
+    Spacer(Modifier.height(14.dp))
+    WeatherSourceResponsibilityPanel()
     // Only the physically separate admin build can even open this activity.
     if (BuildConfig.APPLICATION_ID == "br.com.blaise.rj.admin") {
         val context = LocalContext.current
@@ -1214,6 +1216,50 @@ private fun MoreScreen(
         } else {
             additional.forEach { item -> OfficialAlertLinkCard(item) }
         }
+    }
+}
+
+/** Provenance-aware source availability. A catalogue entry is NOT a live feed. */
+@Composable
+private fun WeatherSourceResponsibilityPanel() {
+    val now = LocalObservationClock.current
+    val met = LocalInternationalForecasts.current.values.filter { it.current(now) }
+    val noaa = (LocalBackendDashboard.current as? DashboardDataNetworkResult.Available)
+        ?.snapshot?.marine?.takeIf { it.current(now) }
+    val coastal = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }?.marine.orEmpty()
+    val marineValid = noaa != null || coastal.any { it.sourceName == "NOAA GFS Wave" && it.expiresAt.isAfter(now) }
+    val uvValid = met.any { it.uvClearSkyIndex != null }
+    DashboardSection(
+        title = "FONTES METEOROLÓGICAS • O / E / P",
+        subtitle = "Estado real do produto, não apenas cadastro da instituição",
+    ) {
+        Text("O = observação • E = estimativa • P = previsão. Fonte sem dado validado permanece indisponível.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        WeatherSourceResponsibilities.providers.forEach { source ->
+            val status = WeatherSourceResponsibilities.availability(
+                source.id, met.isNotEmpty(), marineValid, uvValid,
+            )
+            Text("${source.label} • ${source.nature}",
+                color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodySmall)
+            Text(source.sectors, color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
+            Text(status, color = if (status.contains("VALIDAD")) StableGreen else Muted,
+                style = MaterialTheme.typography.labelSmall)
+        }
+        if (met.isNotEmpty()) {
+            Text(
+                "ECMWF via MET Norway: " + met.joinToString(" • ") { forecast ->
+                    val city = RioMunicipalities.byIbgeCode(forecast.ibge)?.name ?: "IBGE ${forecast.ibge}"
+                    "$city ${forecast.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}"
+                },
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("MET Norway distribui ECMWF/IFS; não constitui outro modelo independente. NOAA CoastWatch e OSI SAF podem compartilhar GOES/ABI.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Dados meteorológicos locais fora de Rio e Niterói: indisponíveis até homologação por município. Sem inventar zero.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
 
