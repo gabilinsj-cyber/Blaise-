@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   RJ_SOURCE_SECTOR_MATRIX as matrix,
   RJ_SOURCE_MATRIX_POLICY as policy,
-  getIndependentFamiliesForSector
+  getUnderlyingFamiliesForSector
 } from '../src/rj-source-sector-matrix.mjs';
 test('sector registry lists approved roles without claiming live download',()=>{
   assert.equal(matrix.length,15);
@@ -24,7 +24,7 @@ test('sector registry lists approved roles without claiming live download',()=>{
 });
 test('MET Norway is same underlying ECMWF family and no duplicate fourth thermometer',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
-  const independent=getIndependentFamiliesForSector(air.id);
+  const independent=getUnderlyingFamiliesForSector(air.id);
   assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS']);
   assert.equal(air.products.length,3);
   assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'ECMWF_IFS');
@@ -35,7 +35,7 @@ test('satellite precipitation and marine SST distinguish estimates from observat
   }
   const ocean=matrix.find(s=>s.id==='SST');
   assert.equal(ocean.products[0].family,ocean.products[1].family);
-  assert.equal(getIndependentFamiliesForSector('SST').length,2);
+  assert.equal(getUnderlyingFamiliesForSector('SST').length,2);
   assert.equal(matrix.find(s=>s.id==='RAIN_SATELLITE_LAND').products[0].productId,'GSMAP_V06');
 });
 test('CAMS exception limited to MET Norway clear-sky UV; domestic only comparison',()=>{
