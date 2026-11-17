@@ -312,8 +312,8 @@ fun BlaiseApp(
     }
 
     CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
-        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable,
-        ) {
+        LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable
+    ) {
     BlaiseDashboard(
         city1 = city1,
         city2 = city2,
@@ -1673,16 +1673,11 @@ private fun CityPanel(
             StatusLine("Índice UV", "Indisponível")
             StatusLine("Chance de chuva", "Indisponível")
             StatusLine("Rajadas / nuvens", "Indisponíveis")
-            // Internal source comparison and collector controls are never rendered in
-            // the subscriber screen. The value's own provenance remains visible
-            // in the official observation summary above, with a timestamp.
-            // Only a future authenticated thermal-only server response may
-            // populate missing thermal fields, after independent audit.
-            if (!FinalDashboardSpec.THERMAL_FALLBACK_INTEGRATED) {
-                Text("Sensação térmica: indisponível sem dado validado.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.testTag("thermal-fallback-unavailable"))
-            }
+            // Agent identities, comparison calculations and provider controls
+            // belong only in the administrator application, never this panel.
+            // The observation summary above labels its actual source and time.
+            // Until a verified thermal-only backend response is integrated,
+            // unavailable feels-like must remain unavailable.
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
         }
     }
