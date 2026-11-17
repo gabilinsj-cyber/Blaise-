@@ -14,6 +14,23 @@ class OfficialAlertRibbonPolicyTest {
         rjCoverageValidated = true, verifiedByBackend = verified,
     )
 
+    @Test fun neverPersistAlertBodiesHistoriesOrAcceptOpenweatherAsOfficialSource() {
+        assertFalse(OfficialAlertRibbonPolicy.PERSIST_OFFICIAL_NOTICES)
+        assertFalse(OfficialAlertRibbonPolicy.PERSIST_OFFICIAL_NOTICE_HISTORY)
+        assertFalse(OfficialAlertRibbonPolicy.DISPLAY_PROVIDER_ALERT_BODY)
+        assertFalse(OfficialAlertRibbonPolicy.ACCEPT_OPENWEATHER_AS_OFFICIAL_WARNING_SOURCE)
+        assertFalse(OfficialAlertRibbonPolicy.portals.any {
+            it.id.contains("openweather", ignoreCase = true)
+        })
+        val old = evidence(5).copy(
+            portalId = "openweather-agent13",
+            warningId = "provider-modeled-not-official"
+        )
+        assertNull(OfficialAlertRibbonPolicy.present("openweather-agent13", old, now).level)
+        assertTrue(OfficialAlertRibbonPolicy.layout(listOf(old), now)
+            .visible.all { !it.presentation.activeValidatedAlert })
+    }
+
     @Test fun fourDirectLinksAreApprovedWithoutActiveWarningClaim() {
         assertEquals(listOf("alerta-rio", "defesa-civil-rj", "inmet-avisos",
             "inpe-cptec-avisos"), OfficialAlertRibbonPolicy.portals.map { it.id })
