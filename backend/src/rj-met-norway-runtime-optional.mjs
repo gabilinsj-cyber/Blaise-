@@ -5,7 +5,7 @@
  * Never automatically polls or publishes customer-visible values.
  */
 import {createRjMetNorwayFirestoreStore} from './rj-met-norway-firestore-store.mjs';
-import {createRjMetNorwayLocationforecastCollector} from './rj-met-norway-locationforecast.mjs';
+import {createRjMetNorwayLocationforecastCollector,normalizeMetNorwayRjForecast} from './rj-met-norway-locationforecast.mjs';
 import {projectMetNorwayAdminCoverageEvidence} from './rj-met-norway-admin-evidence.mjs';
 
 const points=Object.freeze({
@@ -16,6 +16,7 @@ const disabled=(state)=>Object.freeze({
   state,configured:false,automaticSchedulingEnabled:false,
   publishedToAndroid:false,productionEnabled:false,
   supportedMunicipalities:Object.freeze(Object.keys(points)),
+  readCachedCity:async()=>null,
   collectCity:async()=>Object.freeze({status:'UNAVAILABLE',
     reason:'MET_NORWAY_NOT_ENABLED_OR_UNVERIFIED',forecast:null})
 });
@@ -42,11 +43,37 @@ export async function initializeOptionalMetNorwayRuntime({
       store,fetchImpl,clock
     });
     if(!collector.configured)return disabled('REAL_CONTACT_USER_AGENT_REQUIRED');
+    // Per-replica bound to 60 seconds. Never fetch upstream in this method.
+    // Provider data remains subject to original 3h reservation and TTL.
+    const local=new Map();
+    async function readCachedCity(ibge){
+      const code=String(ibge),point=points[code];
+      if(!point)return null;
+      const now=clock();
+      if(!Number.isSafeInteger(now)||now<0)return null;
+      const hit=local.get(code);
+      if(hit&&now>=hit.checkedAtMs&&now-hit.checkedAtMs<60_000)return hit.result;
+      let forecast=null;
+      try{
+        const row=await store.get(code);
+        if(row?.payload){
+          const normal=normalizeMetNorwayRjForecast(row.payload,{
+            municipalityIbge:code,point,checkedAtMs:now
+          });
+          if(normal.status==='FORECAST_AVAILABLE')forecast=normal;
+        }
+      }catch{
+        // Cache read failure means unavailable, not assumed clear weather.
+      }
+      local.set(code,{result:forecast,checkedAtMs:now});
+      return forecast;
+    }
     return Object.freeze({
       state:'READY_FOR_EXPLICIT_SERVER_CALL',configured:true,
       automaticSchedulingEnabled:false,publishedToAndroid:false,
       productionEnabled:false,
       supportedMunicipalities:Object.freeze(Object.keys(points)),
+      readCachedCity,
       collectCity:async(ibge)=>{
         const point=points[String(ibge)];
         if(!point)return {status:'UNAVAILABLE',reason:'UNVERIFIED_CITY_COORDINATES',forecast:null};
