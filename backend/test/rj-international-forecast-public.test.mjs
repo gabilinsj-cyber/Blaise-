@@ -32,7 +32,7 @@ test('publishes valid time-stamped ECMWF prediction, never measurement or real-t
 test('rejects unsupported municipalities, bogus sources, nonlicensed and stale records',()=>{
   const f=model();
   for(const overrides of [
-    {ibge:'3304904'}, // 90 cities still need geographical verification
+    {ibge:'3309999'}, // municipality code absent from the IBGE 92-location registry
     {source:'INMET'},{officialObservation:true},{officialAlert:true},
     {automaticAlertsAuthorized:true},{license:'unknown'},
     {issuedAt:'2026-11-16T00:00:00Z'},
