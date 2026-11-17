@@ -1,8 +1,7 @@
 name: RJ JAXA GSMaP v9 Staging Access
+# External FTP reachability attempts occur only through a human dispatch.
+# Initial unauthenticated probe was archived on 17/11/2026.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/rj-jaxa-gsmap-staging.yml
   workflow_dispatch:
 permissions:
   contents: read
