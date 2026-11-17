@@ -40,14 +40,12 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
-  sector('RAIN_SATELLITE_LAND','Chuva estimada por satélite sobre o RJ',[
-    E('JAXA_GSMAP','GSMAP_NRT_ALGORITHM_V9','JAXA_GSMAP','principal, sujeito a latência'),
-    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','comparação multissatélite')
-  ],'Estimativas de grade, sem pluviômetro local. NASA e JAXA compartilham sensores: verificar correlação e independência por insumo.'),
-  sector('RAIN_SATELLITE_OCEAN','Chuva estimada no Atlântico',[
-    E('JAXA_GSMAP','GSMAP_NRT_ALGORITHM_V9','JAXA_GSMAP','principal'),
-    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','comparação')
-  ],'Estimativas de precipitação oceânica; não inventar observação de navio ou plataforma.'),
+  sector('RAIN_SATELLITE_LAND','Chuva estimada por satélite sobre o RJ (somente análise científica interna)',[
+    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','pesquisa interna, nunca chuva atual do cliente')
+  ],'JAXA GSMaP removida por decisão do proprietário: nenhuma estimativa de satélite deve representar chuva atual. NASA IMERG continua apenas para pesquisa e não é pluviômetro.'),
+  sector('RAIN_SATELLITE_OCEAN','Chuva estimada no Atlântico (somente análise científica interna)',[
+    E('NASA_GPM_IMERG','IMERG_EARLY_V07','NASA_GPM_IMERG','pesquisa interna, nunca chuva atual do cliente')
+  ],'Estimativa retrospectiva oceânica de pesquisa, sem autorização para substituir medição de precipitação com idade máxima de 30 minutos.'),
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     O('EUMETSAT_SAT','METEOSAT_IMAGES','EUMETSAT_METEOSAT','cobertura conforme produto'),
@@ -89,7 +87,15 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   domesticComparisonOnly:Object.freeze(['INMET','CEMADEN']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
-  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT']),
+  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP']),
+  currentRainObservation:Object.freeze({
+    maxAgeMinutes:30,
+    acceptedKinds:Object.freeze(['O']),
+    acceptedLicensedRainGaugeSources:Object.freeze([]),
+    satelliteRainEstimateAllowed:false,
+    missingDataStatus:'UNAVAILABLE',
+    requiresProviderTimestamp:true,
+  }),
   singleCamsException:'COPERNICUS_CAMS_UV_VIA_MET_NO',
   agent13:'OWM_ONLY_IF_ALL_VERIFIED_INTERNATIONAL_TEMPERATURE_FEELS_LIKE_UNAVAILABLE_35M_900_DAY',
   notLiveCollection:true
