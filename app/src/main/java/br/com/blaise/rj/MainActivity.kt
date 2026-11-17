@@ -201,6 +201,8 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
+// Until a signed and audited backend warning contract exists, this list stays empty.
+private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
 private val BlaiseScheme = darkColorScheme(
     primary = Gold,
@@ -389,7 +391,7 @@ private fun BlaiseDashboard(
                     ) {
                         AppHeader(powerOn, onPowerChange)
                         OfficialStatusBanner(officialFeedState)
-                        OfficialMunicipalLinksStrip()
+                        OfficialMunicipalLinksStrip(onNavigate = onSelectSection)
                         AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
 
                         when (selectedSection) {
@@ -1143,43 +1145,20 @@ private fun MoreScreen(
         }
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
-    // Scientific formulas/method inventories are diagnostic-only, not customer UI.
-    // Future admin release requires a separate authenticated administrator role.
-    if (BuildConfig.DEBUG) {
-        Spacer(Modifier.height(14.dp))
-        ScientificMemoryPanel()
-    }
-}
-
-@Composable
-private fun ScientificMemoryPanel() {
+    Spacer(Modifier.height(14.dp))
+    val additional = OfficialAlertRibbonPolicy.layout(
+        LocalVerifiedBlaiseWarnings.current, LocalObservationClock.current
+    ).additional
     DashboardSection(
-        title = "BLAISE VECTOR RJ • CALCULADORA CIENTÍFICA",
-        subtitle = "Memória científica preservada • resultados apenas com dados internacionais homologados",
+        title = "MAIS ALERTAS OFICIAIS",
+        subtitle = "A partir do quinto aviso válido • frase própria e link oficial",
     ) {
-        StatusLine("Núcleo backend", "${ScientificMemoryPolicy.BACKEND_REGISTERED_METHOD_COUNT} métodos matemáticos cadastrados")
-        StatusLine("Diagnósticos Android", "${ScientificMemoryPolicy.androidDerivedMethods.size} métodos numéricos protegidos por validade e proveniência")
-        ScientificMemoryPolicy.backendGroups.forEach { group ->
-            Text(group.name, color = Gold, fontWeight = FontWeight.Bold)
-            Text(group.methods.joinToString(" • "), color = Color.White,
-                style = MaterialTheme.typography.labelSmall)
-        }
-        Text("Complementos térmicos: ${ScientificMemoryPolicy.androidDerivedMethods.joinToString(" • ")}",
-            color = Color.White, style = MaterialTheme.typography.labelSmall)
-        // No public or synthetic provider readings are created in the user interface.
-        val authorizedLiveScientificInputs: BlaiseScientificInput? = null
-        val computed = ScientificMemoryPolicy.calculate(authorizedLiveScientificInputs, LocalObservationClock.current)
-        if (computed.isEmpty()) {
-            Text("Cálculos atuais: INDISPONÍVEIS — aguardando entrada auditada, licenciada e atual.",
-                color = WarningAmber, fontWeight = FontWeight.Bold)
+        if (additional.isEmpty()) {
+            Text("Nenhum alerta adicional foi validado; consulte os links oficiais acima.",
+                color = Muted, style = MaterialTheme.typography.bodySmall)
         } else {
-            computed.forEach { reading ->
-                StatusLine(reading.title, String.format(java.util.Locale("pt", "BR"),
-                    "%.1f %s • %s", reading.value, reading.unit, reading.method))
-            }
+            additional.forEach { item -> OfficialAlertLinkCard(item) }
         }
-        Text("Cálculo Blaise não é medição, aviso oficial, previsão de impacto ou autorização para alerta. A memória interna não armazena dados pessoais.",
-            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1560,63 +1539,57 @@ private fun BillingPanel(
     }
 }
 
-/** Faixa superior: quatro fontes oficiais e a escala Blaise 1–5.
- * Sem evidência backend homologada, cada fonte permanece NEUTRA, nunca "sem alertas".
- * Proibido inferir severidade de cor, portal ou dados de modelo.
+/** At most four current, verified Blaise alerts in the top ribbon.
+ * Empty or unverified provider links remain grey and never imply safety.
+ * Multiple validated notices from any approved portal overflow into Mais.
  */
 @Composable
-private fun OfficialMunicipalLinksStrip() {
-    val context = LocalContext.current
+private fun OfficialMunicipalLinksStrip(onNavigate: (String) -> Unit) {
     val now = LocalObservationClock.current
+    val page = OfficialAlertRibbonPolicy.layout(LocalVerifiedBlaiseWarnings.current, now)
     Card(
         colors = CardDefaults.cardColors(containerColor = NavyRaised),
         border = BorderStroke(1.dp, Gold),
         shape = RoundedCornerShape(14.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("ALERTAS OFICIAIS • CONSULTA DIRETA", color = Gold, fontWeight = FontWeight.ExtraBold)
-            Text("Alerta Rio • Defesa Civil RJ • INMET • INPE/CPTEC. Os links não comprovam alerta ativo.",
-                color = Color.White, style = MaterialTheme.typography.labelSmall)
-            OfficialAlertRibbonPolicy.portals.forEach { portal ->
-                // Future integration: inject ONLY server-verified evidence, never guessed values.
-                val presentation = OfficialAlertRibbonPolicy.present(portal.id, evidence = null, now = now)
-                Surface(
-                    color = Color(presentation.backgroundArgb),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("official-link-${portal.id}"),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(portal.name, color = Color.Black, fontWeight = FontWeight.ExtraBold)
-                            Text(presentation.message, color = Color.Black,
-                                fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodySmall)
-                            Text(portal.message, color = Color.Black,
-                                style = MaterialTheme.typography.labelSmall)
-                        }
-                        TextButton(onClick = {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(portal.url)))
-                            }
-                        }) { Text("Ver fonte", color = Color(0xFF053D83), fontWeight = FontWeight.Bold) }
-                    }
-                }
+            Text("ALERTAS OFICIAIS • RIO DE JANEIRO", color = Gold, fontWeight = FontWeight.ExtraBold)
+            page.visible.forEach { item -> OfficialAlertLinkCard(item) }
+            if (page.additional.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = { onNavigate("Mais") },
+                    modifier = Modifier.fillMaxWidth().testTag("more-official-alerts"),
+                ) { Text("Mais alertas (${page.additional.size})") }
             }
-            Text("GUIA DE CORES • somente referência; não representa alertas ativos",
-                color = GoldSoft, style = MaterialTheme.typography.labelSmall)
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                OfficialAlertRibbonPolicy.legend().forEach { band ->
-                    Surface(color = Color(band.backgroundArgb), shape = RoundedCornerShape(6.dp)) {
-                        Text("NÍVEL ${band.level}", color = Color.Black, fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
-                    }
-                }
+            Text("Cores 1–5 somente para níveis Blaise verificados; os links não comprovam alerta ativo.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+/** Original one-sentence orientation and direct official link, no copied bulletin. */
+@Composable
+private fun OfficialAlertLinkCard(item: OfficialAlertRibbonItem) {
+    val context = LocalContext.current
+    Surface(
+        color = Color(item.presentation.backgroundArgb),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth().testTag("official-link-${item.portal.id}"),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(item.portal.name, color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                Text(item.presentation.message, color = Color.Black,
+                    fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodySmall)
             }
+            TextButton(onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(item.portal.url)))
+                }
+            }) { Text("Página oficial", color = Color(0xFF053D83), fontWeight = FontWeight.Bold) }
         }
     }
 }
