@@ -104,7 +104,7 @@ async function withServer(handler, callback) {
   }
 }
 
-function handlerWith({ gateway, sourceWorker = currentWorker(), metrics = createOperationalMetrics({ startedAtMillis: NOW }) } = {}) {
+function handlerWith({ gateway, sourceWorker = currentWorker(), readInternationalForecasts = null, metrics = createOperationalMetrics({ startedAtMillis: NOW }) } = {}) {
   const fallback = (_req, res) => {
     res.statusCode = 404;
     res.end();
@@ -119,6 +119,7 @@ function handlerWith({ gateway, sourceWorker = currentWorker(), metrics = create
       },
       sourceWorker,
       metrics,
+      readInternationalForecasts,
     }),
   };
 }
@@ -238,5 +239,80 @@ test('statewide route requires the same active purchase and never exposes creden
     });
     assert.equal(response.status, 403);
     assert.equal((await response.text()).includes('municipalities'), false);
+  });
+});
+
+
+function syntheticModelForecastForTest(nowMs=Date.now()){
+  const stamp=at=>new Date(at).toISOString();
+  return {
+    status:'FORECAST_AVAILABLE',ibge:'3304557',
+    source:'MET_NORWAY_LOCATIONFORECAST_2',
+    originWeather:'ECMWF_IFS',originUv:'COPERNICUS_CAMS_UV_VIA_MET_NO',
+    nature:'PREVISAO_DE_MODELO_NAO_OBSERVACAO',
+    issuedAt:stamp(nowMs-45*60_000),
+    validAt:stamp(nowMs-20*60_000),checkedAt:stamp(nowMs),
+    values:{temperatureC:28.4,feelsLikeC:31.0,humidityPct:65,
+      windKmh:17.2,uvClearSkyIndex:8},
+    hourly:{precipitationNextHourMm:1.0,precipitationProbabilityNextHourPct:50},
+    officialObservation:false,officialAlert:false,
+    automaticAlertsAuthorized:false,
+    uvIsMeasured:false,uvIsActualCloudAdjusted:false,uvIsClearSky:true,
+    independentFromEcmwfDirect:false,
+    sourceUrl:'https://api.met.no/weatherapi/locationforecast/2.0/complete',
+    license:'CC BY 4.0'
+  };
+}
+
+test('paid dashboard serves international-only forecast when old source worker is disabled',async()=>{
+  let providerCalls=0;
+  const {handler}=handlerWith({
+    sourceWorker:currentWorker({enabled:false}),
+    readInternationalForecasts:async()=>{providerCalls++;return [syntheticModelForecastForTest()];}
+  });
+  await withServer(handler,async base=>{
+    const response=await post(base,validRequest());
+    assert.equal(response.status,200);
+    const body=await response.json();
+    assert.equal(body.contract,DASHBOARD_DATA_HTTP_CONTRACT);
+    assert.equal(body.rainfall,null);
+    assert.equal(body.sources.length,0);
+    assert.equal(body.internationalForecasts.length,1);
+    assert.equal(body.internationalForecasts[0].temperatureC,28.4);
+    assert.equal(body.internationalForecasts[0].modelOrigin,'ECMWF_IFS');
+    assert.equal(body.internationalForecasts[0].kind,'MODEL_FORECAST_NOT_LOCAL_MEASUREMENT');
+    assert.equal(JSON.stringify(body).includes('token-12345678'),false);
+    assert.equal(providerCalls,1);
+  });
+});
+
+test('purchase denial occurs before optional international forecast reads',async()=>{
+  let providerCalls=0;
+  const {handler}=handlerWith({
+    sourceWorker:currentWorker({enabled:false}),
+    gateway:{async getSubscription(){
+      return {subscriptionState:'SUBSCRIPTION_STATE_EXPIRED',lineItems:[]};
+    }},
+    readInternationalForecasts:async()=>{providerCalls++;return [syntheticModelForecastForTest()];}
+  });
+  await withServer(handler,async base=>{
+    const response=await post(base,validRequest());
+    assert.equal(response.status,403);
+  });
+  assert.equal(providerCalls,0);
+});
+
+test('expired optional model never turns source-unavailable into fabricated weather',async()=>{
+  const {handler}=handlerWith({
+    sourceWorker:currentWorker({enabled:false}),
+    readInternationalForecasts:async()=>[{
+      ...syntheticModelForecastForTest(),
+      checkedAt:'2026-01-01T00:00:00Z'
+    }]
+  });
+  await withServer(handler,async base=>{
+    const response=await post(base,validRequest());
+    assert.equal(response.status,503);
+    assert.deepEqual(await response.json(),{error:'source_unavailable'});
   });
 });
