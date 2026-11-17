@@ -1,6 +1,7 @@
 import { collectNoaaWave } from './noaa-wave-collector.mjs';
 import { createOfficialAlertLinksHttpHandler } from './official-alert-links-http.mjs';
 import { initializeOptionalAgent13Runtime } from './rj-agent13-runtime-optional.mjs';
+import { createPaidAgent13HttpHandler } from './rj-agent13-paid-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
 import { createScientificAccess } from './blaise-scientific-access.mjs';
@@ -240,7 +241,12 @@ async function main() {
     dashboardDataHandler, { canReadReports, store: scientificStore }
   );
   const officialLinksHandler = createOfficialAlertLinksHttpHandler(scientificHandler);
-  const server = http.createServer(createDrainingHandler(officialLinksHandler, readiness));
+  // Provider cannot be called without verified purchase, optional subscriber UID
+  // and explicit operator approval; no background polling is enabled.
+  const paidAgent13Handler = createPaidAgent13HttpHandler(officialLinksHandler, {
+    config, gateway, subscriberVerifier, agent13Runtime,
+  });
+  const server = http.createServer(createDrainingHandler(paidAgent13Handler, readiness));
   server.requestTimeout = 10_000;
   server.headersTimeout = 5_000;
   server.keepAliveTimeout = 5_000;

@@ -25,10 +25,11 @@ export const RJ_OPENWEATHER_CACHE_MS=60_000;
 export const RJ_OPENWEATHER_MAX_CURRENT_AGE_MS=12*60_000;
 const RJ_CODES=new Set(RJ_MUNICIPALITIES.map(c=>String(c.ibge)));
 const finite=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max;
-const missing=(reason)=>Object.freeze({
+const missing=(reason,diagnostic=null)=>Object.freeze({
   contract:RJ_OPENWEATHER_ONECALL4_CONTRACT,status:'UNAVAILABLE',reason,
   data:null,officialObservation:false,officialAlert:false,radarFrame:false,
-  automaticAlertAuthorized:false
+  automaticAlertAuthorized:false,
+  ...(diagnostic ? {diagnostic:Object.freeze(diagnostic)} : {})
 });
 function verifiedTarget(target){
   return target&&RJ_CODES.has(String(target.ibge))&&
@@ -49,8 +50,22 @@ function normalize(payload,target,now){
     !finite(item.temp,-60,65))
     return missing('PROVIDER_CURRENT_TEMPERATURE_INVALID');
   const validMs=item.dt*1000;
-  if(validMs>now||now-validMs>RJ_OPENWEATHER_MAX_CURRENT_AGE_MS)
-    return missing('PROVIDER_CURRENT_VALUE_STALE_OR_FUTURE');
+  // Separate stale readings from future-dated readings without ever
+  // treating a future forecast as a current observation. The diagnostic
+  // contains only UTC times and integer deltas, never a key, URL, location,
+  // meteorological value, or raw provider response.
+  if(validMs>now)
+    return missing('PROVIDER_CURRENT_VALUE_FUTURE',{
+      sourceValidAt:new Date(validMs).toISOString(),
+      checkedAt:new Date(now).toISOString(),
+      offsetSeconds:Math.ceil((validMs-now)/1000)
+    });
+  if(now-validMs>RJ_OPENWEATHER_MAX_CURRENT_AGE_MS)
+    return missing('PROVIDER_CURRENT_VALUE_STALE',{
+      sourceValidAt:new Date(validMs).toISOString(),
+      checkedAt:new Date(now).toISOString(),
+      ageSeconds:Math.floor((now-validMs)/1000)
+    });
   const windMs=presentNumber(item.wind_speed,0,110);
   const gustMs=presentNumber(item.wind_gust,0,140);
   const humidity=presentNumber(item.humidity,0,100);
@@ -93,16 +108,19 @@ function normalize(payload,target,now){
  */
 export function createRjOpenWeatherOneCall4Connector({
   enabled=false,subscriptionApproved=false,apiKey=null,
-  cache=null,budget=null,fetchImpl=globalThis.fetch
+  cache=null,budget=null,fetchImpl=globalThis.fetch,clock=()=>Date.now()
 }={}){
   const configured=enabled===true&&subscriptionApproved===true&&
     typeof apiKey==='string'&&/^[a-f0-9]{32}$/i.test(apiKey)&&
     cache&&typeof cache.get==='function'&&typeof cache.set==='function'&&
     budget&&typeof budget.tryReserve==='function'&&
-    typeof fetchImpl==='function';
-  async function getCurrent({target=null,now=Date.now()}={}){
+    typeof fetchImpl==='function'&&typeof clock==='function';
+  async function getCurrent({target=null,now}={}){
     if(!configured)return missing('CONFIGURATION_OR_SHARED_QUOTA_NOT_APPROVED');
-    if(!Number.isSafeInteger(now)||now<0||!verifiedTarget(target))
+    // Explicit now is only for deterministic tests/historical validation.
+    // Real calls must re-read the clock AFTER the provider response arrives.
+    const startedAt=now===undefined?clock():now;
+    if(!Number.isSafeInteger(startedAt)||startedAt<0||!verifiedTarget(target))
       return missing('UNVERIFIED_RJ_MUNICIPAL_TARGET');
     const key=`openweather:v4:current:${String(target.ibge)}:${target.latitude.toFixed(4)}:${target.longitude.toFixed(4)}`;
     let cached;
@@ -113,12 +131,12 @@ export function createRjOpenWeatherOneCall4Connector({
        cached.latitude===target.latitude&&cached.longitude===target.longitude&&
        Number.isFinite(Date.parse(cached.retrievedAt))&&
        Number.isFinite(Date.parse(cached.validAt))&&
-       now-Date.parse(cached.validAt)>=0&&
-       now-Date.parse(cached.validAt)<=RJ_OPENWEATHER_MAX_CURRENT_AGE_MS&&
-       now-Date.parse(cached.retrievedAt)>=0&&
-       now-Date.parse(cached.retrievedAt)<RJ_OPENWEATHER_CACHE_MS)
+       startedAt-Date.parse(cached.validAt)>=0&&
+       startedAt-Date.parse(cached.validAt)<=RJ_OPENWEATHER_MAX_CURRENT_AGE_MS&&
+       startedAt-Date.parse(cached.retrievedAt)>=0&&
+       startedAt-Date.parse(cached.retrievedAt)<RJ_OPENWEATHER_CACHE_MS)
       return cached;
-    const utcDay=new Date(now).toISOString().slice(0,10);
+    const utcDay=new Date(startedAt).toISOString().slice(0,10);
     let reserved=false;
     try{
       reserved=await budget.tryReserve({
@@ -139,7 +157,22 @@ export function createRjOpenWeatherOneCall4Connector({
         allowedHosts:[RJ_OPENWEATHER_HOST],
         fetchImpl,timeoutMs:5_000,maxBytes:128*1024
       });
-      response=normalize(payload,target,now);
+      let receivedAt=now===undefined?clock():now;
+      if(!Number.isSafeInteger(receivedAt)||receivedAt<startedAt)
+        return missing('CLOCK_NOT_MONOTONIC');
+      // One Call may stamp its current model record ~1-2 seconds ahead
+      // of the time sampled at the beginning of the HTTP call.
+      // A bounded hold verifies the SAME response when its timestamp
+      // actually arrives. It never makes another billable provider request
+      // and never accepts a still-future record.
+      const providerMs=Number.isSafeInteger(payload?.data?.[0]?.dt)
+        ? payload.data[0].dt*1000 : NaN;
+      const futureBy=providerMs-receivedAt;
+      if(now===undefined&&futureBy>0&&futureBy<=3_000){
+        await new Promise(resolve=>setTimeout(resolve,futureBy+25));
+        receivedAt=clock();
+      }
+      response=normalize(payload,target,receivedAt);
     }catch{
       // Never return provider exception, URL, query, credentials or body.
       return missing('OPENWEATHER_PROVIDER_FETCH_FAILED');

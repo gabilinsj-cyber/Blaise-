@@ -37,13 +37,13 @@ export function createRjOpenWeatherAgent13Service({
         throw new TypeError('unknown_secret_name');
       return env.BLAISE_OPENWEATHER_API_KEY;
     }:null,
-    cache,budget,fetchImpl
+    cache,budget,fetchImpl,clock
   });
   return Object.freeze({
     agentId:agent.id,
     configured:agent.configured,
     automaticSchedulingEnabled:false,
     publishedToAndroid:false,
-    collect:async({target,now=clock()}={})=>agent.collect({target,now})
+    collect:async({target,now}={})=>agent.collect({target,now})
   });
 }
