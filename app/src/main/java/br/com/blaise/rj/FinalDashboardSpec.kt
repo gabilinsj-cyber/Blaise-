@@ -32,7 +32,7 @@ object FinalDashboardSpec {
 
     val officialSources = listOf(
         "INMET", "CEMADEN", "NOAA", "ECMWF/IFS", "DWD/ICON",
-        "NASA", "JAXA/GSMaP", "EUMETSAT", "OpenWeather/Agente 13",
+        "NASA", "JAXA/GSMaP", "EUMETSAT", "OpenWeather",
         "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
 
