@@ -95,11 +95,6 @@ export function projectAgent13CurrentEstimate(collectorResult, ibge, now = Date.
     values: Object.freeze({
       temperatureC,
       feelsLikeC: bounded(values.providerFeelsLikeC, -80, 80),
-      humidityPercent: bounded(values.relativeHumidityPct, 0, 100),
-      windKmh: bounded(values.windKmh, 0, 400),
-      gustKmh: bounded(values.gustKmh, 0, 504),
-      pressureHpa: bounded(values.pressureHpa, 800, 1150),
-      rainMm1h: bounded(values.rainMm1h, 0, 500),
     }),
     officialObservation: false,
     officialAlert: false,
@@ -108,12 +103,48 @@ export function projectAgent13CurrentEstimate(collectorResult, ibge, now = Date.
 }
 
 /**
- * Wraps core/dash handlers; no privileged route or provider call unless purchase
- * and, where required, Firebase UID are successfully validated.
+ * Only a backend-audited, three-source thermal fallback may reach subscribers.
+ * This projector rejects any historical general-weather Agent 13 result.
+ * The backend must never accept a priority-source list from an Android client.
+ */
+export function projectAgent13ThermalContingency(fallback, ibge, now=Date.now()) {
+  if(fallback?.status!=='FALLBACK_ESTIMATE' ||
+     fallback.contract!=='RJ_AGENT13_TEMP_FEELSLIKE_FALLBACK_V1' ||
+     fallback.ibge!==ibge ||
+     fallback.source!=='OpenWeather One Call 4.0' ||
+     fallback.nature!=='ESTIMATIVA_OPENWEATHER_CONTINGENCIA_NAO_OBSERVACAO' ||
+     fallback.officialObservation!==false || fallback.officialAlert!==false ||
+     fallback.automaticAlertsAuthorized!==false ||
+     fallback.otherWeatherFieldsUsed!==false) return null;
+  const validAt=Date.parse(fallback.validAt),checkedAt=Date.parse(fallback.checkedAt);
+  if(!Number.isSafeInteger(now)||!Number.isFinite(validAt)||!Number.isFinite(checkedAt)||
+     validAt>now||checkedAt>now||now-validAt>35*60_000||
+     now-checkedAt>12*60_000)return null;
+  const temperatureC=bounded(fallback.fields?.temperatureC,-60,65);
+  const feelsLikeC=bounded(fallback.fields?.feelsLikeC,-80,80);
+  if(temperatureC===null&&feelsLikeC===null)return null;
+  return Object.freeze({
+    contract:AGENT13_PAID_HTTP_CONTRACT,
+    status:'CURRENT_ESTIMATE_AVAILABLE',
+    ibge,source:'OpenWeather One Call 4.0',
+    nature:'ESTIMATIVA_DE_MODELO_CONTINGENCIA_TERMICA',
+    sourceUrl:'https://openweathermap.org/api/one-call-4',
+    validAt:fallback.validAt,retrievedAt:fallback.checkedAt,
+    maximumAgeSeconds:2100,
+    values:Object.freeze({temperatureC,feelsLikeC}),
+    officialObservation:false,officialAlert:false,
+    privacy:Object.freeze({purchaseTokenExposed:false,userLocationStored:false})
+  });
+}
+
+/**
+ * Wraps core/dash handlers; entitlement must be validated before any
+ * backend-only three-source thermal audit, with no public bypass.
  */
 export function createPaidAgent13HttpHandler(delegate, {
   config, gateway, subscriberVerifier = null,
-  agent13Runtime, maxConcurrent = 8, clock = () => Date.now(),
+  agent13Runtime, readAuditedThermalPrimarySources=null,
+  maxConcurrent = 8, clock = () => Date.now(),
 } = {}) {
   if (typeof delegate !== 'function' || !config || !gateway ||
       typeof gateway.getSubscription !== 'function' ||
@@ -139,13 +170,23 @@ export function createPaidAgent13HttpHandler(delegate, {
           config, gateway, authenticatedUid,
         });
         if (!authorized.active) return { kind: 'denied' };
-        const target = CALIBRATED_TARGETS.get(ibge);
-        if (!target || agent13Runtime.configured !== true)
-          return { kind: 'unavailable' };
-        const result = await agent13Runtime.collect({ target });
-        // Re-check model timestamps at the moment the HTTP response is made.
-        const estimate = projectAgent13CurrentEstimate(result, ibge, clock());
-        return estimate ? { kind: 'current', estimate } : { kind: 'unavailable' };
+        // An existing paid endpoint cannot be used to bypass the three
+        // audited international models or fetch non-thermal fields.
+        if(!CALIBRATED_TARGETS.has(ibge) ||
+           agent13Runtime.configured!==true ||
+           agent13Runtime.temperatureContingencyConfigured!==true ||
+           typeof agent13Runtime.collectTemperatureContingency!=='function' ||
+           typeof readAuditedThermalPrimarySources!=='function')
+          return {kind:'unavailable'};
+        // MUST be constructed from trusted server state; never from user JSON.
+        const prioritySources=await readAuditedThermalPrimarySources(ibge);
+        if(!Array.isArray(prioritySources)||prioritySources.length!==3)
+          return {kind:'unavailable'};
+        const result=await agent13Runtime.collectTemperatureContingency({
+          municipalityIbge:ibge,prioritySources
+        });
+        const estimate=projectAgent13ThermalContingency(result,ibge,clock());
+        return estimate?{kind:'current',estimate}:{kind:'unavailable'};
       });
       if (outcome.kind === 'denied') send(res, 403, { error: 'access_denied' });
       else if (outcome.kind === 'current') send(res, 200, outcome.estimate);
