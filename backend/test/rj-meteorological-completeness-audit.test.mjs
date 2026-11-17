@@ -117,6 +117,17 @@ test('NASA and JAXA cannot supply any current numeric weather after removal',()=
   assert.equal(coverage.rejectedRecordCount,impostors.length);
   assert.equal(coverage.fields.find(x=>x.field==='rainNowMm').coveredMunicipalities,0);
 });
+test('meteoblue proposed raw model cannot bypass API licence and verified ingest gate',()=>{
+  assert.equal(Object.hasOwn(RJ_METEOROLOGY_SOURCE_CATEGORIES,'METEOBLUE_NEMS10'),false);
+  assert.ok(RJ_METEOROLOGICAL_FIELDS.every(field=>
+    field.candidates.every(c=>c.sourceId!=='METEOBLUE_NEMS10')));
+  const proposed={...base,field:'rainNextHourForecastMm',
+    sourceId:'METEOBLUE_NEMS10',category:'P',datasetId:'NEMSSA_RAW',value:4.2};
+  const result=audit([proposed]);
+  assert.equal(result.verifiedValueCount,0);
+  assert.equal(result.rejectedRecordCount,1);
+  assert.equal(result.fields.find(x=>x.field==='rainNowMm').coveredMunicipalities,0);
+});
 test('JAXA excluded rainfall source is rejected even with recent authorized-looking records',()=>{
   assert.equal(Object.hasOwn(RJ_METEOROLOGY_SOURCE_CATEGORIES,'JAXA_GSMAP'),false);
   const now=Date.parse('2026-11-17T18:00:00Z');
