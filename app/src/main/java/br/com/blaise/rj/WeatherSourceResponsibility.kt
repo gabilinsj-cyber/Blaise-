@@ -18,7 +18,7 @@ object WeatherSourceResponsibilities {
         WeatherSourceResponsibility("DWD_ICON", "DWD ICON Global • Alemanha",
             "Temperatura do ar a 2 m PREVISTA para o RJ, vento, pressão e chuva futura. Modelo alemão, não estação física local.",
             "P", "DWD_ICON", false),
-        WeatherSourceResponsibility("OPENWEATHER_AGENT13", "OpenWeather One Call 4.0 • Agente 13",
+        WeatherSourceResponsibility("OPENWEATHER_AGENT13", "OpenWeather One Call 4.0",
             "Contingência somente de temperatura e sensação térmica estimadas quando DWD, NOAA e ECMWF estiverem indisponíveis.",
             "E", "OPENWEATHER_MODELED_CURRENT", false),
         WeatherSourceResponsibility("METEOBLUE_NEMS10", "meteoblue • NEMS10 / MultiModel",
