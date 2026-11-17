@@ -15,6 +15,18 @@ export const OFFICIAL_ALERT_LINKS = Object.freeze([
     message: 'Consulte os avisos oficiais de chuvas intensas e deslizamentos na cidade do Rio.',
     url: 'https://www.sistema-alerta-rio.com.br/alertas/',
   }),
+  Object.freeze({
+    id: 'inmet-avisos',
+    name: 'INMET',
+    message: 'Consulte os avisos meteorológicos no portal oficial do INMET.',
+    url: 'https://avisos.inmet.gov.br/',
+  }),
+  Object.freeze({
+    id: 'inpe-cptec-avisos',
+    name: 'INPE / CPTEC',
+    message: 'Consulte os avisos e a previsão de tempo severo no CPTEC/INPE.',
+    url: 'https://www.cptec.inpe.br/',
+  }),
 ]);
 
 export function createOfficialAlertLinksHttpHandler(delegate) {
