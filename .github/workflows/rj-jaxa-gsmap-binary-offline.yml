@@ -1,8 +1,7 @@
 name: RJ JAXA GSMaP v9 Numeric Offline QA
+# JAXA excluded from Blaise V6 RJ as of 17/11/2026.
+# Keep historical offline numeric tests manually invokable only.
 on:
-  pull_request:
-    paths:
-      - .github/workflows/rj-jaxa-gsmap-binary-offline.yml
   workflow_dispatch:
 permissions:
   contents: read
