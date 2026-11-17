@@ -1,5 +1,7 @@
 import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHBOARD_MAX_BYTES, buildStatewideDashboardSnapshot } from './statewide-dashboard.mjs';
 import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
+import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
+import {projectRjInternationalForecast} from './rj-international-forecast-public.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
@@ -41,15 +43,28 @@ function parseRequest(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new ClientInputError('invalid_dashboard_request');
   }
-  const allowed = new Set(['packageName', 'purchaseToken', 'productIds']);
+  const required = new Set(['packageName', 'purchaseToken', 'productIds']);
+  const optional = new Set(['municipalityIbges']);
   const keys = Object.keys(payload);
-  if (keys.length !== allowed.size || keys.some((key) => !allowed.has(key))) {
+  if (keys.some(key => !required.has(key) && !optional.has(key)) ||
+      [...required].some(key => !keys.includes(key))) {
     throw new ClientInputError('invalid_dashboard_request_shape');
+  }
+  // Only 2 requested municipalities are read per paid dashboard call.
+  // Older Android builds default to Rio/Niterói without enumerating 92 cache docs.
+  const input = payload.municipalityIbges ?? ['3304557','3303302'];
+  const validCodes = new Set(RJ_MUNICIPALITIES.map(x=>x.ibge));
+  if (!Array.isArray(input) || input.length < 1 || input.length > 2 ||
+      input.some(code => !(typeof code==='string'||Number.isInteger(code)) ||
+        !validCodes.has(String(code))) ||
+      new Set(input.map(String)).size !== input.length) {
+    throw new ClientInputError('invalid_municipal_selection');
   }
   return Object.freeze({
     packageName: payload.packageName,
     purchaseToken: payload.purchaseToken,
     productIds: payload.productIds,
+    municipalityIbges:Object.freeze(input.map(String))
   });
 }
 
@@ -194,7 +209,10 @@ export function buildPaidDashboardSnapshot(sourceWorker, { nowMillis = Date.now(
   }
 
   const sources = Array.isArray(status.sources)
-    ? status.sources.map(projectSourceState).filter(Boolean)
+    // INMET/CEMADEN may be consulted internally for geographic divergence,
+    // but their source statuses, values and warnings are never customer data.
+    ? status.sources.map(projectSourceState).filter(source =>
+        source && !/(inmet|cemaden)/i.test(source.sourceId))
     : [];
   const currentSourceCount = sources.filter((source) => CURRENT_STATES.has(source.state)).length;
 
@@ -227,6 +245,7 @@ export function createPaidDashboardDataHttpHandler(
     metrics = null,
     subscriberVerifier = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
+    readInternationalForecasts = null,
   } = {},
 ) {
   if (typeof delegate !== 'function') throw new Error('dashboard_http_delegate_invalid');
@@ -235,6 +254,8 @@ export function createPaidDashboardDataHttpHandler(
   if (!sourceWorker || typeof sourceWorker.status !== 'function' || typeof sourceWorker.readSource !== 'function') {
     throw new Error('dashboard_http_source_worker_invalid');
   }
+  if (readInternationalForecasts !== null && typeof readInternationalForecasts !== 'function')
+    throw new Error('forecast_provider_invalid');
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 1_000) {
     throw new Error('dashboard_http_concurrency_invalid');
   }
@@ -265,13 +286,52 @@ export function createPaidDashboardDataHttpHandler(
       }
       const payload = parseRequest(await readJson(req, DASHBOARD_DATA_HTTP_MAX_REQUEST_BYTES));
       const result = await gate.run(async () => {
-        const entitlement = await verifyPurchasePayload(payload, { config, gateway, authenticatedUid });
+        // Keep municipality selection OUT of the strict Google Play entitlement payload.
+        const entitlement = await verifyPurchasePayload({
+          packageName:payload.packageName,
+          purchaseToken:payload.purchaseToken,
+          productIds:payload.productIds
+        }, { config, gateway, authenticatedUid });
         if (!entitlement.active) return Object.freeze({ kind: 'denied' });
-        const snapshot = req.url === STATEWIDE_DASHBOARD_PATH
-          ? buildStatewideDashboardSnapshot(sourceWorker)
-          : buildPaidDashboardSnapshot(sourceWorker);
-        return snapshot
-          ? Object.freeze({ kind: 'snapshot', snapshot })
+        let nowMillis=Date.now();
+        const isStatewide=req.url===STATEWIDE_DASHBOARD_PATH;
+        let forecasts=[];
+        if(!isStatewide && readInternationalForecasts){
+          try{
+            const candidates=await readInternationalForecasts(payload.municipalityIbges);
+            // Cache validation may finish after this request began. Use the actual
+            // post-read clock to avoid rejecting legitimate freshly checked data.
+            nowMillis=Date.now();
+            if(Array.isArray(candidates) && candidates.length<=2){
+              forecasts=candidates.map(candidate=>
+                projectRjInternationalForecast(candidate,{now:nowMillis}))
+                .filter(Boolean);
+              if(new Set(forecasts.map(x=>x.ibge)).size!==forecasts.length)
+                forecasts=[];
+            }
+          }catch{
+            forecasts=[]; // Loss of optional source never invents weather or breaks billing.
+          }
+        }
+        const snapshot=isStatewide
+          ?buildStatewideDashboardSnapshot(sourceWorker,{nowMillis})
+          :buildPaidDashboardSnapshot(sourceWorker,{nowMillis});
+        const effective=isStatewide? snapshot :
+          snapshot? (forecasts.length?Object.freeze({...snapshot,
+            internationalForecasts:Object.freeze(forecasts)}):snapshot) :
+          forecasts.length?Object.freeze({
+            contract:DASHBOARD_DATA_HTTP_CONTRACT,
+            generatedAt:new Date(nowMillis).toISOString(),mode:'normal',
+            scope:'RJ_APPROVED_SOURCES',sourceCount:0,currentSourceCount:0,
+            rainfall:null,rainfallAvailability:'UNAVAILABLE',
+            officialNoticeLinks:OFFICIAL_ALERT_LINKS,
+            marine:null,sources:Object.freeze([]),
+            internationalForecasts:Object.freeze(forecasts),
+            privacy:Object.freeze({purchaseTokenExposed:false,
+              rawStationPayloadExposed:false,userLocationStored:false})
+          }):null;
+        return effective
+          ? Object.freeze({ kind: 'snapshot', snapshot:effective })
           : Object.freeze({ kind: 'unavailable' });
       });
 

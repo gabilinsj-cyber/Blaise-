@@ -6,6 +6,7 @@ import {
   AGENT13_PAID_HTTP_CONTRACT,
   createPaidAgent13HttpHandler,
   projectAgent13CurrentEstimate,
+  projectAgent13ThermalContingency,
 } from '../src/rj-agent13-paid-http.mjs';
 
 const NOW = Date.parse('2026-11-17T09:00:00Z');
@@ -75,8 +76,8 @@ test('read-only display contract filters provider secret and labels model, not o
   assert.equal(result.contract,AGENT13_PAID_HTTP_CONTRACT);
   assert.equal(result.nature,'ESTIMATIVA_DE_MODELO');
   assert.equal(result.values.temperatureC,26.5);
-  assert.equal(result.values.windKmh,0);
-  assert.equal(result.values.rainMm1h,null);
+  assert.deepEqual(Object.keys(result.values),['temperatureC','feelsLikeC']);
+  assert.equal(Object.hasOwn(result.values,'rainMm1h'),false);
   assert.equal(JSON.stringify(result).includes(originalSecret),false);
   assert.equal(result.officialObservation,false);
   assert.equal(result.officialAlert,false);
@@ -88,22 +89,72 @@ test('rejects model reading older than 12 minutes and reading from future',()=>{
     assert.equal(projectAgent13CurrentEstimate(stale,targetIbge,NOW),null);
   }
 });
-test('active purchase may explicitly request one bounded city model estimate',async()=>{
-  let collectionCount=0;
-  await withHttp(handlerWith({agent13Runtime:{configured:true,async collect({target,now}){
-    collectionCount++;assert.equal(target.ibge,targetIbge);assert.equal(now,undefined);
-    return sample;
-  }}}),async base=>{
+const fallbackSample = Object.freeze({
+  status:'FALLBACK_ESTIMATE',
+  contract:'RJ_AGENT13_TEMP_FEELSLIKE_FALLBACK_V1',
+  ibge:targetIbge,
+  source:'OpenWeather One Call 4.0',
+  nature:'ESTIMATIVA_OPENWEATHER_CONTINGENCIA_NAO_OBSERVACAO',
+  validAt:new Date(NOW-60_000).toISOString(),
+  checkedAt:new Date(NOW).toISOString(),
+  fields:Object.freeze({temperatureC:26.5,feelsLikeC:27.8}),
+  officialObservation:false,officialAlert:false,
+  otherWeatherFieldsUsed:false,automaticAlertsAuthorized:false,
+});
+const auditedPrimarySources=Object.freeze([
+  {rank:1,sourceId:'DWD_ICON_GLOBAL',status:'UNAVAILABLE'},
+  {rank:2,sourceId:'NOAA_GFS',status:'UNAVAILABLE'},
+  {rank:3,sourceId:'ECMWF_IFS',status:'UNAVAILABLE'},
+]);
+test('legacy direct OpenWeather request blocked without independent primary-source audit',async()=>{
+  let collections=0;
+  const h=handlerWith({agent13Runtime:{configured:true,async collect(){
+    collections++;return sample;
+  }}});
+  await withHttp(h,async base=>{
+    const r=await request(base);
+    assert.equal(r.status,503);
+    assert.deepEqual(await r.json(),{error:'estimate_unavailable'});
+  });
+  assert.equal(collections,0);
+});
+test('approved thermal-only fallback requires server-only three-source audit and never publishes rain or wind',async()=>{
+  let calls=0,audits=0;
+  const h=handlerWith({
+    readAuditedThermalPrimarySources:async ibge=>{
+      audits++;
+      assert.equal(ibge,targetIbge);
+      return auditedPrimarySources;
+    },
+    agent13Runtime:{
+      configured:true,temperatureContingencyConfigured:true,
+      async collectTemperatureContingency({municipalityIbge,prioritySources}){
+        calls++;
+        assert.equal(municipalityIbge,targetIbge);
+        assert.deepEqual(prioritySources,auditedPrimarySources);
+        return fallbackSample;
+      },
+      async collect(){throw Error('bypass must not be called');}
+    }
+  });
+  await withHttp(h,async base=>{
     const r=await request(base);
     assert.equal(r.status,200);
     assert.equal(r.headers.get('cache-control'),'no-store');
     const data=await r.json();
-    assert.equal(data.contract,AGENT13_PAID_HTTP_CONTRACT);
-    assert.equal(data.status,'CURRENT_ESTIMATE_AVAILABLE');
-    assert.equal(data.values.rainMm1h,null);
+    assert.equal(data.nature,'ESTIMATIVA_DE_MODELO_CONTINGENCIA_TERMICA');
+    assert.deepEqual(Object.keys(data.values),['temperatureC','feelsLikeC']);
+    assert.equal(data.values.temperatureC,26.5);
     assert.equal(JSON.stringify(data).includes(purchase.purchaseToken),false);
   });
-  assert.equal(collectionCount,1);
+  assert.equal(calls,1);
+  assert.equal(audits,1);
+});
+test('thermal projector fails closed on unverified kind, stale 35m value and unsupported source',()=>{
+  assert.equal(projectAgent13ThermalContingency(fallbackSample,targetIbge,NOW).values.feelsLikeC,27.8);
+  assert.equal(projectAgent13ThermalContingency({...fallbackSample,source:'NOAA GFS'},targetIbge,NOW),null);
+  assert.equal(projectAgent13ThermalContingency({...fallbackSample,validAt:new Date(NOW-35*60_000-1).toISOString()},targetIbge,NOW),null);
+  assert.equal(projectAgent13ThermalContingency({...fallbackSample,officialAlert:true},targetIbge,NOW),null);
 });
 test('never calls provider when purchase entitlement is inactive',async()=>{
   let collections=0;
@@ -154,23 +205,26 @@ test('disabled or malformed request never calls provider',async()=>{
   assert.equal(collections,0);
 });
 
-test('HTTP projects current data using clock after collecting, never request-start time',async()=>{
+test('HTTP projects thermal data using response time, not the request-start time',async()=>{
   let ticks=0;
-  const later=structuredClone(sample);
-  later.weather.validAt=new Date(NOW+1000).toISOString();
-  later.weather.retrievedAt=new Date(NOW+2000).toISOString();
-  const clock=()=>{ticks++;return NOW+2000;};
+  const later={...fallbackSample,
+    validAt:new Date(NOW+1000).toISOString(),
+    checkedAt:new Date(NOW+2000).toISOString()};
   const handler=handlerWith({
-    clock,
-    agent13Runtime:{configured:true,async collect({now}){
-      assert.equal(now,undefined);
-      return later;
-    }}
+    clock:()=>{ticks++;return NOW+2000;},
+    readAuditedThermalPrimarySources:async()=>auditedPrimarySources,
+    agent13Runtime:{
+      configured:true,temperatureContingencyConfigured:true,
+      async collectTemperatureContingency(){return later;},
+      async collect(){throw Error('legacy bypass')}
+    }
   });
   await withHttp(handler,async base=>{
     const response=await request(base);
     assert.equal(response.status,200);
-    assert.equal((await response.json()).validAt,new Date(NOW+1000).toISOString());
+    const value=await response.json();
+    assert.equal(value.validAt,new Date(NOW+1000).toISOString());
+    assert.deepEqual(Object.keys(value.values),['temperatureC','feelsLikeC']);
   });
   assert.equal(ticks,1);
 });

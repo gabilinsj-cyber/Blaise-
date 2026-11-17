@@ -79,3 +79,55 @@ test('full service wiring uses Firestore quota/cache and never returns secret',a
   assert.equal(again.status,'CURRENT_ESTIMATE_AVAILABLE');
   assert.equal(fetches,1); // cached across explicit calls
 });
+
+test('separate 35-minute temperature contingency gate is off by default and requires audited sources',async()=>{
+  let calls=0;
+  const service=createRjOpenWeatherAgent13Service({
+    env:readyEnv,database:fakeDatabase(),clock:()=>NOW,
+    fetchImpl:async()=>{calls++;throw Error('must not call');}
+  });
+  assert.equal(service.temperatureContingencyConfigured,false);
+  const result=await service.collectTemperatureContingency({
+    municipalityIbge:'3304557'
+  });
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(calls,0);
+});
+test('thermal-only fallback uses one provider request with audited three-source outage and 35min cache',async()=>{
+  let calls=0;
+  const service=createRjOpenWeatherAgent13Service({
+    env:{...readyEnv,BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED:'true'},
+    database:fakeDatabase(),clock:()=>NOW,
+    fetchImpl:async()=>{
+      calls++;
+      return new Response(JSON.stringify({
+        lat:-22.9068,lon:-43.1729,data:[{
+          dt:Math.floor((NOW-15*60_000)/1000),
+          temp:25.7,feels_like:29.2,
+          wind_speed:45,rain:{'1h':20}
+        }]
+      }),{status:200,headers:{'content-type':'application/json'}});
+    }
+  });
+  assert.equal(service.temperatureContingencyConfigured,true);
+  const sources=[1,2,3].map(rank=>({
+    rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
+    verifiedByBackend:true,status:'UNAVAILABLE',
+    checkedAt:new Date(NOW).toISOString()
+  }));
+  const first=await service.collectTemperatureContingency({
+    municipalityIbge:'3304557',prioritySources:sources
+  });
+  assert.equal(first.status,'FALLBACK_ESTIMATE');
+  assert.equal(first.fields.temperatureC,25.7);
+  assert.equal(first.fields.feelsLikeC,29.2);
+  assert.equal(first.maximumAgeSeconds,2100);
+  assert.equal(first.otherWeatherFieldsUsed,false);
+  assert.equal(JSON.stringify(first).includes(API_KEY),false);
+  const second=await service.collectTemperatureContingency({
+    municipalityIbge:'3304557',prioritySources:sources
+  });
+  assert.equal(second.status,'FALLBACK_ESTIMATE');
+  assert.equal(second.cacheHit,true);
+  assert.equal(calls,1);
+});

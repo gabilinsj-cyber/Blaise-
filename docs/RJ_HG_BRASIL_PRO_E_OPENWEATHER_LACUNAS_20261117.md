@@ -1,0 +1,28 @@
+# Blaise V6 RJ — HG Brasil Pro (contratação futura) e possíveis campos OpenWeather
+**Regra do responsável registrada em 17/11/2026. Branch PR #157, sem merge, deploy, pagamento ou operação real.**
+
+## Situação contratual
+- **HG Brasil Weather Pro** escolhido para **planejar** 92 municípios do RJ; assinatura será feita somente próximo ao lançamento do aplicativo. **Nenhuma compra, ativação de cobrança, chave ou coleta foram feitas.**
+- Tabela publicada em https://hgbrasil.com/pricing/?origin=weather : **R$ 49,90/mês, até 100 cidades distintas, 20.000 consultas/dia**. Valores são de tabela e podem mudar.
+- Plano de engenharia: 1 requisição servidor↔HG por município **a cada 60 minutos**; 92 × 24 = **2.208/dia**, 66.240 em 30 dias, sem retentativas. Limite nominal 20.000/dia, reserva 17.792. **Nunca** uma consulta por usuário, IP ou página; exigir rate limiter distribuído, cache único por município, quotas diárias globais, TTL e tratamento 429/5xx, sem tornar dado envelhecido em novo. O fato de haver 92 IBGEs não prova que 92 códigos/cidades sejam aceitos pela HG; cadastro HG↔IBGE deve ser verificado 1:1.
+- **Bloqueio jurídico obrigatório:** Termos HG Brasil em https://console.hgbrasil.com/terms , item 11.5: dados retornados pela API são para benefício próprio e **não permitem comercialização por outros sites ou meios**. O Blaise é app pago, logo o preço Pro **não é autorização de redistribuição**. Obter resposta **escrita** com permissão concreta para exibir/transformar dados HG aos assinantes, política de cache, atribuição, limites e condições, ou não publicar dados HG.
+- A assinatura será feita **somente quando o proprietário decidir contratar**, após concluir a implementação, validar termos e liberação do aplicativo. Nenhum sinal verde de CI deve iniciar assinatura.
+- Gatilhos obrigatórios para futura ativação: assinatura ativa verificada, autorização escrita específica para app pago, termos aceitos por responsável humano, chave instalada **somente no servidor**, correspondência real dos 92 municípios à HG, aceite explícito de release. O módulo `backend/src/rj-hgbrasil-pro-plan.mjs` apenas documenta o plano e avalia esses gates, **sem chamadas de rede, cron, conta HG ou integração de valores**.
+
+## Lacunas: O / E / P
+- A documentação HG em https://hgbrasil.com/docs/weather/ mostra `results.temp`, `results.humidity`, `results.wind_speedy`, `results.wind_gust`, `results.cloudiness`, `results.rain` e previsão diária (`forecast[].max`, `min`, `rain`). O texto chama a data/hora de medição, **mas não identifica estação física, equipamento, correção, nem a composição de fontes**. Projetar dados HG **somente como E** (condições atuais fornecidas/agregadas, não observação O certificada) até comprovar proveniência por campo.
+- **HG fecha lacuna de cobertura de dados municipais apenas potencialmente**: 92 posições administrativas e limite de cidades compatível. Não certifica precisão, microclima serrano, validAt, nem 92 sensores reais.
+- Chuva atual `rainNowMm`, acumulado observado `rainAccumulatedMm`, chuva oceânica `oceanRainMm` continuam **sem fornecedor O homologado**; os termos `results.rain` não documentam pluviômetro com coleta até 30 min e janela clara. **Não preencher essas lacunas com chuva HG sem origem/horário de sensor e direitos**.
+- Temperatura, umidade, vento/rajadas e nebulosidade podem receber "E" candidata após licença, identidade de cidade, horário, unidade, faixa física e correção QC. Mínimas/máximas e precipitação *previstas* são "P", não leituras de estação. O catálogo é passivo.
+
+## OpenWeather One Call 4.0
+- Documentação oficial: https://openweathermap.org/api/one-call-4  e https://openweathermap.org/guide . `current` fornece temperatura, sensação térmica, umidade, pressão, vento, rajadas quando presentes, nuvens e outras condições. O campo de chuva quando fornecido **não prova pluviômetro físico local**, então é **estimativa/condição agregada E**, jamais medição observada O de chuva.
+- A API paga 4.0 já tinha aprovação conceitual para o **agente 13**, mas o código atual possui **apenas contingência de temperatura e sensação**, condicionada à auditoria DWD/NOAA/ECMWF, sem provisionamento em produção. Limite interno **900 chamadas/dia**, cache compartilhado e intervalo local de 35 min; 900 não cobrem toda a grade RJ a 35 min se todas as cidades precisassem de contingência.
+- **Recomendação técnica não ativada nesta mudança**: analisar **umidade, vento e rajadas** como campos adicionais de contingência/comparação, com leitura dos campos no *mesmo* retorno `current` que já foi pago/obtido, sem chamada extra, respeitando 900/dia, data/validAt, IBGE, QA, licença ODbL/atribuição e direito de adaptação de banco de dados. Não permitir que um campo dado por fonte válida seja substituído por outra apenas por discrepância. Uma API não cria estação física independente automaticamente.
+- **Não ampliar operacionalmente agente 13 agora** sem contrato dos campos, normalização e testes de campo por campo; OpenWeather **não emite alertas oficiais no Blaise**, e nenhum valor de precipitação substitui chuva medida. Ficam mantidos DWD/ICON, NOAA, ECMWF/IFS, meteoblue candidata, RAMMB/CIRA referência visual; Zoom Earth/JAXA/NASA excluídos.
+
+## Garantias contra custo indevido
+1. Não programar chamadas HG até confirmar cobrança e licença; implementação/configuração não geram pagamento.
+2. Não colocar chave no APK ou GitHub. Não usar IP ou localização do usuário — apenas município/IBGE escolhido.
+3. Não copiar/adaptar base de dados HG comercialmente antes de autorização. A documentação HG não deve ser tratada como aceite de direitos de uso.
+4. Mostrar `indisponível` onde não há dado validado; nenhum alerta interno nasce de HG, OpenWeather ou Meteoblue.

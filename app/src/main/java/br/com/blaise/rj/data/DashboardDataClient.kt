@@ -5,6 +5,7 @@ import br.com.blaise.rj.billing.FirebaseSubscriberAccess
 
 import br.com.blaise.rj.billing.LocalPurchaseState
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
+import br.com.blaise.rj.cities.RioMunicipalities
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -79,6 +80,37 @@ data class DashboardMarineReading(
     }
 }
 
+/** A model forecast is NOT a local observed weather reading.
+ * The backend must have verified origin, timestamps, license and geographic scope.
+ */
+data class DashboardInternationalForecast(
+    val ibge: Int,
+    val issuedAt: Instant,
+    val validAt: Instant,
+    val checkedAt: Instant,
+    val temperatureC: Double?,
+    val feelsLikeC: Double?,
+    val humidityPct: Double?,
+    val pressureHpa: Double?,
+    val dewPointC: Double?,
+    val cloudPct: Double?,
+    val windKmh: Double?,
+    val gustKmh: Double?,
+    val uvClearSkyIndex: Double?,
+    val precipitationNextHourMm: Double?,
+    val precipitationProbabilityNextHourPct: Double?,
+) {
+    val sourceLabel = "MET Norway / ECMWF IFS"
+    val uvSourceLabel = "CAMS via MET Norway • céu limpo"
+    val isOfficialObservation = false
+    val mayCreateAlerts = false
+    fun current(now: Instant): Boolean =
+        !issuedAt.isAfter(now) && !validAt.isAfter(now) && !checkedAt.isAfter(now) &&
+        java.time.Duration.between(issuedAt, now).seconds in 0L..43_200L &&
+        java.time.Duration.between(validAt, now).seconds in 0L..5_400L &&
+        java.time.Duration.between(checkedAt, now).seconds in 0L..120L
+}
+
 data class DashboardOfficialNotice(val id: String, val name: String, val message: String, val url: String)
 
 data class DashboardDataSnapshot(
@@ -90,6 +122,7 @@ data class DashboardDataSnapshot(
     val officialNoticeLinks: List<DashboardOfficialNotice> = emptyList(),
     val sources: List<DashboardOfficialSourceState>,
     val marine: DashboardMarineReading? = null,
+    val internationalForecasts: List<DashboardInternationalForecast> = emptyList(),
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
@@ -147,7 +180,7 @@ object DashboardDataParser {
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
         require(payload.keys.containsAll(topLevelKeys) &&
-            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks") })
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
@@ -202,6 +235,12 @@ object DashboardDataParser {
         }
         require(sources.count { it.state == "CURRENT" || it.state == "CURRENT_DEGRADED" } == currentSourceCount)
         require(sources.map { it.sourceId }.toSet().size == sources.size)
+        // Old server revisions must not leak INMET/CEMADEN comparator status
+        // into the subscriber app; reject instead of silently accepting it.
+        require(sources.none {
+            it.sourceId.contains("inmet", ignoreCase = true) ||
+            it.sourceId.contains("cemaden", ignoreCase = true)
+        })
 
 
         val marine = payload["marine"]?.let { raw ->
@@ -252,10 +291,61 @@ object DashboardDataParser {
             val id = identifier(value["id"])
             val url = string(value["url"], 12, 180)
             require((id == "alerta-rio" && url == "https://www.sistema-alerta-rio.com.br/alertas/") ||
-                (id == "defesa-civil-rj" && url == "https://defesacivil.rj.gov.br/"))
+                (id == "defesa-civil-rj" && url == "https://defesacivil.rj.gov.br/") ||
+                (id == "inmet-avisos" && url == "https://avisos.inmet.gov.br/") ||
+                (id == "inpe-cptec-avisos" && url == "https://www.cptec.inpe.br/"))
             DashboardOfficialNotice(id, string(value["name"], 3, 64), string(value["message"], 10, 300), url)
         }.orEmpty()
-        require(notices.size <= 2 && notices.map { it.id }.toSet().size == notices.size)
+        require(notices.size <= 4 && notices.map { it.id }.toSet().size == notices.size)
+
+        val forecastKeys = setOf(
+            "ibge", "sourceId", "modelOrigin", "uvOrigin", "kind",
+            "issuedAt", "validAt", "checkedAt", "temperatureC", "feelsLikeC",
+            "humidityPct", "pressureHpa", "dewPointC", "cloudPct", "windKmh",
+            "gustKmh", "uvClearSkyIndex", "precipitationNextHourMm",
+            "precipitationProbabilityNextHourPct", "credit", "sourceUrl", "license"
+        )
+        val forecasts = (payload["internationalForecasts"] as? List<*>)?.map { raw ->
+            val m = stringMap(raw)
+            require(m.keys == forecastKeys)
+            val municipalityCode = (m["ibge"] as? String)?.toIntOrNull()
+                ?: throw IllegalArgumentException("invalid_model_ibge")
+            require(RioMunicipalities.byIbgeCode(municipalityCode) != null)
+            require(m["sourceId"] == "MET_NORWAY_LOCATIONFORECAST_2")
+            require(m["modelOrigin"] == "ECMWF_IFS")
+            require(m["uvOrigin"] == "COPERNICUS_CAMS_UV_VIA_MET_NO")
+            require(m["kind"] == "MODEL_FORECAST_NOT_LOCAL_MEASUREMENT")
+            require(m["sourceUrl"] == "https://api.met.no/weatherapi/locationforecast/2.0/complete")
+            require(m["license"] == "CC BY 4.0")
+            require(m["credit"] == "MET Norway / ECMWF IFS (UV céu limpo: CAMS via MET Norway)")
+            val issuedAt = instant(m["issuedAt"])
+            val validAt = instant(m["validAt"])
+            val checkedAt = instant(m["checkedAt"])
+            // Check observed clock time (not response-generated time) in UI too.
+            fun metric(key: String, low: Double, high: Double): Double? {
+                val v = m[key] ?: return null
+                val n = (v as? Number)?.toDouble() ?: throw IllegalArgumentException("invalid_model_field")
+                require(n.isFinite() && n in low..high)
+                return n
+            }
+            DashboardInternationalForecast(
+                ibge = (m["ibge"] as String).toInt(),
+                issuedAt = issuedAt, validAt = validAt, checkedAt = checkedAt,
+                temperatureC = metric("temperatureC", -60.0, 65.0),
+                feelsLikeC = metric("feelsLikeC", -80.0, 80.0),
+                humidityPct = metric("humidityPct", 0.0, 100.0),
+                pressureHpa = metric("pressureHpa", 800.0, 1150.0),
+                dewPointC = metric("dewPointC", -90.0, 65.0),
+                cloudPct = metric("cloudPct", 0.0, 100.0),
+                windKmh = metric("windKmh", 0.0, 400.0),
+                gustKmh = metric("gustKmh", 0.0, 550.0),
+                uvClearSkyIndex = metric("uvClearSkyIndex", 0.0, 25.0),
+                precipitationNextHourMm = metric("precipitationNextHourMm", 0.0, 500.0),
+                precipitationProbabilityNextHourPct = metric("precipitationProbabilityNextHourPct", 0.0, 100.0),
+            )
+        }.orEmpty()
+        require(forecasts.size <= 2 && forecasts.map { it.ibge }.toSet().size == forecasts.size)
+        require(forecasts.all { it.current(generatedAt) })
 
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
@@ -266,6 +356,7 @@ object DashboardDataParser {
             officialNoticeLinks = notices,
             sources = sources,
             marine = marine,
+            internationalForecasts = forecasts,
         )
     }
 
@@ -330,23 +421,37 @@ class DashboardDataHttpsClient private constructor(
 ) {
     private val endpointUrl = URL(endpoint)
 
-    fun fetch(candidate: PlayPurchaseCandidate, callback: (DashboardDataNetworkResult) -> Unit) {
+    fun fetch(candidate: PlayPurchaseCandidate, callback: (DashboardDataNetworkResult) -> Unit) =
+        fetch(candidate, emptyList(), callback)
+
+    /** At most two IBGE IDs; never sends user GPS or 92-place fanout. */
+    fun fetch(
+        candidate: PlayPurchaseCandidate,
+        municipalityIbges: List<Int>,
+        callback: (DashboardDataNetworkResult) -> Unit,
+    ) {
         if (candidate.state != LocalPurchaseState.PURCHASED
             || candidate.purchaseToken.isBlank()
             || candidate.productIds.isEmpty()
+            || municipalityIbges.size > 2
+            || municipalityIbges.size != municipalityIbges.toSet().size
+            || municipalityIbges.any { RioMunicipalities.byIbgeCode(it) == null }
         ) {
             callback(DashboardDataNetworkResult.Unavailable)
             return
         }
         executor.execute {
             callback(
-                runCatching { fetchBlocking(candidate) }
+                runCatching { fetchBlocking(candidate, municipalityIbges) }
                     .getOrDefault(DashboardDataNetworkResult.Unavailable),
             )
         }
     }
 
-    private fun fetchBlocking(candidate: PlayPurchaseCandidate): DashboardDataNetworkResult {
+    private fun fetchBlocking(
+        candidate: PlayPurchaseCandidate,
+        municipalityIbges: List<Int>,
+    ): DashboardDataNetworkResult {
         val bearer = if (BuildConfig.BLAISE_SUBSCRIBER_AUTH_ENABLED)
             FirebaseSubscriberAccess.authorizationHeader() ?: return DashboardDataNetworkResult.Unavailable else null
         val connection = endpointUrl.openConnection() as? HttpURLConnection
@@ -362,12 +467,13 @@ class DashboardDataHttpsClient private constructor(
             connection.setRequestProperty("Cache-Control", "no-store")
             if (bearer != null) connection.setRequestProperty("Authorization", bearer)
 
-            val payload = JSONObject()
+            val request = JSONObject()
                 .put("packageName", packageName)
                 .put("purchaseToken", candidate.purchaseToken)
                 .put("productIds", JSONArray(candidate.productIds))
-                .toString()
-                .toByteArray(Charsets.UTF_8)
+            if (municipalityIbges.isNotEmpty())
+                request.put("municipalityIbges", JSONArray(municipalityIbges))
+            val payload = request.toString().toByteArray(Charsets.UTF_8)
             connection.setFixedLengthStreamingMode(payload.size)
             connection.outputStream.use { it.write(payload) }
 

@@ -31,6 +31,8 @@ export async function initializeOptionalAgent13Runtime({
     automaticSchedulingEnabled: false,
     publishedToAndroid: false,
     collect: async () => unavailable('AGENT13_NOT_ENABLED'),
+    temperatureContingencyConfigured: false,
+    collectTemperatureContingency: async () => unavailable('THERMAL_CONTINGENCY_DISABLED'),
   });
 
   if (env?.BLAISE_OPENWEATHER_AGENT13_ENABLED !== 'true') return disabled;
@@ -80,8 +82,13 @@ export async function initializeOptionalAgent13Runtime({
       configured: true,
       automaticSchedulingEnabled: false,
       publishedToAndroid: false,
-      collect: async ({ target, now = clock() } = {}) =>
+      collect: async ({ target, now } = {}) =>
         service.collect({ target, now }),
+      temperatureContingencyConfigured: service.temperatureContingencyConfigured,
+      // This method has no public HTTP route and will only run after
+      // independent authoritative three-source auditing is integrated.
+      collectTemperatureContingency: async ({municipalityIbge,prioritySources}={}) =>
+        service.collectTemperatureContingency({municipalityIbge,prioritySources}),
     });
   } catch {
     // Never log Firestore errors (potentially containing internal details).

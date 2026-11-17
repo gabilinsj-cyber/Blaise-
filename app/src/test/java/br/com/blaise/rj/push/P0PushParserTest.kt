@@ -69,4 +69,12 @@ class P0PushParserTest {
             ),
         )
     }
+    @Test
+    fun domesticReferenceOnlySourcesCannotSendP0IntoSubscriberApp() {
+        assertNull(P0PushParser.parse(validPayload() + ("source" to "INMET CAP"), now))
+        assertNull(P0PushParser.parse(validPayload() + ("source" to "CEMADEN"), now))
+        assertNull(P0PushParser.parse(validPayload() + ("alertId" to "inmet:legacy123"), now))
+        assertNull(P0PushParser.parse(validPayload() + ("alertId" to "cemaden:legacy123"), now))
+    }
+
 }

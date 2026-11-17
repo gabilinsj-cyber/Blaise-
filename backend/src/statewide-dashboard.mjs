@@ -1,9 +1,6 @@
 import { RJ_MUNICIPALITIES } from './rio-municipalities.mjs';
 import { RJ_SEAFRONT_MUNICIPALITIES } from './rj-seafront-municipalities.mjs';
-import { CEMADEN_RJ_TASK_ID, INMET_WARNINGS_TASK_ID } from './official-source-worker.mjs';
-import { CEMADEN_RJ_HYDRO_URL } from './cemaden-rj-source.mjs';
 import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
-import { INMET_CAP_RSS_URL, INMET_SOURCE_ID } from './inmet-source.mjs';
 
 export const STATEWIDE_DASHBOARD_PATH = '/v1/data/municipalities';
 export const STATEWIDE_DASHBOARD_CONTRACT = 'RJ_92_MUNICIPALITIES_V1';
@@ -15,8 +12,6 @@ const coastal = new Set(RJ_SEAFRONT_MUNICIPALITIES.map(city => city.ibge));
 
 // Approved responsibilities, not a claim that all portals supply an operational feed.
 export const STATEWIDE_SOURCE_RESPONSIBILITIES = Object.freeze([
-  { id: 'inmet', name: 'INMET', products: ['temperatura', 'umidade', 'vento', 'previsao', 'avisos'], scope: 'RJ_POR_COBERTURA_VALIDADA', taskId: INMET_WARNINGS_TASK_ID },
-  { id: 'cemaden-rj', name: 'CEMADEN-RJ', products: ['risco-hidrologico', 'chuva', 'radar-conforme-produto'], scope: 'RJ_92_MUNICIPIOS', taskId: CEMADEN_RJ_TASK_ID },
   { id: 'ana', name: 'ANA / Hidroweb / HidroWebService', products: ['nivel-de-rios', 'vazao', 'historico-hidrologico'], scope: 'ESTACOES_COM_COBERTURA_RJ' },
   { id: 'sgb-sace', name: 'SGB / SACE', products: ['cheias', 'inundacao', 'boletins-hidrologicos'], scope: 'BACIAS_COM_COBERTURA_RJ' },
   { id: 'noaa', name: 'NOAA', products: ['satelite', 'tsunami-conforme-produto'], scope: 'ATLANTICO_COM_RELEVANCIA_RJ' },
@@ -94,48 +89,22 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
   if (!Number.isFinite(nowMillis) || nowMillis < 0) throw new Error('statewide_clock_invalid');
   const status = worker.status();
   const active = status?.enabled === true && status?.started === true;
-  const hydro = active ? reading(worker, CEMADEN_RJ_TASK_ID) : null;
-  const cap = active ? reading(worker, INMET_WARNINGS_TASK_ID) : null;
-  const hydroReady = ready(hydro, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS) && hydro.snapshot.sourceId === CEMADEN_RJ_TASK_ID;
-  const capReady = ready(cap, nowMillis, 15 * 60_000) && cap.snapshot.sourceId === INMET_SOURCE_ID && cap.snapshot.sourceUrl === INMET_CAP_RSS_URL;
-  const records = hydroReady ? hydro.snapshot.records : [];
-  const byIbge = new Map((Array.isArray(records) ? records : []).map(item => [item.ibge, item]));
-  const inventory = capReady && Array.isArray(cap.snapshot.rjWarnings) ? cap.snapshot.rjWarnings : [];
-  // A CAP naming RJ without municipality codes cannot be attributed to every city.
-  const currentWarnings = inventory.filter(item => item.msgType !== 'Cancel' && item.status === 'Actual'
-    && Number.isFinite(Date.parse(item.sent)) && Date.parse(item.sent) <= nowMillis
-    && Date.parse(item.onset) <= nowMillis && Date.parse(item.expires) > nowMillis);
-  const boundedInventory = currentWarnings.length <= 64;
-  const warnings = boundedInventory ? currentWarnings.map(item => ({
-    id: item.identifier,
-    event: item.event,
-    severity: item.severity,
-    sent: item.sent,
-    onset: item.onset,
-    expires: item.expires,
-    sourceUrl: INMET_CAP_RSS_URL,
-    municipalityIbges: [...(item.rjMunicipalityIbges ?? [])],
-    attribution: item.rjMunicipalityIbges?.length ? 'EXACT_IBGE' : 'UNRESOLVED_RJ_AREA',
-  })) : [];
-  const unresolved = warnings.some(item => item.attribution === 'UNRESOLVED_RJ_AREA');
-  const municipalities = RJ_MUNICIPALITIES.map(city => {
-    const item = byIbge.get(city.ibge);
-    const validRisk = item && freshStamp(item.observedAt, nowMillis, MAX_CURRENT_OBSERVATION_AGE_MS)
-      && Number.isInteger(item.priority) && item.priority >= 1 && item.priority <= 5;
-    return {
-      ibge: city.ibge,
-      name: city.name,
-      seaFacing: coastal.has(city.ibge),
-      hydrologicalRisk: validRisk ? {
-        state: hydro.state, label: item.risk, level: item.priority,
-        observedAt: item.observedAt, sourceUrl: CEMADEN_RJ_HYDRO_URL,
-        region: item.redec,
-      } : { state: hydro?.state === 'STALE' ? 'STALE' : 'UNAVAILABLE', label: null, level: null,
-        observedAt: null, sourceUrl: CEMADEN_RJ_HYDRO_URL, region: null },
-      warningIds: warnings.filter(warning => warning.municipalityIbges.includes(city.ibge)).map(warning => warning.id),
-      warningCoverage: !capReady ? 'UNAVAILABLE' : !boundedInventory ? 'INVENTORY_LIMIT' : unresolved ? 'PARTIAL_UNRESOLVED_AREAS' : 'EXACT_IBGE_ONLY',
-    };
-  });
+  // Strict rule (17/11/2026): INMET and CEMADEN are solely domestic
+  // comparators for a separate server-side divergence audit. Even if their
+  // worker probes are CURRENT, their snapshots, warnings, hydrological risk
+  // and metadata must never enter a customer-visible response.
+  const municipalities = RJ_MUNICIPALITIES.map(city => ({
+    ibge: city.ibge,
+    name: city.name,
+    seaFacing: coastal.has(city.ibge),
+    hydrologicalRisk: {
+      state: 'UNAVAILABLE', label: null, level: null,
+      observedAt: null, sourceUrl: null, region: null,
+    },
+    warningIds: [],
+    warningCoverage: 'UNAVAILABLE',
+  }));
+  const warnings = [];
   const sourceStates = Array.isArray(status?.sources) ? status.sources : [];
   return {
     contract: STATEWIDE_DASHBOARD_CONTRACT,
@@ -148,13 +117,11 @@ export function buildStatewideDashboardSnapshot(worker, { nowMillis = Date.now()
     marine: buildNoaaMarine(worker, nowMillis),
     sources: STATEWIDE_SOURCE_RESPONSIBILITIES.map(source => {
       const actualId = source.taskId ? reading(worker, source.taskId)?.sourceId : null;
-      const actual = active ? sourceStates.find(item => item.sourceId === source.taskId || item.sourceId === actualId
-        || source.id === 'alerta-rio' && item.sourceId === 'alerta-rio-rainfall-live') : null;
+      const actual = active ? sourceStates.find(item => item.sourceId === source.taskId || item.sourceId === actualId) : null;
       return { id: source.id, name: source.name, products: source.products, scope: source.scope,
         state: actual?.state ?? 'NOT_CONNECTED', observedAt: actual?.observedAt ?? null,
         // Connector state applies only to this product, never every listed responsibility.
-        connectedProduct: actual ? (source.id === 'inmet' ? 'avisos' : source.id === 'cemaden-rj' ? 'risco-hidrologico'
-          : source.id === 'alerta-rio' ? 'chuva' : 'inventario-avisos-maritimos') : null };
+        connectedProduct: actual ? 'produto-internacional-validado' : null };
     }),
   };
 }

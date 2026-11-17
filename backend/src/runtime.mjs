@@ -1,6 +1,7 @@
 import { collectNoaaWave } from './noaa-wave-collector.mjs';
 import { createOfficialAlertLinksHttpHandler } from './official-alert-links-http.mjs';
 import { initializeOptionalAgent13Runtime } from './rj-agent13-runtime-optional.mjs';
+import { initializeOptionalMetNorwayRuntime } from './rj-met-norway-runtime-optional.mjs';
 import { createPaidAgent13HttpHandler } from './rj-agent13-paid-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
@@ -170,6 +171,28 @@ async function main() {
     },
   });
   console.log(`blaise_agent13_runtime:${agent13Runtime.state}`);
+  // This adapter is OFF by default and NEVER fetches MET at startup or during
+  // subscriber requests. Human Terms acceptance, shared Firestore and real UA
+  // are required. Read-only projections cover Rio and Niterói only for now.
+  const metNorwayRuntime = await initializeOptionalMetNorwayRuntime({
+    env:process.env,
+    createDatabase:async ({projectId})=>{
+      const {Firestore}=await import('@google-cloud/firestore');
+      return new Firestore({projectId,databaseId:'(default)'});
+    }
+  });
+  console.log(`blaise_met_norway_runtime:${metNorwayRuntime.state}`);
+  const readInternationalForecasts=metNorwayRuntime.configured===true
+    ?async(requestedCodes=['3304557','3303302'])=>{
+      const known=new Set(metNorwayRuntime.supportedMunicipalities);
+      if(!Array.isArray(requestedCodes)||requestedCodes.length<1||
+        requestedCodes.length>2||new Set(requestedCodes).size!==requestedCodes.length||
+        requestedCodes.some(code=>typeof code!=='string'||!known.has(code)))
+        return [];
+      return Promise.all(requestedCodes.map(code=>metNorwayRuntime.readCachedCity(code)));
+    }
+    :null;
+
 
   const metrics = createOperationalMetrics();
   const gateway = await createGooglePlayGateway(config, {
@@ -226,6 +249,7 @@ async function main() {
     sourceWorker,
     metrics,
     subscriberVerifier,
+    readInternationalForecasts,
   });
   const scientificStore = createScientificStore();
   const canReadReports = createScientificAccess({

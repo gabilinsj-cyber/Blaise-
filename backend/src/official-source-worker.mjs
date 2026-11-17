@@ -306,7 +306,10 @@ export function createOfficialSourceWorker({
   const cemadenRjEnabled = config.cemadenRjEnabled ?? false;
   const chmWarningsEnabled = false;
   const inmetWarningsEnabled = config.inmetWarningsEnabled ?? false;
-  const inmetP0PublishEnabled = config.inmetP0PublishEnabled ?? false;
+  // Domestic sources are comparison-only by current Blaise policy.
+  // Intentionally disregard any legacy publishing flag; never send INMET
+  // CAP warnings into the app's P0 pipeline from this worker.
+  const inmetP0PublishEnabled = false;
   const defesaCivilRioAssetsEnabled = municipalNoticeLinksOnly ? false : (config.defesaCivilRioAssetsEnabled ?? false);
   if (typeof cemadenRjEnabled !== 'boolean') {
     throw new OfficialSourceWorkerError('official_source_worker_invalid_cemaden_rj_enabled_flag');

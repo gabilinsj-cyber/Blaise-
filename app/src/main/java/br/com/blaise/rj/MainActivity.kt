@@ -26,8 +26,7 @@ import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
-import br.com.blaise.rj.data.Agent13CurrentHttpsClient
-import br.com.blaise.rj.data.Agent13CurrentResult
+import br.com.blaise.rj.data.DashboardInternationalForecast
 import br.com.blaise.rj.geo.RjMunicipalMap
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import androidx.compose.runtime.CompositionLocalProvider
@@ -203,8 +202,9 @@ private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> {
 private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
-private val LocalAgent13Reports = compositionLocalOf<Map<Int, Agent13CurrentResult>> { emptyMap() }
-private val LocalAgent13Request = compositionLocalOf<(Int) -> Unit> { {} }
+private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
+// Until a signed and audited backend warning contract exists, this list stays empty.
+private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
 private val BlaiseScheme = darkColorScheme(
     primary = Gold,
@@ -241,21 +241,12 @@ fun BlaiseApp(
     var cityWeather by remember { mutableStateOf<Map<Int, CityWeatherResult>>(emptyMap()) }
     var observationClock by remember { mutableStateOf(Instant.now()) }
     var backendDashboard by remember { mutableStateOf<DashboardDataNetworkResult>(DashboardDataNetworkResult.Unavailable) }
-    var agent13Reports by remember { mutableStateOf<Map<Int, Agent13CurrentResult>>(emptyMap()) }
-    val agent13Scope = rememberCoroutineScope()
     var statewideDashboard by remember { mutableStateOf<StatewideDataResult>(StatewideDataResult.Unavailable) }
     val statewideClient = remember(context) {
         StatewideDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
     }
     val dashboardClient = remember(context) {
         DashboardDataHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
-    }
-    val agent13Client = remember(context) {
-        Agent13CurrentHttpsClient.create(BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL, context.packageName)
-    }
-    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot) {
-        // Never preserve modeled estimates in local storage or across entitlements.
-        agent13Reports = emptyMap()
     }
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -292,7 +283,8 @@ fun BlaiseApp(
             }
         }
     }
-    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot, lifecycle) {
+    LaunchedEffect(powerOn, verifiedPurchase, billingSnapshot,
+        city1.ibgeCode, city2.ibgeCode, lifecycle) {
         backendDashboard = DashboardDataNetworkResult.Unavailable
         val candidate = verifiedPurchase
         val client = dashboardClient
@@ -300,7 +292,7 @@ fun BlaiseApp(
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 backendDashboard = suspendCancellableCoroutine { continuation ->
-                    client.fetch(candidate) { result -> if (continuation.isActive) continuation.resume(result) }
+                    client.fetch(candidate, listOf(city1.ibgeCode, city2.ibgeCode)) { result -> if (continuation.isActive) continuation.resume(result) }
                 }
                 delay(30_000)
             }
@@ -326,21 +318,12 @@ fun BlaiseApp(
 
     CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable,
-        LocalAgent13Reports provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) agent13Reports else emptyMap(),
-        LocalAgent13Request provides { ibge ->
-            val candidate = verifiedPurchase
-            val client = agent13Client
-            if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active &&
-                candidate != null && client != null && ibge in setOf(3304557, 3303302) &&
-                agent13Reports[ibge] !is Agent13CurrentResult.Loading
-            ) {
-                agent13Reports = agent13Reports + (ibge to Agent13CurrentResult.Loading)
-                // Explicit button tap only: no background polling or automatic provider call.
-                client.fetch(candidate, ibge) { result ->
-                    agent13Scope.launch { agent13Reports = agent13Reports + (ibge to result) }
-                }
-            }
-        }) {
+        LocalInternationalForecasts provides if (powerOn &&
+            billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
+            (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.internationalForecasts
+                ?.filter { it.current(observationClock) }?.associateBy { it.ibge }.orEmpty()
+            else emptyMap()
+    ) {
     BlaiseDashboard(
         city1 = city1,
         city2 = city2,
@@ -415,10 +398,9 @@ private fun BlaiseDashboard(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         AppHeader(powerOn, onPowerChange)
-                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialStatusBanner(officialFeedState)
-                        CurrentInmetAlertsStrip(onSelectSection)
-                        OfficialMunicipalLinksStrip()
+                        OfficialMunicipalLinksStrip(onNavigate = onSelectSection)
+                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
 
                         when (selectedSection) {
                             "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
@@ -479,6 +461,7 @@ private fun BlaiseAvatar(modifier: Modifier = Modifier) {
 private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
     val clock = LocalObservationClock.current
     val latest = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock)?.observedAt }.maxOrNull()
+    val latestForecast = LocalInternationalForecasts.current.values.map { it.validAt }.maxOrNull()
     val displayedClock = clock.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
         .format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd/MM/yyyy HH:mm", java.util.Locale("pt", "BR")))
     Card(
@@ -496,7 +479,12 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
                 Text("BLAISE V6 RJ", color = Gold, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
                 Text("Clima e Tempo • Rio de Janeiro", color = Color.White, style = MaterialTheme.typography.labelSmall)
                 Text(displayedClock, color = GoldSoft, style = MaterialTheme.typography.labelSmall)
-                Text(latest?.let { "Última medição disponível: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" } ?: "Medições oficiais indisponíveis no momento", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    latest?.let { "Última observação verificada: ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • Brasília" }
+                        ?: latestForecast?.let { "Previsão ECMWF/IFS válida para ${it.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} • não é medição" }
+                        ?: "Dados internacionais ainda indisponíveis",
+                    color = Muted, style = MaterialTheme.typography.labelSmall,
+                )
             }
             val statusColor = if (powerOn) StableGreen else AlertRed
             val statusBackground = if (powerOn) Color(0xFF123D2B) else Color(0xFF4A1F25)
@@ -834,31 +822,53 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
         ) {
             RjMunicipalMap(snapshot, Modifier.fillMaxSize())
         }
-        val inmetWarnings = snapshot?.warnings?.count { it.current(clock) }
         val activeObservations = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock) }
+        val activeForecasts = LocalInternationalForecasts.current.values
+            .filter { it.current(clock) }.sortedBy { it.ibge }
+        fun forecastCity(code: Int): String =
+            RioMunicipalities.byIbgeCode(code)?.name ?: "Município não identificado"
+        fun modelMetric(value: Double?, unit: String): String =
+            value?.let { String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit) }
+                ?: "Indisponível"
+        fun provenance(row: DashboardInternationalForecast): String {
+            val at = row.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+            return " • previsão ECMWF/IFS $at"
+        }
         when (activeLayer) {
             "Radar" -> Text("Radar real: sem frames homologados nesta consulta. Malha geográfica não representa precipitação.",
                 color = WarningAmber, style = MaterialTheme.typography.labelSmall)
             "Chuva" -> {
-                Text("Chuva acumulada: indisponível até existir medição aprovada com cobertura territorial.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
-                StatusLine("Avisos de chuva INMET", inmetWarnings?.toString() ?: "Indisponível")
-            }
-            "Temperatura" -> {
-                Text("Estações INMET verificadas: ${activeObservations.size}. Não representam toda a área do município.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
-                activeObservations.take(3).forEach { obs ->
-                    StatusLine(obs.station, obs.temperatureC?.let { "%.1f °C".format(java.util.Locale("pt", "BR"), it) }
-                        ?: "Temperatura indisponível")
+                Text("Chuva observada acumulada: indisponível sem medição autorizada.",
+                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                activeForecasts.forEach { row ->
+                    StatusLine(forecastCity(row.ibge),
+                        "Próxima hora: " + modelMetric(row.precipitationNextHourMm, "mm") +
+                            " • prob. " + modelMetric(row.precipitationProbabilityNextHourPct, "%") +
+                            provenance(row))
                 }
             }
-            "Vento" -> activeObservations.take(3).forEach { obs ->
-                StatusLine(obs.station, obs.windKmh?.let { "%.1f km/h".format(java.util.Locale("pt", "BR"), it) }
-                    ?: "Vento indisponível")
+            "Temperatura" -> {
+                activeObservations.take(3).forEach { obs ->
+                    StatusLine(obs.station, modelMetric(obs.temperatureC, "°C") + " • observação verificada")
+                }
+                activeForecasts.forEach { row ->
+                    StatusLine(forecastCity(row.ibge),
+                        modelMetric(row.temperatureC, "°C") + provenance(row))
+                }
             }
-            "Nuvens" -> Text("Cobertura de nuvens indisponível nesta consulta. Não há camada visual sem fonte e horário validados.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+            "Vento" -> activeForecasts.forEach { row ->
+                StatusLine(forecastCity(row.ibge), modelMetric(row.windKmh, "km/h") + provenance(row))
+            }
+            "Nuvens" -> activeForecasts.forEach { row ->
+                StatusLine(forecastCity(row.ibge), modelMetric(row.cloudPct, "%") + provenance(row))
+            }
         }
+        if(activeForecasts.isEmpty() && activeObservations.isEmpty())
+            Text("Camada meteorológica indisponível • nenhuma observação ou previsão internacional válida nesta consulta.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Valores indicados são pontos municipais, NÃO uma superfície contínua estimada nem radar ao vivo.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Geografia: IBGE • contornos oficiais • ampliar com dois dedos • Sem mapa de terceiros.",
             color = Gold, style = MaterialTheme.typography.labelSmall)
     }
@@ -981,7 +991,7 @@ private fun StatewideMunicipalitiesPanel() {
                         "Risco hidrológico: ${risk.label} • fonte histórica em revisão • ${risk.observedAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))} (Brasília).", color = Muted, style = MaterialTheme.typography.labelSmall)
                     val warnings = snapshot?.warnings?.filter { it.id in (row?.warningIds ?: emptyList()) && it.current(clock) }.orEmpty()
                     warnings.forEach { warning ->
-                        Text("INMET • ${warning.event} • ${warning.severity} • válido até ${warning.expires.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.", color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+                        Text("Aviso indisponível sem fonte internacional autorizada.", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     if (warnings.isEmpty()) Text(if (row?.warningCoverage == "EXACT_IBGE_ONLY")
                         "Nenhum aviso municipal atribuído nesta consulta; não confirma ausência de risco."
@@ -1022,14 +1032,17 @@ private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, on
 
 @Composable
 private fun MapScreen(city1: City, city2: City) {
+    ExpandedRadarPanel(Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "MAPA DE RISCO • ESTADO DO RJ",
-        subtitle = "Visão adaptativa: Estado + ${city1.name} + ${city2.name}",
+        subtitle = "Visão territorial: Estado + ${city1.name} + ${city2.name}",
     ) {
-        PlaceholderMap("Camadas: alertas, radar, trânsito, alagamentos, sirenes, pontos de apoio e risco geológico")
         StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
         StatusLine("Geo-Rio", "Aguardando riscos georreferenciados por fonte aprovada")
         StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
+        Text("Contornos próprios IBGE não equivalem a uma camada de risco validada.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1041,7 +1054,7 @@ private fun AlertsScreen(city1: City, city2: City) {
     ) {
         StatusLine(city1.name, "Sem conclusão até receber evidência oficial válida")
         StatusLine(city2.name, "Sem conclusão até receber evidência oficial válida")
-        Text("Até 3 alertas ficam no painel da cidade. Com 4 ou mais, abre página adicional de alertas.", color = Gold)
+        Text("Até 4 alertas prioritários ficam na faixa superior. Do quinto em diante, consulte Mais.", color = Gold)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
@@ -1173,6 +1186,102 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
+    WeatherSourceResponsibilityPanel()
+    // Only the physically separate admin build can even open this activity.
+    if (BuildConfig.APPLICATION_ID == "br.com.blaise.rj.admin") {
+        val context = LocalContext.current
+        Spacer(Modifier.height(14.dp))
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent().setClassName(context.packageName,
+                            "br.com.blaise.rj.AdminScientificActivity")
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag("admin-scientific-calculator"),
+        ) { Text("Calculadora científica • administradores") }
+    }
+    Spacer(Modifier.height(14.dp))
+    val additional = OfficialAlertRibbonPolicy.layout(
+        LocalVerifiedBlaiseWarnings.current, LocalObservationClock.current
+    ).additional
+    DashboardSection(
+        title = "MAIS ALERTAS OFICIAIS",
+        subtitle = "A partir do quinto aviso válido • frase própria e link oficial",
+    ) {
+        if (additional.isEmpty()) {
+            Text("Nenhum alerta adicional foi validado; consulte os links oficiais acima.",
+                color = Muted, style = MaterialTheme.typography.bodySmall)
+        } else {
+            additional.forEach { item -> OfficialAlertLinkCard(item) }
+        }
+    }
+}
+
+/** Provenance-aware source availability. A catalogue entry is NOT a live feed. */
+@Composable
+private fun WeatherSourceResponsibilityPanel() {
+    val context = LocalContext.current
+    val now = LocalObservationClock.current
+    val met = LocalInternationalForecasts.current.values.filter { it.current(now) }
+    val noaa = (LocalBackendDashboard.current as? DashboardDataNetworkResult.Available)
+        ?.snapshot?.marine?.takeIf { it.current(now) }
+    val coastal = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
+        ?.snapshot?.takeIf { it.current(now) }?.marine.orEmpty()
+    val marineValid = noaa != null || coastal.any { it.sourceName == "NOAA GFS Wave" && it.expiresAt.isAfter(now) }
+    val uvValid = met.any { it.uvClearSkyIndex != null }
+    DashboardSection(
+        title = "FONTES METEOROLÓGICAS • O / E / P",
+        subtitle = "Estado real do produto, não apenas cadastro da instituição",
+    ) {
+        Text("O = observação • E = estimativa • P = previsão. Fonte sem dado validado permanece indisponível.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        WeatherSourceResponsibilities.providers.forEach { source ->
+            val status = WeatherSourceResponsibilities.availability(
+                source.id, met.isNotEmpty(), marineValid, uvValid,
+            )
+            Text("${source.label} • ${source.nature}",
+                color = Gold, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodySmall)
+            Text(source.sectors, color = Color.White,
+                style = MaterialTheme.typography.labelSmall)
+            Text(status, color = if (status.contains("VALIDAD")) StableGreen else Muted,
+                style = MaterialTheme.typography.labelSmall)
+        }
+        Text(
+            "RAMMB/CIRA SLIDER: visualizador externo das imagens NOAA GOES-19; não é medidor de chuva e não constitui fonte independente do satélite.",
+            color = Muted, style = MaterialTheme.typography.labelSmall,
+        )
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    context.startActivity(Intent(
+                        Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://rammb-slider.cira.colostate.edu/")
+                    ))
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag("rammb-cira-slider-link"),
+        ) { Text("Abrir imagens GOES-19 • RAMMB/CIRA SLIDER") }
+        Text(
+            "Chuva atual: apenas medição observada válida (O) com até 30 minutos; sem observação homologada, indisponível. NASA e JAXA retiradas.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall,
+        )
+        if (met.isNotEmpty()) {
+            Text(
+                "ECMWF via MET Norway: " + met.joinToString(" • ") { forecast ->
+                    val city = RioMunicipalities.byIbgeCode(forecast.ibge)?.name ?: "IBGE ${forecast.ibge}"
+                    "$city ${forecast.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}"
+                },
+                color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("MET Norway distribui ECMWF/IFS; não constitui outro modelo independente. NOAA CoastWatch e OSI SAF podem compartilhar GOES/ABI.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Os 92 municípios têm coordenadas verificadas, mas valores permanecem indisponíveis por campo e município até coleta e homologação. Nunca substituir ausência por zero.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
+    }
 }
 
 @Composable
@@ -1552,73 +1661,59 @@ private fun BillingPanel(
     }
 }
 
-/** The last-hour banner is sourced only from a current, timestamped INMET inventory. */
+/** At most four current, verified Blaise alerts in the top ribbon.
+ * Empty or unverified provider links remain grey and never imply safety.
+ * Multiple validated notices from any approved portal overflow into Mais.
+ */
 @Composable
-private fun CurrentInmetAlertsStrip(onSelectSection: (String) -> Unit) {
-    val clock = LocalObservationClock.current
-    val state = LocalStatewideDashboard.current
-    val snapshot = (state as? StatewideDataResult.Available)?.snapshot?.takeIf { it.current(clock) }
-    val currentAlerts = snapshot?.warnings?.filter { it.current(clock) }
-        ?.sortedByDescending { it.sent }
-        .orEmpty()
-    val top = currentAlerts.firstOrNull()
-    val accent = if (top != null) AlertRed else WarningAmber
+private fun OfficialMunicipalLinksStrip(onNavigate: (String) -> Unit) {
+    val now = LocalObservationClock.current
+    val page = OfficialAlertRibbonPolicy.layout(LocalVerifiedBlaiseWarnings.current, now)
     Card(
-        colors = CardDefaults.cardColors(containerColor = if (top != null) Color(0xFF53121F) else NavyRaised),
-        border = BorderStroke(1.dp, accent),
-        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = NavyRaised),
+        border = BorderStroke(1.dp, Gold),
+        shape = RoundedCornerShape(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("ÚLTIMA HORA • INMET", color = accent, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    if (top == null)
-                        "Nenhum alerta válido confirmado nesta consulta. A cobertura pode estar indisponível."
-                    else "${top.event} • ${top.severity} • emissão ${top.sent.atZone(java.time.ZoneId.of("America/Sao_Paulo")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}",
-                    color = Color.White, style = MaterialTheme.typography.bodySmall,
-                )
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ALERTAS OFICIAIS • RIO DE JANEIRO", color = Gold, fontWeight = FontWeight.ExtraBold)
+            page.visible.forEach { item -> OfficialAlertLinkCard(item) }
+            if (page.additional.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = { onNavigate("Mais") },
+                    modifier = Modifier.fillMaxWidth().testTag("more-official-alerts"),
+                ) { Text("Mais alertas (${page.additional.size})") }
             }
-            TextButton(onClick = { onSelectSection("Alertas") }) {
-                Text(if (currentAlerts.isEmpty()) "Consultar" else "Ver todos (${currentAlerts.size})",
-                    color = GoldSoft)
-            }
+            Text("Cores 1–5 somente para níveis Blaise verificados; os links não comprovam alerta ativo.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
-/** Links fixos para páginas oficiais: não representam verificação de alertas ativos. */
+/** One bold sentence + official HTTPS link; ephemeral rendering, never a stored bulletin. */
 @Composable
-private fun OfficialMunicipalLinksStrip() {
+private fun OfficialAlertLinkCard(item: OfficialAlertRibbonItem) {
     val context = LocalContext.current
-    val links = listOf(
-        Triple("Defesa Civil RJ", "Consulte avisos oficiais de riscos e emergências no estado.",
-            "https://defesacivil.rj.gov.br/"),
-        Triple("Alerta Rio", "Consulte avisos oficiais de chuvas na cidade do Rio.",
-            "https://www.sistema-alerta-rio.com.br/alertas/"),
-    )
-    Card(
-        colors = CardDefaults.cardColors(containerColor = NavyRaised),
-        border = BorderStroke(1.dp, Divider),
-        shape = RoundedCornerShape(14.dp),
+    Surface(
+        color = Color(item.presentation.backgroundArgb),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth().testTag("official-link-${item.portal.id}"),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("AVISOS OFICIAIS • LINKS", color = Gold, fontWeight = FontWeight.Bold)
-            links.forEach { (name, phrase, url) ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text(phrase, color = Muted, style = MaterialTheme.typography.labelSmall)
-                    }
-                    TextButton(onClick = {
-                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-                    }) { Text("Página oficial") }
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                // Exactly one original sentence, without storing or copying
+                // a provider bulletin. Its 1–5 level is Blaise-verified only.
+                Text("${item.portal.name} — ${item.presentation.message}",
+                    color = Color.Black, fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.bodySmall)
             }
-            Text("Links informativos; não confirmam alerta ativo. Consulte também os avisos INMET.",
-                color = Muted, style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(item.portal.url)))
+                }
+            }) { Text("Página oficial", color = Color(0xFF053D83), fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -1678,10 +1773,8 @@ private fun CityPanel(
     val report = LocalCityWeather.current[city.ibgeCode]
     val clock = LocalObservationClock.current
     val observation = report?.currentObservation(clock)
-    val agent13State = LocalAgent13Reports.current[city.ibgeCode]
-    val agent13Estimate = (agent13State as? Agent13CurrentResult.Available)
-        ?.estimate?.takeIf { it.current(clock) }
-    val requestAgent13 = LocalAgent13Request.current
+    // Cached ECMWF forecasts are kept separate from real station observations.
+    val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(clock) }
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1693,34 +1786,51 @@ private fun CityPanel(
             Text(city.name, color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.height(2.dp))
-            Text(observation?.temperatureC?.let { String.format(java.util.Locale("pt", "BR"), "%.1f °C", it) } ?: "— °C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-            Text(report?.summary(clock) ?: "Consultando medição oficial…", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Text(
+                (observation?.temperatureC ?: model?.temperatureC)?.let {
+                    String.format(java.util.Locale("pt", "BR"), "%.1f °C", it)
+                } ?: "Indisponível",
+                color = Color.White, fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            if (observation != null) {
+                Text(report?.summary(clock) ?: "Observação indisponível",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            } else if (model != null) {
+                Text("PREVISÃO DE MODELO • MET Norway / ECMWF IFS • NÃO É MEDIÇÃO LOCAL",
+                    color = GoldSoft, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelSmall)
+                val forecastTime = model.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                val checkedTime = model.checkedAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                Text("Previsão válida: $forecastTime • verificada: $checkedTime • Brasília",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("Créditos: MET Norway / ECMWF; UV céu limpo: CAMS via MET Norway • CC BY 4.0",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            } else {
+                Text("Dados internacionais indisponíveis para esta cidade",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
             fun metric(value: Double?, unit: String): String = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "Indisponível"
-            StatusLine("Umidade", metric(observation?.humidityPercent, "%"))
-            StatusLine("Vento médio", metric(observation?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", "Indisponível")
-            StatusLine("Índice UV", "Indisponível")
-            StatusLine("Chance de chuva", "Indisponível")
-            StatusLine("Rajadas / nuvens", "Indisponíveis")
-            if (city.ibgeCode in setOf(3304557, 3303302)) {
-                Text("OPENWEATHER • ESTIMATIVA DE MODELO", color = Gold, fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.labelSmall)
-                Text(when {
-                    agent13Estimate != null -> agent13Estimate.summary(clock)
-                    agent13State is Agent13CurrentResult.Loading -> "Consultando estimativa autorizada..."
-                    agent13State is Agent13CurrentResult.Denied -> "Acesso à estimativa não autorizado."
-                    else -> "Estimativa indisponível ou vencida. Não substitui a medição oficial."
-                }, color = Muted, style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = { requestAgent13(city.ibgeCode) }, modifier = Modifier.fillMaxWidth(),
-                    enabled = agent13State !is Agent13CurrentResult.Loading) {
-                    Text("Consultar estimativa")
-                }
-            } else {
-                Text("OpenWeather: ponto municipal ainda não validado; sem estimativa nesta cidade.",
-                    color = Muted, style = MaterialTheme.typography.labelSmall)
-            }
+            StatusLine("Umidade", metric(observation?.humidityPercent ?: model?.humidityPct, "%"))
+            StatusLine("Vento médio", metric(observation?.windKmh ?: model?.windKmh, "km/h"))
+            StatusLine("Sensação térmica", metric(model?.feelsLikeC, "°C") +
+                if (model?.feelsLikeC != null) " • estimativa" else "")
+            StatusLine("UV céu limpo (não observado)", metric(model?.uvClearSkyIndex, "índice"))
+            StatusLine("Prob. chuva próxima hora", metric(model?.precipitationProbabilityNextHourPct, "%"))
+            StatusLine("Chuva prevista na próxima hora", metric(model?.precipitationNextHourMm, "mm"))
+            StatusLine("Rajadas previstas", metric(model?.gustKmh, "km/h"))
+            StatusLine("Nuvens previstas", metric(model?.cloudPct, "%"))
+            StatusLine("Pressão prevista", metric(model?.pressureHpa, "hPa"))
+            StatusLine("Ponto de orvalho estimado", metric(model?.dewPointC, "°C"))
+            // Agent identities, comparison calculations and provider controls
+            // belong only in the administrator application, never this panel.
+            // The observation summary above labels its actual source and time.
+            // Until a verified thermal-only backend response is integrated,
+            // unavailable feels-like must remain unavailable.
             Button(onClick = onChoose, modifier = Modifier.fillMaxWidth()) { Text(chooseLabel) }
         }
     }
@@ -1734,7 +1844,7 @@ private fun BackendRainfallPanel() {
         ?.snapshot?.takeIf { it.current(clock) }
     DashboardSection(
         title = "CHUVA OBSERVADA • FONTES APROVADAS",
-        subtitle = "INMET • CEMADEN • horários e cobertura validados",
+        subtitle = "Produtos internacionais licenciados e com horário validado",
     ) {
         Text(
             if (response is DashboardDataNetworkResult.Denied)
@@ -1742,8 +1852,7 @@ private fun BackendRainfallPanel() {
             else "Acumulados de chuva indisponíveis nesta consulta.",
             color = Muted,
         )
-        val warnings = statewide?.warnings?.filter { it.current(clock) }.orEmpty()
-        StatusLine("Avisos INMET recebidos", if (statewide == null) "Indisponível" else "${warnings.size} avisos válidos no inventário")
+        StatusLine("Dados de chuva internacionais", "Indisponível sem coleta homologada")
         Text("Aviso não é medição de chuva. Nenhum valor será inferido de alertas ou de imagens.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
@@ -1760,7 +1869,7 @@ private fun FooterSources() {
             Text("92 municípios do RJ • seleção simultânea de Cidade 1 e Cidade 2", color = Gold)
             Text("Clima • Alertas • Radar • Risco • Mar e Atlântico • Trânsito", color = Color.White)
             Text("Notícias • Assinatura • Blaise/Voz • Configurações", color = Color.White)
-            Text("Fontes oficiais têm prioridade. Dados exibem origem e atualização.", color = Gold)
+            Text("Dados internacionais validados exibem fonte e horário. Sem valores inventados.", color = Gold)
         }
     }
 }

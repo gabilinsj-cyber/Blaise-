@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRjOpenWeatherFirestoreStore,
-  RJ_AGENT13_CACHE_COLLECTION,RJ_AGENT13_QUOTA_COLLECTION
+  RJ_AGENT13_CACHE_COLLECTION,RJ_AGENT13_QUOTA_COLLECTION,RJ_AGENT13_CITY_COOLDOWN_COLLECTION,RJ_AGENT13_TEMP_CACHE_COLLECTION
 } from '../src/rj-openweather-firestore-store.mjs';
 import {RJ_OPENWEATHER_SOURCE_ID} from '../src/rj-openweather-onecall4.mjs';
 
@@ -96,4 +96,113 @@ test('Firestore failure fails closed and cannot authorize an OpenWeather request
   await assert.rejects(store.budget.tryReserve({
     provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900
   }));
+});
+
+test('35-minute city cooldown is atomic across Cloud Run replicas and shared for all users',async()=>{
+  const db=fakeDb();
+  const a=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  const b=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  const params={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,
+    maximum:900,ibge:'3304557',nowMs:NOW};
+  const attempts=await Promise.all(Array.from({length:30},(_,i)=>
+    (i%2?a:b).budget.tryReserveMunicipalFallback(params)));
+  assert.equal(attempts.filter(Boolean).length,1);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,1);
+  assert.equal(db.data.get(RJ_AGENT13_CITY_COOLDOWN_COLLECTION+'/3304557').lastReservedAtMs,NOW);
+  assert.equal(await a.budget.tryReserveMunicipalFallback({
+    ...params,nowMs:NOW+34*60_000
+  }),false);
+  assert.equal(await a.budget.tryReserveMunicipalFallback({
+    ...params,nowMs:NOW+35*60_000
+  }),true);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,2);
+});
+test('35-minute city cooldown cannot be bypassed across midnight or via another city',async()=>{
+  const db=fakeDb();
+  const store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  const prev=Date.parse('2026-11-13T23:50:00Z');
+  const base={provider:RJ_OPENWEATHER_SOURCE_ID,maximum:900,ibge:'3304557'};
+  assert.equal(await store.budget.tryReserveMunicipalFallback({
+    ...base,utcDay:'2026-11-13',nowMs:prev
+  }),true);
+  assert.equal(await store.budget.tryReserveMunicipalFallback({
+    ...base,utcDay:'2026-11-14',nowMs:prev+20*60_000
+  }),false);
+  assert.equal(await store.budget.tryReserveMunicipalFallback({
+    ...base,ibge:'3303302',utcDay:'2026-11-14',nowMs:prev+20*60_000
+  }),true);
+  assert.equal(await store.budget.tryReserveMunicipalFallback({
+    ...base,utcDay:'2026-11-14',nowMs:prev+35*60_000
+  }),true);
+});
+test('municipal fallback and regular reservations share one global 900/day maximum',async()=>{
+  const db=fakeDb(),store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  db.data.set(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE,{
+    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,count:899,maximum:900
+  });
+  const param={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900,
+    ibge:'3304557',nowMs:NOW};
+  assert.equal(await store.budget.tryReserveMunicipalFallback(param),true);
+  assert.equal(await store.budget.tryReserve({
+    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900
+  }),false);
+  assert.equal(await store.budget.tryReserveMunicipalFallback({
+    ...param,ibge:'3303302'
+  }),false);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,900);
+});
+test('malformed municipal fallback cannot spend quota',async()=>{
+  const db=fakeDb(),store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  for(const input of [
+    {ibge:'0000000'}, {ibge:'3304557',nowMs:NOW-86400_000},
+    {ibge:'3304557',maximum:901}, {ibge:'3304557',provider:'OTHER'}
+  ]){
+    await assert.rejects(store.budget.tryReserveMunicipalFallback({
+      provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900,
+      ibge:'3304557',nowMs:NOW,...input
+    }),/invalid_municipal_reservation/);
+  }
+  assert.equal(db.data.size,0);
+});
+
+test('temperature-only cache expires at provider original validAt, not 35 minutes after insertion',async()=>{
+  const db=fakeDb();
+  let t=NOW;
+  const s=createRjOpenWeatherFirestoreStore({db,clock:()=>t});
+  const value={
+    ...WEATHER,
+    type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
+    officialObservation:false,officialAlert:false,
+    retrievedAt:new Date(NOW).toISOString(),
+    values:{temperatureC:30.2,providerFeelsLikeC:33.4,
+      windKmh:100,rainMm1h:50}
+  };
+  await s.temperatureCache.set('3304557',value);
+  const key=RJ_AGENT13_TEMP_CACHE_COLLECTION+'/3304557';
+  assert.equal(db.data.get(key).expiresAtMs,
+    Date.parse(value.validAt)+35*60_000);
+  const read=await s.temperatureCache.get('3304557');
+  assert.deepEqual(Object.keys(read.values),['temperatureC','providerFeelsLikeC']);
+  assert.equal(JSON.stringify(db.data.get(key)).includes('windKmh'),false);
+  assert.equal(JSON.stringify(db.data.get(key)).includes('rainMm1h'),false);
+  t=Date.parse(value.validAt)+35*60_000;
+  assert.equal(await s.temperatureCache.get('3304557'),null);
+});
+test('temperature cache rejects unsupported codes, future timestamps, and illegal values',async()=>{
+  const db=fakeDb();
+  const s=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  const base={
+    ...WEATHER,
+    type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
+    officialObservation:false,officialAlert:false,
+    retrievedAt:new Date(NOW).toISOString()
+  };
+  await assert.rejects(s.temperatureCache.set('9999999',base),/invalid_temperature_cache_write/);
+  await assert.rejects(s.temperatureCache.set('3304557',{
+    ...base,validAt:new Date(NOW+1000).toISOString()
+  }),/expired_temperature_cache_write/);
+  await assert.rejects(s.temperatureCache.set('3304557',{
+    ...base,values:{temperatureC:99,providerFeelsLikeC:null}
+  }),/invalid_temperature_cache_values/);
+  assert.equal(db.data.size,0);
 });

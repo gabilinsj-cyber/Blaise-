@@ -95,112 +95,41 @@ function enabledConfig() {
   };
 }
 
-test('INMET P0 runtime publication is explicit, dependency-bound and fail-closed', () => {
-  assert.deepEqual(loadOfficialSourceWorkerConfig({
-    BLAISE_INMET_WARNINGS_ENABLED: 'true',
-    BLAISE_INMET_P0_PUBLISH_ENABLED: 'true',
-  }), {
-    enabled: false,
-    initialMode: 'normal',
-    ineaStationUrl: null,
-    noaaWaveEnabled: false,
-    noaaPoint: null,
-    inmetWarningsEnabled: true,
-    inmetP0PublishEnabled: true,
-  });
-  assert.throws(
-    () => loadOfficialSourceWorkerConfig({ BLAISE_INMET_P0_PUBLISH_ENABLED: 'true' }),
-    (error) => error instanceof OfficialSourceWorkerError
-      && error.code === 'official_source_worker_inmet_p0_publish_requires_warnings',
-  );
-  assert.throws(
-    () => loadOfficialSourceWorkerConfig({ BLAISE_INMET_P0_PUBLISH_ENABLED: 'yes' }),
-    (error) => error instanceof OfficialSourceWorkerError
-      && error.code === 'official_source_worker_invalid_inmet_p0_publish_enabled_flag',
-  );
-});
 
-test('enabled INMET P0 publication requires an injected authenticated publisher', () => {
-  assert.throws(
-    () => createOfficialSourceWorker({ config: enabledConfig(), autoSchedule: false }),
-    (error) => error instanceof OfficialSourceWorkerError
-      && error.code === 'official_source_worker_inmet_p0_publisher_missing',
-  );
-});
-
-test('explicit INMET P0 publication sends only a validated staged batch and projects redacted acceptance status', async () => {
+test('legacy INMET publish flag cannot enable customer publication', async () => {
+  const config = enabledConfig();
   let publisherCalls = 0;
-  let capturedSha = null;
   const worker = createOfficialSourceWorker({
-    config: enabledConfig(),
-    now: () => NOW,
-    autoSchedule: false,
-    maxConcurrency: 2,
-    probeAlertaRio: async () => alertaRioSnapshot(),
-    probeInmetWarningsLive: async () => inmetSnapshot(),
-    publishInmetP0: async (batch, { nowMillis }) => {
-      publisherCalls += 1;
-      capturedSha = batch.batchSha256;
-      assert.equal(nowMillis, NOW);
-      assert.equal(batch.candidateCount, 1);
-      return Object.freeze({
-        schema: batch.schema,
-        batchSha256: batch.batchSha256,
-        acceptedCount: 1,
-        duplicateCount: 0,
-        newlyAcceptedCount: 1,
-        delivery: 'BACKEND_P0_ENDPOINT_ACCEPTED',
-      });
-    },
-  });
-
-  worker.start();
-  const launched = await worker.tick();
-  assert.equal(launched.includes(INMET_WARNINGS_TASK_ID), true);
-  assert.equal(publisherCalls, 1);
-
-  const status = worker.status();
-  assert.equal(status.inmetP0PublishEnabled, true);
-  assert.equal(status.inmetP0Evaluation.status, 'BACKEND_ACCEPTED');
-  assert.equal(status.inmetP0Evaluation.publication, 'PERFORMED');
-  assert.equal(status.inmetP0Evaluation.automaticPublication, 'ENABLED_EXPLICIT');
-  assert.equal(status.inmetP0Evaluation.fcmDelivery, 'BACKEND_ACCEPTED_NOT_DEVICE_PROVEN');
-  assert.equal(status.inmetP0Evaluation.acceptedCount, 1);
-  assert.equal(status.inmetP0Evaluation.duplicateCount, 0);
-  assert.equal(status.inmetP0Evaluation.newlyAcceptedCount, 1);
-  assert.equal(status.inmetP0Evaluation.batchSha256, capturedSha);
-  assert.equal(worker.readSource(INMET_WARNINGS_TASK_ID).state, 'CURRENT');
-  assert.equal(JSON.stringify(status).includes('3304557'), false);
-  assert.equal(JSON.stringify(status).includes('Chuvas Intensas'), false);
-});
-
-test('INMET publication failure keeps source cache current, marks delivery blocked and schedules retry', async () => {
-  const worker = createOfficialSourceWorker({
-    config: enabledConfig(),
-    now: () => NOW,
-    autoSchedule: false,
-    maxConcurrency: 2,
+    config, now: () => NOW, autoSchedule: false, maxConcurrency: 2,
     probeAlertaRio: async () => alertaRioSnapshot(),
     probeInmetWarningsLive: async () => inmetSnapshot(),
     publishInmetP0: async () => {
-      const error = new Error('sensitive backend response must not leak');
-      error.code = 'inmet_p0_backend_publish_failed';
-      throw error;
+      publisherCalls++;
+      throw Error('must never publish domestic data');
     },
   });
-
   worker.start();
-  await worker.tick();
-
+  const launched = await worker.tick();
+  assert.equal(launched.includes(INMET_WARNINGS_TASK_ID), true);
+  assert.equal(publisherCalls, 0);
   assert.equal(worker.readSource(INMET_WARNINGS_TASK_ID).state, 'CURRENT');
   const status = worker.status();
-  assert.equal(status.inmetP0Evaluation.status, 'BLOCKED_PUBLICATION_FAILED');
-  assert.equal(status.inmetP0Evaluation.lastErrorCode, 'inmet_p0_backend_publish_failed');
-  assert.equal(status.inmetP0Evaluation.publication, 'FAILED');
-  assert.equal(status.inmetP0Evaluation.fcmDelivery, 'NOT_PROVEN');
-  assert.equal(status.inmetP0Evaluation.automaticPublication, 'ENABLED_EXPLICIT');
-  const task = status.scheduler.tasks.find((entry) => entry.taskId === INMET_WARNINGS_TASK_ID);
-  assert.equal(task.lastOutcome, 'FAILURE');
-  assert.equal(task.lastErrorCode, 'inmet_p0_backend_publish_failed');
-  assert.equal(JSON.stringify(status).includes('sensitive backend response'), false);
+  assert.equal(status.inmetP0PublishEnabled, false);
+  assert.equal(status.inmetP0Evaluation.automaticPublication, 'DISABLED');
+  assert.equal(status.inmetP0Evaluation.publication, 'NOT_PERFORMED');
+  assert.equal(status.inmetP0Evaluation.delivery, 'STAGED_NOT_PUBLISHED');
+  assert.equal(JSON.stringify(status).includes('Chuvas Intensas'), false);
+});
+
+test('without an injected publisher, domestic-only probe remains usable for comparison', async () => {
+  const worker = createOfficialSourceWorker({
+    config: enabledConfig(),
+    now: () => NOW, autoSchedule: false, maxConcurrency: 2,
+    probeAlertaRio: async () => alertaRioSnapshot(),
+    probeInmetWarningsLive: async () => inmetSnapshot(),
+  });
+  worker.start();
+  await worker.tick();
+  assert.equal(worker.status().inmetP0PublishEnabled, false);
+  assert.equal(worker.status().inmetP0Evaluation.publication, 'NOT_PERFORMED');
 });
