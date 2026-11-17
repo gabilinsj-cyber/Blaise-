@@ -1,0 +1,20 @@
+name: RJ JAXA GSMaP v9 Numeric Offline QA
+on:
+  pull_request:
+    paths:
+      - .github/workflows/rj-jaxa-gsmap-binary-offline.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-binary-grid:
+    name: Validate synthetic-grid decoder only (NOT real rain)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6
+        with:
+          python-version: '3.12'
+      - name: Test JAXA v9 format, grid coordinates, missing values and time limits
+        run: python -m unittest discover -s backend/test -p test_jaxa_gsmap_v9_binary.py -v
