@@ -41,6 +41,18 @@ class FinalDashboardSpecTest {
         assertFalse(FinalDashboardSpec.officialSources.any { it.contains("Agente 13") })
     }
 
+    @Test fun `approved source catalog excludes retired providers and retains DWD NOAA meteoblue RAMMB`() {
+        val names = FinalDashboardSpec.officialSources
+        assertTrue(names.any { it.contains("DWD/ICON") })
+        assertTrue(names.any { it.contains("NOAA GOES-19") })
+        assertTrue(names.any { it.contains("meteoblue NEMS10") })
+        assertTrue(names.any { it.contains("RAMMB/CIRA") })
+        assertTrue(names.any { it.contains("OpenWeather") })
+        for (denied in listOf("NASA", "JAXA", "INEA", "Marinha", "Windy", "Zoom Earth")) {
+            assertFalse(names.any { it.contains(denied, ignoreCase = true) })
+        }
+    }
+
     @Test fun `no active color without independently validated Blaise notice`() {
         for (level in 1..5) {
             assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(level, false))
