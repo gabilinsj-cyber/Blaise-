@@ -83,6 +83,14 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // Separate administrator-only Android variant. Never compiled into
+        // debug/release customer APKs; do not distribute until admin auth is live.
+        create("admin") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".admin"
+            versionNameSuffix = "-admin"
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
