@@ -111,7 +111,7 @@ test('thermal-only fallback uses one provider request with audited three-source 
   });
   assert.equal(service.temperatureContingencyConfigured,true);
   const sources=[1,2,3].map(rank=>({
-    rank,sourceId:['INMET','INPE_CPTEC','ECMWF_IFS'][rank-1],
+    rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
     verifiedByBackend:true,status:'UNAVAILABLE',
     checkedAt:new Date(NOW).toISOString()
   }));
