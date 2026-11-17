@@ -31,7 +31,7 @@ object FinalDashboardSpec {
     )
 
     val officialSources = listOf(
-        "INMET", "CEMADEN", "NOAA", "ECMWF/IFS", "DWD/ICON",
+        "NOAA", "ECMWF/IFS", "DWD/ICON",
         "NASA", "JAXA/GSMaP", "EUMETSAT", "OpenWeather",
         "INPE/CPTEC", "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
@@ -41,7 +41,7 @@ object FinalDashboardSpec {
     // in the subscriber UI. Clients only see validated thermal values, the
     // specific displayed value's source/time, or 'Indisponível'.
     // The list is an integration target, not a claim of live coverage.
-    val thermalSourcePriority = listOf("INMET", "DWD/ICON Global", "NOAA/GFS")
+    val thermalSourcePriority = listOf("DWD/ICON Global", "NOAA/GFS", "ECMWF/IFS")
     const val THERMAL_VISUAL_CROSSCHECK = "Meteologix/Kachelmannwetter"
     const val THERMAL_LAST_RESORT = "OpenWeather/Agente 13"
     const val THERMAL_FALLBACK_INTERVAL_MINUTES = 35
@@ -52,6 +52,8 @@ object FinalDashboardSpec {
     // automatic or manual paid OpenWeather fallback through the city panel.
     const val THERMAL_FALLBACK_INTEGRATED = false
     const val THERMAL_DIAGNOSTICS_ADMIN_ONLY = true
+    // INMET / CEMADEN are domestic comparison inputs only. Never published.
+    const val BRAZIL_DOMESTIC_REFERENCES_ADMIN_ONLY = true
     const val THERMAL_UNAVAILABLE_LABEL = "Indisponível"
 
     val newsScopes = listOf("RJ", "Niterói", "São Gonçalo", "Região", "Internacional")
