@@ -12,9 +12,13 @@
  */
 import {createHash} from 'node:crypto';
 import {RJ_OPENWEATHER_SOURCE_ID} from './rj-openweather-onecall4.mjs';
+import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
+import {RJ_AGENT13_TEMPERATURE_FALLBACK_INTERVAL_MS} from './rj-agent13-temperature-fallback-policy.mjs';
 
 export const RJ_AGENT13_CACHE_COLLECTION='blaise_rj_openweather_current_cache';
 export const RJ_AGENT13_QUOTA_COLLECTION='blaise_rj_openweather_daily_quota';
+export const RJ_AGENT13_CITY_COOLDOWN_COLLECTION='blaise_rj_openweather_temp_fallback_cooldown';
+const RJ_IBGE=new Set(RJ_MUNICIPALITIES.map(m=>m.ibge));
 const MAX_CACHE_DOCUMENT_BYTES=32*1024;
 const CACHE_MAX_MS=60_000;
 const validDay=value=>typeof value==='string'&&
@@ -28,8 +32,10 @@ export function createRjOpenWeatherFirestoreStore({db,clock=()=>Date.now()}={}){
     typeof clock!=='function')throw fail('server_database_required');
   const cacheCollection=db.collection(RJ_AGENT13_CACHE_COLLECTION);
   const quotaCollection=db.collection(RJ_AGENT13_QUOTA_COLLECTION);
-  if(!cacheCollection||!quotaCollection||
-    typeof cacheCollection.doc!=='function'||typeof quotaCollection.doc!=='function')
+  const cityCooldownCollection=db.collection(RJ_AGENT13_CITY_COOLDOWN_COLLECTION);
+  if(!cacheCollection||!quotaCollection||!cityCooldownCollection||
+    typeof cacheCollection.doc!=='function'||typeof quotaCollection.doc!=='function'||
+    typeof cityCooldownCollection.doc!=='function')
     throw fail('invalid_database_contract');
   const refForCache=key=>{
     if(typeof key!=='string'||!/^openweather:v4:current:[0-9]{7}:-?[0-9.]+:-?[0-9.]+$/.test(key)||
@@ -75,6 +81,46 @@ export function createRjOpenWeatherFirestoreStore({db,clock=()=>Date.now()}={}){
   });
 
   const budget=Object.freeze({
+    /**
+     * Shared, fail-closed 35-minute city cooldown AND the existing 900/day
+     * quota in a single Firestore transaction. This never calls OpenWeather.
+     * The city key survives the UTC-day rollover, so midnight cannot allow
+     * a second provider call inside the 35-minute interval.
+     */
+    async tryReserveMunicipalFallback({provider,utcDay,maximum,ibge,nowMs}={}){
+      if(provider!==RJ_OPENWEATHER_SOURCE_ID||!validDay(utcDay)||
+        !Number.isInteger(maximum)||maximum<1||maximum>900||
+        !RJ_IBGE.has(String(ibge))||!Number.isSafeInteger(nowMs)||nowMs<0||
+        new Date(nowMs).toISOString().slice(0,10)!==utcDay)
+        throw fail('invalid_municipal_reservation');
+      const dayRef=quotaCollection.doc(utcDay);
+      const cityRef=cityCooldownCollection.doc(String(ibge));
+      return db.runTransaction(async tx=>{
+        const day=await tx.get(dayRef);
+        const city=await tx.get(cityRef);
+        const quota=day.exists?day.data():null;
+        const count=quota===null?0:quota?.count;
+        if(!Number.isSafeInteger(count)||count<0||
+          (quota!==null&&quota.provider!==provider))
+          throw fail('corrupt_quota_record');
+        const prior=city.exists?city.data():null;
+        if(prior!==null&&(!Number.isSafeInteger(prior.lastReservedAtMs)||
+          prior.lastReservedAtMs>nowMs||prior.lastReservedAtMs<0))
+          throw fail('corrupt_municipal_cooldown');
+        if(count>=maximum)return false;
+        if(prior!==null&&
+          nowMs-prior.lastReservedAtMs<RJ_AGENT13_TEMPERATURE_FALLBACK_INTERVAL_MS)
+          return false;
+        tx.set(dayRef,{
+          provider,utcDay,count:count+1,maximum,updatedAtMs:nowMs
+        });
+        tx.set(cityRef,{
+          sourceId:provider,ibge:String(ibge),lastReservedAtMs:nowMs,
+          nextAllowedAtMs:nowMs+RJ_AGENT13_TEMPERATURE_FALLBACK_INTERVAL_MS
+        });
+        return true;
+      });
+    },
     async tryReserve({provider,utcDay,maximum}={}){
       if(provider!==RJ_OPENWEATHER_SOURCE_ID||
         !validDay(utcDay)||
@@ -104,6 +150,7 @@ export function createRjOpenWeatherFirestoreStore({db,clock=()=>Date.now()}={}){
   return Object.freeze({cache,budget,
     cacheCollection:RJ_AGENT13_CACHE_COLLECTION,
     quotaCollection:RJ_AGENT13_QUOTA_COLLECTION,
+    cityCooldownCollection:RJ_AGENT13_CITY_COOLDOWN_COLLECTION,
     automaticPolling:false,
     automaticTtlDeletion:false});
 }
