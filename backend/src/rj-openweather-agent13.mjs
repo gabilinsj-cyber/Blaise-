@@ -33,14 +33,14 @@ const unconfigured=(reason)=>Object.freeze({
  */
 export function createBlaiseRjOpenWeatherAgent13({
   enabled=false,subscriptionApproved=false,
-  readSecret=null,cache=null,budget=null,fetchImpl=globalThis.fetch
+  readSecret=null,cache=null,budget=null,fetchImpl=globalThis.fetch,clock=()=>Date.now()
 }={}){
   const ready=enabled===true&&subscriptionApproved===true&&
     typeof readSecret==='function'&&
     cache&&typeof cache.get==='function'&&typeof cache.set==='function'&&
     budget&&typeof budget.tryReserve==='function'&&
     typeof fetchImpl==='function';
-  async function collect({target,now=Date.now()}={}){
+  async function collect({target,now}={}){
     if(!ready)return unconfigured('AGENT13_REQUIRES_SERVER_SECRET_AND_BUDGET');
     let apiKey;
     try{
@@ -49,7 +49,7 @@ export function createBlaiseRjOpenWeatherAgent13({
       return unconfigured('AGENT13_SECRET_MANAGER_UNAVAILABLE');
     }
     const connector=createRjOpenWeatherOneCall4Connector({
-      enabled:true,subscriptionApproved:true,apiKey,cache,budget,fetchImpl
+      enabled:true,subscriptionApproved:true,apiKey,cache,budget,fetchImpl,clock
     });
     if(!connector.configured)return unconfigured('AGENT13_KEY_NOT_CONFIGURED');
     const weather=await connector.getCurrent({target,now});
