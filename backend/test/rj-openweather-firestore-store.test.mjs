@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRjOpenWeatherFirestoreStore,
-  RJ_AGENT13_CACHE_COLLECTION,RJ_AGENT13_QUOTA_COLLECTION,RJ_AGENT13_CITY_COOLDOWN_COLLECTION
+  RJ_AGENT13_CACHE_COLLECTION,RJ_AGENT13_QUOTA_COLLECTION,RJ_AGENT13_CITY_COOLDOWN_COLLECTION,RJ_AGENT13_TEMP_CACHE_COLLECTION
 } from '../src/rj-openweather-firestore-store.mjs';
 import {RJ_OPENWEATHER_SOURCE_ID} from '../src/rj-openweather-onecall4.mjs';
 
@@ -162,5 +162,47 @@ test('malformed municipal fallback cannot spend quota',async()=>{
       ibge:'3304557',nowMs:NOW,...input
     }),/invalid_municipal_reservation/);
   }
+  assert.equal(db.data.size,0);
+});
+
+test('temperature-only cache expires at provider original validAt, not 35 minutes after insertion',async()=>{
+  const db=fakeDb();
+  let t=NOW;
+  const s=createRjOpenWeatherFirestoreStore({db,clock:()=>t});
+  const value={
+    ...WEATHER,
+    type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
+    officialObservation:false,officialAlert:false,
+    retrievedAt:new Date(NOW).toISOString(),
+    values:{temperatureC:30.2,providerFeelsLikeC:33.4,
+      windKmh:100,rainMm1h:50}
+  };
+  await s.temperatureCache.set('3304557',value);
+  const key=RJ_AGENT13_TEMP_CACHE_COLLECTION+'/3304557';
+  assert.equal(db.data.get(key).expiresAtMs,
+    Date.parse(value.validAt)+35*60_000);
+  const read=await s.temperatureCache.get('3304557');
+  assert.deepEqual(Object.keys(read.values),['temperatureC','providerFeelsLikeC']);
+  assert.equal(JSON.stringify(db.data.get(key)).includes('windKmh'),false);
+  assert.equal(JSON.stringify(db.data.get(key)).includes('rainMm1h'),false);
+  t=Date.parse(value.validAt)+35*60_000;
+  assert.equal(await s.temperatureCache.get('3304557'),null);
+});
+test('temperature cache rejects unsupported codes, future timestamps, and illegal values',async()=>{
+  const db=fakeDb();
+  const s=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
+  const base={
+    ...WEATHER,
+    type:'PROVIDER_MODELED_CURRENT_ESTIMATE_NOT_STATION_MEASUREMENT',
+    officialObservation:false,officialAlert:false,
+    retrievedAt:new Date(NOW).toISOString()
+  };
+  await assert.rejects(s.temperatureCache.set('9999999',base),/invalid_temperature_cache_write/);
+  await assert.rejects(s.temperatureCache.set('3304557',{
+    ...base,validAt:new Date(NOW+1000).toISOString()
+  }),/expired_temperature_cache_write/);
+  await assert.rejects(s.temperatureCache.set('3304557',{
+    ...base,values:{temperatureC:99,providerFeelsLikeC:null}
+  }),/invalid_temperature_cache_values/);
   assert.equal(db.data.size,0);
 });
