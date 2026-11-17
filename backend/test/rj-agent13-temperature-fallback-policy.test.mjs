@@ -9,7 +9,7 @@ import {
 const NOW=Date.parse('2026-11-17T12:00:00Z');
 const ibge='3304557';
 const baseline=()=>[1,2,3].map(rank=>({
-  rank,sourceId:['ALERTA_RIO','INMET','INPE_CPTEC'][rank-1],
+  rank,sourceId:['INMET','INPE_CPTEC','ECMWF_IFS'][rank-1],
   verifiedByBackend:true,status:'UNAVAILABLE',
   checkedAt:new Date(NOW).toISOString(),
   values:{temperatureC:null,feelsLikeC:null}
@@ -130,4 +130,13 @@ test('eligible policy without actual provider value is not a fabricated temperat
   });
   assert.equal(o.status,'FALLBACK_ELIGIBLE');
   assert.equal('fields' in o,false);
+});
+
+test('excluded alert-link-only sources cannot be counted as valid temperature instruments',()=>{
+  const sources=baseline();
+  sources[0].sourceId='ALERTA_RIO';
+  const result=decideRjAgent13TemperatureFallback({
+    municipalityIbge:ibge,prioritySources:sources,providerEstimate:candidate(),now:NOW
+  });
+  assert.equal(result.reason,'PRIMARY_SOURCE_AUDIT_INCOMPLETE');
 });
