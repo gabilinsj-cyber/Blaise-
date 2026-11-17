@@ -37,6 +37,30 @@ class OfficialAlertRibbonPolicyTest {
         assertTrue(OfficialAlertRibbonPolicy.legend().all { !it.activeValidatedAlert })
     }
 
+    @Test fun onlyFourHighestVerifiedAlertsAppearOnTopAndRestStayInMais() {
+        val records = (1..6).map { index ->
+            evidence(if (index == 6) 5 else index).copy(
+                warningId = "verified-unique-$index"
+            )
+        }
+        val page = OfficialAlertRibbonPolicy.layout(records, now)
+        assertEquals(4, page.visible.size)
+        assertEquals(2, page.additional.size)
+        assertEquals(listOf(5, 5, 4, 3), page.visible.map { it.presentation.level })
+        assertEquals(listOf(2, 1), page.additional.map { it.presentation.level })
+        assertTrue(page.visible.all { it.presentation.activeValidatedAlert })
+        assertTrue(page.additional.all { it.presentation.activeValidatedAlert })
+    }
+
+    @Test fun unverifiedAlertsAreNotPutInMaisAndFourNeutralLinksRemain() {
+        val fake = evidence(5, verified = false)
+        val page = OfficialAlertRibbonPolicy.layout(listOf(fake), now)
+        assertEquals(4, page.visible.size)
+        assertTrue(page.additional.isEmpty())
+        assertTrue(page.visible.all { it.presentation.level == null && !it.presentation.activeValidatedAlert })
+        assertEquals(OfficialAlertRibbonPolicy.portals.map { it.id }, page.visible.map { it.portal.id })
+    }
+
     @Test fun mismatchedUnverifiedAndExpiredWarningsNeverColorPortal() {
         assertNull(OfficialAlertRibbonPolicy.present("inmet-avisos", evidence(5), now).level)
         assertNull(OfficialAlertRibbonPolicy.present("inpe-cptec-avisos", evidence(5, false), now).level)
