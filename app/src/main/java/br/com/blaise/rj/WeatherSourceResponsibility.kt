@@ -21,6 +21,9 @@ object WeatherSourceResponsibilities {
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
         WeatherSourceResponsibility("ECMWF_WAVE", "ECMWF Waves",
             "Comparação de ondas e swell", "P", "ECMWF_WAVE", false),
+        WeatherSourceResponsibility("RAMMB_CIRA_SLIDER", "RAMMB/CIRA SLIDER • GOES-19",
+            "Imagens externas de nuvens, frentes e sistemas sobre RJ e Atlântico. Não mede chuva em mm.",
+            "O", "GOES_EAST", false),
         WeatherSourceResponsibility("EUMETSAT_OSI_SAF", "EUMETSAT OSI SAF",
             "Temperatura estimada da superfície do mar", "E", "GOES_EAST_ABI", false),
         WeatherSourceResponsibility("NOAA_COASTWATCH", "NOAA CoastWatch",
@@ -32,7 +35,7 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 9)
+        require(providers.size == 10)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
         require(providers.none {
@@ -45,6 +48,7 @@ object WeatherSourceResponsibilities {
         id: String, hasValidatedMet: Boolean, hasValidatedNoaaWave: Boolean,
         hasClearSkyUv: Boolean
     ): String = when (id) {
+        "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "CAMS_UV_VIA_MET" -> if (hasClearSkyUv) "PREVISÃO DE CÉU LIMPO VALIDADA" else "SEM DADO VÁLIDO RECEBIDO"
