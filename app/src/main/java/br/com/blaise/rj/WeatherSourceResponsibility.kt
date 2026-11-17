@@ -21,10 +21,6 @@ object WeatherSourceResponsibilities {
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
         WeatherSourceResponsibility("ECMWF_WAVE", "ECMWF Waves",
             "Comparação de ondas e swell", "P", "ECMWF_WAVE", false),
-        WeatherSourceResponsibility("NASA_IMERG", "NASA GPM / IMERG",
-            "Chuva estimada por satélite em terra e no mar", "E", "NASA_IMERG", false),
-        WeatherSourceResponsibility("JAXA_GSMAP", "JAXA GSMaP (algoritmo v9)",
-            "Chuva estimada por satélite em terra e no mar", "E", "JAXA_GSMAP", false),
         WeatherSourceResponsibility("EUMETSAT_OSI_SAF", "EUMETSAT OSI SAF",
             "Temperatura estimada da superfície do mar", "E", "GOES_EAST_ABI", false),
         WeatherSourceResponsibility("NOAA_COASTWATCH", "NOAA CoastWatch",
@@ -36,10 +32,13 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 11)
+        require(providers.size == 9)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
-        require(providers.none { it.id.contains("INEA") || it.id.contains("MARINHA") })
+        require(providers.none {
+            it.id.contains("INEA") || it.id.contains("MARINHA") ||
+                it.id.contains("JAXA") || it.id.contains("NASA_IMERG")
+        })
     }
 
     fun availability(
