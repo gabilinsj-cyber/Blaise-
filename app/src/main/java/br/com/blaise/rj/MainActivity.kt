@@ -1689,7 +1689,7 @@ private fun OfficialMunicipalLinksStrip(onNavigate: (String) -> Unit) {
     }
 }
 
-/** Original one-sentence orientation and direct official link, no copied bulletin. */
+/** One bold sentence + official HTTPS link; ephemeral rendering, never a stored bulletin. */
 @Composable
 private fun OfficialAlertLinkCard(item: OfficialAlertRibbonItem) {
     val context = LocalContext.current
@@ -1703,9 +1703,11 @@ private fun OfficialAlertLinkCard(item: OfficialAlertRibbonItem) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(item.portal.name, color = Color.Black, fontWeight = FontWeight.ExtraBold)
-                Text(item.presentation.message, color = Color.Black,
-                    fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodySmall)
+                // Exactly one original sentence, without storing or copying
+                // a provider bulletin. Its 1–5 level is Blaise-verified only.
+                Text("${item.portal.name} — ${item.presentation.message}",
+                    color = Color.Black, fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.bodySmall)
             }
             TextButton(onClick = {
                 runCatching {
