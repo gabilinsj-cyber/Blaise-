@@ -122,8 +122,38 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
     forecast:JSON.parse(json)
   });
  };
+ const readLocalBudgetStatus=async()=>{
+  const snap=await quota.get();
+  const x=snap.exists?snap.data():null;
+  const spent=x===null?0:x?.spentCredits;
+  const calls=x===null?0:x?.calls;
+  if(!Number.isSafeInteger(spent)||spent<0||
+     spent>METEOBLUE_PRIVATE_CEILING_CREDITS||
+     !Number.isSafeInteger(calls)||calls!==spent/METEOBLUE_BASIC6H_CREDITS)
+    throw Error('rj_meteoblue_budget_state_invalid');
+  const today=new Date(clock()).toISOString().slice(0,10);
+  const callsToday=x?.day===today?x.dayCalls:0;
+  if(!Number.isSafeInteger(callsToday)||callsToday<0||
+     callsToday>METEOBLUE_MAX_DAILY_CALLS)
+    throw Error('rj_meteoblue_budget_day_invalid');
+  return Object.freeze({
+    campaign:METEOBLUE_CAMPAIGN,
+    providerCreditBalance:'UNVERIFIED_IN_PROVIDER_DASHBOARD',
+    providerChargeAuthorized:false,
+    sourceOfCounts:'LOCAL_FIRESTORE_RESERVATIONS_ONLY',
+    creditCostPerBasic6h:METEOBLUE_BASIC6H_CREDITS,
+    localSpentCredits:spent,
+    localCreditCeiling:METEOBLUE_PRIVATE_CEILING_CREDITS,
+    localRemainingReservedAllowance:METEOBLUE_PRIVATE_CEILING_CREDITS-spent,
+    localCallsReserved:calls,
+    callsReservedToday:callsToday,
+    maxCallsPerUtcDay:METEOBLUE_MAX_DAILY_CALLS,
+    freeExpiryUtc:'2027-11-18T00:00:00.000Z'
+  });
+ };
  return Object.freeze({
-  reserve,getCached,setCached,automaticPolling:false,
+  reserve,getCached,setCached,readLocalBudgetStatus,
+  automaticPolling:false,
   publishedToSubscribers:false,automaticTtlDeletes:false,
   totalCredits:METEOBLUE_FREE_TOTAL_CREDITS,
   reservedCeilingCredits:METEOBLUE_PRIVATE_CEILING_CREDITS,
