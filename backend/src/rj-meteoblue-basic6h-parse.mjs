@@ -26,11 +26,19 @@ const normalizeUtc=(s)=>{
     ?d.toISOString():null;
 };
 const unitNorm=(x)=>typeof x==='string'?x.trim().toLowerCase():null;
+// Some meteoblue responses use m/s (including ms-1); the Blaise UI uses km/h.
+// Normalize only documented/recognized units, never guess from magnitudes.
+const windFactor=(given)=>{
+ const u=unitNorm(given);
+ if(['km/h','kmh'].includes(u))return 1;
+ if(['m/s','ms-1','m s-1'].includes(u))return 3.6;
+ return null;
+};
 const matchesUnit=(given,want)=>{
  if(given===undefined||given===null)return false;
  const normalized=unitNorm(given);
  return want==='mm'?normalized==='mm':
-   want==='km/h'?['km/h','kmh'].includes(normalized):
+   want==='km/h'?windFactor(normalized)!==null:
    want==='hPa'?['hpa','mbar'].includes(normalized):
    want==='%'?['%','percent'].includes(normalized):false;
 };
@@ -82,18 +90,30 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
    Math.abs(metadata.longitude-longitude)>0.15)return fail('WRONG_LONGITUDE');
  const observations=[];
  const stats={};
+ let windUnitConversionApplied=false;
  for(const [sourceField,field] of Object.entries(METEOBLUE_BASIC6H_FIELDS)){
   const values=b[sourceField];
   if(values===undefined){stats[field.name]='UNAVAILABLE_NOT_IN_RESPONSE';continue;}
   if(!Array.isArray(values)||values.length!==times.length)
     return fail('INVALID_LENGTH_'+sourceField.toUpperCase());
-  if(values.some(v=>v!==null&&
+  const isWind=sourceField==='windspeed_mean'||sourceField==='windspeed_max';
+  const unitForWind=isWind?(payload.units?.[sourceField]??
+    payload.units?.windspeed??payload.units?.wind_speed):null;
+  const factor=isWind?windFactor(unitForWind):1;
+  // Never call raw m/s a km/h reading; missing/unknown units are unavailable.
+  if(isWind&&factor===null){
+   stats[field.name]='UNAVAILABLE_WIND_UNIT_NOT_VERIFIED';
+   continue;
+  }
+  const normalized=values.map(v=>v===null?null:(isWind?Math.round(v*factor*1000)/1000:v));
+  if(normalized.some(v=>v!==null&&
     (typeof v!=='number'||!Number.isFinite(v)||v<field.min||v>field.max)))
     return fail('OUT_OF_RANGE_'+sourceField.toUpperCase());
-  stats[field.name]=values.some(v=>v!==null)?'FORECAST_VALUES_PRESENT':'UNAVAILABLE_NULL_VALUES';
+  if(isWind&&factor!==1)windUnitConversionApplied=true;
+  stats[field.name]=normalized.some(v=>v!==null)?'FORECAST_VALUES_PRESENT':'UNAVAILABLE_NULL_VALUES';
   observations.push(Object.freeze({
     field:field.name,unit:field.unit,semantics:field.meaning,
-    values:Object.freeze([...values])
+    values:Object.freeze(normalized)
   }));
  }
  const modelRun=normalizeUtc(metadata.modelrun_utc);
@@ -124,6 +144,7 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
   issuedAt:runValid?modelRun:null,
   processedAt:updated,metadataRunVerified:runValid,
   unitMetadataVerified:unitEvidence,
+  windUnitConversionApplied,
   sourceCoordinatesVerified,
   completeFieldCoverage,
   // Private audit completeness is NOT production/scientific homologation.
