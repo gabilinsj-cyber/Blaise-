@@ -14,7 +14,10 @@ export const METEOBLUE_CAMPAIGN='trial_2026_11_18';
 export const METEOBLUE_FREE_TOTAL_CREDITS=10_000_000;
 export const METEOBLUE_BASIC6H_CREDITS=4_000;
 export const METEOBLUE_PRIVATE_CEILING_CREDITS=8_000_000;
-export const METEOBLUE_MAX_DAILY_CALLS=4;
+// Key limit set by operator to 4,000 credits/day (one basic-6h request).
+// Always enforce the same or stricter ceiling in Firestore, even if the
+// provider's configuration is later changed or unavailable to this process.
+export const METEOBLUE_MAX_DAILY_CALLS=1;
 export const METEOBLUE_CITY_COOLDOWN_MS=24*60*60_000;
 export const METEOBLUE_CACHE_TTL_MS=6*60*60_000;
 export const METEOBLUE_FREE_EXPIRY_MS=Date.parse('2027-11-18T00:00:00.000Z');
