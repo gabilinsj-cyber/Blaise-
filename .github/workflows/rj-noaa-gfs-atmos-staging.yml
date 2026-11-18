@@ -1,0 +1,40 @@
+name: RJ NOAA GFS atmospheric data staging
+# Opt-in test triggered by changes to its isolated branch/PR. Public NOAA only.
+# Any upstream outage must be reported as UNAVAILABLE, not fabricated weather.
+on:
+  pull_request:
+    paths:
+      - backend/src/noaa-gfs-atmos-collector.mjs
+      - backend/test/noaa-gfs-atmos-collector.test.mjs
+      - backend/scripts/probe-noaa-gfs-atmos-staging.mjs
+      - .github/workflows/rj-noaa-gfs-atmos-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  observed-noaa-model-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Strict offline source validation tests
+        run: |
+          node --check backend/src/noaa-gfs-atmos-collector.mjs
+          node --test backend/test/noaa-gfs-atmos-collector.test.mjs
+      - name: Install scientific GRIB2 decoder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libeccodes-tools
+          grib_get -V
+      - name: One-time read of actual NOAA GFS 2m air temperature for Rio (forecast P)
+        run: node backend/scripts/probe-noaa-gfs-atmos-staging.mjs --live
+      - name: Store scientific evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-noaa-gfs-atmos-one-point-proof
+          path: evidence/international-sources/noaa-gfs-atmos-rio.json
+          if-no-files-found: warn

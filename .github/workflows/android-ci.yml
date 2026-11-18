@@ -216,6 +216,39 @@ jobs:
             app/build/outputs/**/*.aab
             evidence/
 
+      - name: Build signed administrator-only internal QA APK
+        env:
+          BLAISE_FIREBASE_APPLICATION_ID: ${{ vars.BLAISE_FIREBASE_APPLICATION_ID }}
+          BLAISE_FIREBASE_API_KEY: ${{ vars.BLAISE_FIREBASE_API_KEY }}
+          BLAISE_FIREBASE_PROJECT_ID: ${{ vars.BLAISE_FIREBASE_PROJECT_ID }}
+          BLAISE_FIREBASE_SENDER_ID: ${{ vars.BLAISE_FIREBASE_SENDER_ID }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon assembleAdmin
+          apk=app/build/outputs/apk/admin/app-admin.apk
+          test -s "$apk"
+          mkdir -p evidence/admin
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > evidence/admin/signature.txt
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging "$apk" > evidence/admin/badging.txt
+          grep -F "package: name='br.com.blaise.rj.admin'" evidence/admin/badging.txt
+          grep -F "launchable-activity: name='br.com.blaise.rj.AdminScientificActivity'" evidence/admin/badging.txt
+          ! grep -F "launchable-activity: name='br.com.blaise.rj.MainActivity'" evidence/admin/badging.txt
+          sha256sum "$apk" > evidence/admin/SHA256SUMS.txt
+          printf '%s\n' 'ADMIN_APK=QA_ONLY' 'ADMIN_AUTH=FIREBASE_BLAISE_ADMIN_CLAIM_REQUIRED' 'PRODUCTION_RELEASE=NOT_AUTHORIZED' > evidence/admin/README.txt
+          if [[ -z "${BLAISE_FIREBASE_PROJECT_ID:-}" ]]; then
+            echo 'ADMIN_FIREBASE_LOGIN=NOT_CONFIGURED_FOR_CI' >> evidence/admin/README.txt
+          else
+            echo 'ADMIN_FIREBASE_LOGIN=CONFIGURED_NEEDS_ADMIN_CLAIM_VALIDATION' >> evidence/admin/README.txt
+          fi
+      - name: Upload administrator APK for private internal QA
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-v6-rj-administrador-apk-interno
+          path: |
+            app/build/outputs/apk/admin/app-admin.apk
+            evidence/admin/*
+          if-no-files-found: error
+
       - name: APK separado para teste no celular
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
