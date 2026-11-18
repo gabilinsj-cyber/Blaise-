@@ -6,7 +6,7 @@ import {
   getUnderlyingFamiliesForSector
 } from '../src/rj-source-sector-matrix.mjs';
 test('sector registry lists approved roles without claiming live download',()=>{
-  assert.equal(matrix.length,15);
+  assert.equal(matrix.length,16);
   assert.equal(new Set(matrix.map(s=>s.id)).size,matrix.length);
   for(const sector of matrix){
     assert.ok(sector.products.length>=1);
@@ -21,6 +21,22 @@ test('sector registry lists approved roles without claiming live download',()=>{
   assert.equal(policy.automaticCollection,false);
   assert.equal(policy.publishedToAndroid,false);
   assert.equal(policy.notLiveCollection,true);
+});
+test('meteoblue free six-hour sector remains private and independent from thermal/observed sectors',()=>{
+ const free=matrix.find(s=>s.id==='METEOBLUE_FREE_FORECAST_6H');
+ assert.ok(free);
+ assert.deepEqual(free.products.map(p=>p.sourceId),['METEOBLUE_FREE_FORECAST']);
+ assert.equal(free.products[0].kind,'P');
+ assert.equal(free.products[0].family,'METEOBLUE_MLM');
+ assert.equal(free.products[0].liveIngestionConfirmed,false);
+ assert.equal(policy.meteoblueComparison.freeWeatherApi2026.providerPackageCreditCost,4000);
+ assert.equal(policy.meteoblueComparison.freeWeatherApi2026.privateCreditCeiling,8000000);
+ assert.equal(policy.meteoblueComparison.freeWeatherApi2026.noAutomaticScheduling,true);
+ assert.equal(policy.meteoblueComparison.liveNumericIngestionEnabled,false);
+ for(const id of ['AIR_TEMPERATURE','THERMAL_SENSATION','RAIN_NEXT_HOUR','LIGHTNING','SST']){
+  assert.ok(!matrix.find(s=>s.id===id).products
+   .some(p=>p.sourceId==='METEOBLUE_FREE_FORECAST'));
+ }
 });
 test('thermal sectors exclude NOAA/ECMWF and allow HG/OpenWeather/DWD only',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
