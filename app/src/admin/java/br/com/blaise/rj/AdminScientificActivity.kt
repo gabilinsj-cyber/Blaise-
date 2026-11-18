@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import java.util.Locale
 import com.google.firebase.auth.FirebaseAuth
+import br.com.blaise.rj.push.FirebaseBootstrap
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 /**
  * Separate admin APK activity, never exported or packaged in client variants.
@@ -42,6 +44,9 @@ class AdminScientificActivity : ComponentActivity() {
             return
         }
         setContent {
+            var adminEmail by remember { mutableStateOf("") }
+            var adminPassword by remember { mutableStateOf("") }
+            var loginMessage by remember { mutableStateOf("") }
             MaterialTheme {
                 Column(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -53,6 +58,67 @@ class AdminScientificActivity : ComponentActivity() {
                         Text("Verificando autorização administrativa…")
                     } else if (!authorized) {
                         Text("ACESSO RESTRITO — identidade administrativa não verificada.")
+                        Spacer(Modifier.height(12.dp))
+                        if (!FirebaseBootstrap.isConfigured()) {
+                            Text("Firebase do administrador não configurado neste APK. Nenhum acesso é liberado.")
+                        } else {
+                            Text("Entre com uma conta Firebase autorizada para administração.")
+                            OutlinedTextField(
+                                value = adminEmail,
+                                onValueChange = { adminEmail = it.trim().take(254); loginMessage = "" },
+                                label = { Text("E-mail da conta administrativa") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().testTag("admin-login-email")
+                            )
+                            OutlinedTextField(
+                                value = adminPassword,
+                                onValueChange = { adminPassword = it; loginMessage = "" },
+                                label = { Text("Senha") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth().testTag("admin-login-password")
+                            )
+                            Button(
+                                onClick = {
+                                    val email = adminEmail
+                                    val password = adminPassword
+                                    if (!email.contains("@") || password.isBlank()) {
+                                        loginMessage = "Informe o e-mail e a senha da conta administrativa."
+                                    } else {
+                                        val auth = runCatching { FirebaseAuth.getInstance() }.getOrNull()
+                                        if (auth == null) {
+                                            loginMessage = "Serviço de autenticação indisponível."
+                                        } else {
+                                            checked = false
+                                            auth.signInWithEmailAndPassword(email, password)
+                                                .addOnCompleteListener { signIn ->
+                                                    adminPassword = ""
+                                                    if (!signIn.isSuccessful) {
+                                                        checked = true
+                                                        loginMessage = "Autenticação não concluída."
+                                                    } else {
+                                                        val current = auth.currentUser
+                                                        if (current == null) {
+                                                            checked = true
+                                                            loginMessage = "Sessão inválida."
+                                                        } else {
+                                                            current.getIdToken(true).addOnCompleteListener { token ->
+                                                                authorized = token.isSuccessful &&
+                                                                    token.result?.claims?.get("blaise_admin") == true
+                                                                checked = true
+                                                                if (!authorized)
+                                                                    loginMessage = "Conta sem permissão administrativa."
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("admin-login-submit")
+                            ) { Text("Entrar como administrador") }
+                            if (loginMessage.isNotEmpty()) Text(loginMessage)
+                        }
                     } else {
                         Text("CALCULADORA CIENTÍFICA BLAISE",
                             style = MaterialTheme.typography.titleLarge)
