@@ -56,7 +56,7 @@ export function prepareMeteoblueFreeRjProbe({
   // Terrain elevation is deliberately omitted, meteoblue determines it by DEM.
   // The key must be supplied by Secret Manager to the trusted server only.
   const query=new URLSearchParams({
-    lat:String(lat),lon:String(lon),asl:'auto',
+    lat:String(lat),lon:String(lon),
     tz:'UTC',format:'json',temperatureUnit:'C',
     windSpeedUnit:'km/h',precipitationUnit:'metric'
   }).toString();
