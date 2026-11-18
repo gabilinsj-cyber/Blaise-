@@ -8,7 +8,7 @@
  *
  * Source freshness remains <=12 min. The 35-minute exception is ONLY for
  * display of OpenWeather temperature / feels-like model estimates when all
- * three priority readings lack a usable value for that specific field.
+ * approved HG/DWD priority readings lack a usable value for that field.
  */
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 
@@ -19,17 +19,17 @@ export const RJ_AGENT13_PRIORITY_SOURCE_MAX_AGE_MS=12*60_000;
 export const RJ_AGENT13_FALLBACK_FIELDS=Object.freeze(['temperatureC','feelsLikeC']);
 const RJ_IBGE=new Set(RJ_MUNICIPALITIES.map(m=>m.ibge));
 const SOURCE_STATES=new Set(['CURRENT','UNAVAILABLE','STALE','INVALID']);
-// Only the three audited international weather models may supply thermal values.
-// Domestic INMET/CEMADEN are review-only and cannot authorize fallback as
-// primary measurements or replace international values in the Blaise app.
+// NOAA/ECMWF/Climatempo are not approved for thermal fields. HG's unpurchased
+// plan must explicitly report UNAVAILABLE; DWD is a forecast P, not a sensor.
+// Audit the availability of permitted sources, not official thermometer data.
 export const RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS=Object.freeze([
-  'DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'
+  'HG_BRASIL_WEATHER_PRO','DWD_ICON_GLOBAL'
 ]);
 // Excluded municipal bodies only provide alert links; excluded international
 // sources cannot be silently reintroduced as temperature instruments.
 const EXCLUDED_TEMPERATURE_SOURCE_IDS=new Set([
   'ALERTA_RIO','DEFESA_CIVIL_RJ','INEA','MARINHA_DO_BRASIL',
-  'WINDY','COPERNICUS'
+  'WINDY','COPERNICUS','NOAA_GFS','ECMWF_IFS','MET_NORWAY_LOCATIONFORECAST_2','CLIMATEMPO'
 ]);
 const validTime=(time,now,ageLimit)=>{
   const ms=Date.parse(time);
@@ -45,9 +45,9 @@ const unavailable=(reason)=>Object.freeze({
 });
 
 function checkedPriority(readings,now){
-  if(!Array.isArray(readings)||readings.length!==3)return false;
+  if(!Array.isArray(readings)||readings.length!==RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS.length)return false;
   const ids=new Set();
-  for(let rank=1;rank<=3;rank++){
+  for(let rank=1;rank<=RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS.length;rank++){
     const r=readings[rank-1];
     if(r?.rank!==rank||r.sourceId!==RJ_AGENT13_THERMAL_PRIORITY_SOURCE_IDS[rank-1]||typeof r.sourceId!=='string'||
        !/^[A-Z][A-Z0-9_-]{1,63}$/.test(r.sourceId)||ids.has(r.sourceId)||
