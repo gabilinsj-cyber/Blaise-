@@ -108,6 +108,22 @@ Referência de produto: painel azul-marinho, dourado e neon, botão verde **LIGA
 - **INMET/CEMADEN**: somente análise privada de comparação. **Alerta Rio e Defesa Civil RJ**: uma frase própria e link oficial, não coleta meteorológica.
 - **Retirados da coleta meteorológica atual:** EUMETSAT, NASA, JAXA, INEA, Marinha/CHM, Windy, Copernicus direto e Zoom Earth. Históricos antigos permanecem no Git, mas não reautorizar integração.
 
+## 7A. Correção de rigor da auditoria (continuação nesta etapa)
+
+A revisão do coletor encontrou uma ambiguidade: o parser conseguia retornar `FORECAST_PARSED_PRIVATE_STAGING` com somente alguns campos ou com metadados insuficientes, e o coletor podia rotular esse conteúdo como `PRIVATE_STAGING_FORECAST_READY`. O parser continua aceitando conteúdo parcial **para inspeção privada**, mas agora produz condições adicionais:
+
+- `completeFieldCoverage`: exige presença de **ao menos um valor numérico** em cada um dos sete campos `basic-6h`, sem converter `null` em zero.
+- `auditReadyForPrivateReview`: somente `true` quando os sete campos têm cobertura, emissão/model run, coordenadas e unidades verificáveis; `auditBlockers` informa quais requisitos faltam sem revelar valores, chaves ou URL da consulta.
+- O parser rejeita também datas de calendário impossíveis (como 30 de fevereiro), em vez de deixar JavaScript ajustar automaticamente a data.
+- Se metadados ou campos falharem, o coletor retorna `PRIVATE_STAGING_AUDIT_INCOMPLETE` e o cache `PRIVATE_STAGING_CACHE_AUDIT_INCOMPLETE`; **não** retorna READY, não publica e não tenta outra chamada durante o cache válido. Uma falha de auditoria não estorna os 4.000 créditos reservados.
+- `meteoblue-free-private-field-audit.mjs` imprime **apenas** estatísticas de cobertura e nomes dos bloqueios e termina com código de erro quando a auditoria não estiver completa.
+- Cache de staging passa a ficar **indisponível a partir do fim do período gratuito**, mesmo se o TTL de seis horas ainda não houver terminado.
+- Testes offline acrescentados para falta de `modelrun_utc`, unidades individuais contraditórias, latitude ausente, campo numérico integralmente nulo, calendário inválido, repetição via cache e vencimento do plano.
+
+Mesmo um resultado `auditReadyForPrivateReview=true` **não** é homologação científica nem disponibilidade em produção; confirma apenas integridade privada do pacote recebido. A confirmação de origem, saldo do fornecedor, custo vigente e direitos permanece manual. A tarifa operacional prevista é 4.000 créditos por solicitação; conferir no configurador da conta porque **a documentação oficial informa que o custo é dependente do pacote**.
+
+Para avaliar esta versão, usar a branch `feature/rj-meteoblue-full-recovery-admin-ui-20261118` em uma worktree **separada**, sem reset/pull/checkout destrutivo no diretório original. O coletor continua OFF, sem agendador, sem endpoints do assinante e sem consulta externa nesta alteração.
+
 ## 8. Evidência dos testes, limites de conclusão e próximo ato
 
 - HEAD da PR #171 (`d0429a65...`) tinha **meteoblue offline CI e Android CI aprovados**, sem gastar créditos da API.
