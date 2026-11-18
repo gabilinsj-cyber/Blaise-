@@ -39,12 +39,14 @@ test('NOAA is NOT a temperature-air or feels-like source; missing sea readings s
  assert.equal(audit.fields.find(x=>x.field==='seaSurfaceTemperatureC').state,'UNAVAILABLE');
  assert.equal(audit.publishedToSubscriber,false);
 });
-test('meteoblue free trial is an unactivated evaluation, not an operational source',()=>{
+test('meteoblue trial is confirmed by account screenshot but backend ingestion remains inactive',()=>{
  const p=RJ_SOURCE_MATRIX_POLICY.meteoblueComparison;
  assert.equal(p.freeWeatherApi2026.totalCredits,10000000);
  assert.equal(p.freeWeatherApi2026.trialDurationMonths,12);
  assert.equal(p.freeWeatherApi2026.approximateLowestCostCallsTotal,2500);
- assert.equal(p.freeWeatherApi2026.freeTrialActivated,false);
+ assert.equal(p.freeWeatherApi2026.freeTrialActivated,true);
+ assert.equal(p.freeWeatherApi2026.freeTrialExpiresOn,'2027-11-18');
+ assert.equal(p.freeWeatherApi2026.apiKeyRotationRequired,true);
  assert.equal(p.freeWeatherApi2026.serverApiKeyInstalled,false);
  assert.equal(p.freeWeatherApi2026.eligibleForObservedRain,false);
  assert.equal(p.liveNumericIngestionEnabled,false);
