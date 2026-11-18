@@ -32,6 +32,11 @@ export function noaaRjMarineFieldUrl(cycleMillis,hour,field){
     throw Error('NOAA_RJ_MARINE_CYCLE_OR_FIELD_INVALID');
   const u=new URL(noaaWaveUrl(cycleMillis,hour));
   u.searchParams.delete('var_HTSGW');
+  u.searchParams.delete('lev_surface');
+  // SWPER is NOT at surface: primary swell is GRIB2 "1 in sequence".
+  // Requesting SWPER at surface returns an empty/invalid NOMADS subset.
+  u.searchParams.set(field==='swellPeriodS'?
+    'lev_1_in_sequence':'lev_surface','on');
   u.searchParams.set('var_'+spec.parameter,'on');
   return u.href;
 }
