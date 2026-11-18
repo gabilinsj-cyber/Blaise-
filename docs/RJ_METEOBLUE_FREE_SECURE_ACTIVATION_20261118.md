@@ -34,6 +34,8 @@ Only after the Free Weather API is visibly **active** and there is **no automati
 ```bash
 set +x
 export BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED=true
+# Set ONLY after creating a NEW key and revoking the screenshot-exposed key:
+export BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE=true
 export BLAISE_METEOBLUE_AUTOTOPUP_DISABLED=true
 export BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED=true
 export BLAISE_METEOBLUE_FREE_API_KEY="$(gcloud secrets versions access latest --secret=blaise-meteoblue-free-api-key)"
