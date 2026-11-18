@@ -157,6 +157,16 @@ A titular afirmou que **não deseja substituir a chave por enquanto, porque est�
 
 Os **0 créditos reservados no Firestore** referem-se exclusivamente ao coletor com contabilidade atômica e são compatíveis com a chamada manual anterior que aparece na fatura da meteoblue.
 
+## 7D. Limite diário salvo na chave existente — confirmação da titular em 18/11/2026
+
+A titular declarou explicitamente **“Sim atualizei”** após abrir a tela da chave nº 1, preencher **4.000** em “Limite de créditos por dia” e selecionar **Atualizar existente**. Essa é a **confirmação da operadora**, não uma consulta independente feita pelo assistente ao provedor. A última tela antes de salvar exibia 4.000 no formulário; a leitura pós-salvamento ainda não foi auditada por integração autenticada.
+
+**Política aplicada na PR #173:** o teto local do Firestore passou de 4 para **1 chamada `basic-6h` por dia UTC**, a 4.000 créditos por chamada, para espelhar o limite externo informado. Continuam **8 milhões** como teto vitalício de reservas internas, **24 horas por município**, **cache privado de 6 horas**, período Free com expiração configurada, ausência de cobrança paga, coletor OFF em produção e publicação proibida a assinantes. Testes offline devem comprovar que duas chamadas simultâneas para municípios diferentes não reservam mais que uma requisição/dia e que o contador não confunde limite diário com saldo total.
+
+**Cautela:** uma chamada de 4.000 créditos já está registrada no painel entre 03/11–18/11. A data exata da cobrança não foi comprovada, portanto não assumir que outra solicitação no mesmo dia UTC será permitida. Se o limite de hoje tiver sido atingido, a chave poderá bloquear a requisição; **não** contornar o bloqueio por outra chave. Saldo disponível de 10 milhões e renovação continuam dependentes das informações da conta.
+
+**Segurança:** a chave atual é mantida por escolha da titular, embora tenha sido exposta numa captura. O limite diário reduz o potencial de perda por dia, **não** impede uso indevido nem substitui rotação futura. Nenhuma chave foi alterada pelo GitHub; apenas a titular ajustou a configuração no painel meteoblue. Não salvar credenciais no histórico, Git ou APK. Nenhuma chamada real foi feita pelo assistente nesta etapa.
+
 ## 8. Evidência dos testes, limites de conclusão e próximo ato
 
 - HEAD da PR #171 (`d0429a65...`) tinha **meteoblue offline CI e Android CI aprovados**, sem gastar créditos da API.
