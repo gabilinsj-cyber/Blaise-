@@ -1,0 +1,49 @@
+name: Blaise RJ EUMETSAT GOES-19 SST real coastal staging
+# One read-only public OSI SAF GHRSST product; fail closed when files are absent.
+on:
+  pull_request:
+    paths:
+      - backend/scripts/probe-osisaf-sst-rj-staging.py
+      - backend/scripts/probe-osisaf-sst-staging.py
+      - backend/scripts/audit-osisaf-sst-rj-staging.mjs
+      - backend/src/rj-osisaf-sst-admin-bridge.mjs
+      - backend/src/rj-source-sector-matrix.mjs
+      - backend/test/test_osisaf_sst_rj.py
+      - backend/test/rj-osisaf-sst-admin-bridge.test.mjs
+      - .github/workflows/rj-osisaf-goes19-sst-live-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  osi-saf-207c-sst-rj:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Offline tests of SST quality/time/source and provider matrix
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s backend/test -p test_osisaf_sst_rj.py -v
+          node --test backend/test/rj-osisaf-sst-admin-bridge.test.mjs backend/test/rj-source-sector-matrix.test.mjs
+      - name: Install only scientific NetCDF decoders
+        run: |
+          python -m pip install --disable-pip-version-check 'numpy>=2,<3' 'netCDF4>=1.7,<2'
+      - name: Try one actual OSI SAF GOES-19 offshore SST file
+        run: python backend/scripts/probe-osisaf-sst-rj-staging.py --live
+      - name: Check EUMETSAT file provenance in Blaise admin audit
+        run: node backend/scripts/audit-osisaf-sst-rj-staging.mjs
+      - name: Upload NRT SST evidence and reason for unavailable data
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: blaise-rj-eumetsat-osi207c-sst-evidence
+          path: |
+            evidence/international-sources/osi-saf-rj-coast-sst.json
+            evidence/international-sources/osi-saf-rj-coast-admin-audit.json
+          if-no-files-found: warn
