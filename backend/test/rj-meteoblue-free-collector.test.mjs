@@ -83,6 +83,9 @@ test('provider 6h schema parses seven auditable numerical comparison fields',()=
  assert.equal(r.metadataRunVerified,true);
  assert.equal(r.unitMetadataVerified,true);
  assert.equal(r.sourceCoordinatesVerified,true);
+ assert.equal(r.completeFieldCoverage,true);
+ assert.equal(r.auditReadyForPrivateReview,true);
+ assert.deepEqual(r.auditBlockers,[]);
  assert.equal(r.values.length,Object.keys(METEOBLUE_BASIC6H_FIELDS).length);
  assert.ok(r.values.some(f=>f.field==='forecastPrecipitationSixHourMm'&&
    f.semantics==='SIX_HOUR_FORECAST_TOTAL'));
@@ -101,6 +104,10 @@ test('no fabricated missing values; invalid units not claimed as verified',()=>{
   latitude:target.lat,longitude:target.lon,nowMs:NOW});
  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
  assert.equal(r.unitMetadataVerified,false);
+ assert.equal(r.completeFieldCoverage,false);
+ assert.equal(r.auditReadyForPrivateReview,false);
+ assert.ok(r.auditBlockers.includes('FIELD_UNITS_NOT_VERIFIED'));
+ assert.ok(r.auditBlockers.includes('SEVEN_FIELD_COVERAGE_INCOMPLETE'));
  assert.equal(r.coverage.forecastHumidityMeanSixHourPct,'UNAVAILABLE_NOT_IN_RESPONSE');
  assert.equal(r.values.find(x=>x.field==='forecastPrecipitationSixHourMm').values[0],null);
 });
@@ -118,6 +125,48 @@ test('reject invalid lengths, physical range, wrong point and six-hour timeline'
  assert.equal(parseMeteoblueBasic6h({payload:bad4,ibge:IBGE,
   latitude:target.lat,longitude:target.lon,nowMs:NOW}).status,'UNAVAILABLE');
 });
+test('strict private audit rejects missing run, conflicting field units and calendar rollover',()=>{
+ const cases=[
+  {change:p=>{delete p.metadata.modelrun_utc},missing:'MODEL_RUN_NOT_VERIFIED'},
+  {change:p=>{p.units.windspeed_max='mph'},missing:'FIELD_UNITS_NOT_VERIFIED'},
+  {change:p=>{delete p.metadata.latitude},missing:'SOURCE_COORDINATES_NOT_VERIFIED'},
+  {change:p=>{p.data_6h.windspeed_max=Array(samples).fill(null)},missing:'SEVEN_FIELD_COVERAGE_INCOMPLETE'}
+ ];
+ for(const {change,missing} of cases){
+  const p=sample();change(p);
+  const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+   latitude:target.lat,longitude:target.lon,nowMs:NOW});
+  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+  assert.equal(r.auditReadyForPrivateReview,false);
+  assert.ok(r.auditBlockers.includes(missing),missing);
+  assert.equal(r.publishedToSubscribers,false);
+ }
+ const p=sample();p.data_6h.time[0]='2026-02-30 12:00';
+ assert.equal(parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW}).reason,'INVALID_TIMESTAMPS');
+});
+
+test('private collector caches incomplete audit without claiming ready or using more credits',async()=>{
+ let calls=0;
+ const p=sample();delete p.units;
+ const c=createBlaiseRjMeteoblueFreeCollector({
+  env:goodEnv,db:dbFake(),clock:()=>NOW,
+  fetchImpl:async()=>{calls++;return {status:200,headers:{get:()=>null},
+   text:async()=>JSON.stringify(p)};}
+ });
+ const one=await c.collectOne({ibge:IBGE});
+ assert.equal(one.status,'PRIVATE_STAGING_AUDIT_INCOMPLETE');
+ assert.equal(one.reason,'PRIVATE_FIELD_AUDIT_INCOMPLETE');
+ assert.equal(one.creditsReservedThisInvocation,4000);
+ assert.equal(one.forecast.auditReadyForPrivateReview,false);
+ assert.equal(one.publishedToSubscribers,false);
+ const two=await c.collectOne({ibge:IBGE});
+ assert.equal(two.status,'PRIVATE_STAGING_CACHE_AUDIT_INCOMPLETE');
+ assert.equal(two.creditsReservedThisInvocation,0);
+ assert.equal(two.providerContacted,false);
+ assert.equal(calls,1);
+});
+
 test('Firestore budget reserves atomically, cannot exceed daily cap under concurrency',async()=>{
  const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
  const ids=['3304557','3303906','3305802','3303401','3300100','3300159'];
