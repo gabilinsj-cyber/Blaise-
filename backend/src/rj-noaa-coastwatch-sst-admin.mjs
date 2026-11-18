@@ -4,7 +4,11 @@
  * A real high-QA NetCDF cell is required; otherwise SST is unavailable. No subscription
  * API, land temperatures, automatic warning or production publication.
  */
-import {RJ_SST_OFFSHORE_POINTS} from './rj-osisaf-sst-admin-bridge.mjs';
+export const RJ_SST_OFFSHORE_POINTS=Object.freeze([
+  Object.freeze({id:'ILHA_GRANDE_OFFSHORE',latitude:-23.4,longitude:-44.5}),
+  Object.freeze({id:'RIO_OFFSHORE',latitude:-23.5,longitude:-43.25}),
+  Object.freeze({id:'CABO_FRIO_OFFSHORE',latitude:-23.25,longitude:-42.0})
+]);
 function allowed(url){
   try{
     const u=new URL(url);
