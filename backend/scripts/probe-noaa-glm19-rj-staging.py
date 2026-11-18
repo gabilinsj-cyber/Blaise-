@@ -21,7 +21,7 @@ PREFIX="GLM-L2-LCFA"
 BOX=dict(minLat=-24.5,maxLat=-20.5,minLon=-45.5,maxLon=-40.5)
 KEY_PATTERN=re.compile(
  r"^GLM-L2-LCFA/(?P<year>20\d{2})/(?P<doy>\d{3})/(?P<hour>\d{2})/"
- r"OR_GLM-L2-LCFA_G19_s(?P<stamp>20\d{11})\d{1,4}_e[0-9_]+\.nc$"
+ r"OR_GLM-L2-LCFA_G19_s(?P<stamp>20\d{11})\d{1,4}_e20\d{11}\d{1,4}_c20\d{11}\d{1,4}\.nc$"
 )
 MAX_LIST=650_000
 MAX_FILE=14*1024*1024
