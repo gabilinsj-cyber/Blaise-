@@ -50,6 +50,25 @@ test('one approved call uses only valid representative IBGE coordinates and basi
  assert.equal(result.publishedToSubscribers,false);
  assert.equal(result.remainingCreditsVerified,false);
 });
+test('owner-accepted temporary key is limited to one staged provider call',async()=>{
+ const opt={...gate};
+ delete opt.BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE;
+ opt.BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED='true';
+ let calls=0;
+ const result=await checkMeteoblueFreeKeyOnce({env:opt,fetchImpl:async()=>{
+  calls+=1;return mock();
+ }});
+ assert.equal(result.state,'KEY_ACCEPTED_BY_PROVIDER_SAMPLE_RECEIVED');
+ assert.equal(calls,1);
+ assert.equal(result.billingEnabled,false);
+ assert.equal(result.publishedToSubscribers,false);
+ assert.equal(result.automaticPollingEnabled,false);
+ const unsafe={...opt,BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED:'false'};
+ const no=await checkMeteoblueFreeKeyOnce({env:unsafe,fetchImpl:async()=>{
+  throw Error('never called');
+ }});
+ assert.equal(no.providerContacted,false);
+});
 test('free policy blocks air temperature current and paid packages',()=>{
  const p=METEOBLUE_FREE_RJ_POLICY;
  assert.equal(p.costEuro,0);
