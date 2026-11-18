@@ -131,6 +131,12 @@ test('recognized meteoblue m/s wind metadata is converted to km/h without guessi
  assert.equal(dropped.auditReadyForPrivateReview,false);
  assert.equal(dropped.coverage.forecastWindMeanSixHourKmh,'UNAVAILABLE_WIND_UNIT_NOT_VERIFIED');
  assert.equal(dropped.values.some(x=>x.field==='forecastWindMeanSixHourKmh'),false);
+ const forged=sample();forged.units.windspeed='m/s';
+ forged.data_6h.windspeed_mean[0]='10';
+ const rejected=parseMeteoblueBasic6h({payload:forged,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(rejected.status,'UNAVAILABLE');
+ assert.equal(rejected.reason,'NON_NUMERIC_WINDSPEED_MEAN');
 });
 test('reject invalid lengths, physical range, wrong point and six-hour timeline',()=>{
  const bad=sample();bad.data_6h.precipitation=[1];
