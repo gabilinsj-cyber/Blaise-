@@ -1,5 +1,5 @@
 name: RJ DWD ICON German thermal staging
-# Public non-billable DWD model only; one GRIB download, 92 points, no app publish.
+# New DWD v1 plain GRIB2; one grid, 92 points, no subscriber publication.
 on:
   pull_request:
     paths:
@@ -13,6 +13,8 @@ on:
       - backend/src/rj-dwd-icon-92-admin-bridge.mjs
       - backend/test/rj-dwd-icon-92-real.test.mjs
       - backend/scripts/audit-dwd-icon-92-staging.mjs
+      - backend/src/rj-dwd-icon-v1-source.mjs
+      - backend/test/rj-dwd-icon-v1-source.test.mjs
       - .github/workflows/rj-dwd-icon-thermal-staging.yml
   workflow_dispatch:
 permissions:
@@ -35,13 +37,18 @@ jobs:
           node --test backend/test/rj-dwd-thermal-admin-bridge.test.mjs
           node --check backend/scripts/probe-dwd-icon-numeric-staging.mjs
           node --test backend/test/rj-dwd-icon-92-real.test.mjs
+          node --check backend/src/rj-dwd-icon-v1-source.mjs
+          node --test backend/test/rj-dwd-icon-v1-source.test.mjs
       - name: Install GRIB2 and BZIP2 decoders
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2 cdo
           grib_get -V
-      - name: Decode 92 IBGE municipality points from ONE official DWD ICON forecast grid
-        run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live --statewide
+      - name: Decode new DWD v1 ICON GRIB2 for 92 RJ municipalities
+        env:
+          BLAISE_DWD_ALLOW_LEGACY_WEIGHTS_STAGING: 'true'
+          # After 30-Nov-2026 a SHA256-pinned preprovisioned archive is required.
+        run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live --statewide --archive-weights
       - name: Verify source provenance in private Blaise thermal audit
         run: node backend/scripts/audit-dwd-icon-thermal-staging.mjs
       - name: Audit all 92 official model points inside the private Blaise weather matrix
@@ -56,4 +63,5 @@ jobs:
             evidence/international-sources/dwd-icon-rio-admin-audit.json
             evidence/international-sources/dwd-icon-rj-92.json
             evidence/international-sources/dwd-icon-rj-92-admin-audit.json
+            evidence/international-sources/dwd-icon-global-025-official-weights.tar.bz2
           if-no-files-found: warn
