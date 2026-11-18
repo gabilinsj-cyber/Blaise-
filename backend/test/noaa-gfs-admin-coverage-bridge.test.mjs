@@ -16,15 +16,16 @@ const proof=()=>({
   records:geo.points.map(p=>({ibge:p.ibge,latitude:p.lat,longitude:p.lon,
     temperatureC:21,unit:'°C',kind:'P',datasetId:'GFS_0P25_TMP_2M'}))
 });
-test('privileged NOAA forecast bridge feeds 92 approved P records only when policy is reviewed',()=>{
+test('historical NOAA 92-city proof cannot enter active thermal audit after exclusion',()=>{
   const batch=proof();
   assert.equal(modelGridToAdminTemperatureRecords(batch,{now}).length,0);
   const records=modelGridToAdminTemperatureRecords(batch,{now,modelRightsReviewed:true});
   assert.equal(records.length,92);
   const report=buildInternalRjMeteorologyCoverage(records,{now});
   const temp=report.fields.find(x=>x.field==='temperatureC');
-  assert.equal(temp.coveredMunicipalities,92);
-  assert.equal(temp.state,'FULL');
+  assert.equal(temp.coveredMunicipalities,0);
+  assert.equal(temp.state,'UNAVAILABLE');
+  assert.equal(report.rejectedRecordCount,92);
   assert.equal(report.publishedToSubscriber,false);
   assert.ok(records.every(r=>r.category==='P'&&r.verifiedByBackend));
 });
