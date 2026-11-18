@@ -38,7 +38,8 @@ const verified=(r,ibge,now)=>{
   return true;
 };
 export function selectRjApprovedThermal({
-  municipalityIbge,candidates=[],now=Date.now()
+  municipalityIbge,candidates=[],now=Date.now(),
+  hgSubscriptionActive=false
 }={}){
   const ibge=String(municipalityIbge??'');
   const missing=Object.freeze({
@@ -52,6 +53,8 @@ export function selectRjApprovedThermal({
     return missing;
   const selected=new Map();
   for(const r of candidates){
+    // A written commercial license alone does NOT activate the paid plan.
+    if(r?.sourceId==='HG_BRASIL_WEATHER_PRO'&&hgSubscriptionActive!==true)continue;
     if(!verified(r,ibge,now))continue;
     const prev=selected.get(r.sourceId);
     if(!prev||Date.parse(r.validAt)>Date.parse(prev.validAt))selected.set(r.sourceId,r);

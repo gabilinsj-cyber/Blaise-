@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <application android:label="Blaise V6 RJ ADM">
+    <application android:label="Blaise V6 RJ ADM" tools:replace="android:label">
         <!-- Admin package must have exactly one launcher, never the customer screen. -->
         <activity android:name=".MainActivity" tools:node="remove" />
         <!-- Public launchability does not grant any data access: Firebase admin
