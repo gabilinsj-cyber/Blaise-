@@ -126,6 +126,23 @@ Mesmo um resultado `auditReadyForPrivateReview=true` **não** é homologação c
 
 Para avaliar esta versão, usar a branch `feature/rj-meteoblue-full-recovery-admin-ui-20261118` em uma worktree **separada**, sem reset/pull/checkout destrutivo no diretório original. O coletor continua OFF, sem agendador, sem endpoints do assinante e sem consulta externa nesta alteração.
 
+## 7B. Evidência nova do painel do fornecedor — 18/11/2026, 16h34 BRT
+
+**Fonte:** capturas fornecidas pela titular da conta, da tela “Exibir chave da API” e de “Estatísticas de uso da API” da meteoblue. **NÃO** anexar nem replicar as capturas neste Git: uma delas mostrou a credencial integralmente. Nenhuma chave ou fragmento dela foi transcrito.
+
+- API de Previsão: **Ativado**; API de Imagem: **Ativado**; API de Pacote, de Mapas, de Conjunto de Dados e de Medição: **Desativado** na tabela de permissões. O HTTP 200 anterior para `/packages/basic-6h` indica que o endpoint já respondeu; não ligar outros produtos no painel sem evidência.
+- **Limite diário de créditos da chave exibido: 10 milhões**. ATENÇÃO: isto é o **teto diário configurado**, NÃO um saldo remanescente, NÃO o teto total da avaliação. Com a chave vazada, o limite do fornecedor precisa ser reduzido imediatamente.
+- Intervalo do gráfico selecionado: **03/11/2026–18/11/2026**; consumo agregado visto: **4.000 créditos** (pico de uso no final do intervalo), compatível com o teste HTTP 200 anterior. Não atribuir com certeza a cada chamada sem log do fornecedor. A projeção de saldo promocional de 9.996.000 seria **hipotética**, não saldo certificado.
+- O ledger Firestore consultado pela titular registrou **0 reservas, 0 chamadas hoje e orçamento interno disponível de 8.000.000** para a campanha. Isto não contradiz 4.000 créditos no provedor: o teste anterior ocorreu fora do coletor que possui reserva atômica. Os dois contadores representam escopos diferentes.
+- Proteções da chave exibidas: **segredo compartilhado**, **proteção de origem/referência** e **lista de permissões IP** estavam **não habilitados** no instante da captura. Não habilitá-los sem implementar a assinatura e/ou egress IP fixo no backend, pois isso pode interromper a conexão; primeiro reduzir limite diário e **rotacionar chave**.
+- **Medida imediata para evitar consumo excessivo:** na tela da chave atual, usar **Atualizar** e reduzir o limite diário de **10.000.000** para **4.000 créditos** por dia para a próxima auditoria única, ou desativar a chave se houver essa opção até a rotação. Isto cobre no máximo uma chamada `basic-6h` estimada por dia. O limite de quatro chamadas/dia (16.000 créditos) permanece apenas no ledger interno e não justifica deixar a credencial externa com 10 milhões/dia.
+- **Rotação segura:** criar nova chave no fornecedor; configurar o limite diário de 4.000 antes de uso; registrar uma **nova versão** no Google Cloud Secret Manager (`blaise-meteoblue-free-api-key`) sem colocar valor em Git, screenshot, chat ou terminal com histórico; verificar somente no backend/admin privado e então revogar a antiga. Manter as flags do coletor OFF até validação. Qualquer revisão Cloud Run antiga com chave original continua sendo risco; revisar vínculos e nunca mover tráfego durante esta rotação.
+- **Não comprar créditos**, não habilitar auto top-up nem pacotes pagos. Cloud Run e Firestore podem gerar custos de infraestrutura separados dos créditos meteoblue.
+
+A documentação oficial esclarece que o limite diário por chave bloqueia solicitações após atingir o teto e que chaves podem ser geridas no Weather API Manager: https://docs.meteoblue.com/en/weather-apis/accounting-api/weather-api-manager .
+
+**Status após as capturas:** registro externo de 4.000 créditos consumidos no período; saldo real global restante **não exibido**; collector Firestore **0 reservas**; risco de exposição de chave ainda exige ação manual. Não realizar a auditoria `--live` enquanto a chave e o limite externo não estiverem seguros.
+
 ## 8. Evidência dos testes, limites de conclusão e próximo ato
 
 - HEAD da PR #171 (`d0429a65...`) tinha **meteoblue offline CI e Android CI aprovados**, sem gastar créditos da API.
