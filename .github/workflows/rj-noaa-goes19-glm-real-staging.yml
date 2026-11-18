@@ -1,0 +1,33 @@
+name: Blaise RJ NOAA GOES19 GLM one-file real lightning staging
+# NOAA public NODD (AWS) no-key metadata+one LCFA NetCDF, no alerts.
+on:
+  pull_request:
+    paths:
+      - backend/scripts/probe-noaa-glm19-rj-staging.py
+      - backend/test/test_noaa_glm19_rj.py
+      - .github/workflows/rj-noaa-goes19-glm-real-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  glm-noaa-real:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Test official NOAA bucket and no false lightning warnings
+        run: python -m unittest discover -s backend/test -p test_noaa_glm19_rj.py -v
+      - name: Prepare scientific NetCDF4 decoder
+        run: python -m pip install --disable-pip-version-check 'numpy>=2,<3' 'netCDF4>=1.7,<2'
+      - name: Inspect one real NOAA GLM-19 LCFA satellite file
+        run: python backend/scripts/probe-noaa-glm19-rj-staging.py --live
+      - name: Store private source/validity evidence even if unavailable
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-noaa-glm19-real-scientific-sample
+          path: evidence/international-sources/noaa-goes19-glm-rj-one-file.json
+          if-no-files-found: warn
