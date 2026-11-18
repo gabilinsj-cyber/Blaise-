@@ -29,6 +29,26 @@ class AdminCollectorReadinessTest {
         assertTrue(hg.explanation.contains("estação original"))
     }
 
+    @Test fun meteoblueSevenBasic6hFieldsStayPrivateAndUnaudited() {
+        val fields = AdminCollectorReadiness.meteoblueFieldAudit
+        assertEquals(7, fields.size)
+        assertEquals(setOf(
+            "precipitation", "convective_precipitation", "precipitation_probability",
+            "windspeed_mean", "windspeed_max", "relativehumidity_mean",
+            "sealevelpressure_mean"
+        ), fields.map { it.jsonKey }.toSet())
+        assertTrue(fields.none { it.auditedLiveValue })
+        assertTrue(fields.all { it.unit in setOf("mm", "%", "km/h", "hPa") })
+        assertTrue(fields.single { it.jsonKey == "windspeed_max" }
+            .meaning.contains("NÃO RAJADA OBSERVADA"))
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_COLLECTOR_ENABLED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
+        assertEquals(null, AdminCollectorReadiness.meteoblueCurrentProviderCredits)
+        assertEquals(null, AdminCollectorReadiness.meteoblueActualLocalCreditsReserved)
+        assertEquals(24, AdminCollectorReadiness.METEOBLUE_MUNICIPAL_COOLDOWN_HOURS)
+        assertEquals(6, AdminCollectorReadiness.METEOBLUE_CACHE_HOURS)
+    }
+
     @Test fun meteoblueLocalBudgetDoesNotPretendToKnowRealProviderBalance() {
         val x = AdminCollectorReadiness
         assertEquals(10_000_000, x.METEOBLUE_TOTAL_TRIAL_CREDITS)
