@@ -1188,7 +1188,18 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
-    WeatherSourceResponsibilityPanel()
+    if (FinalDashboardSpec.shouldShowProviderDiagnostics(BuildConfig.APPLICATION_ID)) {
+        WeatherSourceResponsibilityPanel()
+    } else {
+        DashboardSection(
+            title = "ORIGEM DAS INFORMAÇÕES",
+            subtitle = "Dados verificados por município • sem análises internas",
+        ) {
+            Text("Cada medição disponível deve indicar sua fonte e o horário real do dado. " +
+                "Previsões e estimativas não são medições de estação.", color = Muted)
+            Text("Sem leitura válida, o campo permanece Indisponível.", color = WarningAmber)
+        }
+    }
     // Only the physically separate admin build can even open this activity.
     if (BuildConfig.APPLICATION_ID == "br.com.blaise.rj.admin") {
         val context = LocalContext.current
