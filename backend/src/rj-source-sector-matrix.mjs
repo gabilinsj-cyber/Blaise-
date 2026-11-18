@@ -46,6 +46,11 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
     P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','chuva futura prevista, não chuva observada')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
+  // This is NOT the NEMS10 raw product: basic-6h uses meteoblue mLM
+  // post-processing and is never treated as a fourth independent model.
+  sector('METEOBLUE_FREE_FORECAST_6H','Comparação meteoblue gratuita, seis horas',[
+    P('METEOBLUE_FREE_FORECAST','BASIC_6H','METEOBLUE_MLM','somente previsão de precipitação acumulada em 6h, probabilidade, vento médio/máximo, umidade e pressão. Sem chuva observada, temperatura, sensação térmica ou rajadas.')
+  ],'Somente análise interna, com JSON validado, ciclo e horário auditáveis, saldo de créditos protegido. Fonte mLM não é previsão independente de ECMWF/DWD/NOAA.'),
   sector('SATELLITE_VISUAL_RJ','Imagens de nuvens e sistemas sobre o RJ',[
     O('RAMMB_CIRA_SLIDER','GOES19_ABI_VISUAL_LINK','GOES_EAST','somente link externo a imagens GOES-19')
   ],'Link de consulta visual ao RAMMB/CIRA SLIDER; sem ingestão, cópia de imagens ou extração de chuva em mm. Não é nova fonte independente do GOES/NOAA.'),
@@ -149,6 +154,13 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
       cloudRunStagedSecretBindingEvidence:'USER_SCREENSHOT_2026-11-18_14_20_BRT',
       cloudRunServiceAccountReadPermissionConfirmed:true,
       cloudRunExistingTrafficPreserved:true,
+      privateCollectorCodePrepared:true,
+      firestoreAtomicLocalBudgetPrepared:true,
+      providerPackageCreditCost:4000,
+      privateCreditCeiling:8000000,
+      maximumDailyStagingCalls:4,
+      noAutomaticScheduling:true,
+      freeForecastProductId:'METEOBLUE_FREE_FORECAST',
       backendProviderConnectionValidated:false,
       serverApiKeyInstalled:false,subscriptionActivated:false,
       purchasedCredits:0,automaticCalls:false,
