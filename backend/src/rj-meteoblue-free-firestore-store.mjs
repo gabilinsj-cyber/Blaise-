@@ -94,7 +94,7 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
   const snap=await cacheCollection.doc(id).get();
   if(!snap?.exists)return null;
   const x=snap.data(),now=clock();
-  if(!Number.isSafeInteger(now)||!x||
+  if(!validClock(now)||!x||
      x?.ibge!==id||x?.sourceId!=='METEOBLUE_FREE_FORECAST'||
      !Number.isSafeInteger(x?.storedAtMs)||x.storedAtMs>now||
      now-x.storedAtMs>METEOBLUE_CACHE_TTL_MS||
