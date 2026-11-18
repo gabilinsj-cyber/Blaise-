@@ -35,8 +35,8 @@ object FinalDashboardSpec {
     // NASA/JAXA/Zoom Earth/Marinha/Windy/INEA are excluded.
     val officialSources = listOf(
         "NOAA", "NOAA GOES-19", "NOAA GFS-Wave",
-        "ECMWF/IFS", "DWD/ICON Global", "meteoblue NEMS10",
-        "EUMETSAT", "RAMMB/CIRA SLIDER",
+        "ECMWF/IFS", "DWD/ICON Global", "meteoblue Free • mLM 6h",
+        "RAMMB/CIRA SLIDER",
         "OpenWeather", "INPE/CPTEC",
         "ANA/Hidroweb", "SGB/SACE", "USGS"
     )
@@ -46,7 +46,7 @@ object FinalDashboardSpec {
     // in the subscriber UI. Clients only see validated thermal values, the
     // specific displayed value's source/time, or 'Indisponível'.
     // The list is an integration target, not a claim of live coverage.
-    val thermalSourcePriority = listOf("DWD/ICON Global", "NOAA/GFS", "ECMWF/IFS")
+    val thermalSourcePriority = listOf("HG Brasil Pro (não contratado)", "OpenWeather/Agente 13", "DWD/ICON Global")
     const val THERMAL_VISUAL_CROSSCHECK = "Meteologix/Kachelmannwetter"
     const val THERMAL_LAST_RESORT = "OpenWeather/Agente 13"
     const val THERMAL_FALLBACK_INTERVAL_MINUTES = 35
@@ -57,6 +57,10 @@ object FinalDashboardSpec {
     // automatic or manual paid OpenWeather fallback through the city panel.
     const val THERMAL_FALLBACK_INTEGRATED = false
     const val THERMAL_DIAGNOSTICS_ADMIN_ONLY = true
+    // Domestic meteorological references are for private comparison only.
+    // An existing client-side INMET station collector is disabled in this branch
+    // until an approved international/paid signed weather feed replaces it.
+    const val DOMESTIC_STATION_COLLECTION_IN_SUBSCRIBER = false
     // PUBLIC LINK-ONLY exception (17/11): INMET and INPE/CPTEC warning portals
     // can be linked from the header. Their bulletin content is not ingested here.
     // This does not authorize INMET weather inputs or CEMADEN public output.
