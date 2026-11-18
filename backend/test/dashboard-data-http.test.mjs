@@ -278,7 +278,8 @@ test('paid dashboard serves international-only forecast when old source worker i
     assert.equal(body.rainfall,null);
     assert.equal(body.sources.length,0);
     assert.equal(body.internationalForecasts.length,1);
-    assert.equal(body.internationalForecasts[0].temperatureC,28.4);
+    assert.equal(body.internationalForecasts[0].temperatureC,null);
+    assert.equal(body.internationalForecasts[0].feelsLikeC,null);
     assert.equal(body.internationalForecasts[0].modelOrigin,'ECMWF_IFS');
     assert.equal(body.internationalForecasts[0].kind,'MODEL_FORECAST_NOT_LOCAL_MEASUREMENT');
     assert.equal(JSON.stringify(body).includes('token-12345678'),false);
