@@ -39,10 +39,15 @@ if(process.argv.some(x=>x.startsWith('--ibge=')&&x!=='--ibge=3304557')){
   sourceCoordinatesVerified:f?.sourceCoordinatesVerified??false,
   sixHourForecastSlots:f?.validTimes?.length??0,
   fieldCoverage:f?.coverage??null,
+  completeSevenFieldCoverage:f?.completeFieldCoverage??false,
+  privateAuditReady:f?.auditReadyForPrivateReview===true,
+  // These are names of missing validation checks, never provider values.
+  auditBlockers:f?.auditBlockers??['NO_VALID_PRIVATE_FORECAST'],
   observedData:false,paidApiUsed:false,
   publishedToSubscribers:false
  };
  console.log('METEOBLUE_PRIVATE_FIELD_AUDIT='+JSON.stringify(summary));
- if(!['PRIVATE_STAGING_FORECAST_READY','PRIVATE_STAGING_CACHE_HIT'].includes(r.status))
+ if(!['PRIVATE_STAGING_FORECAST_READY','PRIVATE_STAGING_CACHE_HIT'].includes(r.status)||
+    f?.auditReadyForPrivateReview!==true)
   process.exitCode=1;
 }
