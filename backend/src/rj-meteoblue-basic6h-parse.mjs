@@ -96,6 +96,9 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
   if(values===undefined){stats[field.name]='UNAVAILABLE_NOT_IN_RESPONSE';continue;}
   if(!Array.isArray(values)||values.length!==times.length)
     return fail('INVALID_LENGTH_'+sourceField.toUpperCase());
+  // Refuse numeric strings and non-finite provider values BEFORE conversion.
+  if(values.some(v=>v!==null&&(typeof v!=='number'||!Number.isFinite(v))))
+    return fail('NON_NUMERIC_'+sourceField.toUpperCase());
   const isWind=sourceField==='windspeed_mean'||sourceField==='windspeed_max';
   const unitForWind=isWind?(payload.units?.[sourceField]??
     payload.units?.windspeed??payload.units?.wind_speed):null;
