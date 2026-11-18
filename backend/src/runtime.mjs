@@ -2,6 +2,7 @@ import { collectNoaaWave } from './noaa-wave-collector.mjs';
 import { createOfficialAlertLinksHttpHandler } from './official-alert-links-http.mjs';
 import { initializeOptionalAgent13Runtime } from './rj-agent13-runtime-optional.mjs';
 import { initializeOptionalMetNorwayRuntime } from './rj-met-norway-runtime-optional.mjs';
+import { initializeOptionalMeteoblueFreeRuntime } from './rj-meteoblue-runtime-optional.mjs';
 import { createPaidAgent13HttpHandler } from './rj-agent13-paid-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
@@ -182,6 +183,17 @@ async function main() {
     }
   });
   console.log(`blaise_met_norway_runtime:${metNorwayRuntime.state}`);
+  // Private meteoblue 6h comparator: never polls at startup or serves mobile
+  // endpoints. The existing production flags leave it disabled.
+  const meteoblueRuntime=await initializeOptionalMeteoblueFreeRuntime({
+    env:process.env,
+    createDatabase:async({projectId})=>{
+      const {Firestore}=await import('@google-cloud/firestore');
+      return new Firestore({projectId,databaseId:'(default)'});
+    }
+  });
+  console.log('blaise_meteoblue_runtime:'+meteoblueRuntime.state);
+
   const readInternationalForecasts=metNorwayRuntime.configured===true
     ?async(requestedCodes=['3304557','3303302'])=>{
       const known=new Set(metNorwayRuntime.supportedMunicipalities);
