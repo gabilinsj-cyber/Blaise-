@@ -2,7 +2,7 @@
 
 ## Status — honest
 - Operator screenshots dated 18/11/2026 show **Free Weather API active**, **10,000,000 credits remaining at screenshot time**, Forecast API and Images API enabled; the displayed expiration is **2027-11-18**. There is no live authenticated access to the user's account through this repository: the API key and backend connectivity remain **NOT verified**.
-- **SECURITY HOLD:** the user accidentally disclosed an existing API key in a screenshot in the chat. DO NOT reuse or reproduce it in code, docs, logs, examples or manual calls. The user must create a new key on API Key Management and delete/revoke the previously pictured key. Only then provision the new key directly to Cloud Secret Manager, never via chat.
+- **EXPOSED KEY WARNING:** an existing key appeared in a screenshot. The operator explicitly prefers a temporary one-shot verification with the current FREE key rather than rotating now. This carries a risk of someone else consuming credits. Do not copy it into code, docs, GitHub, logs or chat. The one-shot gate accepts an explicit operator flag for **staging only**; rotating the key remains recommended before production, and this exception never enables billing, auto-polling or subscriber publishing.
 - Screenshot shows a €25 offer for 10 million *additional prepaid credits*, not a required monthly subscription. Purchase is optional, renewal is optional and must stay OFF. No purchase now.
 - There is **NO password validation** from this app. The email account password and meteoblue account password are NOT needed, must NOT be sent to GitHub/ChatGPT/Android.
 - One-year free access can be activated within user's meteoblue account: top-right account icon -> **Account overview** -> **Weather API** -> enable Free Weather API.
@@ -34,13 +34,15 @@ Only after the Free Weather API is visibly **active** and there is **no automati
 ```bash
 set +x
 export BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED=true
-# Set ONLY after creating a NEW key and revoking the screenshot-exposed key:
-export BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE=true
+# For the CURRENT key, accepted by the operator for a ONE-SHOT staging check:
+export BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED=true
+# If the key has instead been rotated, set
+# BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE=true (not both flags).
 export BLAISE_METEOBLUE_AUTOTOPUP_DISABLED=true
 export BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED=true
 export BLAISE_METEOBLUE_FREE_API_KEY="$(gcloud secrets versions access latest --secret=blaise-meteoblue-free-api-key)"
 node backend/scripts/check-meteoblue-free-one-shot.mjs --live --spend-one-free-request
-unset BLAISE_METEOBLUE_FREE_API_KEY BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED BLAISE_METEOBLUE_AUTOTOPUP_DISABLED BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED
+unset BLAISE_METEOBLUE_FREE_API_KEY BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED BLAISE_METEOBLUE_AUTOTOPUP_DISABLED BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE
 ```
 
 The one-shot command **never logs a key or the full upstream request URL**, never returns raw weather values, never auto-polls and never changes public API or Android. An HTTP 200 with an expected `basic-6h` forecast shape establishes a provisional successful key test, **not** that the user's personal free allocation, credits remaining, expiration or live regional data are independently verified. Confirm plan credits/expiry in the meteoblue account dashboard. Status is `NOT_VALIDATED` until a real user-authorized test succeeds.
