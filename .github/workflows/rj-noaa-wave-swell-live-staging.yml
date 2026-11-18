@@ -1,0 +1,51 @@
+name: Blaise RJ NOAA real coastal wave and swell staging
+# Two official NOAA grib filtered fields at three offshore reference points.
+# No subscriber alerts, store release, billing, scheduled calls or customer API.
+on:
+  pull_request:
+    paths:
+      - backend/src/noaa-wave-marine-rj.mjs
+      - backend/src/rj-noaa-marine-admin-bridge.mjs
+      - backend/test/noaa-wave-marine-rj.test.mjs
+      - backend/test/rj-noaa-marine-admin-bridge.test.mjs
+      - backend/scripts/probe-noaa-rj-marine-live.mjs
+      - .github/workflows/rj-noaa-wave-swell-live-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rj-marine-verified:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Unit tests for NOAA data provenance and correct P field semantics
+        run: |
+          set -euo pipefail
+          node --check backend/src/noaa-wave-marine-rj.mjs
+          node --check backend/src/rj-noaa-marine-admin-bridge.mjs
+          node --test backend/test/noaa-wave-marine-rj.test.mjs backend/test/rj-noaa-marine-admin-bridge.test.mjs
+      - name: Install ecCodes GRIB2 decoder without indefinite package mirror hangs
+        run: |
+          set -euo pipefail
+          if ! command -v grib_get >/dev/null; then
+            if ! sudo env DEBIAN_FRONTEND=noninteractive timeout 140 apt-get install -y -qq --no-install-recommends libeccodes-tools; then
+              timeout 120 sudo apt-get update -qq -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::ForceIPv4=true
+              sudo env DEBIAN_FRONTEND=noninteractive timeout 180 apt-get install -y -qq --no-install-recommends libeccodes-tools
+            fi
+          fi
+          grib_get -V
+      - name: Read real latest public NOAA GFS wave height and swell period
+        run: node backend/scripts/probe-noaa-rj-marine-live.mjs --live
+      - name: Upload actual NOAA marine data and private audit proof
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: blaise-rj-real-noaa-offshore-wave-swell
+          path: |
+            evidence/international-sources/noaa-rj-offshore-wave-swell.json
+            evidence/international-sources/noaa-rj-offshore-marine-admin-audit.json
+          if-no-files-found: warn
