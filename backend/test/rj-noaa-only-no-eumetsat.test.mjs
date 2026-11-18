@@ -44,7 +44,9 @@ test('meteoblue trial is confirmed by account screenshot but backend ingestion r
  assert.equal(p.freeWeatherApi2026.totalCredits,10000000);
  assert.equal(p.freeWeatherApi2026.trialDurationMonths,12);
  assert.equal(p.freeWeatherApi2026.approximateLowestCostCallsTotal,2500);
- assert.equal(p.freeWeatherApi2026.freeTrialActivated,false);
+ assert.equal(p.freeWeatherApi2026.freeTrialActivated,true);
+ assert.equal(p.freeWeatherApi2026.freeTrialExpiresOn,'2027-11-18');
+ assert.equal(p.freeWeatherApi2026.apiKeyRotationRequired,true);
  assert.equal(p.freeWeatherApi2026.serverApiKeyInstalled,false);
  assert.equal(p.freeWeatherApi2026.eligibleForObservedRain,false);
  assert.equal(p.liveNumericIngestionEnabled,false);
