@@ -4,6 +4,10 @@ on:
     paths:
       - backend/src/rj-meteoblue-free-connection.mjs
       - backend/src/rj-meteoblue-free-key-check.mjs
+      - backend/src/rj-meteoblue-basic6h-parse.mjs
+      - backend/src/rj-meteoblue-free-firestore-store.mjs
+      - backend/src/rj-meteoblue-free-collector.mjs
+      - backend/test/rj-meteoblue-free-collector.test.mjs
       - backend/test/rj-meteoblue-free-key-check.test.mjs
       - backend/scripts/check-meteoblue-free-one-shot.mjs
       - docs/RJ_METEOBLUE_FREE_SECURE_ACTIVATION_20261118.md
@@ -25,5 +29,8 @@ jobs:
           set -euo pipefail
           node --check backend/src/rj-meteoblue-free-connection.mjs
           node --check backend/src/rj-meteoblue-free-key-check.mjs
-          node --test backend/test/rj-meteoblue-free-key-check.test.mjs
+          node --check backend/src/rj-meteoblue-basic6h-parse.mjs
+          node --check backend/src/rj-meteoblue-free-firestore-store.mjs
+          node --check backend/src/rj-meteoblue-free-collector.mjs
+          node --test backend/test/rj-meteoblue-free-key-check.test.mjs backend/test/rj-meteoblue-free-collector.test.mjs
           node backend/scripts/check-meteoblue-free-one-shot.mjs
