@@ -12,7 +12,9 @@ const sourceOk=(url,field)=>{
   return u.protocol==='https:'&&u.hostname==='nomads.ncep.noaa.gov'&&
    u.pathname==='/cgi-bin/filter_gfswave.pl'&&
    u.searchParams.get('var_'+expected)==='on'&&
-   u.searchParams.get('lev_surface')==='on'&&
+   u.searchParams.get(field==='swellPeriodS'?
+    'lev_1_in_sequence':'lev_surface')==='on'&&
+   (field!=='swellPeriodS'||!u.searchParams.has('lev_surface'))&&
    !u.username&&!u.password;
  }catch{return false;}
 };
