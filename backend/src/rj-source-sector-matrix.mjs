@@ -74,7 +74,7 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('ECMWF_WAVE','IFS_WAVE','ECMWF_WAVE','comparação sujeita a produto aberto')
   ],'Dados são previsões marítimas; a maré astronômica requer fonte distinta.'),
   sector('SST','Temperatura da superfície do mar',[
-    E('EUMETSAT_OSI_SAF','OSI_207_C','GOES_EAST_ABI','principal candidato'),
+    E('EUMETSAT_OSI_SAF_SST','OSI_207_C','GOES_EAST_ABI','principal candidato; dado GHRSST E com QA'),
     E('NOAA_COASTWATCH','ACSPO_GOES_EAST','GOES_EAST_ABI','comparação correlacionada')
   ],'O mesmo GOES/ABI aparece em dois processamentos: NÃO são sensores independentes. Validar máscara e período.'),
   sector('CLEAR_SKY_UV','UV previsto em céu limpo',[
