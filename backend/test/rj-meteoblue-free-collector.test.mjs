@@ -130,6 +130,19 @@ test('Firestore budget reserves atomically, cannot exceed daily cap under concur
  assert.equal((await store.reserve('3304557',NOW)).approved,false);
  assert.equal((await store.reserve('3304557',NOW)).reason,'LOCAL_DAILY_CALL_CEILING');
 });
+test('private credit ledger reports local reservations only, never invents provider balance',async()=>{
+ const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
+ const zero=await store.readLocalBudgetStatus();
+ assert.equal(zero.localSpentCredits,0);
+ assert.equal(zero.providerCreditBalance,'UNVERIFIED_IN_PROVIDER_DASHBOARD');
+ assert.equal(zero.maxCallsPerUtcDay,4);
+ await store.reserve(IBGE,NOW);
+ const one=await store.readLocalBudgetStatus();
+ assert.equal(one.localSpentCredits,4000);
+ assert.equal(one.callsReservedToday,1);
+ assert.equal(one.localRemainingReservedAllowance,8_000_000-4000);
+ assert.equal(one.providerChargeAuthorized,false);
+});
 test('day change cannot bypass 24h city cooldown; expiry stops before billed calls',async()=>{
  const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
  assert.equal((await store.reserve(IBGE,NOW)).approved,true);
