@@ -1,7 +1,7 @@
 /**
  * NOAA STAR/CoastWatch ACSPO GOES-19 L3C SST: strict private marine gate.
- * Same GOES-19 satellite as EUMETSAT OSI SAF, NOT two independent sensors.
- * Fallback only if a real high-QA NetCDF cell is available. No subscription
+ * NOAA-only single-satellite source. It must not be counted twice.
+ * A real high-QA NetCDF cell is required; otherwise SST is unavailable. No subscription
  * API, land temperatures, automatic warning or production publication.
  */
 import {RJ_SST_OFFSHORE_POINTS} from './rj-osisaf-sst-admin-bridge.mjs';
@@ -18,7 +18,7 @@ const fail=reason=>Object.freeze({
   contract:'BLAISE_RJ_NOAA_ACSPO_SST_ADMIN_V1',
   state:'UNAVAILABLE',reason,approvedValues:0,records:Object.freeze([]),
   sourceId:'NOAA_COASTWATCH_SST',kind:'E',
-  physicallyIndependentFromOsiSaf:false,
+  singleSatelliteSource:true,
   airTemperatureMeasurements:0,municipalityMeasurements:0,
   publishedToSubscribers:false,publishedToAndroid:false
 });
@@ -31,7 +31,7 @@ export function verifyRjNoaaCoastwatchSst(proof,{
     proof.sourceId!=='NOAA_COASTWATCH_SST'||
     proof.productId!=='GOES19_ABI_ACSPO_L3C'||
     proof.satelliteFamily!=='GOES19_ABI'||
-    proof.underlyingSensorIndependentOfEumetsat!==false||
+    proof.singleSourceNoDoubleCount!==true||
     proof.kind!=='E'||proof.officialObservation!==false||
     proof.airTemperatureMeasurements!==0||
     proof.publishedToAndroid!==false||proof.publishedToSubscriber!==false||
@@ -71,7 +71,7 @@ export function verifyRjNoaaCoastwatchSst(proof,{
       qualityLevel:5,issuedAt:proof.validAt,
       validAt:proof.validAt,checkedAt:proof.checkedAt,
       sourceUrl:proof.sourceUrl,notAtmosphericTemperature:true,
-      sameSensorFamilyAsEumetsat:true,observedByBuoy:false
+      singleSatelliteSource:true,observedByBuoy:false
     }));
   }
   if(accepted.length!==proof.verifiedPoints||
