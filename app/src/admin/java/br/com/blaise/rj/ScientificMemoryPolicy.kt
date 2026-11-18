@@ -72,8 +72,9 @@ object ScientificMemoryPolicy {
     val androidDerivedMethods = listOf("Magnus (orvalho)", "VPD", "Stull (bulbo úmido)",
         "Rothfusz (índice de calor)", "Vento-frio")
 
-    private val weatherSources = setOf("DWD_ICON_GLOBAL", "NOAA_GFS",
-        "ECMWF_IFS", "MET_NORWAY_LOCATIONFORECAST_2")
+    // Current RJ thermal policy: NOAA and ECMWF never supply air temperature.
+    // HG/OWM estimates require a separate E-qualified audited input contract.
+    private val weatherSources = setOf("DWD_ICON_GLOBAL")
 
     private fun valid(x: Double, lo: Double, hi: Double) = x.isFinite() && x in lo..hi
     fun calculate(input: BlaiseScientificInput?, now: Instant): List<BlaiseScientificResult> {
