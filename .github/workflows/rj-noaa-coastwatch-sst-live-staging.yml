@@ -1,0 +1,46 @@
+name: Blaise RJ NOAA CoastWatch GOES19 SST correlated fallback
+# A real NOAA L3C GHRSST data fetch; never copy absent SST or publish in app.
+on:
+  pull_request:
+    paths:
+      - backend/scripts/probe-noaa-coastwatch-sst-rj.py
+      - backend/scripts/audit-noaa-coastwatch-sst-rj.mjs
+      - backend/src/rj-noaa-coastwatch-sst-admin.mjs
+      - backend/test/test_noaa_coastwatch_sst_rj.py
+      - backend/test/rj-noaa-coastwatch-sst-admin.test.mjs
+      - .github/workflows/rj-noaa-coastwatch-sst-live-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  goes19-noaa-sst-rj:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Run offline NOAA CoastWatch source/QA/latlon and matrix tests
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s backend/test -p test_noaa_coastwatch_sst_rj.py -v
+          node --test backend/test/rj-noaa-coastwatch-sst-admin.test.mjs
+      - name: Install official GHRSST NetCDF scientific decoders
+        run: python -m pip install --disable-pip-version-check 'numpy>=2,<3' 'netCDF4>=1.7,<2'
+      - name: Read one real recent NOAA CoastWatch GOES19 L3C SST file
+        run: python backend/scripts/probe-noaa-coastwatch-sst-rj.py --live
+      - name: Independently audit CoastWatch SST origin and pixel quality
+        run: node backend/scripts/audit-noaa-coastwatch-sst-rj.mjs
+      - name: Upload only verified SST and source outage proof
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-noaa-coastwatch-goes19-sst-proof
+          path: |
+            evidence/international-sources/noaa-coastwatch-acspo-rj-sst.json
+            evidence/international-sources/noaa-coastwatch-acspo-rj-audit.json
+          if-no-files-found: warn
