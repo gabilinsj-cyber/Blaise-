@@ -20,7 +20,7 @@ permissions:
 jobs:
   dwd-rj-real-temperature:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -37,8 +37,17 @@ jobs:
           node --test backend/test/rj-dwd-icon-92-real.test.mjs
       - name: Install GRIB2 and BZIP2 decoders
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2 cdo
+          set -euo pipefail
+          # apt update has timed out on GitHub runners. Try the packaged
+          # index first; fall back to a bounded, IPv4-only refresh if needed.
+          if ! command -v grib_get >/dev/null || ! command -v cdo >/dev/null; then
+            if ! sudo env DEBIAN_FRONTEND=noninteractive timeout 200 apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2 cdo; then
+              timeout 150 sudo apt-get update -qq -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o Acquire::ForceIPv4=true
+              sudo env DEBIAN_FRONTEND=noninteractive timeout 240 apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2 cdo
+            fi
+          fi
+          command -v cdo
+          command -v grib_get
           grib_get -V
       - name: Decode 92 IBGE municipality points from ONE official DWD ICON forecast grid
         run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live --statewide
