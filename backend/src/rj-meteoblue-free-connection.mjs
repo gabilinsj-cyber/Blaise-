@@ -56,9 +56,10 @@ export function prepareMeteoblueFreeRjProbe({
   // Terrain elevation is deliberately omitted, meteoblue determines it by DEM.
   // The key must be supplied by Secret Manager to the trusted server only.
   const query=new URLSearchParams({
-    // Official forecast API example uses 'utc' and documented default
-    // units: °C, km/h, mm. Restrict parameters to proven basic-6h inputs.
-    lat:String(lat),lon:String(lon),tz:'utc',format:'json'
+    // Pin documented Forecast API units instead of relying on account defaults.
+    // This changes representation, not the requested package/credit cost.
+    lat:String(lat),lon:String(lon),tz:'utc',format:'json',
+    windSpeedUnit:'km/h',precipitationUnit:'metric'
   }).toString();
   return Object.freeze({
     ...missing,state:'READY_FOR_ONE_EXPLICIT_FREE_CREDIT_TEST',
