@@ -50,7 +50,7 @@ function unitsVerified(units){
   [['precipitation'],'mm'],
   [['windspeed','wind_speed'],'km/h'],
   [['relativehumidity'],'%'],
-  [['sealevelpressure'],'hPa']
+  [['sealevelpressure','pressure'],'hPa']
  ];
  const base=groups.every(([names,expected])=>{
   const name=names.find(n=>Object.hasOwn(units,n));
