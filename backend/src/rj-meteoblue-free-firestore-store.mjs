@@ -36,7 +36,7 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
   if(!CODES.has(String(ibge)))throw Error('rj_meteoblue_unknown_ibge');
   return String(ibge);
  };
- const reserve=async(ibge,whenMs=clock())=>{
+ const reserve=async(ibge,whenMs=clock(),{temporaryExposedKey=false}={})=>{
   const id=checkIbge(ibge);
   if(!validClock(whenMs))return deny('TRIAL_NOT_VALID_AT_REQUEST_TIME');
   const day=new Date(whenMs).toISOString().slice(0,10);
@@ -61,6 +61,10 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
       Object.keys(cities).every(k=>CODES.has(k)&&
         Number.isSafeInteger(cities[k])&&cities[k]>=METEOBLUE_FREE_START_MS&&
         cities[k]<=whenMs));
+    // Non-rotated previously pictured key: ONE additional staging probe
+    // for the whole Firestore campaign, never a recurring source.
+    if(temporaryExposedKey===true&&calls>=1)
+      return deny('TEMPORARY_KEY_ONESHOT_SPENT');
     if(spent+METEOBLUE_BASIC6H_CREDITS>METEOBLUE_PRIVATE_CEILING_CREDITS)
       return deny('LOCAL_CAMPAIGN_CREDIT_CEILING');
     if(lastDay===day&&dayCalls>=METEOBLUE_MAX_DAILY_CALLS)
