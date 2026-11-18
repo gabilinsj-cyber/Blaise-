@@ -120,6 +120,27 @@ class AdminScientificActivity : ComponentActivity() {
                             if (loginMessage.isNotEmpty()) Text(loginMessage)
                         }
                     } else {
+                        Text("SITUAÇÃO DOS COLETORES E CONTRATOS",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.testTag("admin-provider-readiness-title"))
+                        Text("Base documentada em ${AdminCollectorReadiness.SNAPSHOT_DATE}. " +
+                            "Não é saldo da API em tempo real, aprovação de release ou conexão de produção.")
+                        AdminCollectorReadiness.integrations.forEach { integration ->
+                            Spacer(Modifier.height(8.dp))
+                            Card(modifier = Modifier.fillMaxWidth()
+                                .testTag("admin-provider-${integration.id}")) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Text(integration.title,
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Text(integration.state)
+                                    Text(integration.explanation,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        Text("Sem contrato pago novo • Sem publicação para assinantes • " +
+                            "Ausência de dado é indisponível, não zero.")
+                        Spacer(Modifier.height(16.dp))
                         Text("CALCULADORA CIENTÍFICA BLAISE",
                             style = MaterialTheme.typography.titleLarge)
                         Text("Memória científica: ${ScientificMemoryPolicy.BACKEND_REGISTERED_METHOD_COUNT} métodos backend.")
