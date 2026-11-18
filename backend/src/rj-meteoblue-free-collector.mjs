@@ -20,12 +20,15 @@ export function createBlaiseRjMeteoblueFreeCollector({
 }={}){
  const credential=typeof env.BLAISE_METEOBLUE_FREE_API_KEY==='string'
     ?env.BLAISE_METEOBLUE_FREE_API_KEY:'';
+ const temporarilyAccepted=env.BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED==='true'&&
+   env.BLAISE_METEOBLUE_STAGING_ONESHOT_APPROVED==='true';
+ const rotated=env.BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE==='true';
  const configured=env.BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED==='true'&&
    env.BLAISE_METEOBLUE_AUTOTOPUP_DISABLED==='true'&&
    env.BLAISE_METEOBLUE_PAID_ALLOWED!=='true'&&
    env.BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED==='true'&&
    env.BLAISE_METEOBLUE_PUBLISH_TO_SUBSCRIBERS!=='true'&&
-   env.BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE==='true'&&
+   (rotated||temporarilyAccepted)&&
    env.BLAISE_METEOBLUE_ALLOW_REAL_CREDIT_SPEND==='true'&&
    KEY_RE.test(credential)&&!!db;
  let store=null;
@@ -55,7 +58,9 @@ export function createBlaiseRjMeteoblueFreeCollector({
    publishedToSubscribers:false
   });
   let permit;
-  try{permit=await store.reserve(ibge,clock());}catch{
+  try{permit=await store.reserve(ibge,clock(),{
+    temporaryExposedKey:!rotated&&temporarilyAccepted
+  });}catch{
    return fail('ATOMIC_BUDGET_UNAVAILABLE');
   }
   if(!permit?.approved)return fail(permit?.reason??'BUDGET_DENIED');
@@ -113,6 +118,7 @@ export function createBlaiseRjMeteoblueFreeCollector({
   sourceId:'METEOBLUE_FREE_FORECAST',
   configured:!!store,
   privateStagingOnly:true,
+  exposedKeyRestrictedToOneProviderRequest:!rotated&&temporarilyAccepted,
   automaticPolling:false,
   scheduledCollection:false,
   subscriberEndpointEnabled:false,
