@@ -27,7 +27,7 @@ const sample=()=>({
   modelrun_updatetime_utc:'2026-11-18 07:00'},
  units:{precipitation:'mm',windspeed:'km/h',
   relativehumidity:'%',sealevelpressure:'hPa'},
- data_6h:{time,
+ data_6h:{time:[...time],
   precipitation:series(0),convective_precipitation:series(0),
   precipitation_probability:series(10),
   windspeed_mean:series(10),windspeed_max:series(15),
