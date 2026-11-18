@@ -148,7 +148,7 @@ export async function probeDwdIconStaging({
           try{
             const near=(await run('grib_get',['-l',
               point.lat+','+(point.lon+360)+',1',grid.file])).stdout.trim();
-            if(!/^-?\\d+(?:\\.\\d+)?(?:[Ee][+-]?\\d+)?$/.test(near))continue;
+            if(!/^-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?$/.test(near))continue;
             const kelvin=Number(near);
             if(!valid(kelvin,200,340))continue;
             const valueC=Math.round((kelvin-273.15)*100)/100;
