@@ -26,3 +26,11 @@
 - Climatempo: orçamento solicitado; nenhuma contratação.
 - Windy, INEA, Marinha, JAXA/NASA, e outros provedores excluídos continuam fora.
 - PR de trabalho: revisão e CI devem passar antes de qualquer mescla. Não alterar a `main` automaticamente.
+
+## Evidência real posterior — 18/11/2026, 11h04 UTC
+- Workflow: https://github.com/gabilinsj-cyber/Blaise-/actions/runs/44291283030
+- **92/92 pontos IBGE verificados** para **temperatura prevista GFS 0,25°** no mesmo subconjunto GRIB2, uma leitura remota do campo TMP a 2 m, seguida de 92 buscas locais por coordenada usando ecCodes.
+- Modelo emitido às **06:00 UTC**, válido às **09:00 UTC**, auditado às **11:04 UTC**, com `state: FULL`. Observações instrumentais certificadas: **nenhuma**; dados de previsão, tipo **P**.
+- Variação espacial da amostra: **17,16 °C a 22,62 °C**. Exemplo para IBGE `3304557`: **21,56 °C** em ponto interior ao polígono municipal (não necessariamente centro urbano ou estação física).
+- O resultado é histórico de staging: não inferir previsão atual depois da validade, não ativar coleta automática e não publicar a leitura sem cache, políticas de liberação, autorização comercial, QA end-to-end e integração ao backend real.
+- Arquivo de evidência: artifact `blaise-rj-noaa-gfs-atmos-one-point-proof`, entrada `noaa-gfs-rj-92-temperature.json`; nenhum dado de usuário, pagamento ou credencial é incluído.
