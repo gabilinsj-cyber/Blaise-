@@ -99,7 +99,7 @@ test('provider 6h schema parses seven auditable numerical comparison fields',()=
 test('no fabricated missing values; invalid units not claimed as verified',()=>{
  const p=sample();delete p.data_6h.relativehumidity_mean;
  p.data_6h.precipitation[0]=null;
- p.units.windspeed='m/s';
+ p.units.windspeed='unknown-unit';
  const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
   latitude:target.lat,longitude:target.lon,nowMs:NOW});
  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
@@ -110,6 +110,27 @@ test('no fabricated missing values; invalid units not claimed as verified',()=>{
  assert.ok(r.auditBlockers.includes('SEVEN_FIELD_COVERAGE_INCOMPLETE'));
  assert.equal(r.coverage.forecastHumidityMeanSixHourPct,'UNAVAILABLE_NOT_IN_RESPONSE');
  assert.equal(r.values.find(x=>x.field==='forecastPrecipitationSixHourMm').values[0],null);
+});
+test('recognized meteoblue m/s wind metadata is converted to km/h without guessing',()=>{
+ const p=sample();p.units.windspeed='ms-1';
+ const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(r.unitMetadataVerified,true);
+ assert.equal(r.windUnitConversionApplied,true);
+ assert.equal(r.auditReadyForPrivateReview,true);
+ const mean=r.values.find(x=>x.field==='forecastWindMeanSixHourKmh');
+ const max=r.values.find(x=>x.field==='forecastWindMaxSixHourKmh');
+ assert.equal(mean.unit,'km/h');
+ assert.equal(mean.values[0],36);
+ assert.equal(max.values[0],54);
+ assert.equal(max.semantics,'SIX_HOUR_MAX_WIND_SPEED_NOT_GUST');
+ const invalid=sample();invalid.units.windspeed='knots';
+ const dropped=parseMeteoblueBasic6h({payload:invalid,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(dropped.auditReadyForPrivateReview,false);
+ assert.equal(dropped.coverage.forecastWindMeanSixHourKmh,'UNAVAILABLE_WIND_UNIT_NOT_VERIFIED');
+ assert.equal(dropped.values.some(x=>x.field==='forecastWindMeanSixHourKmh'),false);
 });
 test('reject invalid lengths, physical range, wrong point and six-hour timeline',()=>{
  const bad=sample();bad.data_6h.precipitation=[1];
