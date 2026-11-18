@@ -148,16 +148,17 @@ class AdminScientificActivity : ComponentActivity() {
                                     "As unidades e os horários precisam ser verificados na resposta real.")
                                 Text("Oferta inicial: 10.000.000 créditos • limite interno: " +
                                     "8.000.000 • reserva planejada: 2.000.000.")
-                                Text("Cada consulta basic-6h: 4.000 créditos previstos. " +
-                                    "Máximo 4/dia UTC; 24h por município; cache 6h.")
+                                Text("Cada consulta basic-6h: 4.000 créditos registrados no fornecedor. " +
+                                    "Máximo 1/dia UTC no Firestore; 24h por município; cache 6h.")
                                 Text("Vencimento informado: ${AdminCollectorReadiness.METEOBLUE_EXPIRY_DATE}.")
                                 Text("Uso no painel meteoblue (${AdminCollectorReadiness.METEOBLUE_PROVIDER_PERIOD_LABEL}): " +
                                     "${AdminCollectorReadiness.METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD} créditos.")
-                                Text("ATENÇÃO: limite DIÁRIO da chave visto no painel: " +
-                                    "${AdminCollectorReadiness.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED} créditos. " +
-                                    "Este número NÃO é o saldo. Reduzir para no máximo " +
-                                    "${AdminCollectorReadiness.METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT} " +
-                                    "antes de nova auditoria isolada.")
+                                Text("A titular confirmou ter SALVO o limite diário da chave atual: " +
+                                    "${AdminCollectorReadiness.METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED} " +
+                                    "créditos/dia UTC. Confirmação independente na API: PENDENTE.")
+                                Text("A captura ANTERIOR mostrava limite de " +
+                                    "${AdminCollectorReadiness.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED} por dia. " +
+                                    "Limite diário e saldo anual são informações diferentes.")
                                 Text("SEGURANÇA: chave mostrada em captura. Rotação pendente; " +
                                     "não executar consulta real nem revelar chave na interface.")
                                 Text("Saldo atual no fornecedor: " +
