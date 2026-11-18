@@ -20,7 +20,10 @@ const normalizeUtc=(s)=>{
   const canonical=s.replace(' ','T').replace(/(?:Z|\+00:00)$/,'');
   const suffix=(canonical.length===16?':00':'')+'Z';
   const d=new Date(canonical+suffix);
-  return Number.isFinite(d.getTime())?d.toISOString():null;
+  if(!Number.isFinite(d.getTime()))return null;
+  // Date.parse normalizes invalid dates such as February 30; do not allow them.
+  return d.toISOString().slice(0,19)===canonical+((canonical.length===16)?':00':'')
+    ?d.toISOString():null;
 };
 const unitNorm=(x)=>typeof x==='string'?x.trim().toLowerCase():null;
 const matchesUnit=(given,want)=>{
@@ -41,10 +44,19 @@ function unitsVerified(units){
   [['relativehumidity'],'%'],
   [['sealevelpressure'],'hPa']
  ];
- return groups.every(([names,expected])=>{
+ const base=groups.every(([names,expected])=>{
   const name=names.find(n=>Object.hasOwn(units,n));
   return name&&matchesUnit(units[name],expected);
  });
+ // Optional individual-unit metadata must never contradict shared units.
+ const individual={
+  precipitation:'mm',convective_precipitation:'mm',
+  precipitation_probability:'%',windspeed_mean:'km/h',
+  windspeed_max:'km/h',relativehumidity_mean:'%',
+  sealevelpressure_mean:'hPa'
+ };
+ return base&&Object.entries(individual).every(([name,expected])=>
+   !Object.hasOwn(units,name)||matchesUnit(units[name],expected));
 }
 export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Date.now()}={}){
  if(!payload||typeof payload!=='object'||Array.isArray(payload)||
@@ -91,6 +103,17 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
  const unitEvidence=unitsVerified(payload.units);
  const hasContent=observations.some(o=>o.values.some(v=>v!==null));
  if(!hasContent)return fail('NO_VALID_NUMERIC_FIELDS');
+ const sourceCoordinatesVerified=
+   Number.isFinite(latitude)&&Number.isFinite(longitude)&&
+   Number.isFinite(metadata.latitude)&&Number.isFinite(metadata.longitude)&&
+   Math.abs(metadata.latitude-latitude)<=0.15&&
+   Math.abs(metadata.longitude-longitude)<=0.15;
+ const completeFieldCoverage=Object.values(stats).every(x=>x==='FORECAST_VALUES_PRESENT');
+ const auditBlockers=[];
+ if(!runValid)auditBlockers.push('MODEL_RUN_NOT_VERIFIED');
+ if(!unitEvidence)auditBlockers.push('FIELD_UNITS_NOT_VERIFIED');
+ if(!sourceCoordinatesVerified)auditBlockers.push('SOURCE_COORDINATES_NOT_VERIFIED');
+ if(!completeFieldCoverage)auditBlockers.push('SEVEN_FIELD_COVERAGE_INCOMPLETE');
  // Even valid provider forecasts may share underlying ECMWF/DWD/NOAA models.
  return Object.freeze({
   status:'FORECAST_PARSED_PRIVATE_STAGING',
@@ -101,11 +124,12 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
   issuedAt:runValid?modelRun:null,
   processedAt:updated,metadataRunVerified:runValid,
   unitMetadataVerified:unitEvidence,
-  sourceCoordinatesVerified:
-    Number.isFinite(latitude)&&Number.isFinite(longitude)&&
-    Number.isFinite(metadata.latitude)&&Number.isFinite(metadata.longitude)&&
-    Math.abs(metadata.latitude-latitude)<=0.15&&
-    Math.abs(metadata.longitude-longitude)<=0.15,
+  sourceCoordinatesVerified,
+  completeFieldCoverage,
+  // Private audit completeness is NOT production/scientific homologation.
+  // This flag must be true before the collector declares its staging audit ready.
+  auditReadyForPrivateReview:auditBlockers.length===0,
+  auditBlockers:Object.freeze(auditBlockers),
   values:Object.freeze(observations),
   coverage:Object.freeze(stats),
   observational:false,officialAlert:false,
