@@ -113,6 +113,8 @@ test('no fabricated missing values; invalid units not claimed as verified',()=>{
 });
 test('recognized meteoblue m/s wind metadata is converted to km/h without guessing',()=>{
  const p=sample();p.units.windspeed='ms-1';
+ p.units.pressure=p.units.sealevelpressure;
+ delete p.units.sealevelpressure;
  const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
   latitude:target.lat,longitude:target.lon,nowMs:NOW});
  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
