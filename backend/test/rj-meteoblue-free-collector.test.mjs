@@ -193,6 +193,33 @@ test('failed or malformed upstream never refunded and cannot double-spend',async
  assert.equal(b.reason,'MUNICIPAL_COOLDOWN');
  assert.equal(calls,1);
 });
+test('exposed key may perform only one approved private budgeted staging call',async()=>{
+ const env={...goodEnv,
+   BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE:'false',
+   BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED:'true',
+   BLAISE_METEOBLUE_STAGING_ONESHOT_APPROVED:'true'
+ };
+ let calls=0;
+ const fetchImpl=async()=>{
+  calls++;
+  return {status:200,headers:{get:()=>null},text:async()=>JSON.stringify(sample())};
+ };
+ const c=createBlaiseRjMeteoblueFreeCollector({
+  env,db:dbFake(),clock:()=>NOW,fetchImpl
+ });
+ assert.equal(c.configured,true);
+ assert.equal(c.exposedKeyRestrictedToOneProviderRequest,true);
+ assert.equal((await c.collectOne({ibge:IBGE})).status,'PRIVATE_STAGING_FORECAST_READY');
+ const second=await c.collectOne({ibge:'3303906'});
+ assert.equal(second.reason,'TEMPORARY_KEY_ONESHOT_SPENT');
+ assert.equal(second.providerContacted,false);
+ assert.equal(calls,1);
+ const blocked=createBlaiseRjMeteoblueFreeCollector({
+  env:{...env,BLAISE_METEOBLUE_STAGING_ONESHOT_APPROVED:'false'},
+  db:dbFake(),clock:()=>NOW,fetchImpl
+ });
+ assert.equal(blocked.configured,false);
+});
 test('missing server Firestore fails closed even with key and enabled flag',async()=>{
  let calls=0;
  const c=createBlaiseRjMeteoblueFreeCollector({
