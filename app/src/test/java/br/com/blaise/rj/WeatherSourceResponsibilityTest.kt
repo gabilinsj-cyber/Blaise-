@@ -21,6 +21,8 @@ class WeatherSourceResponsibilityTest {
             it.id.contains("INMET") || it.id.contains("CEMADEN") ||
                 it.id.contains("JAXA") || it.id.contains("NASA")
         })
+        assertTrue(met.sectors.contains("SEM temperatura ou sensação térmica"))
+        assertTrue(list.single { it.id == "NOAA_GFS_ATMOS" }.sectors.contains("EXCLUÍDO de temperatura"))
         val coast = list.single { it.id == "NOAA_COASTWATCH" }
         val eumetsat = list.single { it.id == "EUMETSAT_OSI_SAF" }
         assertEquals(coast.originFamily, eumetsat.originFamily)
@@ -28,13 +30,13 @@ class WeatherSourceResponsibilityTest {
         val owm = list.single { it.id == "OPENWEATHER_AGENT13" }
         assertEquals("E", owm.nature)
         assertFalse(owm.currentlyIntegratedProduct)
-        assertTrue(owm.sectors.contains("temperatura e sensação térmica"))
+        assertTrue(owm.sectors.contains("Temperatura e sensação térmica"))
         assertFalse(owm.sectors.contains("avisos"))
         val hg = list.single { it.id == "HG_BRASIL_WEATHER_PRO" }
         assertEquals("E", hg.nature)
         assertEquals("HG_BRASIL_AGGREGATED", hg.originFamily)
         assertFalse(hg.currentlyIntegratedProduct)
-        assertTrue(hg.sectors.contains("autorização escrita"))
+        assertTrue(hg.sectors.contains("autorização escrita recebida"))
         assertTrue(hg.sectors.contains("Não comprova estação física"))
         val meteoblue = list.single { it.id == "METEOBLUE_NEMS10" }
         assertEquals("P", meteoblue.nature)
@@ -59,7 +61,7 @@ class WeatherSourceResponsibilityTest {
                 state.contains("AGUARDANDO ASSINATURA E AUTORIZAÇÃO COMERCIAL"))
         }
         assertTrue(WeatherSourceResponsibilities.availability(
-            "HG_BRASIL_WEATHER_PRO", true, true, true).contains("AGUARDANDO"))
+            "HG_BRASIL_WEATHER_PRO", true, true, true).contains("ASSINATURA ADIADA"))
         assertEquals("COLETA DO PRODUTO NÃO HOMOLOGADA",
             WeatherSourceResponsibilities.availability("DWD_ICON", true, true, true))
         assertEquals("PREVISÃO VALIDADA NO BACKEND",
