@@ -11,6 +11,7 @@ const sources = Object.freeze({
   // INMET and CEMADEN deliberately absent: internal Brazilian comparison
   // inputs are not eligible as data suppliers to Blaise V6 RJ.
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
+  OPENWEATHER_ONECALL4_CURRENT: 'E', HG_BRASIL_WEATHER_PRO: 'E',
   NOAA_GFS_WAVE: 'P', ECMWF_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
   NOAA_GLM: 'O',
   EUMETSAT_SAT: 'O', EUMETSAT_OSI_SAF_SST: 'E',
@@ -26,8 +27,9 @@ export const RJ_METEOROLOGY_SOURCE_CATEGORIES = sources;
 // Each entry is [source ID, O/E/P]. Some derived/model-assisted quantities
 // legitimately use E rather than the model's usual forecast category P.
 const definitions = [
-  ['temperatureC','°C',-60,65,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P'],['INPE_CPTEC','P']]],
-  ['feelsLikeC','°C',-80,80,[['DWD_ICON_GLOBAL','E'],['NOAA_GFS','E'],['ECMWF_IFS','E']]],
+  // 18/11/2026: strict thermal allowlist; no NOAA, Climatempo or ECMWF.
+  ['temperatureC','°C',-60,65,[['HG_BRASIL_WEATHER_PRO','E'],['OPENWEATHER_ONECALL4_CURRENT','E'],['DWD_ICON_GLOBAL','P']]],
+  ['feelsLikeC','°C',-80,80,[['OPENWEATHER_ONECALL4_CURRENT','E']]],
   ['humidityPct','%',0,100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['uvIndex','index',0,25,[['NOAA_UVI','P']]],
   ['uvClearSkyIndex','index',0,25,[['COPERNICUS_CAMS_UV_VIA_MET_NO','P']]],
