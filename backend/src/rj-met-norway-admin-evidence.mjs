@@ -10,8 +10,7 @@ import {
 } from './rj-met-norway-locationforecast.mjs';
 
 const supported=Object.freeze([
-  ['temperatureC','temperatureC','P'],
-  ['feelsLikeC','feelsLikeC','E'],
+  // Temperature and sensation excluded by 18/11/2026 operator policy.
   ['humidityPct','humidityPct','P'],
   ['pressureHpa','pressureHpa','P'],
   ['dewPointC','dewPointC','E'],
