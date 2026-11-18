@@ -32,8 +32,9 @@ export function projectRjInternationalForecast(forecast,{now=Date.now()}={}){
     ibge:forecast.ibge,sourceId:source,modelOrigin:weatherOrigin,
     uvOrigin,kind:RJ_FORECAST_PUBLIC_STATUS,
     issuedAt:forecast.issuedAt,validAt:forecast.validAt,checkedAt:forecast.checkedAt,
-    temperatureC:bounded(v.temperatureC,-60,65),
-    feelsLikeC:bounded(v.feelsLikeC,-80,80),
+    // ECMWF via MET Norway is no longer approved for thermal display.
+    temperatureC:null,
+    feelsLikeC:null,
     humidityPct:bounded(v.humidityPct,0,100),
     pressureHpa:bounded(v.pressureHpa,800,1150),
     dewPointC:bounded(v.dewPointC,-90,65),

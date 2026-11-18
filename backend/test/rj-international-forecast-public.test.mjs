@@ -18,11 +18,11 @@ const model=()=>({
   sourceUrl:'https://api.met.no/weatherapi/locationforecast/2.0/complete',
   license:'CC BY 4.0'
 });
-test('publishes valid time-stamped ECMWF prediction, never measurement or real-time sensor',()=>{
+test('publishes nonthermal ECMWF forecast only, never temperature or sensor',()=>{
   const x=projectRjInternationalForecast(model(),{now});
   assert.equal(x.kind,RJ_FORECAST_PUBLIC_STATUS);
-  assert.equal(x.temperatureC,26.7);
-  assert.equal(x.feelsLikeC,28.4);
+  assert.equal(x.temperatureC,null);
+  assert.equal(x.feelsLikeC,null);
   assert.equal(x.uvClearSkyIndex,8);
   assert.equal(x.modelOrigin,'ECMWF_IFS');
   assert.equal(x.license,'CC BY 4.0');
@@ -43,8 +43,8 @@ test('rejects unsupported municipalities, bogus sources, nonlicensed and stale r
 });
 test('missing values never become numeric zero and UV actual index is not manufactured',()=>{
   const v=projectRjInternationalForecast({...model(),uvIsClearSky:false,
-    values:{temperatureC:25,humidityPct:null,uvClearSkyIndex:9},hourly:{}},{now});
-  assert.equal(v.humidityPct,null);
+    values:{temperatureC:25,humidityPct:65,uvClearSkyIndex:9},hourly:{}},{now});
+  assert.equal(v.humidityPct,65);
   assert.equal(v.uvClearSkyIndex,null);
   assert.equal(v.precipitationNextHourMm,null);
   assert.equal(projectRjInternationalForecast({...model(),values:{},hourly:{}},{now}),null);

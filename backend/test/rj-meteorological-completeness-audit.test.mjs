@@ -68,8 +68,9 @@ test('the same model via Meteologix or Earth Nullschool is not another independe
     {...validModel,sourceId:'METEOLOGIX'},
     {...validModel,sourceId:'EARTH_NULLSCHOOL'}
   ]);
-  assert.equal(v.verifiedValueCount,1);
-  assert.equal(v.rejectedRecordCount,2);
+  // NOAA is still allowed in nonthermal fields, but NEVER for air temperature.
+  assert.equal(v.verifiedValueCount,0);
+  assert.equal(v.rejectedRecordCount,3);
 });
 
 test('forecast is not accepted as a station observation, and no weather phenomena inherit OpenWeather thermal exception',()=>{

@@ -5,8 +5,8 @@ import {createRjAgent13TemperatureContingencyCollector} from '../src/rj-agent13-
 const NOW=Date.parse('2026-11-17T12:00:00Z');
 const KEY='b'.repeat(32); // synthetic fixture, never a real credential
 const ibge='3304557';
-const priority=(temp=null,feels=null)=>[1,2,3].map(rank=>({
-  rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
+const priority=(temp=null,feels=null)=>[1,2].map(rank=>({
+  rank,sourceId:['HG_BRASIL_WEATHER_PRO','DWD_ICON_GLOBAL'][rank-1],
   verifiedByBackend:true,
   status:rank===1&&(temp!==null||feels!==null)?'CURRENT':'UNAVAILABLE',
   validAt:new Date(NOW-60_000).toISOString(),

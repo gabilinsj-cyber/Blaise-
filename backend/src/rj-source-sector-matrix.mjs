@@ -18,16 +18,14 @@ const O=(sourceId,productId,family,role)=>product(sourceId,'O',productId,family,
 
 export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('AIR_TEMPERATURE','Temperatura do ar a 2 m',[
-    P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal via MET Norway'),
-    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação independente'),
-    P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação independente'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','modelo NEMS10 sul-americano candidato; API comercial pendente'),
-    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CONDITIONS','HG_BRASIL_AGGREGATED','exibição comercial em app paga autorizada por escrito; sem sensor instrumental identificado nem operação ativa')
-  ],'A MET Norway é um distribuidor ECMWF, não um quarto modelo nem observação de termômetro.'),
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CONDITIONS','HG_BRASIL_AGGREGATED','condições agregadas HG; exibição autorizada, contratação adiada'),
+    E('OPENWEATHER_ONECALL4_CURRENT','CURRENT_TEMPERATURE','OPENWEATHER_AGGREGATED','estimativa atual; só com licença, Secret Manager e quota'),
+    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','previsão alemã de 2 m; não termômetro observado')
+  ],'NOAA, ECMWF/MET Norway e Climatempo estão excluídas de temperatura. Comparar com referência oficial apenas internamente, sem importar dados oficiais.'),
   sector('THERMAL_SENSATION','Sensação térmica',[
-    E('MET_NORWAY_LOCATIONFORECAST_2','apparent_air_temperature','ECMWF_IFS','estimativa do modelo'),
-    E('BLAISE_VECTOR_RJ','THERMAL_FORMULAE','CALCULATED_FROM_AUDITED_INPUTS','cálculo administrativo')
-  ],'Não inventar sensação fora do domínio das fórmulas nem usar o cálculo para alarmes.'),
+    E('OPENWEATHER_ONECALL4_CURRENT','CURRENT_FEELS_LIKE','OPENWEATHER_AGGREGATED','estimativa de sensação térmica atual do provedor'),
+    E('BLAISE_VECTOR_RJ','THERMAL_FORMULAE','CALCULATED_FROM_AUDITED_INPUTS','cálculo com entradas HG ou DWD homologadas, quando domínio físico permitir')
+  ],'HG não fornece sensação térmica direta comprovada. Sem entradas válidas e fórmula aplicada, exibir indisponível. NOAA/Climatempo/ECMWF excluídos.'),
   sector('AIR_PRESSURE_HUMIDITY','Umidade e pressão',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
@@ -94,6 +92,10 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
 export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   automaticCollection:false,publishedToAndroid:false,
   domesticComparisonOnly:Object.freeze(['INMET','CEMADEN']),
+  thermalOfficialVisualReviewOnly:Object.freeze(['INMET','DEFESA_CIVIL_RJ']),
+  thermalOfficialAutoFetchEnabled:false,
+  thermalApprovedDisplaySources:Object.freeze(['HG_BRASIL_WEATHER_PRO','OPENWEATHER_ONECALL4_CURRENT','DWD_ICON_GLOBAL']),
+  thermalExplicitlyDisallowed:Object.freeze(['NOAA_GFS','ECMWF_IFS','MET_NORWAY_LOCATIONFORECAST_2','CLIMATEMPO']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
   expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),

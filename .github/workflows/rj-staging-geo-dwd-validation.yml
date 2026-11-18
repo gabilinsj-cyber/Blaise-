@@ -3,6 +3,11 @@ name: RJ IBGE Geometry + DWD Numeric Staging
 # First PR audit validated 92 official IBGE points and decoded DWD GRIB on 17/11/2026.
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - backend/scripts/probe-dwd-icon-numeric-staging.mjs
+      - backend/test/rj-dwd-icon-thermal-staging.test.mjs
+      - .github/workflows/rj-staging-geo-dwd-validation.yml
 permissions:
   contents: read
 jobs:
@@ -35,8 +40,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2
           grib_get -V
-      - name: Decode one real ICON-global temperature cycle for RJ when location is supported
-        run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live
+      - name: Verify DWD metadata/IBGE constraints and one real ICON temperature point
+        run: |
+          node --check backend/scripts/probe-dwd-icon-numeric-staging.mjs
+          node --test backend/test/rj-dwd-icon-thermal-staging.test.mjs
+          node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

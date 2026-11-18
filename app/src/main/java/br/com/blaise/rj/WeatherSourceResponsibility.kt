@@ -11,21 +11,21 @@ data class WeatherSourceResponsibility(
 object WeatherSourceResponsibilities {
     val providers = listOf(
         WeatherSourceResponsibility("MET_NO_ECMWF", "MET Norway / ECMWF IFS",
-            "Temperatura, umidade, pressão, vento, nuvens, chuva prevista", "P/E",
+            "Umidade, pressão, vento, nuvens e chuva prevista; SEM temperatura ou sensação térmica", "P/E",
             "ECMWF_IFS", true),
         WeatherSourceResponsibility("NOAA_GFS_ATMOS", "NOAA GFS",
-            "Comparação de temperatura, chuva, vento e sistemas", "P", "NOAA_GFS", false),
+            "Chuva, vento e sistemas; EXCLUÍDO de temperatura e sensação térmica", "P", "NOAA_GFS", false),
         WeatherSourceResponsibility("DWD_ICON", "DWD ICON Global • Alemanha",
             "Temperatura do ar a 2 m PREVISTA para o RJ, vento, pressão e chuva futura. Modelo alemão, não estação física local.",
             "P", "DWD_ICON", false),
         WeatherSourceResponsibility("OPENWEATHER_AGENT13", "OpenWeather One Call 4.0",
-            "Contingência somente de temperatura e sensação térmica estimadas quando DWD, NOAA e ECMWF estiverem indisponíveis.",
+            "Temperatura e sensação térmica estimadas, com quota e validação; NOAA e ECMWF não são termômetros prioritários.",
             "E", "OPENWEATHER_MODELED_CURRENT", false),
         WeatherSourceResponsibility("HG_BRASIL_WEATHER_PRO", "HG Brasil Weather",
-            "Condições atuais agregadas: temperatura, umidade, vento e nuvens. Plano ainda não contratado; requer autorização escrita para exibir dados no app pago. Não comprova estação física.",
+            "Temperatura atual agregada e outros campos; autorização escrita recebida, assinatura adiada. Não comprova estação física ou sensação térmica direta.",
             "E", "HG_BRASIL_AGGREGATED", false),
         WeatherSourceResponsibility("METEOBLUE_NEMS10", "meteoblue • NEMS10 / MultiModel",
-            "Comparação de previsões de temperatura, vento, chuva futura e nuvens; API comercial não homologada.",
+            "Comparação de vento, chuva futura e nuvens; NÃO usar para temperatura/térmica. API não homologada.",
             "P", "METEOBLUE_NEMS10", false),
         WeatherSourceResponsibility("NOAA_GFS_WAVE", "NOAA GFS-Wave",
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
@@ -61,7 +61,7 @@ object WeatherSourceResponsibilities {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
         "METEOBLUE_NEMS10" -> "PREVISÃO CANDIDATA • API E LICENÇA NÃO HOMOLOGADAS"
-        "HG_BRASIL_WEATHER_PRO" -> "AGUARDANDO ASSINATURA E AUTORIZAÇÃO COMERCIAL • NÃO É ESTAÇÃO MEDIDA"
+        "HG_BRASIL_WEATHER_PRO" -> "AUTORIZAÇÃO COMERCIAL RECEBIDA • ASSINATURA ADIADA • SEM COLETA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "CAMS_UV_VIA_MET" -> if (hasClearSkyUv) "PREVISÃO DE CÉU LIMPO VALIDADA" else "SEM DADO VÁLIDO RECEBIDO"

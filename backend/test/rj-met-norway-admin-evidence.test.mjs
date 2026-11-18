@@ -19,14 +19,13 @@ test('user-authorized CAMS via MET Norway is clear-sky UV, not actual UV',()=>{
   const records=projectMetNorwayAdminCoverageEvidence(model,{
     termsAcceptedByHuman:true,backendVerified:true
   });
-  assert.ok(records.length>=7);
+  assert.ok(records.length>=5);
   assert.ok(records.some(x=>x.field==='uvClearSkyIndex'&&
     x.sourceId==='COPERNICUS_CAMS_UV_VIA_MET_NO'&&x.value===9.1));
   assert.ok(records.every(x=>x.field!=='uvIndex'));
-  assert.ok(records.filter(x=>x.field==='temperatureC').every(x=>
-    x.sourceId==='ECMWF_IFS'&&x.independentFromDirectEcmwf===false));
+  assert.ok(records.every(x=>x.field!=='temperatureC'&&x.field!=='feelsLikeC'));
   const coverage=buildInternalRjMeteorologyCoverage(records,{now});
-  assert.equal(coverage.fields.find(x=>x.field==='temperatureC').coveredMunicipalities,1);
+  assert.equal(coverage.fields.find(x=>x.field==='temperatureC').coveredMunicipalities,0);
   assert.equal(coverage.fields.find(x=>x.field==='uvClearSkyIndex').coveredMunicipalities,1);
   assert.equal(coverage.fields.find(x=>x.field==='uvIndex').coveredMunicipalities,0);
   assert.equal(coverage.publishedToSubscriber,false);
