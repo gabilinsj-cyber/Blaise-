@@ -9,6 +9,9 @@ class BlaiseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         if (FirebaseBootstrap.initialize(this)) {
+            // Admin APK authenticates against Firebase but must never enroll
+            // itself as a customer P0 push subscriber on startup.
+            if (packageName == "br.com.blaise.rj.admin") return
             runCatching {
                 FirebaseMessaging.getInstance().subscribeToTopic(BlaiseMessagingService.P0_TOPIC)
             }
