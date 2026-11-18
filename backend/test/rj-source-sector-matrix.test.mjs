@@ -22,11 +22,13 @@ test('sector registry lists approved roles without claiming live download',()=>{
   assert.equal(policy.publishedToAndroid,false);
   assert.equal(policy.notLiveCollection,true);
 });
-test('MET Norway is same underlying ECMWF family and no duplicate fourth thermometer',()=>{
+test('thermal sectors exclude NOAA/ECMWF and allow HG/OpenWeather/DWD only',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
   const independent=getUnderlyingFamiliesForSector(air.id);
-  assert.deepEqual(independent,['ECMWF_IFS','DWD_ICON','NOAA_GFS','METEOBLUE_NEMS10','HG_BRASIL_AGGREGATED']);
-  assert.equal(air.products.length,5);
+  assert.deepEqual(independent,['HG_BRASIL_AGGREGATED','OPENWEATHER_AGGREGATED','DWD_ICON']);
+  assert.equal(air.products.length,3);
+  assert.deepEqual(air.products.map(x=>x.sourceId),policy.thermalApprovedDisplaySources);
+  assert.equal(policy.thermalOfficialAutoFetchEnabled,false);
   const meta=policy.meteoblueComparison;
   assert.equal(meta.nominalGridKm,10);
   assert.equal(meta.commercialApiLicenseVerified,false);
@@ -35,7 +37,7 @@ test('MET Norway is same underlying ECMWF family and no duplicate fourth thermom
   assert.equal(meta.androidObservedDataEnabled,false);
   assert.equal(meta.sameEcmwfNoaaDwdInputsNotIndependent,true);
   assert.equal(meta.learningMultiModelNotIndependentOfConstituentModels,true);
-  for (const id of ['AIR_TEMPERATURE','AIR_PRESSURE_HUMIDITY','WIND_GUST','RAIN_NEXT_HOUR','CLOUDS']) {
+  for (const id of ['AIR_PRESSURE_HUMIDITY','WIND_GUST','RAIN_NEXT_HOUR','CLOUDS']) {
     const sector=matrix.find(x=>x.id===id);
     const mb=sector.products.filter(x=>x.sourceId==='METEOBLUE_NEMS10');
     assert.equal(mb.length,1);
@@ -45,7 +47,13 @@ test('MET Norway is same underlying ECMWF family and no duplicate fourth thermom
   for (const id of ['SATELLITE_VISUAL_RJ','SATELLITE_VISUAL_ATLANTIC','LIGHTNING','SST','RIVERS_FLOODS']) {
     assert.ok(!matrix.find(x=>x.id===id).products.some(x=>x.sourceId==='METEOBLUE_NEMS10'));
   }
-  assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'ECMWF_IFS');
+  assert.equal(matrix.find(s=>s.id==='THERMAL_SENSATION').products[0].family,'OPENWEATHER_AGGREGATED');
+  for (const sector of ['AIR_TEMPERATURE','THERMAL_SENSATION']) {
+    const ids=matrix.find(s=>s.id===sector).products.map(x=>x.sourceId);
+    assert.ok(!ids.includes('NOAA_GFS'));
+    assert.ok(!ids.includes('ECMWF_IFS'));
+    assert.ok(!ids.includes('CLIMATEMPO'));
+  }
 });
 test('HG Brasil Pro remains an unpurchased contract-gated current conditions candidate, not station proof',()=>{
   const plan=policy.hgBrasilPro;
