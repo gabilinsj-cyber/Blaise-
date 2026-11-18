@@ -200,6 +200,21 @@ test('day change cannot bypass 24h city cooldown; expiry stops before billed cal
  const expiry=Date.parse('2027-11-18T00:00:00Z');
  assert.equal((await store.reserve('3303906',expiry)).reason,'TRIAL_NOT_VALID_AT_REQUEST_TIME');
 });
+test('private cached forecast cannot outlive the free-trial expiry date',async()=>{
+ let now=Date.parse('2027-11-17T23:50:00Z');
+ const db=dbFake();
+ const store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>now});
+ const parsed=parseMeteoblueBasic6h({
+  payload:sample(),ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(parsed.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ await store.setCached(IBGE,parsed);
+ assert.equal((await store.getCached(IBGE))?.ibge,IBGE);
+ now=Date.parse('2027-11-18T00:00:00Z');
+ assert.equal(await store.getCached(IBGE),null);
+ assert.equal((await store.reserve(IBGE,now)).reason,'TRIAL_NOT_VALID_AT_REQUEST_TIME');
+});
 test('off by default; no Firestore or key must mean zero provider calls',async()=>{
  let calls=0;
  const fetchImpl=async()=>{calls++;throw Error('should not be called')};
