@@ -39,16 +39,19 @@ class FinalDashboardSpecTest {
         assertEquals(900, FinalDashboardSpec.THERMAL_DAILY_PROVIDER_BUDGET)
         assertEquals("OpenWeather/Agente 13", FinalDashboardSpec.THERMAL_LAST_RESORT)
         assertFalse(FinalDashboardSpec.officialSources.any { it.contains("Agente 13") })
+        assertFalse(FinalDashboardSpec.DOMESTIC_STATION_COLLECTION_IN_SUBSCRIBER)
+        assertEquals(listOf("HG Brasil Pro (não contratado)", "OpenWeather/Agente 13", "DWD/ICON Global"),
+            FinalDashboardSpec.thermalSourcePriority)
     }
 
     @Test fun `approved source catalog excludes retired providers and retains DWD NOAA meteoblue RAMMB`() {
         val names = FinalDashboardSpec.officialSources
         assertTrue(names.any { it.contains("DWD/ICON") })
         assertTrue(names.any { it.contains("NOAA GOES-19") })
-        assertTrue(names.any { it.contains("meteoblue NEMS10") })
+        assertTrue(names.any { it.contains("meteoblue Free") })
         assertTrue(names.any { it.contains("RAMMB/CIRA") })
         assertTrue(names.any { it.contains("OpenWeather") })
-        for (denied in listOf("NASA", "JAXA", "INEA", "Marinha", "Windy", "Zoom Earth")) {
+        for (denied in listOf("NASA", "JAXA", "INEA", "Marinha", "Windy", "Zoom Earth", "EUMETSAT", "NEMS10")) {
             assertFalse(names.any { it.contains(denied, ignoreCase = true) })
         }
     }
