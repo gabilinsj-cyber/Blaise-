@@ -236,11 +236,38 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   if(!process.argv.includes('--live')){
     console.error('--live required; no DWD download');process.exitCode=2;
   }else{
-    const result=await probeDwdIconStaging();
+    const statewide=process.argv.includes('--statewide');
+    const result=statewide?await probeDwdIconStatewideStaging():
+      await probeDwdIconStaging();
     const dir=new URL('../../evidence/international-sources/',import.meta.url);
     await mkdir(dir,{recursive:true});
-    await writeFile(new URL('../../evidence/international-sources/dwd-icon-rio.json',import.meta.url),
-      JSON.stringify(result,null,2)+'\n',{mode:0o600});
-    console.log('BLAISE_DWD_REAL_RESULT='+JSON.stringify(result));
+    if(statewide){
+      await writeFile(new URL('../../evidence/international-sources/dwd-icon-rj-92.json',import.meta.url),
+        JSON.stringify(result,null,2)+'\n',{mode:0o600});
+      // Preserve the existing one-city administrative audit using only a
+      // real numerical result extracted from the very SAME single DWD grid.
+      const rio=result.records.find(x=>x.ibge===DWD_RJ_RESEARCH_POINT.ibge);
+      const single=rio?Object.freeze({
+        ...result,...rio,
+        contract:'BLAISE_DWD_ICON_GLOBAL_RJ_NUMERIC_STAGING_V1',
+        status:'DWD_MODEL_POINT_VALIDATED',
+        publishedToAndroid:false,productionChanged:false
+      }):no(result.reason??'RJ_GRID_POINT_UNAVAILABLE',result.checkedAt);
+      await writeFile(new URL('../../evidence/international-sources/dwd-icon-rio.json',import.meta.url),
+        JSON.stringify(single,null,2)+'\n',{mode:0o600});
+      console.log('BLAISE_DWD_RJ_92_REAL_RESULT='+JSON.stringify({
+        contract:result.contract,status:result.status,
+        verifiedMunicipalities:result.verifiedMunicipalities,
+        missingMunicipalities:result.missingMunicipalities,
+        issuedAt:result.issuedAt??null,validAt:result.validAt??null,
+        checkedAt:result.checkedAt,sourceUrl:result.sourceUrl??null,
+        rioTemperatureC:rio?.valueC??null,
+        officialObservation:false,publishedToAndroid:false
+      }));
+    }else{
+      await writeFile(new URL('../../evidence/international-sources/dwd-icon-rio.json',import.meta.url),
+        JSON.stringify(result,null,2)+'\n',{mode:0o600});
+      console.log('BLAISE_DWD_REAL_RESULT='+JSON.stringify(result));
+    }
   }
 }
