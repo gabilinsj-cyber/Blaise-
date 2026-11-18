@@ -10,6 +10,9 @@ on:
       - backend/src/noaa-gfs-atmos-statewide.mjs
       - backend/test/noaa-gfs-atmos-statewide.test.mjs
       - backend/scripts/probe-noaa-gfs-statewide-staging.mjs
+      - backend/src/noaa-gfs-admin-coverage-bridge.mjs
+      - backend/test/noaa-gfs-admin-coverage-bridge.test.mjs
+      - backend/scripts/audit-noaa-gfs-statewide-proof.mjs
       - .github/workflows/rj-noaa-gfs-atmos-staging.yml
   workflow_dispatch:
 permissions:
@@ -29,6 +32,8 @@ jobs:
           node --test backend/test/noaa-gfs-atmos-collector.test.mjs
           node --check backend/src/noaa-gfs-atmos-statewide.mjs
           node --test backend/test/noaa-gfs-atmos-statewide.test.mjs
+          node --check backend/src/noaa-gfs-admin-coverage-bridge.mjs
+          node --test backend/test/noaa-gfs-admin-coverage-bridge.test.mjs
       - name: Install scientific GRIB2 decoder
         run: |
           sudo apt-get update -qq
@@ -38,6 +43,8 @@ jobs:
         run: node backend/scripts/probe-noaa-gfs-atmos-staging.mjs --live
       - name: Decode same model grid for 92 verified Rio municipality reference points
         run: node backend/scripts/probe-noaa-gfs-statewide-staging.mjs --live
+      - name: Validate real 92-city NOAA model evidence in internal Blaise O/E/P coverage gate
+        run: node backend/scripts/audit-noaa-gfs-statewide-proof.mjs
       - name: Store scientific evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -46,4 +53,5 @@ jobs:
           path: |
             evidence/international-sources/noaa-gfs-atmos-rio.json
             evidence/international-sources/noaa-gfs-rj-92-temperature.json
+            evidence/international-sources/noaa-gfs-rj-92-admin-coverage.json
           if-no-files-found: warn
