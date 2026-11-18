@@ -255,7 +255,8 @@ fun BlaiseApp(
     }
     LaunchedEffect(powerOn, lifecycle) {
         rioStations = emptyList()
-        if (!powerOn) return@LaunchedEffect
+        // INMET/CEMADEN are admin comparison only; no subscriber-side station calls.
+        if (!powerOn || !FinalDashboardSpec.DOMESTIC_STATION_COLLECTION_IN_SUBSCRIBER) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 rioStations = weatherClient.currentRioStations()
@@ -265,7 +266,8 @@ fun BlaiseApp(
     }
     LaunchedEffect(powerOn, city1.ibgeCode, city2.ibgeCode, lifecycle) {
         cityWeather = emptyMap()
-        if (!powerOn) return@LaunchedEffect
+        // INMET/CEMADEN are admin comparison only; no subscriber-side station calls.
+        if (!powerOn || !FinalDashboardSpec.DOMESTIC_STATION_COLLECTION_IN_SUBSCRIBER) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 val rio = RioMunicipalities.all.first { it.ibgeCode == 3304557 }
