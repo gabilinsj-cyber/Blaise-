@@ -25,6 +25,8 @@ test('NOAA wave product URLs use official grib filter and correct distinct varia
  assert.equal(a.searchParams.has('var_SWPER'),false);
  assert.equal(b.searchParams.get('var_SWPER'),'on');
  assert.equal(b.searchParams.has('var_HTSGW'),false);
+ assert.equal(b.searchParams.get('lev_1_in_sequence'),'on');
+ assert.equal(b.searchParams.has('lev_surface'),false);
  assert.throws(()=>noaaRjMarineFieldUrl(cycle,0,'temperatureC'));
 });
 test('one GRIB per field covers 3 offshore points as P not station observation',async()=>{
