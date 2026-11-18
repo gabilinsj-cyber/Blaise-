@@ -16,6 +16,7 @@ Em 17/11/2026 às 21:03 BRT houve resposta escrita da HG Brasil ao pedido de aut
 - Valor de referência **R$ 49,90 por mês** (preço anunciado no momento do pedido, confirmar no momento da assinatura).
 - **Limitação científica determinante:** a HG Brasil **não disponibiliza identificação individualizada da estação ou fonte original por campo retornado**. Logo, temperatura, vento, umidade, chuva agregada e demais condições não podem ser apresentadas como leitura instrumental `O` de um sensor identificado. Usar `E` (agregado/estimado) para condições atuais e `P` para previsão, sujeito ao contrato do campo.
 - A autorização escrita **não é contratação**: plano **não adquirido**, chave HG não instalada, zero consultas HG habilitadas, nenhum pagamento autorizado até a etapa de lançamento.
+- E-mail de boas-vindas da HG Brasil enviado em 18/11 informou que **nenhuma chave de API havia sido criada e nenhuma primeira requisição havia sido feita** até a emissão daquela mensagem. Cadastro gratuito não equivale a plano Pro ativo; não iniciar coleta.
 
 Referências: correspondência Gmail `Solicitação de autorização comercial — API HG Weather no aplicativo Blaise V6 RJ`, com resposta de 17/11; plano técnico e gates do repositório em `backend/src/rj-hgbrasil-pro-plan.mjs`; PR #158.
 
@@ -74,6 +75,7 @@ Alterações implementadas nesta branch de **desenvolvimento, não no APK existe
 3. `WeatherSourceResponsibility.kt`: HG com estado de autorização sem contrato e falta de estação individual, meteoblue mLM corretamente classificada `P`, não `NEMS10` nem fonte ativa.
 4. **APK administrativo**: após autenticação por claim Firebase `blaise_admin`, exibe **status documental** de HG, Climatempo, DWD, OpenWeather, meteoblue, NOAA e avisos oficiais, sem consultar provedores nem revelar dados de clientes. Não diz que o saldo real foi consultado. Os cálculos administrativos originais são preservados.
 5. Testes de regressão Kotlin para fonte térmica, exclusões, orçamento e assinaturas não ativadas. Sem imagens de mapa de terceiros, sem novos endpoints de usuário, sem chave ou rastreamento de localização/voz.
+6. `ScientificMemoryPolicy` no ADM: cálculo meteorológico automático que consome temperatura prevista `P` aceita somente DWD/ICON, não aceita NOAA/ECMWF/MET Norway. Cálculo **manual** permanece isolado e explicitamente não oficial.
 
 Aparência e disposição das telas originais permanecem as mesmas; esta atualização corrige **os conteúdos, o contrato de fontes e o painel administrativo**, não substitui a interface por um protótipo.
 
