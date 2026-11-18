@@ -30,7 +30,9 @@ Fontes:
 - produtos Sea, Air, Nowcast, Warnings, Maps e Measurements requerem verificação de disponibilidade e plano; **não presumir incluídos na gratuidade**, nem que nowcasting de chuva seja pluviômetro observado.
 - meteoblue permanece **excluída de temperatura do ar e sensação térmica** por política operacional atual até decisão expressa do proprietário; não preenche automaticamente `rainNowMm`, `rainAccumulatedMm`, `oceanRainMm` ou `riverLevelM`.
 
-**Comercial**: oferta pública Premium Weather API indica **€ 2.400 por ano** como configuração inicial exibida na página, variando por pacote/calls/contrato/suporte. Não é orçamento assinado e não inclui garantia de publicação de dados de terceiros. Após a Free API: créditos pré-pagos ou contrato anual. **Não realizar compra ou cadastro em nome do usuário**.
+**Tabela oficial da Free API**: inclui Basic (chuva futura/vento/umidade/pressão/UV), Clouds, Air (CAPE/instabilidade), Trend de 14 dias, Agro e Wind. A **resolução máxima grátis é de 1 hora**; não inclui `Sea`, `Nowcast`, `Current`, `Multimodel`, `Measurements`, `Warnings`, `History` ou `Maps`. Portanto não substitui SST observada, chuva medida agora ou os raios GLM.
+
+**Comercial**: a tabela comparativa oficial anuncia Enterprise **a partir de € 100/mês**, sob configuração/contrato; a oferta pública Premium Weather API indica **€ 2.400 por ano** como configuração inicial exibida na página, variando por pacote/calls/contrato/suporte. Não é orçamento assinado e não inclui garantia de publicação de dados de terceiros. Após a Free API: créditos pré-pagos ou contrato anual. **Não realizar compra ou cadastro em nome do usuário**.
 
 A meteoblue pertence ao mesmo grupo controlador de Windy.com desde 2024, mas são produtos e serviços separados; **Windy.com permanece excluído** do Blaise como solicitado.
 
