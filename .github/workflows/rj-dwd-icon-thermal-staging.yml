@@ -15,6 +15,7 @@ on:
       - backend/scripts/audit-dwd-icon-92-staging.mjs
       - backend/src/rj-dwd-icon-v1-source.mjs
       - backend/test/rj-dwd-icon-v1-source.test.mjs
+      - backend/test/rj-dwd-icon-v1-migration.test.mjs
       - .github/workflows/rj-dwd-icon-thermal-staging.yml
   workflow_dispatch:
 permissions:
@@ -39,6 +40,7 @@ jobs:
           node --test backend/test/rj-dwd-icon-92-real.test.mjs
           node --check backend/src/rj-dwd-icon-v1-source.mjs
           node --test backend/test/rj-dwd-icon-v1-source.test.mjs
+          node --test backend/test/rj-dwd-icon-v1-migration.test.mjs
       - name: Install GRIB2 and BZIP2 decoders
         run: |
           sudo apt-get update -qq
