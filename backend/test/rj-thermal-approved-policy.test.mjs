@@ -23,7 +23,8 @@ test('allowlist contains exactly HG, OpenWeather, DWD; no NOAA or Climatempo',()
     .status,'UNAVAILABLE');
 });
 test('HG temperature first when legitimately subscribed; OpenWeather thermal E only',()=>{
-  const s=selectRjApprovedThermal({municipalityIbge:'3304557',now,candidates:[
+  const s=selectRjApprovedThermal({municipalityIbge:'3304557',now,
+    hgSubscriptionActive:true,candidates:[
     provider('DWD_ICON_GLOBAL',26,40),
     provider('OPENWEATHER_ONECALL4_CURRENT',27,31),
     provider('HG_BRASIL_WEATHER_PRO',28,90),
@@ -78,4 +79,13 @@ test('Defesa Civil warning without measured numeric temperature cannot be used a
   assert.equal(out.result,'NO_COMPARABLE_OFFICIAL_TEMPERATURE');
   assert.equal(out.differenceC,null);
   assert.equal(out.clientDataPublished,false);
+});
+
+test('HG licence without purchased active subscription cannot override OpenWeather or DWD',()=>{
+  const o=selectRjApprovedThermal({municipalityIbge:'3304557',now,candidates:[
+    provider('HG_BRASIL_WEATHER_PRO',34,44),
+    provider('OPENWEATHER_ONECALL4_CURRENT',25,28)
+  ]});
+  assert.equal(o.temperatureSource,'OPENWEATHER_ONECALL4_CURRENT');
+  assert.equal(o.temperatureC,25);
 });
