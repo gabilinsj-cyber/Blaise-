@@ -63,7 +63,8 @@ export async function regridDwdIconGlobalGrib({
   const bytes=await fetchDwdOfficialWeights(fetchImpl);
   await writeFile(archive,bytes,{mode:0o600});
   const listing=(await execCommand('tar',['-tjf',archive])).stdout.trim();
-  const members=listing.split('\n').filter(Boolean).map(x=>x.replace(/^\.\//,''));
+  // Preserve the exact archive member names (some DWD files use ./ prefix).
+  const members=listing.split('\n').filter(x=>x&&!x.endsWith('/'));
   const {target,weights}=chooseDwdWeightMembers(members);
   // Extract the two named official data files only, never arbitrary tar entries.
   await execCommand('tar',['-xjf',archive,'-C',weightsDir,
