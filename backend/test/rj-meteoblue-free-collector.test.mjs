@@ -336,7 +336,9 @@ test('failed or malformed upstream never refunded and cannot double-spend',async
  assert.equal(JSON.stringify(a).includes('SECRET_NEVER_PRINT'),false);
  const b=await c.collectOne({ibge:IBGE});
  assert.equal(b.providerContacted,false);
- assert.equal(b.reason,'MUNICIPAL_COOLDOWN');
+ // With 4,000 credits/day externally, the local DAILY gate is stricter
+ // than the same-city 24h cooldown. Both prevent additional provider calls.
+ assert.equal(b.reason,'LOCAL_DAILY_CALL_CEILING');
  assert.equal(calls,1);
 });
 test('exposed key may perform only one approved private budgeted staging call',async()=>{
