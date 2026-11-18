@@ -63,7 +63,7 @@ export function gfsRecentCandidates(now){
     return Object.freeze({issued,forecastHour,url:noaaGfsAtmosUrl(issued,forecastHour)});
   }).filter(x=>x.forecastHour<=24&&now-x.issued<24*HOUR);
 }
-async function boundedGrib(url,fetchImpl){
+export async function boundedGrib(url,fetchImpl){
   const response=await fetchImpl(url,{redirect:'error',signal:AbortSignal.timeout(12000)});
   if(!response.ok||!response.body)throw Error('GFS_HTTP_'+response.status);
   const chunks=[];let size=0;
@@ -79,7 +79,7 @@ async function boundedGrib(url,fetchImpl){
     throw Error('GFS_GRIB2_INVALID');
   return bytes;
 }
-async function readGribTemperature(bytes,point){
+export async function readGribTemperature(bytes,point){
   const dir=await mkdtemp(join(tmpdir(),'blaise-gfs-atmos-'));
   try{
     const file=join(dir,'atmos.grib2');await writeFile(file,bytes,{mode:0o600});
