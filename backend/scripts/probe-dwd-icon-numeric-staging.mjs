@@ -12,6 +12,7 @@ import {promisify} from 'node:util';
 import {pathToFileURL} from 'node:url';
 import {mkdir} from 'node:fs/promises';
 import geometry from '../src/rj-ibge-92-points.json' with {type:'json'};
+import {regridDwdIconGlobalGrib} from '../src/rj-dwd-icon-regrid.mjs';
 const exec=promisify(execFile);
 const reference=geometry.points.find(x=>x.ibge==='3304557');
 if(!reference||reference.verifiedByBackend!==true||
@@ -108,14 +109,26 @@ export async function probeDwdIconStaging({
       'T'+m[3].padStart(4,'0').slice(0,2)+':'+m[3].padStart(4,'0').slice(2)+'Z');
     if(fromMeta!==Date.parse(selection.issuedAt)||Number(m[4])!==selection.leadHours)
       return no('DWD_CYCLE_VALIDITY_MISMATCH',checkedAt);
-    // ecCodes nearest-neighbour lookup, not a guessed interpolation.
+    // ICON Global is an unstructured icosahedral mesh: its raw GRIB2 has no
+    // directly usable point coordinates. Convert with DWD's official
+    // precomputed CDO weights BEFORE querying an RJ nearest grid point.
+    let grid;
+    try{
+      grid=await regridDwdIconGlobalGrib({
+        originalFile:file,workspace:temp,fetchImpl
+      });
+    }catch(error){
+      return Object.freeze({...no('DWD_OFFICIAL_REGRID_UNAVAILABLE_'+
+        String(error?.message||'FAILED').slice(0,70),checkedAt),
+        actualGribValidated:true,validAt:selection.validAt,sourceUrl});
+    }
     let locationValue=null,nearestInfo=null;
     try{
       // -l emits nearest gridpoint value; combining it with -p value
       // caused the previous ICON staging attempt to reject the point.
       const near=(await run('grib_get',['-l',
         DWD_RJ_RESEARCH_POINT.lat+','+(DWD_RJ_RESEARCH_POINT.lon+360)+',1',
-        file])).stdout.trim();
+        grid.file])).stdout.trim();
       if(/^-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?$/.test(near)){
         const kelvin=Number(near);
         if(valid(kelvin,200,340))locationValue=Number((kelvin-273.15).toFixed(2));
@@ -132,7 +145,10 @@ export async function probeDwdIconStaging({
       latitude:DWD_RJ_RESEARCH_POINT.lat,longitude:DWD_RJ_RESEARCH_POINT.lon,
       valueC:locationValue,unit:'°C',sourceId:'DWD_ICON_GLOBAL',kind:'P',
       issuedAt:selection.issuedAt,validAt:selection.validAt,checkedAt,
-      sourceUrl,metadata,officialObservation:false,officialAlert:false,
+      sourceUrl,metadata,gridResolutionDegrees:grid.gridResolutionDegrees,
+      gridInterpolation:grid.interpolation,
+      gridWeightsUrl:grid.weightsUrl,
+      officialObservation:false,officialAlert:false,
       publishedToAndroid:false,productionChanged:false
     });
   }catch(error){
