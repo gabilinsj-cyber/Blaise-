@@ -50,7 +50,9 @@ export function createBlaiseRjMeteoblueFreeCollector({
    return fail('SHARED_CACHE_READ_FAILED');
   }
   if(cached)return Object.freeze({
-   status:'PRIVATE_STAGING_CACHE_HIT',reason:null,
+   status:cached.auditReadyForPrivateReview===true
+     ?'PRIVATE_STAGING_CACHE_HIT':'PRIVATE_STAGING_CACHE_AUDIT_INCOMPLETE',
+   reason:cached.auditReadyForPrivateReview===true?null:'PRIVATE_FIELD_AUDIT_INCOMPLETE',
    sourceId:'METEOBLUE_FREE_FORECAST',
    providerContacted:false,credentialsExposed:false,
    creditsReservedThisInvocation:0,
@@ -104,7 +106,9 @@ export function createBlaiseRjMeteoblueFreeCollector({
       providerContacted:true,creditsReservedThisInvocation:permit.creditsReserved});
   }
   return Object.freeze({
-   status:'PRIVATE_STAGING_FORECAST_READY',reason:null,
+   status:normalized.auditReadyForPrivateReview===true
+     ?'PRIVATE_STAGING_FORECAST_READY':'PRIVATE_STAGING_AUDIT_INCOMPLETE',
+   reason:normalized.auditReadyForPrivateReview===true?null:'PRIVATE_FIELD_AUDIT_INCOMPLETE',
    providerContacted:true,credentialsExposed:false,
    sourceId:'METEOBLUE_FREE_FORECAST',
    creditsReservedThisInvocation:permit.creditsReserved,
