@@ -17,6 +17,8 @@ export async function checkMeteoblueFreeKeyOnce({
   env={},municipalityIbge='3304557',fetchImpl=globalThis.fetch
 }={}){
   if(env.BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED!=='true'||
+     // The previously pictured API key is exposed: a rotated new key is required.
+     env.BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE!=='true'||
      env.BLAISE_METEOBLUE_AUTOTOPUP_DISABLED!=='true'||
      env.BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED!=='true'||
      env.BLAISE_METEOBLUE_PAID_ALLOWED==='true')
