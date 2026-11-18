@@ -262,6 +262,8 @@ test('private cache refuses expired forecast even if stored recently',async()=>{
  assert.ok(await store.getCached(IBGE));
  now=NOW+7*24*60*60_000+60*60_000;
  assert.equal(await store.getCached(IBGE),null);
+ // Even a *new* Firestore write must not revive old forecast timestamps.
+ await assert.rejects(store.setCached(IBGE,parsed),/invalid_private_cache_write/);
  const invalid={...parsed,validTimes:['bad']};
  await assert.rejects(store.setCached(IBGE,invalid),/invalid_private_cache_write/);
 });
