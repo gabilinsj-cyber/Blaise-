@@ -49,6 +49,18 @@ class AdminCollectorReadinessTest {
         assertEquals(6, AdminCollectorReadiness.METEOBLUE_CACHE_HOURS)
     }
 
+    @Test fun meteoblueScreenshotDoesNotConfuseDailyCapWithRealBalance() {
+        val x = AdminCollectorReadiness
+        assertEquals(4_000, x.METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD)
+        assertEquals(10_000_000, x.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED)
+        assertEquals(4_000, x.METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        assertTrue(x.METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
+        assertEquals(null, x.meteoblueCurrentProviderCredits)
+        assertEquals(null, x.meteoblueActualLocalCreditsReserved)
+        assertFalse(x.METEOBLUE_PRIVATE_COLLECTOR_ENABLED)
+        assertFalse(x.METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
+    }
+
     @Test fun meteoblueLocalBudgetDoesNotPretendToKnowRealProviderBalance() {
         val x = AdminCollectorReadiness
         assertEquals(10_000_000, x.METEOBLUE_TOTAL_TRIAL_CREDITS)
