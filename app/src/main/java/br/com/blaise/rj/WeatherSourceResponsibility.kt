@@ -22,11 +22,11 @@ object WeatherSourceResponsibilities {
             "Temperatura e sensação térmica estimadas, com quota e validação; NOAA e ECMWF não são termômetros prioritários.",
             "E", "OPENWEATHER_MODELED_CURRENT", false),
         WeatherSourceResponsibility("HG_BRASIL_WEATHER_PRO", "HG Brasil Weather",
-            "Temperatura atual agregada e outros campos; autorização escrita recebida, assinatura adiada. Não comprova estação física ou sensação térmica direta.",
+            "Temperatura atual agregada (E); autorização comercial escrita recebida, mas plano Pro ainda não contratado. Origem individual das estações não é informada.",
             "E", "HG_BRASIL_AGGREGATED", false),
-        WeatherSourceResponsibility("METEOBLUE_NEMS10", "meteoblue • NEMS10 / MultiModel",
-            "Comparação de vento, chuva futura e nuvens; NÃO usar para temperatura/térmica. API não homologada.",
-            "P", "METEOBLUE_NEMS10", false),
+        WeatherSourceResponsibility("METEOBLUE_FREE_FORECAST", "meteoblue Free • mLM 6h",
+            "Comparação privada de chuva prevista em 6h, probabilidade, vento médio/máximo, umidade e pressão; NÃO mede chuva atual, rajadas, temperatura nem sensação. Coletor ainda não homologado.",
+            "P", "METEOBLUE_MLM", false),
         WeatherSourceResponsibility("NOAA_GFS_WAVE", "NOAA GFS-Wave",
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
         WeatherSourceResponsibility("ECMWF_WAVE", "ECMWF Waves",
@@ -59,7 +59,7 @@ object WeatherSourceResponsibilities {
     ): String = when (id) {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
-        "METEOBLUE_NEMS10" -> "PREVISÃO CANDIDATA • API E LICENÇA NÃO HOMOLOGADAS"
+        "METEOBLUE_FREE_FORECAST" -> "TESTES OFFLINE • COLETA PRIVADA NÃO HOMOLOGADA • SEM PUBLICAÇÃO"
         "HG_BRASIL_WEATHER_PRO" -> "AUTORIZAÇÃO COMERCIAL RECEBIDA • ASSINATURA ADIADA • SEM COLETA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"

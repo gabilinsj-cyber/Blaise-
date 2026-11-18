@@ -95,6 +95,12 @@ As reservas são registradas mesmo se a requisição falhar, não há reembolso 
 - Documentos de operação: `docs/RJ_METEOBLUE_FREE_COLLECTOR_AND_CREDIT_BUDGET_20261118.md` e `docs/RJ_METEOBLUE_FREE_SECURE_ACTIVATION_20261118.md`.
 - Teste final vivo restrito: 1 município, 1 chamada `basic-6h` privada, campos/metadata e cache auditados **sem exibir valor numérico não validado**; nunca executar sem acesso seguro a Secret Manager/Firestore, orçamento e confirmação do operador.
 
+## 7A. Complemento do chat “Reenviar e-mail HG Brasil”
+
+A recuperação das condições comerciais verificadas diretamente no Gmail, das decisões de contratação adiada, da solicitação Climatempo e do alinhamento da interface original está em **`docs/RJ_HG_BRASIL_CHAT_RECOVERY_AND_UI_20261118.md`** (branch/PR #172, empilhada sobre esta PR #171).
+
+**Mudanças de UI em desenvolvimento:** rótulo meteoblue atualizado para Free mLM 6h, EUMETSAT removida da fonte exibível, hierarquia HG/OpenWeather/DWD alinhada, estação doméstica bloqueada no cliente e estado de aquisição/contratos no APK ADM protegido. O APK atual **não foi atualizado**. Esta é a prevalência documental mais recente sobre versões anteriores que listem a meteoblue como NEMS10 ou INMET como fonte pública.
+
 ## 8. Próxima execução sem afetar clientes
 
 1. Confirmar CI **do commit mais recente** da PR #171 e revisar dependências empilhadas, licenças e exclusões.

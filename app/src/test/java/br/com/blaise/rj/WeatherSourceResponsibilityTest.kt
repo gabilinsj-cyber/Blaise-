@@ -36,11 +36,11 @@ class WeatherSourceResponsibilityTest {
         assertEquals("E", hg.nature)
         assertEquals("HG_BRASIL_AGGREGATED", hg.originFamily)
         assertFalse(hg.currentlyIntegratedProduct)
-        assertTrue(hg.sectors.contains("autorização escrita recebida"))
-        assertTrue(hg.sectors.contains("Não comprova estação física"))
-        val meteoblue = list.single { it.id == "METEOBLUE_NEMS10" }
+        assertTrue(hg.sectors.contains("autorização comercial escrita recebida"))
+        assertTrue(hg.sectors.contains("Origem individual das estações não é informada"))
+        val meteoblue = list.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertEquals("P", meteoblue.nature)
-        assertEquals("METEOBLUE_NEMS10", meteoblue.originFamily)
+        assertEquals("METEOBLUE_MLM", meteoblue.originFamily)
         assertFalse(meteoblue.currentlyIntegratedProduct)
         assertTrue(meteoblue.sectors.contains("não homologada") ||
             meteoblue.sectors.contains("não homologado"))

@@ -6,10 +6,10 @@ import java.time.Instant
 
 class ScientificMemoryPolicyTest {
     private val now = Instant.parse("2026-11-17T16:00:00Z")
-    private fun source(sourceId: String = "ECMWF_IFS", verified: Boolean = true) =
+    private fun source(sourceId: String = "DWD_ICON_GLOBAL", verified: Boolean = true) =
         BlaiseScientificInput(
             municipalityIbge = "3304557", sourceId = sourceId,
-            sourceUrl = "https://www.ecmwf.int/",
+            sourceUrl = "https://opendata.dwd.de/",
             nature = "P", temperatureC = 30.0, humidityPercent = 70.0,
             windKmh = 10.0, validAt = Instant.parse("2026-11-17T15:58:00Z"),
             checkedAt = Instant.parse("2026-11-17T15:59:00Z"),
@@ -36,6 +36,9 @@ class ScientificMemoryPolicyTest {
 
     @Test fun domesticStaleOrUnauditedSourceFailsClosed() {
         assertTrue(ScientificMemoryPolicy.calculate(source("INMET"), now).isEmpty())
+        assertTrue(ScientificMemoryPolicy.calculate(source("NOAA_GFS"), now).isEmpty())
+        assertTrue(ScientificMemoryPolicy.calculate(source("ECMWF_IFS"), now).isEmpty())
+        assertTrue(ScientificMemoryPolicy.calculate(source("MET_NORWAY_LOCATIONFORECAST_2"), now).isEmpty())
         assertTrue(ScientificMemoryPolicy.calculate(source(verified = false), now).isEmpty())
         assertTrue(ScientificMemoryPolicy.calculate(source(),
             Instant.parse("2026-11-18T16:00:00Z")).isEmpty())
