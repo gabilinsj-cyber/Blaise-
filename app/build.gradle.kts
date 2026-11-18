@@ -90,6 +90,10 @@ android {
             applicationIdSuffix = ".admin"
             versionNameSuffix = "-admin"
             matchingFallbacks += listOf("release")
+            // INTERNAL DEVELOPMENT APK ONLY: debug signing is intentionally
+            // used until a dedicated production administrator keystore exists.
+            // This cannot be distributed as a Play production release.
+            if (!releaseSigningReady) signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
