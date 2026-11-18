@@ -143,6 +143,20 @@ A documentação oficial esclarece que o limite diário por chave bloqueia solic
 
 **Status após as capturas:** registro externo de 4.000 créditos consumidos no período; saldo real global restante **não exibido**; collector Firestore **0 reservas**; risco de exposição de chave ainda exige ação manual. Não realizar a auditoria `--live` enquanto a chave e o limite externo não estiverem seguros.
 
+## 7C. Confirmação detalhada da cobrança por feed — 18/11/2026, 16h40 BRT
+
+Nas capturas adicionais do painel `Estatísticas de uso da API`, com intervalo selecionado **03/11/2026 a 18/11/2026** e seleção **Créditos**, aparecem explicitamente:
+- **Total de chamadas: 1**.
+- **Créditos totais: 4.000**.
+- Gráfico **Por Feed** identifica o produto cobrado como **`basic-6h`**, atingindo 4.000 créditos no final do período.
+- **Limite diário da chave: 10 milhões** continua visível, sem alteração comprovada; é teto de uso, **não saldo restante**.
+
+Conclusão sustentada pela conta: **uma consulta real `basic-6h` consumiu 4.000 créditos durante o intervalo selecionado**. A data/hora exata da chamada e o saldo da franquia ainda não foram exibidos, e a classificação da API no painel não justifica habilitar produtos adicionais.
+
+A titular afirmou que **não deseja substituir a chave por enquanto, porque está usando a modalidade gratuita anual**. A preferência foi respeitada: **não foi rotacionada, desativada, atualizada ou excluída nenhuma chave** e nenhum contrato foi realizado. Tecnicamente, a duração gratuita é independente da credencial; como a chave apareceu em captura, sua exposição permanece um risco. Recomendar redução do teto diário **na própria chave atual**, sem trocar a chave, para no máximo **4.000 créditos/dia enquanto houver apenas um ensaio controlado por dia**, conforme a política financeira combinada. Até que o limite externo seja configurado e a credencial esteja devidamente protegida, manter consultas reais novas OFF. Não publicar o segredo em Git, APK ou chat.
+
+Os **0 créditos reservados no Firestore** referem-se exclusivamente ao coletor com contabilidade atômica e são compatíveis com a chamada manual anterior que aparece na fatura da meteoblue.
+
 ## 8. Evidência dos testes, limites de conclusão e próximo ato
 
 - HEAD da PR #171 (`d0429a65...`) tinha **meteoblue offline CI e Android CI aprovados**, sem gastar créditos da API.
