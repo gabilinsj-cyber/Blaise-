@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Official NOAA CoastWatch/ACSPO GOES-19 L3C GHRSST SST: three RJ ocean cells.
 
-Fallback for inaccessible EUMETSAT OSI-207-c. Same GOES-19 satellite family,
-different NOAA/STAR processing; NOT an independent observation sensor.
+NOAA-only GOES-19/ABI GHRSST SST, not a weather station or air temperature.
 One recent public NOAA NetCDF file maximum, no paid services or publication.
 """
 from __future__ import annotations
@@ -18,15 +17,15 @@ import urllib.request
 import tempfile
 
 CURRENT_DIR=Path(__file__).resolve().parent
-spec=importlib.util.spec_from_file_location("osi_coastal_reader",
-    CURRENT_DIR/"probe-osisaf-sst-rj-staging.py")
-osi=importlib.util.module_from_spec(spec)
-spec.loader.exec_module(osi)
+spec=importlib.util.spec_from_file_location("noaa_coastwatch_reader",
+    CURRENT_DIR/"noaa-acspo-ghrsst-rj-reader.py")
+reader_module=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reader_module)
 ROOT="https://coastwatch.noaa.gov/data/pub0014/coastwatch/sst/nrt/abi/g19/l3c/"
 MAX_HTML=160_000
 MAX_NETCDF=80*1024*1024
 ID="NOAA_COASTWATCH_SST"
-POINTS=osi.POINTS
+POINTS=reader_module.POINTS
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):
         raise ValueError("NOAA_REDIRECT_DISALLOWED")
@@ -103,7 +102,7 @@ def probe_noaa_coastwatch_sst(*,now=None,discovery=None,download=None,decode=Non
     at=now or datetime.now(timezone.utc)
     record=dict(contract="BLAISE_NOAA_ACSPO_G19_RJ_SST_OFFSHORE_V1",
         sourceId=ID,productId="GOES19_ABI_ACSPO_L3C",
-        satelliteFamily="GOES19_ABI",underlyingSensorIndependentOfEumetsat=False,
+        satelliteFamily="GOES19_ABI",singleSourceNoDoubleCount=True,
         kind="E",checkedAt=at.isoformat().replace("+00:00","Z"),
         status="UNAVAILABLE",verifiedPoints=0,expectedPoints=3,
         validAt=None,points=[],sourceUrl=ROOT,
@@ -122,7 +121,7 @@ def probe_noaa_coastwatch_sst(*,now=None,discovery=None,download=None,decode=Non
         with tempfile.TemporaryDirectory(prefix="blaise-noaa-acspo-rj-") as folder:
             file=Path(folder)/"coastwatch-g19-l3c.nc"
             file.write_bytes(raw)
-            reader=decode or osi.decode_rj_osi_saf_sst
+            reader=decode or reader_module.decode_noaa_acspo_sst
             result=reader(file,now=at)
         t=datetime.fromisoformat(result["validAt"].replace("Z","+00:00"))
         if not 0 <= (at-t).total_seconds() <= 12*3600:
