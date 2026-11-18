@@ -11,8 +11,15 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {pathToFileURL} from 'node:url';
 import {mkdir} from 'node:fs/promises';
+import geometry from '../src/rj-ibge-92-points.json' with {type:'json'};
 const exec=promisify(execFile);
-export const DWD_RJ_RESEARCH_POINT=Object.freeze({lat:-22.9068,lon:-43.1729,ibge:'3304557'});
+const reference=geometry.points.find(x=>x.ibge==='3304557');
+if(!reference||reference.verifiedByBackend!==true||
+   reference.geometryStatus!=='POINT_INSIDE_IBGE_MUNICIPAL_POLYGON')
+  throw Error('DWD_RJ_IBGE_REFERENCE_NOT_VERIFIED');
+export const DWD_RJ_RESEARCH_POINT=Object.freeze({
+  lat:reference.lat,lon:reference.lon,ibge:reference.ibge
+});
 const ROOT='https://opendata.dwd.de/weather/nwp/icon/grib/';
 const valid=(x,min,max)=>typeof x==='number'&&Number.isFinite(x)&&x>=min&&x<=max;
 const parseHttp=async(response,cap)=>{
@@ -104,16 +111,17 @@ export async function probeDwdIconStaging({
     // ecCodes nearest-neighbour lookup, not a guessed interpolation.
     let locationValue=null,nearestInfo=null;
     try{
+      // -l emits nearest gridpoint value; combining it with -p value
+      // caused the previous ICON staging attempt to reject the point.
       const near=(await run('grib_get',['-l',
-        DWD_RJ_RESEARCH_POINT.lat+','+DWD_RJ_RESEARCH_POINT.lon+',1',
-        '-p','value',file])).stdout.trim();
-      const nums=near.match(/-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?/g)||[];
-      if(nums.length===1){
-        const kelvin=Number(nums[0]);
+        DWD_RJ_RESEARCH_POINT.lat+','+(DWD_RJ_RESEARCH_POINT.lon+360)+',1',
+        file])).stdout.trim();
+      if(/^-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?$/.test(near)){
+        const kelvin=Number(near);
         if(valid(kelvin,200,340))locationValue=Number((kelvin-273.15).toFixed(2));
       }
       nearestInfo=near.slice(0,300);
-    }catch(error){nearestInfo='ECCODES_NEAREST_NOT_SUPPORTED';}
+    }catch(error){nearestInfo='ECCODES_NEAREST_FAILED';}
     if(locationValue===null)
       return Object.freeze({...no('LOCATION_UNVERIFIED_NEEDS_ICON_GRID_MAPPING',checkedAt),
         actualGribValidated:true,metadata,
