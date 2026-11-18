@@ -40,6 +40,13 @@ object AdminCollectorReadiness {
     const val METEOBLUE_MUNICIPAL_COOLDOWN_HOURS = 24
     const val METEOBLUE_CACHE_HOURS = 6
     const val METEOBLUE_EXPIRY_DATE = "18/11/2027"
+    // Provider console screenshot at 18/11/2026 16:34 BRT; historical only.
+    // Do not mistake key daily cap for remaining account credits.
+    const val METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD = 4_000
+    const val METEOBLUE_PROVIDER_PERIOD_LABEL = "03/11 a 18/11/2026"
+    const val METEOBLUE_KEY_DAILY_LIMIT_OBSERVED = 10_000_000
+    const val METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT = 4_000
+    const val METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION = true
     const val METEOBLUE_PRIVATE_COLLECTOR_ENABLED = false
     const val METEOBLUE_PUBLISHED_TO_SUBSCRIBERS = false
     // Null is deliberately distinct from zero: no provider dashboard or
@@ -103,6 +110,9 @@ object AdminCollectorReadiness {
         require(HG_PLANNED_CALLS_PER_DAY <= HG_PRO_DAILY_LIMIT)
         require(HG_PRO_CITY_LIMIT >= RJ_MUNICIPALITIES)
         require(METEOBLUE_LOCAL_CEILING_CREDITS < METEOBLUE_TOTAL_TRIAL_CREDITS)
+        require(METEOBLUE_KEY_DAILY_LIMIT_OBSERVED > METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        require(METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD >= 0)
+        require(METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
         require(meteoblueFieldAudit.size == 7)
         require(meteoblueFieldAudit.map { it.jsonKey }.distinct().size == 7)
         require(meteoblueFieldAudit.none { it.auditedLiveValue })
