@@ -31,24 +31,11 @@ unset MB_KEY
 
 Only Cloud Shell user should run these commands. Do not paste the key literally into a command or an exported script. A secret is not a password and should have narrow permissions. Later, grant the actual Blaise backend Cloud Run service identity Secret Manager accessor for that secret; never a shared public permission. This manual workflow creates a new secret/version in YOUR cloud project and may generate Google Cloud infrastructure usage costs depending on your plan; confirm free-tier and billing settings before use.
 
-## Optional *single request* to verify API key in Cloud Shell
-Only after the Free Weather API is visibly **active** and there is **no automatic credit recharge / paid subscription**. Each valid test consumes credits from the free allocation. First use the current original Blaise code at `~/Blaise-RJ` only if these branch changes have been safely reviewed, pulled into your own worktree and installed (do not reset, overwrite or accidentally replace main).
+## Deprecated legacy key-only test — replaced on 2026-11-18
 
-```bash
-set +x
-export BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED=true
-# For the CURRENT key, accepted by the operator for a ONE-SHOT staging check:
-export BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED=true
-# If the key has instead been rotated, set
-# BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE=true (not both flags).
-export BLAISE_METEOBLUE_AUTOTOPUP_DISABLED=true
-export BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED=true
-export BLAISE_METEOBLUE_FREE_API_KEY="$(gcloud secrets versions access latest --secret=blaise-meteoblue-free-api-key)"
-node backend/scripts/check-meteoblue-free-one-shot.mjs --live --spend-one-free-request
-unset BLAISE_METEOBLUE_FREE_API_KEY BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED BLAISE_METEOBLUE_AUTOTOPUP_DISABLED BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE
-```
+The former `check-meteoblue-free-one-shot.mjs` path is **disabled**, including with `--live`, because it did not reserve credits in shared Firestore before contacting meteoblue. It is retained as a fail-closed compatibility command; do **not** use it for live checks.
 
-The one-shot command **never logs a key or the full upstream request URL**, never returns raw weather values, never auto-polls and never changes public API or Android. An HTTP 200 with an expected `basic-6h` forecast shape establishes a provisional successful key test, **not** that the user's personal free allocation, credits remaining, expiration or live regional data are independently verified. Confirm plan credits/expiry in the meteoblue account dashboard. Status is `NOT_VALIDATED` until a real user-authorized test succeeds.
+For any additional operator-authorized single real call, use only `backend/scripts/meteoblue-free-private-field-audit.mjs` as described in `RJ_METEOBLUE_FREE_COLLECTOR_AND_CREDIT_BUDGET_20261118.md`. It reserves **4,000 credits atomically** under the shared 8M ceiling, four calls/day, and 24h/municipality cooling period. Production/Android remains untouched. The original key test's HTTP 200 and 29 timestamps are historical evidence, not an authorization to bypass the new budget gate.
 
 ## Supported domain and safe usage
 - Source `METEOBLUE_FREE_FORECAST` (derived meteoblue mLM **P forecast**, not directly independent from ECMWF/DWD/NOAA models in its blend).
