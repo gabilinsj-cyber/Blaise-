@@ -233,17 +233,39 @@ test('private cached forecast cannot outlive the free-trial expiry date',async()
  let now=Date.parse('2027-11-17T23:50:00Z');
  const db=dbFake();
  const store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>now});
+ const p=sample();
+ const start=Date.parse('2027-11-17T18:00:00Z');
+ p.data_6h.time=Array.from({length:samples},(_,i)=>
+  new Date(start+i*6*60*60_000).toISOString().slice(0,16).replace('T',' '));
+ p.metadata.modelrun_utc='2027-11-17 18:00';
+ p.metadata.modelrun_updatetime_utc='2027-11-17 19:00';
  const parsed=parseMeteoblueBasic6h({
-  payload:sample(),ibge:IBGE,latitude:target.lat,
-  longitude:target.lon,nowMs:NOW
+  payload:p,ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:now
  });
  assert.equal(parsed.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(parsed.auditReadyForPrivateReview,true);
  await store.setCached(IBGE,parsed);
  assert.equal((await store.getCached(IBGE))?.ibge,IBGE);
  now=Date.parse('2027-11-18T00:00:00Z');
  assert.equal(await store.getCached(IBGE),null);
  assert.equal((await store.reserve(IBGE,now)).reason,'TRIAL_NOT_VALID_AT_REQUEST_TIME');
 });
+test('private cache refuses expired forecast even if stored recently',async()=>{
+ let now=NOW;
+ const store=createRjMeteoblueFreeFirestoreStore({db:dbFake(),clock:()=>now});
+ const parsed=parseMeteoblueBasic6h({
+  payload:sample(),ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:now
+ });
+ await store.setCached(IBGE,parsed);
+ assert.ok(await store.getCached(IBGE));
+ now=NOW+7*24*60*60_000+60*60_000;
+ assert.equal(await store.getCached(IBGE),null);
+ const invalid={...parsed,validTimes:['bad']};
+ await assert.rejects(store.setCached(IBGE,invalid),/invalid_private_cache_write/);
+});
+
 test('off by default; no Firestore or key must mean zero provider calls',async()=>{
  let calls=0;
  const fetchImpl=async()=>{calls++;throw Error('should not be called')};
