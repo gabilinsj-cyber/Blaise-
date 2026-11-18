@@ -96,7 +96,7 @@ test('RAMMB/CIRA replaces NASA and JAXA as visual reference only, not rain senso
   assert.ok(!matrix.some(s=>s.id.startsWith('RAIN_SATELLITE_')));
   const sst=matrix.find(s=>s.id==='SST');
   assert.ok(sst.products.every(p=>p.kind==='E'));
-  assert.deepEqual(sst.products.map(p=>p.sourceId),['EUMETSAT_OSI_SAF','NOAA_COASTWATCH']);
+  assert.deepEqual(sst.products.map(p=>p.sourceId),['EUMETSAT_OSI_SAF_SST','NOAA_COASTWATCH']);
   assert.equal(getUnderlyingFamiliesForSector('SST').length,1);
   assert.equal(policy.satelliteVisualReference.url,'https://rammb-slider.cira.colostate.edu/');
   assert.equal(policy.satelliteVisualReference.type,'EXTERNAL_LINK_ONLY');
