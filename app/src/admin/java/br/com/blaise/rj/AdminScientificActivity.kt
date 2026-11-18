@@ -183,6 +183,27 @@ class AdminScientificActivity : ComponentActivity() {
                         Text("Sem contrato pago novo • Sem publicação para assinantes • " +
                             "Ausência de dado é indisponível, não zero.")
                         Spacer(Modifier.height(16.dp))
+                        Text("ARQUIVO DOS 14 AGENTES RJ",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.testTag("admin-agents-historical-roster"))
+                        Text(AdminRjAgentsArchive.STATUS)
+                        Text("Cadastro de funções, não prova de execução, integração em produção " +
+                            "ou autorização para usar fontes antigas excluídas.")
+                        AdminRjAgentsArchive.entries.forEach { entry ->
+                            Spacer(Modifier.height(7.dp))
+                            Card(modifier = Modifier.fillMaxWidth()
+                                .testTag("admin-agent-role-${entry.number}")) {
+                                Column(Modifier.padding(10.dp)) {
+                                    Text("${entry.number}. ${entry.title}",
+                                        style = MaterialTheme.typography.titleMedium)
+                                    Text(entry.responsibility,
+                                        style = MaterialTheme.typography.bodySmall)
+                                    Text(entry.evidenceState,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
                         Text("CALCULADORA CIENTÍFICA BLAISE",
                             style = MaterialTheme.typography.titleLarge)
                         Text("Memória científica: ${ScientificMemoryPolicy.BACKEND_REGISTERED_METHOD_COUNT} métodos backend.")
