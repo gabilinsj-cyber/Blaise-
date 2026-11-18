@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <!-- Installed ONLY in separate br.com.blaise.rj.admin package, never client APK. -->
-        <activity android:name=".AdminScientificActivity" android:exported="false" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application android:label="Blaise V6 RJ ADM">
+        <!-- Admin package must have exactly one launcher, never the customer screen. -->
+        <activity android:name=".MainActivity" tools:node="remove" />
+        <!-- Public launchability does not grant any data access: Firebase admin
+             custom claim is checked before any admin-only screen is rendered. -->
+        <activity android:name=".AdminScientificActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
