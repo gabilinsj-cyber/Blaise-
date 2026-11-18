@@ -54,6 +54,8 @@ class AdminCollectorReadinessTest {
         assertEquals(4_000, x.METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD)
         assertEquals(10_000_000, x.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED)
         assertEquals(4_000, x.METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        assertEquals(4_000, x.METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED)
+        assertFalse(x.METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API)
         assertTrue(x.METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
         assertEquals(null, x.meteoblueCurrentProviderCredits)
         assertEquals(null, x.meteoblueActualLocalCreditsReserved)
@@ -66,7 +68,7 @@ class AdminCollectorReadinessTest {
         assertEquals(10_000_000, x.METEOBLUE_TOTAL_TRIAL_CREDITS)
         assertEquals(8_000_000, x.METEOBLUE_LOCAL_CEILING_CREDITS)
         assertEquals(4_000, x.METEOBLUE_COST_PER_BASIC_6H_REQUEST)
-        assertEquals(4, x.METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
+        assertEquals(1, x.METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
         val mb = x.integrations.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertTrue(mb.state.contains("SALDO DO FORNECEDOR NÃO CONSULTADO"))
         assertFalse(mb.publishingToSubscribers)
