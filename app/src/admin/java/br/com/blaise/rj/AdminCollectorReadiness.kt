@@ -36,7 +36,7 @@ object AdminCollectorReadiness {
     const val METEOBLUE_TOTAL_TRIAL_CREDITS = 10_000_000
     const val METEOBLUE_LOCAL_CEILING_CREDITS = 8_000_000
     const val METEOBLUE_COST_PER_BASIC_6H_REQUEST = 4_000
-    const val METEOBLUE_MAX_REQUESTS_PER_UTC_DAY = 4
+    const val METEOBLUE_MAX_REQUESTS_PER_UTC_DAY = 1
     const val METEOBLUE_MUNICIPAL_COOLDOWN_HOURS = 24
     const val METEOBLUE_CACHE_HOURS = 6
     const val METEOBLUE_EXPIRY_DATE = "18/11/2027"
@@ -44,7 +44,10 @@ object AdminCollectorReadiness {
     // Do not mistake key daily cap for remaining account credits.
     const val METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD = 4_000
     const val METEOBLUE_PROVIDER_PERIOD_LABEL = "03/11 a 18/11/2026"
+    // Historic screenshot before the operator saved the new daily key cap.
     const val METEOBLUE_KEY_DAILY_LIMIT_OBSERVED = 10_000_000
+    const val METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED = 4_000
+    const val METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API = false
     const val METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT = 4_000
     const val METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION = true
     const val METEOBLUE_PRIVATE_COLLECTOR_ENABLED = false
@@ -91,7 +94,7 @@ object AdminCollectorReadiness {
         AdminCollectorReadinessItem(
             "METEOBLUE_FREE_FORECAST", "meteoblue Free API • mLM basic-6h",
             "COLETOR PRIVADO OFF • SALDO DO FORNECEDOR NÃO CONSULTADO",
-            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; 4.000 créditos/consulta e até 4/dia UTC. HTTP 200 com 29 horários em teste anterior; sete campos numéricos ainda carecem de auditoria real. Sem scheduler ou fonte de temperatura atual."
+            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; 4.000 créditos/consulta, agora no máximo 1/dia UTC. Titular informou ter salvo teto de 4.000/dia na chave atual; verificação independente pendente. HTTP 200 com 29 horários anterior, sete campos reais ainda não auditados. Sem scheduler."
         ),
         AdminCollectorReadinessItem(
             "NOAA_RJ_MARINE", "NOAA • ondas / SST / raios",
@@ -111,6 +114,9 @@ object AdminCollectorReadiness {
         require(HG_PRO_CITY_LIMIT >= RJ_MUNICIPALITIES)
         require(METEOBLUE_LOCAL_CEILING_CREDITS < METEOBLUE_TOTAL_TRIAL_CREDITS)
         require(METEOBLUE_KEY_DAILY_LIMIT_OBSERVED > METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        require(METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED ==
+            METEOBLUE_COST_PER_BASIC_6H_REQUEST * METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
+        require(!METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API)
         require(METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD >= 0)
         require(METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
         require(meteoblueFieldAudit.size == 7)
