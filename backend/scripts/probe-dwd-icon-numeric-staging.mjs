@@ -21,6 +21,19 @@ if(!reference||reference.verifiedByBackend!==true||
 export const DWD_RJ_RESEARCH_POINT=Object.freeze({
   lat:reference.lat,lon:reference.lon,ibge:reference.ibge
 });
+// All 92 *verified IBGE polygon-interior* reference points. These are
+// representative forecast cells, NOT 92 physical weather stations.
+export const DWD_RJ_92_POINTS=Object.freeze(geometry.points.map(p=>{
+  if(typeof p.ibge!=='string'||p.verifiedByBackend!==true||
+     p.geometryStatus!=='POINT_INSIDE_IBGE_MUNICIPAL_POLYGON'||
+     !Number.isFinite(p.lat)||!Number.isFinite(p.lon)||
+     p.lat < -25||p.lat > -20||p.lon < -46||p.lon > -40)
+    throw Error('DWD_RJ_MUNICIPALITY_GEOMETRY_INVALID');
+  return Object.freeze({ibge:p.ibge,lat:p.lat,lon:p.lon});
+}));
+if(DWD_RJ_92_POINTS.length!==92||
+   new Set(DWD_RJ_92_POINTS.map(p=>p.ibge)).size!==92)
+  throw Error('DWD_RJ_92_INVENTORY_INVALID');
 const ROOT='https://opendata.dwd.de/weather/nwp/icon/grib/';
 const valid=(x,min,max)=>typeof x==='number'&&Number.isFinite(x)&&x>=min&&x<=max;
 const parseHttp=async(response,cap)=>{
@@ -58,7 +71,8 @@ const no=(reason,checkedAt)=>Object.freeze({
   valueC:null,publishedToAndroid:false,productionChanged:false,officialObservation:false
 });
 export async function probeDwdIconStaging({
-  fetchImpl=globalThis.fetch,clock=()=>Date.now(),decode=null
+  fetchImpl=globalThis.fetch,clock=()=>Date.now(),decode=null,
+  municipalityCoverage=false
 }={}){
   const at=clock(),checkedAt=new Date(at).toISOString();
   const candidates=[];
@@ -122,6 +136,52 @@ export async function probeDwdIconStaging({
         String(error?.message||'FAILED').slice(0,70),checkedAt),
         actualGribValidated:true,validAt:selection.validAt,sourceUrl});
     }
+    if(municipalityCoverage===true){
+      // One DWD GRIB2 download, one official regrid, 92 local ecCodes
+      // nearest-grid lookups with 6 bounded workers; never 92 HTTP fetches.
+      const verified=new Array(DWD_RJ_92_POINTS.length).fill(null);
+      let cursor=0;
+      await Promise.all(Array.from({length:6},async()=>{
+        while(cursor<DWD_RJ_92_POINTS.length){
+          const i=cursor++;
+          const point=DWD_RJ_92_POINTS[i];
+          try{
+            const near=(await run('grib_get',['-l',
+              point.lat+','+(point.lon+360)+',1',grid.file])).stdout.trim();
+            if(!/^-?\\d+(?:\\.\\d+)?(?:[Ee][+-]?\\d+)?$/.test(near))continue;
+            const kelvin=Number(near);
+            if(!valid(kelvin,200,340))continue;
+            const valueC=Math.round((kelvin-273.15)*100)/100;
+            if(!valid(valueC,-60,65))continue;
+            verified[i]=Object.freeze({
+              ibge:point.ibge,latitude:point.lat,longitude:point.lon,
+              valueC,unit:'°C',sourceId:'DWD_ICON_GLOBAL',kind:'P'
+            });
+          }catch{
+            // A missing grid lookup is UNAVAILABLE, never zero or fabricated.
+          }
+        }
+      }));
+      const records=Object.freeze(verified.filter(Boolean));
+      const missing=Object.freeze(DWD_RJ_92_POINTS.filter((_,i)=>!verified[i])
+        .map(p=>p.ibge));
+      return Object.freeze({
+        contract:'BLAISE_DWD_ICON_GLOBAL_RJ_92_STAGING_V1',
+        status:records.length===92?'FULL':records.length===0?'UNAVAILABLE':'PARTIAL',
+        municipalityCount:92,verifiedMunicipalities:records.length,
+        missingMunicipalities:missing.length,missingMunicipalityCodes:missing,
+        records,sourceId:'DWD_ICON_GLOBAL',kind:'P',datasetId:'ICON_GLOBAL_2M',
+        issuedAt:selection.issuedAt,validAt:selection.validAt,
+        checkedAt:new Date(clock()).toISOString(),
+        sourceUrl,metadata,gridResolutionDegrees:grid.gridResolutionDegrees,
+        gridInterpolation:grid.interpolation,gridWeightsUrl:grid.weightsUrl,
+        officialObservation:false,officialAlert:false,
+        municipalityPointsNotPhysicalStations:true,
+        networkDownloadsPerForecastGrid:1,
+        publishedToAndroid:false,productionChanged:false,
+        automaticCollection:false
+      });
+    }
     let locationValue=null,nearestInfo=null;
     try{
       // -l emits nearest gridpoint value; combining it with -p value
@@ -155,6 +215,22 @@ export async function probeDwdIconStaging({
     return no('DWD_EXTRACTION_FAILED_'+String(error?.message||'UNKNOWN').slice(0,70),
       checkedAt);
   }finally{await rm(temp,{recursive:true,force:true});}
+}
+export async function probeDwdIconStatewideStaging(opts={}){
+  const result=await probeDwdIconStaging({...opts,municipalityCoverage:true});
+  if(result.contract==='BLAISE_DWD_ICON_GLOBAL_RJ_92_STAGING_V1')return result;
+  // Preserve original technical reason without accepting a stale/invalid grid.
+  return Object.freeze({
+    contract:'BLAISE_DWD_ICON_GLOBAL_RJ_92_STAGING_V1',
+    status:'UNAVAILABLE',reason:result.reason??'DWD_SOURCE_UNAVAILABLE',
+    municipalityCount:92,verifiedMunicipalities:0,missingMunicipalities:92,
+    missingMunicipalityCodes:Object.freeze(DWD_RJ_92_POINTS.map(x=>x.ibge)),
+    records:Object.freeze([]),sourceId:'DWD_ICON_GLOBAL',kind:'P',
+    checkedAt:result.checkedAt??new Date().toISOString(),
+    officialObservation:false,officialAlert:false,
+    municipalityPointsNotPhysicalStations:true,
+    publishedToAndroid:false,productionChanged:false,automaticCollection:false
+  });
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   if(!process.argv.includes('--live')){
