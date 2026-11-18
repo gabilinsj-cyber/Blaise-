@@ -8,8 +8,8 @@ import {
 
 const NOW=Date.parse('2026-11-17T12:00:00Z');
 const ibge='3304557';
-const baseline=()=>[1,2,3].map(rank=>({
-  rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
+const baseline=()=>[1,2].map(rank=>({
+  rank,sourceId:['HG_BRASIL_WEATHER_PRO','DWD_ICON_GLOBAL'][rank-1],
   verifiedByBackend:true,status:'UNAVAILABLE',
   checkedAt:new Date(NOW).toISOString(),
   values:{temperatureC:null,feelsLikeC:null}
@@ -24,7 +24,7 @@ const candidate=(age=10*60_000)=>({
   values:{temperatureC:27.1,providerFeelsLikeC:30.2,
     rainMm1h:60,windKmh:70,gustKmh:130}
 });
-test('35-minute policy never schedules or calls a provider without audited three source records',()=>{
+test('35-minute policy never schedules or calls a provider without audited approved-source records',()=>{
   const o=decideRjAgent13TemperatureFallback({municipalityIbge:ibge,now:NOW});
   assert.equal(o.status,'BLOCKED');
   assert.equal(o.reason,'PRIMARY_SOURCE_AUDIT_INCOMPLETE');
@@ -86,7 +86,7 @@ test('provider model timestamps expire strictly at 35 minutes; future dates fail
 test('missing audit or unverified status is not treated as primary failure',()=>{
   const variants=[
     x=>{delete x[0].verifiedByBackend;},
-    x=>{x[2].checkedAt=new Date(NOW-13*60_000).toISOString();},
+    x=>{x[1].checkedAt=new Date(NOW-13*60_000).toISOString();},
     x=>{x[1].sourceId=x[0].sourceId;},
     x=>{x[1].rank=1;},
     x=>{x[1].status='UNKNOWN';},
