@@ -9,10 +9,11 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {pathToFileURL} from 'node:url';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 import {mkdir} from 'node:fs/promises';
 import geometry from '../src/rj-ibge-92-points.json' with {type:'json'};
-import {regridDwdIconGlobalGrib} from '../src/rj-dwd-icon-regrid.mjs';
+import {regridDwdIconGlobalGrib,DWD_WEIGHTS_LEGACY_CUTOFF_UTC} from '../src/rj-dwd-icon-regrid.mjs';
+import {discoverDwdIconV1Forecast} from '../src/rj-dwd-icon-v1-source.mjs';
 const exec=promisify(execFile);
 const reference=geometry.points.find(x=>x.ibge==='3304557');
 if(!reference||reference.verifiedByBackend!==true||
@@ -72,38 +73,69 @@ const no=(reason,checkedAt)=>Object.freeze({
 });
 export async function probeDwdIconStaging({
   fetchImpl=globalThis.fetch,clock=()=>Date.now(),decode=null,
-  municipalityCoverage=false
+  municipalityCoverage=false,distribution='v1',
+  weightsArchivePath=null,weightsArchiveSha256=null,
+  allowLegacyWeightsInStaging=false,weightsEvidencePath=null
 }={}){
   const at=clock(),checkedAt=new Date(at).toISOString();
-  const candidates=[];
-  for(const cycle of ['18','12','06','00']){
-    try{
-      const resp=await fetchImpl(ROOT+cycle+'/t_2m/',{
+  let selection,sourceUrl;
+  if(distribution==='v1'){
+    const fetchIndex=async url=>{
+      const response=await fetchImpl(url,{
         method:'GET',redirect:'error',signal:AbortSignal.timeout(12_000),
         headers:{Accept:'text/html'}
       });
-      const index=(await parseHttp(resp,180000)).toString('utf8');
-      const found=identifyDwd2mCandidate(index,cycle,{now:at});
-      if(found)candidates.push(found);
-    }catch{/* Missing cycle is not evidence of zero or clear weather. */}
-  }
-  candidates.sort((a,b)=>Date.parse(b.validAt)-Date.parse(a.validAt)||
-    Date.parse(b.issuedAt)-Date.parse(a.issuedAt));
-  if(candidates.length===0)return no('NO_RECENT_GLOBAL_ICON_2M_FILE',checkedAt);
-  const selection=candidates[0];
-  const sourceUrl=ROOT+selection.cycle+'/t_2m/'+selection.file;
+      return (await parseHttp(response,240000)).toString('utf8');
+    };
+    try{
+      selection=await discoverDwdIconV1Forecast(fetchIndex,{now:at});
+    }catch{
+      return no('DWD_V1_RUN_INDEX_UNAVAILABLE',checkedAt);
+    }
+    if(!selection)return no('NO_RECENT_DWD_V1_ICON_T2M_FORECAST',checkedAt);
+    sourceUrl=selection.sourceUrl;
+  }else if(distribution==='legacy'&&at<DWD_WEIGHTS_LEGACY_CUTOFF_UTC){
+    const candidates=[];
+    for(const cycle of ['18','12','06','00']){
+      try{
+        const resp=await fetchImpl(ROOT+cycle+'/t_2m/',{
+          method:'GET',redirect:'error',signal:AbortSignal.timeout(12_000),
+          headers:{Accept:'text/html'}
+        });
+        const index=(await parseHttp(resp,180000)).toString('utf8');
+        const found=identifyDwd2mCandidate(index,cycle,{now:at});
+        if(found)candidates.push(found);
+      }catch{/* No fabricated source readings. */}
+    }
+    candidates.sort((a,b)=>Date.parse(b.validAt)-Date.parse(a.validAt)||
+      Date.parse(b.issuedAt)-Date.parse(a.issuedAt));
+    if(candidates.length===0)return no('NO_RECENT_LEGACY_ICON_FILE',checkedAt);
+    selection=candidates[0];
+    sourceUrl=ROOT+selection.cycle+'/t_2m/'+selection.file;
+  }else return no('DWD_UNSUPPORTED_OR_EXPIRED_DISTRIBUTION',checkedAt);
   const temp=await mkdtemp(join(tmpdir(),'blaise-dwd-staging-'));
   try{
     const payload=await parseHttp(await fetchImpl(sourceUrl,{
-      method:'GET',redirect:'error',signal:AbortSignal.timeout(30_000),
+      method:'GET',redirect:'error',signal:AbortSignal.timeout(40_000),
       headers:{Accept:'application/octet-stream'}
-    }),7*1024*1024);
-    if(payload.subarray(0,3).toString('ascii')!=='BZh')
-      return no('INVALID_BZIP2_PRODUCT',checkedAt);
-    const bz=join(temp,selection.file);
-    await writeFile(bz,payload);
-    await exec('bzip2',['-dkf',bz],{timeout:25_000});
-    const file=bz.slice(0,-4);
+    }),distribution==='v1'?30*1024*1024:7*1024*1024);
+    let file;
+    if(distribution==='v1'){
+      if(payload.length<64||payload.subarray(0,4).toString('ascii')!=='GRIB'||
+         payload[7]!==2||
+         payload.readBigUInt64BE(8)!==BigInt(payload.length)||
+         payload.subarray(-4).toString('ascii')!=='7777')
+        return no('INVALID_DWD_V1_GRIB2_PRODUCT',checkedAt);
+      file=join(temp,selection.fileName);
+      await writeFile(file,payload,{mode:0o600});
+    }else{
+      if(payload.subarray(0,3).toString('ascii')!=='BZh')
+        return no('INVALID_BZIP2_PRODUCT',checkedAt);
+      const bz=join(temp,selection.file);
+      await writeFile(bz,payload,{mode:0o600});
+      await exec('bzip2',['-dkf',bz],{timeout:25_000});
+      file=bz.slice(0,-4);
+    }
     const fileSize=(await stat(file)).size;
     if(fileSize>70*1024*1024||fileSize<64)
       return no('INVALID_GRIB2_FILE_SIZE',checkedAt);
@@ -129,7 +161,9 @@ export async function probeDwdIconStaging({
     let grid;
     try{
       grid=await regridDwdIconGlobalGrib({
-        originalFile:file,workspace:temp,fetchImpl
+        originalFile:file,workspace:temp,fetchImpl,
+        weightsArchivePath,weightsArchiveSha256,
+        allowLegacyWeightsInStaging,checkedAt:at,weightsEvidencePath
       });
     }catch(error){
       return Object.freeze({...no('DWD_OFFICIAL_REGRID_UNAVAILABLE_'+
@@ -178,6 +212,9 @@ export async function probeDwdIconStaging({
         officialObservation:false,officialAlert:false,
         municipalityPointsNotPhysicalStations:true,
         networkDownloadsPerForecastGrid:1,
+        distribution:distribution==='v1'?'DWD_V1_NATIVE_GRIB2':'DWD_LEGACY_GRIB2_BZIP2',
+        weightsMode:grid.weightsMode,weightsSha256:grid.weightsSha256,
+        postSunsetReady:grid.postSunsetReady,
         publishedToAndroid:false,productionChanged:false,
         automaticCollection:false
       });
@@ -208,6 +245,9 @@ export async function probeDwdIconStaging({
       sourceUrl,metadata,gridResolutionDegrees:grid.gridResolutionDegrees,
       gridInterpolation:grid.interpolation,
       gridWeightsUrl:grid.weightsUrl,
+      distribution:distribution==='v1'?'DWD_V1_NATIVE_GRIB2':'DWD_LEGACY_GRIB2_BZIP2',
+      weightsMode:grid.weightsMode,weightsSha256:grid.weightsSha256,
+      postSunsetReady:grid.postSunsetReady,
       officialObservation:false,officialAlert:false,
       publishedToAndroid:false,productionChanged:false
     });
@@ -237,8 +277,18 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     console.error('--live required; no DWD download');process.exitCode=2;
   }else{
     const statewide=process.argv.includes('--statewide');
-    const result=statewide?await probeDwdIconStatewideStaging():
-      await probeDwdIconStaging();
+    const distribution=process.argv.includes('--legacy')?'legacy':'v1';
+    const weightsArchivePath=process.env.BLAISE_DWD_ICON_WEIGHTS_ARCHIVE_PATH||null;
+    const weightsArchiveSha256=process.env.BLAISE_DWD_ICON_WEIGHTS_SHA256||null;
+    const allowLegacyWeightsInStaging=process.env.BLAISE_DWD_ALLOW_LEGACY_WEIGHTS_STAGING==='true';
+    const evidenceDir=new URL('../../evidence/international-sources/',import.meta.url);
+    await mkdir(evidenceDir,{recursive:true});
+    const weightsEvidencePath=process.argv.includes('--archive-weights')?
+      fileURLToPath(new URL('dwd-icon-global-025-official-weights.tar.bz2',evidenceDir)):null;
+    const opts={distribution,weightsArchivePath,weightsArchiveSha256,
+      allowLegacyWeightsInStaging,weightsEvidencePath};
+    const result=statewide?await probeDwdIconStatewideStaging(opts):
+      await probeDwdIconStaging(opts);
     const dir=new URL('../../evidence/international-sources/',import.meta.url);
     await mkdir(dir,{recursive:true});
     if(statewide){

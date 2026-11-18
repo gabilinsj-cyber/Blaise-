@@ -4,7 +4,7 @@
  * No network, scheduler, secret, database, customer endpoint or publication.
  */
 import geo from './rj-ibge-92-points.json' with {type:'json'};
-import {DWD_ICON_OFFICIAL_WEIGHTS_URL} from './rj-dwd-icon-regrid.mjs';
+import {DWD_ICON_OFFICIAL_WEIGHTS_URL,DWD_WEIGHTS_LEGACY_CUTOFF_UTC} from './rj-dwd-icon-regrid.mjs';
 const byCode=new Map(geo.points.map(p=>[p.ibge,p]));
 const finite=(x,a,b)=>typeof x==='number'&&Number.isFinite(x)&&x>=a&&x<=b;
 const validTime=(x)=>typeof x==='string'&&Number.isFinite(Date.parse(x));
@@ -12,7 +12,8 @@ const allowedUrl=(x)=>{
  try{
    const u=new URL(x);
    return u.protocol==='https:'&&u.hostname==='opendata.dwd.de'&&
-     /^\/weather\/nwp\/icon\/grib\/(00|06|12|18)\/t_2m\/icon_global_icosahedral_single-level_20\d{8}_\d{3}_T_2M\.grib2\.bz2$/.test(u.pathname)&&
+     (/(?:^\/weather\/nwp\/v1\/m\/icon\/p\/T_2M\/r\/20\d{2}-\d\d-\d\dT(?:00|06|12|18)%3A00\/s\/PT\d{3}H00M\.grib2$)/i.test(u.pathname)||
+      /^\/weather\/nwp\/icon\/grib\/(00|06|12|18)\/t_2m\/icon_global_icosahedral_single-level_20\d{8}_\d{3}_T_2M\.grib2\.bz2$/.test(u.pathname))&&
      !u.username&&!u.password&&!u.search&&!u.hash;
  }catch{return false;}
 };
@@ -28,7 +29,12 @@ export function auditedDwdThermalRecord(proof,{
      proof.publishedToAndroid!==false||proof.gridResolutionDegrees!==0.25||
      proof.gridInterpolation!=='DWD_OFFICIAL_CDO_PRECOMPUTED_WEIGHTS'||
      proof.gridWeightsUrl!==DWD_ICON_OFFICIAL_WEIGHTS_URL||
-     !allowedUrl(proof.sourceUrl)||!finite(proof.valueC,-60,65)||
+     !allowedUrl(proof.sourceUrl)||
+     (now>=DWD_WEIGHTS_LEGACY_CUTOFF_UTC&&(
+       proof.distribution!=='DWD_V1_NATIVE_GRIB2'||
+       proof.postSunsetReady!==true||
+       proof.weightsMode!=='PINNED_OFFICIAL_ARCHIVE'))||
+     !finite(proof.valueC,-60,65)||
      !validTime(proof.validAt)||!validTime(proof.issuedAt)||
      !validTime(proof.checkedAt))return null;
   const place=byCode.get(String(proof.ibge));

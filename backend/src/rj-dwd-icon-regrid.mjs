@@ -6,7 +6,8 @@
  * DWD official data: https://opendata.dwd.de/weather/lib/cdo/
  * DWD reference: https://github.com/DeutscherWetterdienst/regrid
  */
-import {mkdir,writeFile,readFile,stat} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,stat,lstat,copyFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {join,resolve,relative} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -14,6 +15,7 @@ const exec=promisify(execFile);
 export const DWD_ICON_OFFICIAL_WEIGHTS_URL=
   'https://opendata.dwd.de/weather/lib/cdo/ICON_GLOBAL2WORLD_025_EASY.tar.bz2';
 const MAX_BZ_BYTES=50*1024*1024;
+export const DWD_WEIGHTS_LEGACY_CUTOFF_UTC=Date.UTC(2026,11,1);
 const BLOCKED=/[\x00-\x1f]/;
 function safeMember(m){
   if(typeof m!=='string'||m.length>240||BLOCKED.test(m)||m.startsWith('/')||
@@ -52,7 +54,11 @@ export async function fetchDwdOfficialWeights(fetchImpl=globalThis.fetch){
 }
 export async function regridDwdIconGlobalGrib({
   originalFile,workspace,fetchImpl=globalThis.fetch,
-  execCommand=execBounded
+  execCommand=execBounded,
+  weightsArchivePath=null,weightsArchiveSha256=null,
+  allowLegacyWeightsInStaging=false,
+  checkedAt=Date.now(),
+  weightsEvidencePath=null
 }={}){
   if(typeof originalFile!=='string'||!originalFile.startsWith('/')||
      typeof workspace!=='string'||!workspace.startsWith('/'))
@@ -60,8 +66,32 @@ export async function regridDwdIconGlobalGrib({
   const weightsDir=join(workspace,'dwd-weights');
   await mkdir(weightsDir,{recursive:true,mode:0o700});
   const archive=join(weightsDir,'official-025.tar.bz2');
-  const bytes=await fetchDwdOfficialWeights(fetchImpl);
+  let bytes,weightsMode;
+  if(typeof weightsArchivePath==='string'&&weightsArchivePath.startsWith('/')&&
+     typeof weightsArchiveSha256==='string'&&/^[a-f0-9]{64}$/.test(weightsArchiveSha256)){
+    const info=await lstat(weightsArchivePath);
+    if(!info.isFile()||info.size>MAX_BZ_BYTES||info.size<1000)
+      throw Error('DWD_PINNED_WEIGHTS_FILE_INVALID');
+    bytes=await readFile(weightsArchivePath);
+    const actual=createHash('sha256').update(bytes).digest('hex');
+    if(actual!==weightsArchiveSha256)throw Error('DWD_WEIGHTS_SHA256_MISMATCH');
+    weightsMode='PINNED_OFFICIAL_ARCHIVE';
+  }else if(allowLegacyWeightsInStaging===true&&
+      Number.isSafeInteger(checkedAt)&&checkedAt<DWD_WEIGHTS_LEGACY_CUTOFF_UTC){
+    // This is a temporary migration QA bridge only. Never a production
+    // dependency after DWD withdraws /weather/lib/cdo/ on 30 November.
+    bytes=await fetchDwdOfficialWeights(fetchImpl);
+    weightsMode='LEGACY_PRE_SUNSET_STAGING_ONLY';
+  }else{
+    throw Error('DWD_PINNED_OFFICIAL_WEIGHTS_NOT_PROVISIONED');
+  }
+  const sha256=createHash('sha256').update(bytes).digest('hex');
   await writeFile(archive,bytes,{mode:0o600});
+  if(weightsEvidencePath){
+    if(typeof weightsEvidencePath!=='string'||!weightsEvidencePath.startsWith('/'))
+      throw Error('DWD_WEIGHTS_EVIDENCE_PATH_INVALID');
+    await copyFile(archive,weightsEvidencePath);
+  }
   const listing=(await execCommand('tar',['-tjf',archive])).stdout.trim();
   // Preserve the exact archive member names (some DWD files use ./ prefix).
   const members=listing.split('\n').filter(x=>x&&!x.endsWith('/'));
@@ -82,8 +112,9 @@ export async function regridDwdIconGlobalGrib({
   if(!/gridtype\s*=\s*lonlat/.test(grid)||!/xinc\s*=\s*0\.25/.test(grid)||
      !/yinc\s*=\s*0\.25/.test(grid))
     throw Error('DWD_REGRID_GRID_DESCRIPTION_INVALID');
-  const ws=await stat(weightsPath);
-  if(ws.size<1024||ws.size>500*1024*1024)throw Error('DWD_REGRID_WEIGHTS_SIZE_INVALID');
+  const ws=await lstat(weightsPath),tg=await lstat(gridPath);
+  if(!ws.isFile()||!tg.isFile()||ws.size<1024||ws.size>500*1024*1024)
+    throw Error('DWD_REGRID_WEIGHTS_SIZE_INVALID');
   const output=join(workspace,'icon-global-rj-regular-025.grib2');
   // Remapping code is CDO on the CI machine; provider archive holds data only.
   await execCommand('cdo',['-f','grb2',
@@ -94,5 +125,7 @@ export async function regridDwdIconGlobalGrib({
   return Object.freeze({file:output,
     gridResolutionDegrees:0.25,
     interpolation:'DWD_OFFICIAL_CDO_PRECOMPUTED_WEIGHTS',
-    weightsUrl:DWD_ICON_OFFICIAL_WEIGHTS_URL});
+    weightsUrl:DWD_ICON_OFFICIAL_WEIGHTS_URL,
+    weightsMode,weightsSha256:sha256,
+    postSunsetReady:weightsMode==='PINNED_OFFICIAL_ARCHIVE'});
 }

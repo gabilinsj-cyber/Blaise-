@@ -6,12 +6,14 @@
  */
 import geo from './rj-ibge-92-points.json' with {type:'json'};
 import {auditedDwdThermalRecord} from './rj-dwd-thermal-admin-bridge.mjs';
+import {DWD_WEIGHTS_LEGACY_CUTOFF_UTC} from './rj-dwd-icon-regrid.mjs';
 const officialCodes=new Set(geo.points.map(p=>p.ibge));
 const validSource=sourceUrl=>{
   try{
     const u=new URL(sourceUrl);
     return u.protocol==='https:'&&u.hostname==='opendata.dwd.de'&&
-      /^\/weather\/nwp\/icon\/grib\/(00|06|12|18)\/t_2m\/icon_global_icosahedral_single-level_20\d{8}_\d{3}_T_2M\.grib2\.bz2$/.test(u.pathname)&&
+      (/(?:^\/weather\/nwp\/v1\/m\/icon\/p\/T_2M\/r\/20\d{2}-\d\d-\d\dT(?:00|06|12|18)%3A00\/s\/PT\d{3}H00M\.grib2$)/i.test(u.pathname)||
+       /^\/weather\/nwp\/icon\/grib\/(00|06|12|18)\/t_2m\/icon_global_icosahedral_single-level_20\d{8}_\d{3}_T_2M\.grib2\.bz2$/.test(u.pathname))&&
       !u.search&&!u.hash&&!u.username&&!u.password;
   }catch{return false;}
 };
@@ -28,7 +30,11 @@ export function approvedDwdIcon92AdminRecords(batch,{
      batch.automaticCollection!==false||batch.productionChanged!==false||
      batch.publishedToAndroid!==false||
      batch.networkDownloadsPerForecastGrid!==1||
-     !validSource(batch.sourceUrl)||!Array.isArray(batch.records)||
+     !validSource(batch.sourceUrl)||
+     (now>=DWD_WEIGHTS_LEGACY_CUTOFF_UTC&&(
+       batch.distribution!=='DWD_V1_NATIVE_GRIB2'||
+       batch.postSunsetReady!==true||
+       batch.weightsMode!=='PINNED_OFFICIAL_ARCHIVE'))||!Array.isArray(batch.records)||
      !Array.isArray(batch.missingMunicipalityCodes)||
      batch.verifiedMunicipalities!==batch.records.length||
      batch.missingMunicipalities!==batch.missingMunicipalityCodes.length||
