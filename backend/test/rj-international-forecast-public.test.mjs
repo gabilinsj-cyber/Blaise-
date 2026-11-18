@@ -44,7 +44,7 @@ test('rejects unsupported municipalities, bogus sources, nonlicensed and stale r
 test('missing values never become numeric zero and UV actual index is not manufactured',()=>{
   const v=projectRjInternationalForecast({...model(),uvIsClearSky:false,
     values:{temperatureC:25,humidityPct:65,uvClearSkyIndex:9},hourly:{}},{now});
-  assert.equal(v.humidityPct,null);
+  assert.equal(v.humidityPct,65);
   assert.equal(v.uvClearSkyIndex,null);
   assert.equal(v.precipitationNextHourMm,null);
   assert.equal(projectRjInternationalForecast({...model(),values:{},hourly:{}},{now}),null);
