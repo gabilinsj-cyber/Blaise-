@@ -6,7 +6,7 @@ const now=Date.parse('2026-11-18T13:00:00Z');
 const data=()=>({
  contract:'BLAISE_NOAA_ACSPO_G19_RJ_SST_OFFSHORE_V1',
  status:'FULL',sourceId:'NOAA_COASTWATCH_SST',productId:'GOES19_ABI_ACSPO_L3C',
- satelliteFamily:'GOES19_ABI',underlyingSensorIndependentOfEumetsat:false,
+ satelliteFamily:'GOES19_ABI',singleSourceNoDoubleCount:true,
  kind:'E',officialObservation:false,airTemperatureMeasurements:0,
  publishedToAndroid:false,publishedToSubscriber:false,automaticCollection:false,
  qualityThreshold:5,gridType:'GHRSST_L3C_1D_LATLON',
@@ -28,7 +28,7 @@ test('NOAA ACSPO accepts only high-quality E ocean values and never land reading
  assert.equal(r.approvedValues,3);
  assert.ok(r.records.every(x=>x.category==='E'&&
    x.field==='seaSurfaceTemperatureC'&&
-   x.sameSensorFamilyAsEumetsat===true));
+   x.singleSatelliteSource===true));
  assert.equal(r.airTemperatureMeasurements,0);
  assert.equal(r.publishedToSubscribers,false);
 });
@@ -39,7 +39,7 @@ test('quality 4, stale evidence, unsupported domain, wrong location never get pu
   {checkedAt:'2026-11-18T10:00:00Z'},
   {validAt:'2026-11-17T00:00:00Z'},
   {sourceUrl:'https://example.com/acspo.nc'},
-  {underlyingSensorIndependentOfEumetsat:true},
+  {singleSourceNoDoubleCount:false},
   {officialObservation:true},
   {productId:'GFS_ATMOS'},
  ];
