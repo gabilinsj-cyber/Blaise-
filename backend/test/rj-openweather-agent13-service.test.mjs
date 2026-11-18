@@ -93,7 +93,7 @@ test('separate 35-minute temperature contingency gate is off by default and requ
   assert.equal(result.status,'BLOCKED');
   assert.equal(calls,0);
 });
-test('thermal-only fallback uses one provider request with audited three-source outage and 35min cache',async()=>{
+test('thermal-only fallback uses one provider request with audited HG/DWD outage and 35min cache',async()=>{
   let calls=0;
   const service=createRjOpenWeatherAgent13Service({
     env:{...readyEnv,BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED:'true'},
@@ -110,8 +110,8 @@ test('thermal-only fallback uses one provider request with audited three-source 
     }
   });
   assert.equal(service.temperatureContingencyConfigured,true);
-  const sources=[1,2,3].map(rank=>({
-    rank,sourceId:['DWD_ICON_GLOBAL','NOAA_GFS','ECMWF_IFS'][rank-1],
+  const sources=[1,2].map(rank=>({
+    rank,sourceId:['HG_BRASIL_WEATHER_PRO','DWD_ICON_GLOBAL'][rank-1],
     verifiedByBackend:true,status:'UNAVAILABLE',
     checkedAt:new Date(NOW).toISOString()
   }));
