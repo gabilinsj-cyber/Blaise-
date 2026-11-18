@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - backend/scripts/probe-noaa-coastwatch-sst-rj.py
+      - backend/scripts/noaa-acspo-ghrsst-rj-reader.py
       - backend/scripts/audit-noaa-coastwatch-sst-rj.mjs
       - backend/src/rj-noaa-coastwatch-sst-admin.mjs
       - backend/test/test_noaa_coastwatch_sst_rj.py

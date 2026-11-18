@@ -12,7 +12,7 @@ const out={
  checkedAt:parsed.checkedAt,validAt:parsed.validAt,
  verifiedPointCount:inspected.approvedValues,expectedPointCount:3,
  records:inspected.records,
- kind:'E',samePhysicalSatelliteAsEumetsat:true,
+ kind:'E',singleNoaaSatelliteSource:true,
  noLandTemperature:true,noMunicipalityStationObservations:true,
  publishedToAndroid:false,publishedToSubscriber:false,
  automaticCollection:false,attribution:'NOAA CoastWatch / NOAA STAR ACSPO'
@@ -20,6 +20,6 @@ const out={
 await writeFile(dst,JSON.stringify(out,null,2)+'\n',{mode:0o600});
 console.log('BLAISE_NOAA_COASTWATCH_SST_ADMIN='+JSON.stringify({
  state:out.state,verified:out.verifiedPointCount,
- reason:out.reason,kind:'E',samePhysicalSatelliteAsEumetsat:true,
+ reason:out.reason,kind:'E',singleNoaaSatelliteSource:true,
  publishedToSubscriber:false
 }));

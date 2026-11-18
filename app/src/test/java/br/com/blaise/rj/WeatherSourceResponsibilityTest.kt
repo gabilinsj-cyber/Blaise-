@@ -6,7 +6,7 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(13, list.size)
+        assertEquals(12, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val german = list.single { it.id == "DWD_ICON" }
         assertEquals("DWD_ICON", german.originFamily)
@@ -19,14 +19,14 @@ class WeatherSourceResponsibilityTest {
         assertEquals("ECMWF_IFS", met.originFamily)
         assertFalse(list.any {
             it.id.contains("INMET") || it.id.contains("CEMADEN") ||
-                it.id.contains("JAXA") || it.id.contains("NASA")
+                it.id.contains("JAXA") || it.id.contains("NASA") ||
+                it.id.contains("EUMETSAT")
         })
         assertTrue(met.sectors.contains("SEM temperatura ou sensação térmica"))
         assertTrue(list.single { it.id == "NOAA_GFS_ATMOS" }.sectors.contains("EXCLUÍDO de temperatura"))
-        val coast = list.single { it.id == "NOAA_COASTWATCH" }
-        val eumetsat = list.single { it.id == "EUMETSAT_OSI_SAF" }
-        assertEquals(coast.originFamily, eumetsat.originFamily)
-        assertEquals("E", eumetsat.nature)
+        val coast = list.single { it.id == "NOAA_COASTWATCH_SST" }
+        assertEquals("E", coast.nature)
+        assertTrue(coast.sectors.contains("somente pixel validado"))
         val owm = list.single { it.id == "OPENWEATHER_AGENT13" }
         assertEquals("E", owm.nature)
         assertFalse(owm.currentlyIntegratedProduct)
@@ -42,7 +42,8 @@ class WeatherSourceResponsibilityTest {
         assertEquals("P", meteoblue.nature)
         assertEquals("METEOBLUE_NEMS10", meteoblue.originFamily)
         assertFalse(meteoblue.currentlyIntegratedProduct)
-        assertTrue(meteoblue.sectors.contains("não homologada"))
+        assertTrue(meteoblue.sectors.contains("não homologada") ||
+            meteoblue.sectors.contains("não homologado"))
         val slider = list.single { it.id == "RAMMB_CIRA_SLIDER" }
         assertEquals("GOES_EAST", slider.originFamily)
         assertEquals("O", slider.nature)
@@ -58,7 +59,7 @@ class WeatherSourceResponsibilityTest {
                 state.contains("CONSULTA VISUAL EXTERNA") ||
                 state.contains("PREVISÃO CANDIDATA") ||
                 state.contains("CONTINGÊNCIA TÉRMICA CONDICIONAL") ||
-                state.contains("AGUARDANDO ASSINATURA E AUTORIZAÇÃO COMERCIAL"))
+                state.contains("ASSINATURA ADIADA"))
         }
         assertTrue(WeatherSourceResponsibilities.availability(
             "HG_BRASIL_WEATHER_PRO", true, true, true).contains("ASSINATURA ADIADA"))

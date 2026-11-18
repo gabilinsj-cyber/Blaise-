@@ -34,10 +34,8 @@ object WeatherSourceResponsibilities {
         WeatherSourceResponsibility("RAMMB_CIRA_SLIDER", "RAMMB/CIRA SLIDER • GOES-19",
             "Imagens externas de nuvens, frentes e sistemas sobre RJ e Atlântico. Não mede chuva em mm.",
             "O", "GOES_EAST", false),
-        WeatherSourceResponsibility("EUMETSAT_OSI_SAF", "EUMETSAT OSI SAF",
-            "Temperatura estimada da superfície do mar", "E", "GOES_EAST_ABI", false),
-        WeatherSourceResponsibility("NOAA_COASTWATCH", "NOAA CoastWatch",
-            "Temperatura da superfície do mar • sensor GOES correlacionado", "E",
+        WeatherSourceResponsibility("NOAA_COASTWATCH_SST", "NOAA CoastWatch / GOES-19",
+            "Temperatura estimada da superfície do mar • somente pixel validado; não é temperatura do ar", "E",
             "GOES_EAST_ABI", false),
         WeatherSourceResponsibility("NOAA_GLM", "NOAA GOES / GLM",
             "Descargas elétricas vistas por satélite", "O", "GOES_EAST_GLM", false),
@@ -45,12 +43,13 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 13)
+        require(providers.size == 12)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
         require(providers.none {
             it.id.contains("INEA") || it.id.contains("MARINHA") ||
-                it.id.contains("JAXA") || it.id.contains("NASA_IMERG")
+                it.id.contains("JAXA") || it.id.contains("NASA_IMERG") ||
+                it.id.contains("EUMETSAT")
         })
     }
 

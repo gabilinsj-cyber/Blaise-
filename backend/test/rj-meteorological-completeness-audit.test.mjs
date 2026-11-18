@@ -98,8 +98,11 @@ test('CEMADEN hydrological risk is not a temperature measurement',()=>{
 test('NASA and JAXA cannot supply any current numeric weather after removal',()=>{
   const sst=RJ_METEOROLOGICAL_FIELDS.find(x=>x.id==='seaSurfaceTemperatureC');
   assert.deepEqual(sst.candidates.map(x=>x.sourceId),[
-    'EUMETSAT_OSI_SAF_SST','NOAA_COASTWATCH_SST'
+    'NOAA_COASTWATCH_SST'
   ]);
+  for(const id of ['EUMETSAT_OSI_SAF_SST','EUMETSAT_SAT']){
+    assert.equal(RJ_METEOROLOGY_SOURCE_CATEGORIES[id],undefined);
+  }
   assert.ok(sst.candidates.every(x=>x.category==='E'));
   assert.equal(RJ_METEOROLOGY_SOURCE_CATEGORIES.ECMWF_WAVE,'P');
   for(const id of ['NASA_GPM_IMERG','NASA_MUR_SST','NASA_SAT','JAXA_GSMAP','RAMMB_CIRA_SLIDER']){

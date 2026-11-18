@@ -13,8 +13,7 @@ const sources = Object.freeze({
   DWD_ICON_GLOBAL: 'P', NOAA_GFS: 'P', ECMWF_IFS: 'P', INPE_CPTEC: 'P',
   OPENWEATHER_ONECALL4_CURRENT: 'E', HG_BRASIL_WEATHER_PRO: 'E',
   NOAA_GFS_WAVE: 'P', ECMWF_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
-  NOAA_GLM: 'O',
-  EUMETSAT_SAT: 'O', EUMETSAT_OSI_SAF_SST: 'E',
+  NOAA_GLM: 'O', NOAA_GOES: 'O',
   NOAA_COASTWATCH_SST: 'E',
   // User-authorized 17/11/2026: Copernicus CAMS strictly via MET Norway/Yr
   // for the clear-sky UV product; not a direct Copernicus collector.
@@ -48,7 +47,7 @@ const definitions = [
   ['rainNowMm','mm',0,500,[]],
   ['rainAccumulatedMm','mm',0,2500,[]],
   ['oceanRainMm','mm',0,2500,[]],
-  ['cloudPct','%',0,100,[['EUMETSAT_SAT','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
+  ['cloudPct','%',0,100,[['NOAA_GOES','O'],['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['visibilityKm','km',0,250,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['solarRadiationWm2','W/m²',0,1800,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P']]],
   ['lightningCount','count',0,1000000,[['NOAA_GLM','O']]],
@@ -59,9 +58,8 @@ const definitions = [
   ['swellPeriodS','s',0,40,[['NOAA_GFS_WAVE','P'],['ECMWF_WAVE','P']]],
   ['seaCurrentMs','m/s',0,10,[['NOAA_RTOFS','P']]],
   // Every sea-surface temperature here is a satellite retrieval or L4 estimate.
-  // Two GOES-East/ABI processors are not independent sensors.
-  ['seaSurfaceTemperatureC','°C',-5,45,[['EUMETSAT_OSI_SAF_SST','E'],
-    ['NOAA_COASTWATCH_SST','E']]],
+  // NOAA CoastWatch is the sole satellite SST candidate; only QA-verified E.
+  ['seaSurfaceTemperatureC','°C',-5,45,[['NOAA_COASTWATCH_SST','E']]],
   ['riverLevelM','m',-50,200,[['ANA_RIVER','O'],['SGB_SACE','O']]],
   ['hydrologicalRiskLevel','level',1,5,[]],
 ];

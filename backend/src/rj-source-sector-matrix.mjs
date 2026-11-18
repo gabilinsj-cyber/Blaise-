@@ -54,7 +54,6 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   ],'Observação de estruturas de nuvens e tempestades pelo GOES via visualizador externo. Não mede precipitação, não gera alertas automáticos.' ),
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
-    O('EUMETSAT_SAT','METEOSAT_IMAGES','EUMETSAT_METEOSAT','cobertura conforme produto'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista'),
     P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','nuvens previstas, não imagem de satélite'),
     E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CLOUDINESS','HG_BRASIL_AGGREGATED','nebulosidade atual agregada candidata, não sensor verificado; exibição comercial autorizada')
@@ -74,9 +73,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('ECMWF_WAVE','IFS_WAVE','ECMWF_WAVE','comparação sujeita a produto aberto')
   ],'Dados são previsões marítimas; a maré astronômica requer fonte distinta.'),
   sector('SST','Temperatura da superfície do mar',[
-    E('EUMETSAT_OSI_SAF_SST','OSI_207_C','GOES_EAST_ABI','principal candidato; dado GHRSST E com QA'),
-    E('NOAA_COASTWATCH','ACSPO_GOES_EAST','GOES_EAST_ABI','comparação correlacionada')
-  ],'O mesmo GOES/ABI aparece em dois processamentos: NÃO são sensores independentes. Validar máscara e período.'),
+    E('NOAA_COASTWATCH_SST','ACSPO_GOES19_L3C','GOES19_ABI','única candidata; NOAA CoastWatch SST estimada E com máscara/QA')
+  ],'A NOAA é a única fonte de SST cadastrada; arquivos recentes, pixels de qualidade e licença devem ser validados antes de exibir qualquer valor.'),
   sector('CLEAR_SKY_UV','UV previsto em céu limpo',[
     P('COPERNICUS_CAMS_UV_VIA_MET_NO','ultraviolet_index_clear_sky','CAMS','única exceção Copernicus')
   ],'NÃO exibir como UV real ajustado pelas nuvens, nem consumir Copernicus diretamente.'),
@@ -98,7 +96,9 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   thermalExplicitlyDisallowed:Object.freeze(['NOAA_GFS','ECMWF_IFS','MET_NORWAY_LOCATIONFORECAST_2','CLIMATEMPO']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
-  expresslyExcludedDirectSources:Object.freeze(['INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),
+  expresslyExcludedDirectSources:Object.freeze(['EUMETSAT','EUMETSAT_SAT','EUMETSAT_OSI_SAF','EUMETSAT_OSI_SAF_SST','INEA','MARINHA_DO_BRASIL','WINDY','COPERNICUS_DIRECT','JAXA_GSMAP','NASA_GPM_IMERG','NASA_SAT','NASA_MUR_SST','ZOOM_EARTH']),
+  marineSstApprovedSources:Object.freeze(['NOAA_COASTWATCH_SST']),
+  marineSstValidatedLive:false,
   hgBrasilPro:RJ_HG_BRASIL_PRO_PLAN,
   openWeatherOtherFieldsAssessment:Object.freeze({
     recommendedForLaterLicenseReview:Object.freeze(['humidityPct','windKmh','gustKmh']),
@@ -123,7 +123,27 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     liveNumericIngestionEnabled:false,
     androidObservedDataEnabled:false,
     projectedToMunicipalObservations:false,
-    useOnlyWithModelAndForecastCycleEvidence:true
+    useOnlyWithModelAndForecastCycleEvidence:true,
+    freeWeatherApi2026:Object.freeze({
+      trialDurationMonths:12,totalCredits:10000000,
+      approximateLowestCostCallsTotal:2500,
+      oneYearNotRenewable:true,commercialUsePermittedByProvider:true,
+      userAccountConnected:false,freeTrialActivated:false,
+      serverApiKeyInstalled:false,subscriptionActivated:false,
+      purchasedCredits:0,automaticCalls:false,
+      eligibleForAirTemperature:false,eligibleForFeelsLike:false,
+      eligibleForObservedRain:false,
+      freeTierIncludesAirConvectiveForecast:true,
+      freeTierNowcastIncluded:false,
+      freeTierSeaIncluded:false,
+      freeTierCurrentIncluded:false,
+      freeTierMeasurementsIncluded:false,
+      freeTierWarningsIncluded:false,
+      freeTierMaxTemporalResolution:'1h',
+      approvedUse:'FORECAST_COMPARISON_ONLY_AFTER_CREDENTIAL_LICENSE_CYCLE_AUDIT',
+      officialInfoUrl:'https://business.meteoblue.com/products/weather-apis/free-weather-api',
+      currentPricingUrl:'https://business.meteoblue.com/pricing',
+    })
   }),
   satelliteVisualReference:Object.freeze({
     id:'RAMMB_CIRA_SLIDER',url:'https://rammb-slider.cira.colostate.edu/',
