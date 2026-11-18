@@ -5,94 +5,73 @@ import {METEOBLUE_FREE_RJ_POLICY,prepareMeteoblueFreeRjProbe,
  from '../src/rj-meteoblue-free-connection.mjs';
 import {checkMeteoblueFreeKeyOnce}
  from '../src/rj-meteoblue-free-key-check.mjs';
-const gate={BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED:'true',
+
+const gate={
+ BLAISE_METEOBLUE_FREE_TRIAL_CONFIRMED:'true',
  BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE:'true',
+ BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED:'true',
  BLAISE_METEOBLUE_AUTOTOPUP_DISABLED:'true',
  BLAISE_METEOBLUE_ONE_SHOT_TEST_APPROVED:'true',
+ BLAISE_METEOBLUE_PAID_ALLOWED:'false',
  BLAISE_METEOBLUE_FREE_API_KEY:'EXAMPLE_ONLY_NOT_A_SECRET_12345'
 };
-const mock=async()=>{
- return {
-  status:200,
-  headers:{get:(s)=>s==='content-type'?'application/json':'300'},
-  text:async()=>JSON.stringify({metadata:{latitude:-22.9,longitude:-43.46},
-   units:{temperature:'C'},data_6h:{time:['2026-11-18 12:00']}})
- };
-};
-test('disabled by default; no upstream call until all free trial gates explicitly enabled',async()=>{
+
+test('legacy key probe never contacts provider, even with all approval flags',async()=>{
  let calls=0;
- const fetchImpl=async()=>{calls++;return mock()};
- const a=await checkMeteoblueFreeKeyOnce({env:{},fetchImpl});
- assert.equal(a.state,'OPERATOR_GATES_NOT_APPROVED');
- assert.equal(calls,0);
- for(const omitted of Object.keys(gate)){
-  const copy={...gate};delete copy[omitted];
-  const r=await checkMeteoblueFreeKeyOnce({env:copy,fetchImpl});
-  assert.equal(r.providerContacted,false);
+ const fetchImpl=async()=>{calls++;throw Error('PROVIDER_MUST_NOT_BE_CALLED')};
+ for(const env of [{},gate,{...gate,BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE:'false'},
+   {...gate,BLAISE_METEOBLUE_PAID_ALLOWED:'true'}]){
+  for(let i=0;i<3;i++){
+   const r=await checkMeteoblueFreeKeyOnce({
+    env,municipalityIbge:'3304557',fetchImpl
+   });
+   assert.equal(r.state,'LEGACY_UNBUDGETED_PROBE_DISABLED_USE_FIRESTORE_AUDIT');
+   assert.equal(r.providerContacted,false);
+   assert.equal(r.billingEnabled,false);
+   assert.equal(r.automaticPollingEnabled,false);
+   assert.equal(r.publishedToSubscribers,false);
+   assert.equal(JSON.stringify(r).includes(gate.BLAISE_METEOBLUE_FREE_API_KEY),false);
+  }
  }
- const paid=await checkMeteoblueFreeKeyOnce({env:{
-  ...gate,BLAISE_METEOBLUE_PAID_ALLOWED:'true'
- },fetchImpl});
- assert.equal(paid.providerContacted,false);
  assert.equal(calls,0);
 });
-test('one approved call uses only valid representative IBGE coordinates and basic-6h',async()=>{
- let num=0,request='';
- const fetchImpl=async url=>{num++;request=url;return mock()};
- const result=await checkMeteoblueFreeKeyOnce({env:gate,fetchImpl});
- assert.equal(num,1);
- assert.ok(request.startsWith('https://my.meteoblue.com/packages/basic-6h?'));
- assert.ok(request.includes('apikey=EXAMPLE_ONLY_NOT_A_SECRET'));
- assert.equal(result.state,'KEY_ACCEPTED_BY_PROVIDER_SAMPLE_RECEIVED');
- assert.equal(result.apiKeyAcceptedForBasic6h,true);
- assert.equal(JSON.stringify(result).includes(gate.BLAISE_METEOBLUE_FREE_API_KEY),false);
- assert.equal(result.forecastTimestampsCount,1);
- assert.equal(result.publishedToSubscribers,false);
- assert.equal(result.remainingCreditsVerified,false);
-});
-test('owner-accepted temporary key is limited to one staged provider call',async()=>{
- const opt={...gate};
- delete opt.BLAISE_METEOBLUE_KEY_ROTATED_AFTER_EXPOSURE;
- opt.BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED='true';
- let calls=0;
- const result=await checkMeteoblueFreeKeyOnce({env:opt,fetchImpl:async()=>{
-  calls+=1;return mock();
- }});
- assert.equal(result.state,'KEY_ACCEPTED_BY_PROVIDER_SAMPLE_RECEIVED');
- assert.equal(calls,1);
- assert.equal(result.billingEnabled,false);
- assert.equal(result.publishedToSubscribers,false);
- assert.equal(result.automaticPollingEnabled,false);
- const unsafe={...opt,BLAISE_METEOBLUE_TEMPORARY_KEY_RISK_ACCEPTED:'false'};
- const no=await checkMeteoblueFreeKeyOnce({env:unsafe,fetchImpl:async()=>{
-  throw Error('never called');
- }});
- assert.equal(no.providerContacted,false);
-});
-test('free policy blocks air temperature current and paid packages',()=>{
+
+test('free policy is forecast-only; basic-6h target may be prepared offline',()=>{
  const p=METEOBLUE_FREE_RJ_POLICY;
  assert.equal(p.costEuro,0);
  assert.equal(p.automaticCollection,false);
  assert.equal(p.mayReplaceAirTemperature,false);
  assert.equal(p.mayReplaceObservedRain,false);
  assert.equal(p.billingAutoTopUpAllowed,false);
- const none=prepareMeteoblueFreeRjProbe({ibge:'3304557'});
- assert.equal(none.mayContactProvider,false);
+ assert.equal(prepareMeteoblueFreeRjProbe({ibge:'3304557'}).mayContactProvider,false);
  const invalid=prepareMeteoblueFreeRjProbe({
   ibge:'3304557',packageName:'sea-1h',
   freeTrialConfirmed:true,autoTopUpDisabled:true,
   operatorApprovedSingleCreditUse:true,serverEnvironment:true
  });
  assert.equal(invalid.mayContactProvider,false);
-});
-test('auth errors or bad schema do not validate key nor leak original response',async()=>{
- const bad=await checkMeteoblueFreeKeyOnce({env:gate,
-  fetchImpl:async()=>({status:403,headers:{get:()=>null},text:async()=>'{\"token\":\"SECRET\"}'})
+ const prepared=prepareMeteoblueFreeRjProbe({
+  ibge:'3304557',packageName:'basic-6h',
+  freeTrialConfirmed:true,autoTopUpDisabled:true,
+  operatorApprovedSingleCreditUse:true,serverEnvironment:true
  });
- assert.equal(bad.apiKeyAcceptedForBasic6h,undefined);
- assert.equal(bad.httpStatus,403);
- assert.equal(JSON.stringify(bad).includes('SECRET'),false);
- const invalid=inspectMeteoblueFreeProbeResponse({status:200,
-  contentType:'text/html',data:{metadata:{},data_6h:{time:['x']}}});
+ assert.equal(prepared.mayContactProvider,true);
+ assert.equal(prepared.packageName,'basic-6h');
+ assert.equal(prepared.query.includes('apikey'),false);
+});
+
+test('offline auth response inspection rejects bad schema and never prints secrets',()=>{
+ const valid=inspectMeteoblueFreeProbeResponse({
+  status:200,contentType:'application/json',
+  data:{metadata:{latitude:-22.9,longitude:-43.46},
+   data_6h:{time:['2026-11-18 12:00']}}
+ });
+ assert.equal(valid.apiKeyAuthorized,true);
+ assert.equal(valid.forecastSampleValidated,false);
+ const invalid=inspectMeteoblueFreeProbeResponse({
+  status:200,contentType:'text/html',
+  data:{metadata:{},data_6h:{time:['x'],apikey:'SECRET_NEVER_PRINT'}}
+ });
  assert.equal(invalid.apiKeyAuthorized,false);
+ assert.equal(JSON.stringify(invalid).includes('SECRET_NEVER_PRINT'),false);
 });
