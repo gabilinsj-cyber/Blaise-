@@ -1,7 +1,9 @@
 # Meteoblue Free Weather API for Blaise V6 RJ — secure onboarding 2026-11-18
 
 ## Status — honest
-- Operator reports signing up to meteoblue, but its account login, Free trial activation, credits and API key are **NOT verified** in this repository.
+- Operator screenshots dated 18/11/2026 show **Free Weather API active**, **10,000,000 credits remaining at screenshot time**, Forecast API and Images API enabled; the displayed expiration is **2027-11-18**. There is no live authenticated access to the user's account through this repository: the API key and backend connectivity remain **NOT verified**.
+- **SECURITY HOLD:** the user accidentally disclosed an existing API key in a screenshot in the chat. DO NOT reuse or reproduce it in code, docs, logs, examples or manual calls. The user must create a new key on API Key Management and delete/revoke the previously pictured key. Only then provision the new key directly to Cloud Secret Manager, never via chat.
+- Screenshot shows a €25 offer for 10 million *additional prepaid credits*, not a required monthly subscription. Purchase is optional, renewal is optional and must stay OFF. No purchase now.
 - There is **NO password validation** from this app. The email account password and meteoblue account password are NOT needed, must NOT be sent to GitHub/ChatGPT/Android.
 - One-year free access can be activated within user's meteoblue account: top-right account icon -> **Account overview** -> **Weather API** -> enable Free Weather API.
 - Official docs: https://docs.meteoblue.com/en/weather-apis/free-weather-api/overview
