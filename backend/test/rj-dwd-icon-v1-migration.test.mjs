@@ -7,7 +7,8 @@ import {DWD_WEIGHTS_LEGACY_CUTOFF_UTC} from '../src/rj-dwd-icon-regrid.mjs';
 const day=Date.UTC(2026,10,18,12,30);
 const build=(now=day,pinned=false)=>{
   const issued=new Date(Math.floor((now-4*3600_000)/(6*3600_000))*(6*3600_000));
-  const forecastHours=Math.floor((now-issued.valueOf())/3600_000);
+  // A model value must already be valid when it was checked (not in the future).
+  const forecastHours=Math.floor((now-issued.valueOf()-60_000)/3600_000);
   const valid=new Date(issued.valueOf()+forecastHours*3600_000);
   return {
     contract:'BLAISE_DWD_ICON_GLOBAL_RJ_92_STAGING_V1',
