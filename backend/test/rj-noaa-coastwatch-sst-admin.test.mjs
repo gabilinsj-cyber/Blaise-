@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {verifyRjNoaaCoastwatchSst} from '../src/rj-noaa-coastwatch-sst-admin.mjs';
-import {RJ_SST_OFFSHORE_POINTS} from '../src/rj-osisaf-sst-admin-bridge.mjs';
+import {verifyRjNoaaCoastwatchSst,RJ_SST_OFFSHORE_POINTS} from '../src/rj-noaa-coastwatch-sst-admin.mjs';
 const now=Date.parse('2026-11-18T13:00:00Z');
 const data=()=>({
  contract:'BLAISE_NOAA_ACSPO_G19_RJ_SST_OFFSHORE_V1',
