@@ -42,6 +42,10 @@ No meteoblue field from this free comparison may override `temperatureC`, `feels
 - `backend/test/rj-meteoblue-free-collector.test.mjs`: sample schema, illegal data, 92-point location restriction, atomic concurrency, budget/day/city caps, cache, secret/privacy and failure cases.
 - CI never obtains secret or calls the provider. It tests fixtures only.
 
+## Guardrail fix — legacy path closed
+
+The earlier direct `checkMeteoblueFreeKeyOnce` / `check-meteoblue-free-one-shot.mjs` probe made network calls without shared Firestore reservation. It has now been retired and always returns `LEGACY_UNBUDGETED_PROBE_DISABLED_USE_FIRESTORE_AUDIT` without network access, including when old operator flags are set. Only the collector behind the atomic ledger may contact meteoblue. The old test evidence is preserved in Git history.
+
 ## Manual execution in Cloud Shell (one 4,000-credit probe)
 This is optional, NEVER automatic. This cannot be run on the already deployed Cloud Run revision without code review, it uses source code from the PR. Only after reviewing it in a separate worktree of the original repo:
 
