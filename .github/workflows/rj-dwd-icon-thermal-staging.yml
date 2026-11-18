@@ -1,0 +1,38 @@
+name: RJ DWD ICON German thermal staging
+# Public non-billable DWD model only; one official forecast point and no app publish.
+on:
+  pull_request:
+    paths:
+      - backend/scripts/probe-dwd-icon-numeric-staging.mjs
+      - backend/test/rj-dwd-icon-thermal-staging.test.mjs
+      - .github/workflows/rj-dwd-icon-thermal-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dwd-rj-real-temperature:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Test official IBGE coordinates and ICON metadata rules
+        run: |
+          node --check backend/scripts/probe-dwd-icon-numeric-staging.mjs
+          node --test backend/test/rj-dwd-icon-thermal-staging.test.mjs
+      - name: Install GRIB2 and BZIP2 decoders
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libeccodes-tools bzip2
+          grib_get -V
+      - name: Decode one official DWD ICON 2m temperature forecast for Rio
+        run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live
+      - name: Upload evidence even if provider unavailable
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blaise-rj-dwd-icon-real-thermal-evidence
+          path: evidence/international-sources/dwd-icon-rio.json
+          if-no-files-found: warn
