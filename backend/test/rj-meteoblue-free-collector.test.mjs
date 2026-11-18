@@ -162,7 +162,7 @@ test('one private request, shared cache; no repeated calls or subscriber publica
  });
  assert.equal(c.configured,true);
  const r=await c.collectOne({ibge:IBGE});
- assert.equal(r.status,'PRIVATE_STAGING_FORECAST_READY');
+ assert.equal(r.status,'PRIVATE_STAGING_FORECAST_READY',r.reason);
  assert.equal(r.forecast.validTimes.length,29);
  assert.equal(r.creditsReservedThisInvocation,4000);
  assert.equal(r.providerRemainingBalanceUnknown,true);
