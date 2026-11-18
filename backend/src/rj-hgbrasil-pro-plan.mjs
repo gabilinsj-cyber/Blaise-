@@ -1,11 +1,9 @@
 /**
- * HG Brasil Weather Pro — approved planning option for Blaise V6 RJ.
- * Research/configuration ONLY. No HTTP requests, registration, billing,
- * background work, keys, storage or subscriber publication.
- *
- * Important legal gate: HG Brasil's published Terms section 11.5
- * prohibits commercialization of returned API data through other sites or
- * means. A paid plan alone is NOT a redistribution grant to our paid app.
+ * HG Brasil Weather Pro — Blaise V6 RJ (92 municipalities).
+ * HG Brasil's written reply of 2026-11-17 authorizes provider data display
+ * as a part of a paid subscriber application, shared cache and attribution.
+ * This is NOT a license to resell raw provider data independently.
+ * No purchase, HTTP, billing, secrets, scheduled collection or publication.
  * https://console.hgbrasil.com/terms
  */
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
@@ -30,16 +28,36 @@ export const RJ_HG_BRASIL_PRO_PLAN=FREEZE({
   pollsPerCityPerDay:24,
   plannedCallsPerDay:2208,
   plannedCallsPer30Days:66240,
+  forecastMaxDays:15,
+  writtenCommercialConfirmationReceivedAt:'2026-11-17',
+  writtenCommercialConfirmationScope:'PAID_SUBSCRIBER_APP_DISPLAY_ONLY_NO_RAW_RESALE',
+  commercialSubscriberDisplayPermissionVerified:true,
   remainingDailyRequestsWithoutRetries:17792,
   targetCityCodes:ALL_RJ_CODES,
+  // Candidate fields are catalogued, NOT operational weather observations.
+  // Hourly rain is aggregated/unsourced (E), never an observed rain-gauge O.
   permittedCandidateFields:FREEZE([
-    'temperatureC','humidityPct','windKmh','gustKmh','cloudPct'
+    'temperatureC','humidityPct','windKmh','gustKmh','windDirectionDeg',
+    'windCardinal','cloudPct','rainLastHourAggregatedMm',
+    'conditionCode','conditionSlug','conditionDescription','isDaytime',
+    'sunriseLocal','sunsetLocal','moonPhase',
   ]),
-  forecastCandidateFields:FREEZE(['dailyMinC','dailyMaxC','dailyRainForecastMm']),
+  forecastCandidateFields:FREEZE([
+    'dailyMinC','dailyMaxC','dailyRainForecastMm','dailyRainProbabilityPct',
+    'dailyHumidityPct','dailyCloudPct','dailyWindKmh',
+    'dailyCondition','dailySunriseLocal','dailySunsetLocal','dailyMoonPhase',
+  ]),
+  candidateFieldCategories:FREEZE({
+    currentConditions:'E_AGGREGATED_UNVERIFIED_SENSOR',
+    lastHourRain:'E_AGGREGATED_NOT_OBSERVED_GAUGE',
+    dailyForecast:'P_MODEL_FORECAST',
+  }),
+  providerCityLookup:'WOEID_OR_CITY_NAME_MUST_BE_MATCHED_1_TO_1_WITH_IBGE',
   rainfallObservationsLicensedAndValidated:false,
   measurementOrigin:'THIRD_PARTY_AGGREGATED_UNVERIFIED',
   stationSensorProof:false,
   forecastIsStationObservation:false,
+  // Reselling/re-distributing raw data as a standalone product is NOT authorized.
   commercialRedistributionPermissionVerified:false,
   subscriptionActive:false,
   appReleaseReady:false,
@@ -60,7 +78,7 @@ export const RJ_HG_BRASIL_PRO_PLAN=FREEZE({
  */
 export function checkRjHgBrasilProReadiness({
   subscriptionActive=false,
-  writtenCommercialGrantVerified=false,
+  writtenCommercialGrantVerified=RJ_HG_BRASIL_PRO_PLAN.commercialSubscriberDisplayPermissionVerified,
   termsAcceptedByOperator=false,
   serverSecretConfigured=false,
   providerCityMapValidated=false,

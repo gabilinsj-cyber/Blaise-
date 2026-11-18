@@ -18,11 +18,19 @@ test('HG Pro plan covers exactly 92 RJ municipality ids within 100-city ceiling'
   assert.equal(plan.dailyRequestLimit,20_000);
   assert.equal(plan.remainingDailyRequestsWithoutRetries,20_000-2208);
   assert.equal(plan.displayedMonthlyPriceBrl,49.9);
+  assert.equal(plan.forecastMaxDays,15);
+  assert.equal(plan.commercialSubscriberDisplayPermissionVerified,true);
+  assert.equal(plan.writtenCommercialConfirmationReceivedAt,'2026-11-17');
+  assert.equal(plan.commercialRedistributionPermissionVerified,false);
+  assert.ok(plan.permittedCandidateFields.includes('rainLastHourAggregatedMm'));
+  assert.ok(plan.forecastCandidateFields.includes('dailyRainProbabilityPct'));
+  assert.ok(plan.permittedCandidateFields.includes('windDirectionDeg'));
 });
-test('HG paid app publication is blocked on explicit commercial rights and purchase',()=>{
+test('HG paid app publication remains blocked before plan purchase and release',()=>{
   assert.equal(ready().readyForManuallyReviewedCollector,false);
   assert.ok(ready().reasons.includes('PAID_PLAN_NOT_ACTIVE'));
-  assert.ok(ready().reasons.includes('WRITTEN_COMMERCIAL_GRANT_REQUIRED'));
+  assert.ok(!ready().reasons.includes('WRITTEN_COMMERCIAL_GRANT_REQUIRED'));
+  assert.ok(ready({writtenCommercialGrantVerified:false}).reasons.includes('WRITTEN_COMMERCIAL_GRANT_REQUIRED'));
   assert.equal(plan.subscriptionActive,false);
   assert.equal(plan.scheduledPollingEnabled,false);
   assert.equal(plan.liveIngestionConfirmed,false);
@@ -34,6 +42,10 @@ test('HG paid app publication is blocked on explicit commercial rights and purch
   assert.equal(plan.stationSensorProof,false);
   assert.ok(!plan.permittedCandidateFields.includes('rainNowMm'));
   assert.ok(!plan.permittedCandidateFields.includes('rainAccumulatedMm'));
+  assert.equal(plan.candidateFieldCategories.lastHourRain,'E_AGGREGATED_NOT_OBSERVED_GAUGE');
+  assert.equal(plan.subscriptionActive,false);
+  assert.equal(plan.keyInstalledServerSide,false);
+  assert.equal(plan.liveIngestionConfirmed,false);
 });
 test('all readiness prerequisites must be explicit and no call is initiated by the gate',()=>{
   const all={subscriptionActive:true,writtenCommercialGrantVerified:true,

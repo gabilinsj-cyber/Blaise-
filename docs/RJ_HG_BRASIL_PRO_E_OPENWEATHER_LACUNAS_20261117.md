@@ -1,4 +1,11 @@
 # Blaise V6 RJ — HG Brasil Pro (contratação futura) e possíveis campos OpenWeather
+
+**Atualização de 18/11/2026 — prevalece sobre o bloqueio contratual abaixo:** HG Brasil respondeu formalmente em 17/11/2026 por e-mail, autorizando a exibição dos dados como parte do Blaise V6 RJ com assinantes pagantes, cache compartilhado e atribuição; sem licença ou taxa adicional específica. A resposta confirma o plano Pro para 92 municípios e 2.208 consultas/dia, dentro de 100 cidades/mês, 20.000 requisições/dia e previsão de até 15 dias. A revenda/distribuição isolada dos dados brutos continua proibida. O texto completo e identificação pessoal do contato ficam no e-mail privado, não no repositório público. Preço anunciado: R$ 49,90/mês (não R$ 49,00). Contratação, credencial, mapeamento HG↔IBGE, teste real, deployment e publicação continuam pendentes.
+
+**Catálogo de candidatos HG:** resultados atuais incluem temperatura, umidade, vento/rajadas, direção, nuvens, condição, chuva agregada da última hora, nascer/pôr do sol e fase da lua. O retorno diário inclui máximas, mínimas, chuva prevista e sua probabilidade, umidade, nuvens, vento e condições, sujeitos à amostra real. A HG não identifica estação física de origem por valor. Chuva agregada HG é no máximo **E** e não satisfaz a regra de chuva atual observada até 30 minutos (**O**). Não permitir que esse valor preencha rainNowMm nem rainAccumulatedMm. Enquanto o plano não estiver contratado e os 92 códigos HG não forem homologados, não afirmar cobertura operacional.
+
+**Nota histórica:** a exigência original de obter autorização escrita na seção abaixo foi cumprida pelo e-mail de 17/11/2026; os demais gates de operação continuam.
+
 **Regra do responsável registrada em 17/11/2026. Branch PR #157, sem merge, deploy, pagamento ou operação real.**
 
 ## Situação contratual
