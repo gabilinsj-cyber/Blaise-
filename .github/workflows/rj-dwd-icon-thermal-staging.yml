@@ -7,6 +7,9 @@ on:
       - backend/test/rj-dwd-icon-thermal-staging.test.mjs
       - backend/src/rj-dwd-icon-regrid.mjs
       - backend/test/rj-dwd-icon-regrid.test.mjs
+      - backend/src/rj-dwd-thermal-admin-bridge.mjs
+      - backend/test/rj-dwd-thermal-admin-bridge.test.mjs
+      - backend/scripts/audit-dwd-icon-thermal-staging.mjs
       - .github/workflows/rj-dwd-icon-thermal-staging.yml
   workflow_dispatch:
 permissions:
@@ -26,6 +29,7 @@ jobs:
           node --test backend/test/rj-dwd-icon-thermal-staging.test.mjs
           node --check backend/src/rj-dwd-icon-regrid.mjs
           node --test backend/test/rj-dwd-icon-regrid.test.mjs
+          node --test backend/test/rj-dwd-thermal-admin-bridge.test.mjs
       - name: Install GRIB2 and BZIP2 decoders
         run: |
           sudo apt-get update -qq
@@ -33,10 +37,14 @@ jobs:
           grib_get -V
       - name: Decode one official DWD ICON 2m temperature forecast for Rio
         run: node backend/scripts/probe-dwd-icon-numeric-staging.mjs --live
+      - name: Verify source provenance in private Blaise thermal audit
+        run: node backend/scripts/audit-dwd-icon-thermal-staging.mjs
       - name: Upload evidence even if provider unavailable
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: blaise-rj-dwd-icon-real-thermal-evidence
-          path: evidence/international-sources/dwd-icon-rio.json
+          path: |
+            evidence/international-sources/dwd-icon-rio.json
+            evidence/international-sources/dwd-icon-rio-admin-audit.json
           if-no-files-found: warn
