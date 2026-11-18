@@ -26,6 +26,18 @@ const deny=reason=>Object.freeze({
 const invariant=(v)=>{if(!v)throw Error('rj_meteoblue_firestore_invalid_state')};
 const validClock=n=>Number.isSafeInteger(n)&&n>=METEOBLUE_FREE_START_MS&&n<METEOBLUE_FREE_EXPIRY_MS;
 const forecastFieldNames=new Set(Object.values(METEOBLUE_BASIC6H_FIELDS).map(x=>x.name));
+// A new cache write does not make an old model forecast current.
+// Verify the product's *own* timestamps, not merely the Firestore write time.
+const validForecastTimeline=(times,now)=>{
+ if(!Array.isArray(times)||times.length<1||times.length>80)return false;
+ const ms=times.map(t=>typeof t==='string'&&
+   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)
+     ?Date.parse(t):NaN);
+ return ms.every((t,i)=>Number.isFinite(t)&&
+   (i===0||t-ms[i-1]===6*60*60_000))&&
+   ms[0]>=now-24*60*60_000&&
+   ms[ms.length-1]>=now&&ms[ms.length-1]<=now+15*24*60*60_000;
+};
 export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}){
  if(!db||typeof db.collection!=='function'||typeof db.runTransaction!=='function'||
     typeof clock!=='function')throw Error('rj_meteoblue_firestore_backend_required');
@@ -98,6 +110,7 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
      x?.ibge!==id||x?.sourceId!=='METEOBLUE_FREE_FORECAST'||
      !Number.isSafeInteger(x?.storedAtMs)||x.storedAtMs>now||
      now-x.storedAtMs>METEOBLUE_CACHE_TTL_MS||
+     !validForecastTimeline(x?.forecast?.validTimes,now)||
      x?.forecast?.status!=='FORECAST_PARSED_PRIVATE_STAGING'||
      x?.forecast?.publishedToSubscribers!==false||
      x?.forecast?.publishedToAndroid!==false)return null;
@@ -111,7 +124,7 @@ export function createRjMeteoblueFreeFirestoreStore({db,clock=()=>Date.now()}={}
      forecast?.status!=='FORECAST_PARSED_PRIVATE_STAGING'||
      forecast?.publishedToSubscribers!==false||
      forecast?.publishedToAndroid!==false||
-     !Array.isArray(forecast?.validTimes)||
+     !validForecastTimeline(forecast?.validTimes,now)||
      !Array.isArray(forecast?.values)||
      forecast.values.some(x=>!forecastFieldNames.has(x.field)))
     throw Error('rj_meteoblue_invalid_private_cache_write');
