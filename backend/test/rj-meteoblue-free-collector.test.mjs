@@ -196,12 +196,28 @@ test('private collector caches incomplete audit without claiming ready or using 
  assert.equal(calls,1);
 });
 
+test('one 4k-credit request per UTC day matches the operator-saved key limit',async()=>{
+ assert.equal(METEOBLUE_MAX_DAILY_CALLS,1);
+ assert.equal(METEOBLUE_BASIC6H_CREDITS,4_000);
+ const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
+ const first=await store.reserve(IBGE,NOW);
+ assert.equal(first.approved,true);
+ const second=await store.reserve('3303906',NOW+1_000);
+ assert.equal(second.approved,false);
+ assert.equal(second.reason,'LOCAL_DAILY_CALL_CEILING');
+ const report=await store.readLocalBudgetStatus();
+ assert.equal(report.localSpentCredits,4_000);
+ assert.equal(report.callsReservedToday,1);
+ assert.equal(report.maxCallsPerUtcDay,1);
+ assert.equal(report.providerCreditBalance,'UNVERIFIED_IN_PROVIDER_DASHBOARD');
+});
+
 test('Firestore budget reserves atomically, cannot exceed daily cap under concurrency',async()=>{
  const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
  const ids=['3304557','3303906','3305802','3303401','3300100','3300159'];
  const results=await Promise.all(ids.map(id=>store.reserve(id,NOW)));
  assert.equal(results.filter(x=>x.approved).length,METEOBLUE_MAX_DAILY_CALLS);
- assert.equal(results.filter(x=>!x.approved).length,2);
+ assert.equal(results.filter(x=>!x.approved).length,ids.length-METEOBLUE_MAX_DAILY_CALLS);
  assert.equal(results[0].creditsReserved,METEOBLUE_BASIC6H_CREDITS);
  assert.equal(results[0].providerBalanceChecked,false);
  assert.equal(METEOBLUE_PRIVATE_CEILING_CREDITS,8_000_000);
@@ -213,7 +229,7 @@ test('private credit ledger reports local reservations only, never invents provi
  const zero=await store.readLocalBudgetStatus();
  assert.equal(zero.localSpentCredits,0);
  assert.equal(zero.providerCreditBalance,'UNVERIFIED_IN_PROVIDER_DASHBOARD');
- assert.equal(zero.maxCallsPerUtcDay,4);
+ assert.equal(zero.maxCallsPerUtcDay,1);
  await store.reserve(IBGE,NOW);
  const one=await store.readLocalBudgetStatus();
  assert.equal(one.localSpentCredits,4000);
