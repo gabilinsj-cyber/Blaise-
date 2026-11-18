@@ -138,6 +138,39 @@ class AdminScientificActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        Spacer(Modifier.height(16.dp))
+                        Card(modifier = Modifier.fillMaxWidth()
+                            .testTag("admin-meteoblue-free-field-audit")) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("METEOBLUE FREE • 7 CAMPOS DE PREVISÃO",
+                                    style = MaterialTheme.typography.titleMedium)
+                                Text("Auditoria administrativa do pacote basic-6h • natureza P. " +
+                                    "As unidades e os horários precisam ser verificados na resposta real.")
+                                Text("Oferta inicial: 10.000.000 créditos • limite interno: " +
+                                    "8.000.000 • reserva planejada: 2.000.000.")
+                                Text("Cada consulta basic-6h: 4.000 créditos previstos. " +
+                                    "Máximo 4/dia UTC; 24h por município; cache 6h.")
+                                Text("Vencimento informado: ${AdminCollectorReadiness.METEOBLUE_EXPIRY_DATE}.")
+                                Text("Saldo atual no fornecedor: " +
+                                    (AdminCollectorReadiness.meteoblueCurrentProviderCredits
+                                        ?.toString() ?: "NÃO CONSULTADO"))
+                                Text("Consumo reservado no Firestore: " +
+                                    (AdminCollectorReadiness.meteoblueActualLocalCreditsReserved
+                                        ?.toString() ?: "NÃO CONSULTADO"))
+                                Text("Coletor privado: DESLIGADO • publicação aos assinantes: NÃO.")
+                                Spacer(Modifier.height(8.dp))
+                                AdminCollectorReadiness.meteoblueFieldAudit.forEach { field ->
+                                    Text("${field.label} (${field.unit})",
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    Text("P • ${field.meaning} • valor real: NÃO AUDITADO",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.testTag("admin-meteoblue-field-${field.jsonKey}"))
+                                    Spacer(Modifier.height(4.dp))
+                                }
+                                Text("HTTP 200 e 29 horários do teste anterior não comprovam " +
+                                    "valor, unidade, saldo ou disponibilidade atual. Sem números fictícios.")
+                            }
+                        }
                         Text("Sem contrato pago novo • Sem publicação para assinantes • " +
                             "Ausência de dado é indisponível, não zero.")
                         Spacer(Modifier.height(16.dp))
