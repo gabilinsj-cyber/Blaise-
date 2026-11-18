@@ -24,7 +24,7 @@ class CoastwatchGates(unittest.TestCase):
    download=lambda _:b"\x89HDF"+bytes(128),decode=fake)
   self.assertEqual(v["status"],"FULL")
   self.assertEqual(v["verifiedPoints"],3)
-  self.assertFalse(v["underlyingSensorIndependentOfEumetsat"])
+  self.assertTrue(v["singleSourceNoDoubleCount"])
   self.assertFalse(v["publishedToSubscriber"])
  def test_quality_4_is_not_sufficient_for_acspo(self):
   def low(path,now):
