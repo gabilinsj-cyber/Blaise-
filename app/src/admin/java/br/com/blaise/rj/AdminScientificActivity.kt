@@ -220,7 +220,7 @@ class AdminScientificActivity : ComponentActivity() {
                                             memoryLoading=false
                                         } else {
                                             auth.getIdToken(true).addOnCompleteListener { task ->
-                                                val token=task.result?.token?.takeIf { task.isSuccessful }
+                                                val token=if(task.isSuccessful) task.result?.token else null
                                                 if(!task.isSuccessful||token.isNullOrBlank()){
                                                     memoryStatus="Autorização administrativa indisponível."
                                                     memoryLoading=false
