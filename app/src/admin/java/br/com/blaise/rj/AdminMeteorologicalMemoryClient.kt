@@ -122,7 +122,8 @@ object AdminMeteorologicalMemoryClient {
         val allowedSources = setOf(
             "METEOBLUE_FREE_FORECAST","DWD_ICON_GLOBAL","ECMWF_IFS","NOAA_GFS",
             "NOAA_GFS_WAVE","NOAA_COASTWATCH_SST","NOAA_GLM",
-            "OPENWEATHER_AGENT13","HG_BRASIL_WEATHER_PRO","ANA_RIVER","SGB_SACE"
+            "OPENWEATHER_AGENT13","HG_BRASIL_WEATHER_PRO","ANA_RIVER","SGB_SACE",
+            "VISUAL_CROSSING_FREE"
         )
         val sourceStates=mutableListOf<Pair<String,String>>()
         for (i in 0 until sourcesJson.length()){
@@ -131,7 +132,7 @@ object AdminMeteorologicalMemoryClient {
             require(!item.getBoolean("clientPublished"))
             val status=item.getString("state")
             require(status in setOf("UNVERIFIED_CURRENT_CACHE","NOT_CONTRACTED",
-                "INDISPONIVEL","PRIVATE_CACHE_VALID"))
+                "INDISPONIVEL","PRIVATE_CACHE_VALID","NOT_YET_VALIDATED"))
             sourceStates+=item.getString("label").take(80) to status
         }
         val noaa=json.optJSONObject("privateNoaaWave")
