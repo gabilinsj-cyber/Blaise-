@@ -182,3 +182,27 @@ Evidência: captura de Cloud Shell às 16h07 BRT. Ao executar `gcloud policy-int
 **Interpretação:** essa é uma falha na execução da **ferramenta de auditoria**, não o resultado de `secretmanager.versions.access` para a identidade do backend. Não houve conclusão `ALLOWED`, `DENIED` nem `UNKNOWN` de acesso efetivo. O erro também não implica vazamento da chave, modificação de roles nem consumo de registros meteorológicos.
 
 **Decisão segura:** não habilitar `policytroubleshooter.googleapis.com`, não modificar Application Default Credentials/quota project e não mexer no IAM sem autorização explícita; preferir revisão de política somente leitura já coletada, que confirmou ausência de bindings diretos de projeto/segredo e **não eliminou a possibilidade de herança, grupos ou conditions**. Marcar auditoria IAM efetiva como pendente. As três coleções passaram em 30/30 operações negadas por anônimo/usuário comum **no emulador local**, não como prova ampla de segurança GCP. Visual Crossing permanece com a chave atual (por escolha da titular), sem novas chamadas, sem cron, sem liberação ao cliente e PR em draft.
+
+
+## Revisão de permissões IAM herdadas sem Policy Troubleshooter — 19/11/2026
+
+**Problema:** a tentativa de Policy Troubleshooter às 16h07 BRT falhou devido a `SERVICE_DISABLED`/`PERMISSION_DENIED` de quota project da **ferramenta**, não do segredo. A titular pediu concluir a análise sem habilitar APIs extras, sem mexer na chave exposta e sem autorizar publicação ou novas consultas meteorológicas.
+
+**Implementação:** `backend/scripts/visual-crossing-iam-inheritance-readonly.py`, Python 3 puro (sem `pip install`, sem `gcloud auth application-default set-quota-project` e sem chamadas ao Policy Troubleshooter). Roda somente comandos `gcloud` de leitura da hierarquia e da política direta do segredo:
+
+- Preferência: `gcloud projects get-ancestors-iam-policy blaise-v6-rj --include-deny --format=json`, que retorna políticas **allow/deny** do projeto e ancestrais conforme a documentação Google Cloud.
+- Caso o comando `--include-deny` não esteja disponível ou o operador não possa ler as políticas deny, tenta a consulta sem deny, preservando diagnóstico **`ANCESTOR_DENY_POLICIES_UNVERIFIED`**. Se a consulta consolidada falhar, consulta individualmente `gcloud projects get-iam-policy`, `gcloud projects get-ancestors`, `gcloud resource-manager folders get-iam-policy` e `gcloud organizations get-iam-policy`, conforme disponibilidade. Qualquer nível não legível é declarado **PENDENTE**.
+- Compara vínculos explícitos para as identidades `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com` e `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`; contabiliza políticas de negação, bindings para `allUsers`/`allAuthenticatedUsers`, grupos/domínios/principalSet e condições. Só imprime **tipo de identidade, escopo e role**, sem nomes de grupos, políticas completas, contas pessoais, tokens ou valor de segredo.
+- Revisa a política direta de `blaise-visual-crossing-free-api-key` com `gcloud secrets get-iam-policy`; nunca lê nenhuma versão do segredo. A saída sempre informa `effectiveSecretAccess=NOT_CONCLUSIVELY_EVALUATED`, `releaseApproved=false` — não declara menor privilégio validado a partir de vínculos diretos, pois ainda pode haver grupo, herança, IAM deny, PAB, UAP ou condições que não possam ser avaliadas integralmente.
+- Executar pela **worktree isolada**, sem editar o projeto original:
+  `git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118`;
+  `git show FETCH_HEAD:backend/scripts/visual-crossing-iam-inheritance-readonly.py > ~/blaise-vc-security-check/visual-crossing-iam-inheritance-readonly.py`;
+  `python3 ~/blaise-vc-security-check/visual-crossing-iam-inheritance-readonly.py`.
+- **Não** executar `gcloud services enable`, `gcloud projects add-iam-policy-binding`, `gcloud secrets versions access`, `firebase deploy` ou reiniciar serviços. Não atualizar a chave por conta própria.
+
+**Referências oficiais consultadas em 19/11/2026:**
+<https://docs.cloud.google.com/sdk/gcloud/reference/projects/get-ancestors-iam-policy>
+<https://docs.cloud.google.com/iam/docs/troubleshoot-policies>
+<https://docs.cloud.google.com/iam/docs/deny-access>
+
+**Resultado da execução real:** ainda aguardando saída deste comando no Cloud Shell. Não inventar conclusão sobre a hierarquia sem evidência; 30/30 testes de cliente do Firestore no emulador permanecem comprovados e a interface Visual Crossing continua em rascunho, sem release.
