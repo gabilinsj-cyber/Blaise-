@@ -224,3 +224,16 @@ Captura do Cloud Shell da titular referente à execução de `backend/scripts/vi
 **Conclusão exata:** não foram encontrados vínculos `allow` explícitos dessas duas contas nas políticas consultadas nem concessões públicas amplas ou por grupos nesses documentos; isso **não equivale** a aprovação de menor privilégio nem negação/concessão efetiva de `secretmanager.versions.access`. Há três condições IAM cujo conteúdo e membros ainda não foram avaliados; grants podem ocorrer por mecanismos não cobertos (inclusive outros níveis, políticas ou identidades). Nunca ler ou imprimir o segredo. Não alterar a chave atual, regras Firestore, IAM, ativar serviço/cobrança, criar cron, publicar dados, mesclar PR ou implantar produção.
 
 Próxima análise sem habilitar API: coletar **somente metadados seguros das três condições IAM** (escopo, papel e presença de condição), verificando suas relações com contas de execução e permissões relevantes, sem apresentar identidades pessoais, valores de segredo ou expressões sensíveis. Uma conclusão integral de acesso efetivo pode continuar pendente sem ferramentas e permissões adicionais, e isso deve ser comunicado honestamente.
+
+
+## Identificação dos três papéis IAM condicionais — 19/11/2026 16h23 BRT
+
+A titular enviou captura de comando **somente leitura** `gcloud projects get-ancestors-iam-policy blaise-v6-rj --include-deny --format=json` que listou os seguintes três `bindings` condicionais no escopo `project`:
+
+- `projects/blaise-v6-rj/roles/blaiseAgent13WriteProbe` (papel personalizado, **permissões desconhecidas** até inspecionar a definição da role);
+- `roles/datastore.user` (**pode autorizar leitura/escrita do Firestore**, conforme identidade e condição);
+- `roles/datastore.viewer` (**pode autorizar leitura de metadados/dados conforme as permissões reais da role**, condicionada).
+
+A captura só imprimiu papel, escopo e `CONDICAO_PRESENTE: SIM`. **Não informou quem são os membros nem o predicado da condição**. Resultado anterior do auditor específico registrou listas vazias de vínculos IAM diretos ou herdados **explícitos** para `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com` e `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`; isso não exclui outras identidades ou grant condicional e não equivale a `secretmanager.versions.access` verificado.
+
+Não alterar ou remover roles: podem ser necessárias ao aplicativo original, ao Agente 13 e à homologação. **Próxima leitura recomendada:** imprimir apenas se cada vínculo contém as duas contas de serviço do backend/NOAA, quantidade de membros, tipos de principal (sem endereços) e presença de condição. Também revisar permissões do papel personalizado de forma limitada e sem consultar segredos ou documentos de produção. **Não aprovar release, coleta ou cliente.**
