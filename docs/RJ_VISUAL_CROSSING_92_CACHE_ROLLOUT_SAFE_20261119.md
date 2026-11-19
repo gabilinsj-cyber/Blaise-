@@ -93,3 +93,17 @@ A titular executou na Cloud Shell a leitura oficial da release ativa de regras `
 **Bloqueio atual da liberação:** realizar avaliação formal de `get`, `list`, `create`, `update` e `delete` em **cada uma das três coleções** com usuário não autenticado e assinante autenticado **no emulador local ou simulador oficial**. Atestar que o cliente não consegue ler/escrever os dados privados, mesmo quando há `match /{document=**}`. Documentar resultado e revisão de IAM do serviço backend. Não modificar ruleset/roles de produção a partir desta captura. O SDK Admin de servidor ignora regras Firestore e deve ser limitado por IAM.
 
 Fontes de procedimento oficial: <https://firebase.google.com/docs/firestore/security/test-rules-emulator> e <https://firebase.google.com/docs/firestore/security/rules-structure>. A versão cliente e as flags de publicação Visual Crossing ficam OFF até evidência de negação real e autorização explícita. Chave antiga preservada a pedido da titular; exposição anterior não desaparece.
+
+
+## Alternativa ao botão ausente no Firebase móvel — teste local 19/11/2026
+
+O simulador do Firebase Console (*Rules Playground*) não estava visível para a titular no navegador Android. Foi preparada uma alternativa **Cloud Shell sem alteração de produção**:
+
+- `backend/scripts/visual-crossing-firestore-local-security-check.mjs` usa as credenciais de leitura já existentes do `gcloud` apenas para baixar da API Firebase Rules a **fonte da release ativa `cloud.firestore`**.
+- O conteúdo das regras, potencialmente sensível, fica somente em diretório temporário `/tmp/blaise-vc-local-rules-*`, é removido ao finalizar e **não é enviado ao GitHub/ChatGPT**. Tokens, API keys e corpo das regras não são impressos.
+- Instala dependências de emulador **somente no diretório temporário**: `firebase-tools@14`, `firebase@12`, `@firebase/rules-unit-testing@5`; precisa de Java, npm e acesso de rede para instalar dependências. Se faltar Java/permissão, retorna indisponibilidade sem fingir aprovação. **Não realiza solicitação à API meteorológica Visual Crossing**.
+- Inicia um **emulador local** num projeto `demo-blaise-vc-firestore-rules` (porta 8185), nunca `blaise-v6-rj`. O arquivo `backend/scripts/visual-crossing-firestore-client-probe.mjs` usa dados fictícios no emulador para 30 operações (`get,list,create,update,delete`) em três coleções privadas, como anônimo e como cliente autenticado comum.
+- Veredito `SIMULATED_CLIENTS_DENIED` significa **somente** que as 30 operações simuladas não conseguiram acesso; não substitui revisão de regras mais complexas, claims de admin, credenciais IAM e testes de identidade reais. `ACCESS_RISK_OR_TEST_ERROR` requer correção; não ativar coleta nem publicação.
+- Para executar, em worktree isolada Cloud Shell: `git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118`, exportar os dois scripts com `git show FETCH_HEAD:...` para `/tmp` e executar `node /tmp/visual-crossing-firestore-local-security-check.mjs /tmp/visual-crossing-firestore-client-probe.mjs`. Nenhum comando publica regras. **Não executar `firebase deploy`**.
+
+Referência oficial: <https://firebase.google.com/docs/firestore/security/test-rules-emulator>. Não usar a API REST `projects.test` para contornar o simulador, pois a documentação avisa que os testes podem acessar recursos de produção e causar cobranças.
