@@ -267,6 +267,22 @@ class AdminScientificActivity : ComponentActivity() {
                                         " créditos • chamadas UTC hoje: " +
                                         (snapshot.reservedCallsToday?.toString()?:"indisponível") +
                                         " • saldo real da meteoblue NÃO verificado.")
+                                    if(snapshot.noaaWaveReadable(Instant.now())) {
+                                        Text("NOAA GFS-Wave (P) • altura prevista: " +
+                                            String.format(Locale("pt", "BR"), "%.2f m",
+                                                snapshot.noaaWaveHeightM) +
+                                            " • validade UTC: ${snapshot.noaaWaveValidAt}",
+                                            modifier=Modifier.testTag("admin-live-noaa-wave-height"))
+                                    } else {
+                                        Text("NOAA GFS-Wave: sem previsão recente no cache do backend.")
+                                    }
+                                    snapshot.metNorwayValidAt?.let { validAt ->
+                                        val age=java.time.Duration.between(validAt,Instant.now()).seconds
+                                        if(age in 0L..5400L)
+                                            Text("ECMWF/IFS via MET Norway (P): cache válido em " +
+                                                "$validAt UTC • não é estação local.")
+                                        else Text("ECMWF/IFS: cache desatualizado.")
+                                    }
                                     snapshot.sourceStates.forEach { (name,state) ->
                                         Text("${name}: ${state}",
                                             style=MaterialTheme.typography.bodySmall)
