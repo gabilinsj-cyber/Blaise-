@@ -28,7 +28,24 @@ data class AdminMeteorologicalMemorySnapshot(
     val noaaWaveValidAt: Instant? = null,
     val metNorwayValidAt: Instant? = null,
     val providerCreditBalanceVerified: Boolean = false,
+    val visualCrossingIbge: String = "3304557",
+    val visualCrossingStatus: String = "INDISPONIVEL",
+    val visualCrossingValidAt: Instant? = null,
+    val visualCrossingCheckedAt: Instant? = null,
+    val visualCrossingCurrentFields: List<AdminMeteorologicalMemoryField> = emptyList(),
+    val visualCrossingForecastSlots: Int = 0,
+    val visualCrossingAttribution: String = "Weather data by Visual Crossing",
 ) {
+    fun visualCrossingReadable(now: Instant): Boolean {
+        val age=Duration.between(evaluatedAt, now).seconds
+        val validAt=visualCrossingValidAt ?: return false
+        val checkedAt=visualCrossingCheckedAt ?: return false
+        val observedAge=Duration.between(validAt,now).seconds
+        val readAge=Duration.between(checkedAt,now).seconds
+        return visualCrossingStatus=="PRIVATE_CACHE_VALID" &&
+            age in 0L..180L && readAge in 0L..21600L &&
+            observedAge in 0L..5400L && visualCrossingCurrentFields.isNotEmpty()
+    }
     fun noaaWaveReadable(now: Instant): Boolean {
         val age=Duration.between(evaluatedAt,now).seconds
         val waveAt=noaaWaveValidAt ?: return false
@@ -164,6 +181,64 @@ object AdminMeteorologicalMemoryClient {
             if(met.getString("status")=="PRIVATE_CACHE_VALID")
                 metValid=Instant.parse(met.getString("validAt"))
         }
+        var vcCity="3304557"
+        var vcState="INDISPONIVEL"
+        var vcCurrentAt:Instant?=null
+        var vcCheckedAt:Instant?=null
+        val vcFields=mutableListOf<AdminMeteorologicalMemoryField>()
+        var vcSlots=0
+        val visualCrossing=json.optJSONObject("privateVisualCrossing")
+        if(visualCrossing!=null){
+            require(visualCrossing.getString("sourceId")=="VISUAL_CROSSING_FREE")
+            vcCity=visualCrossing.getString("ibge")
+            require(vcCity.matches(Regex("[0-9]{7}")))
+            vcState=visualCrossing.getString("status")
+            require(vcState in setOf("INDISPONIVEL","PRIVATE_CACHE_VALID"))
+            require(!visualCrossing.getBoolean("publishedToSubscribers"))
+            require(!visualCrossing.getBoolean("providerBalanceVerified"))
+            if(vcState=="PRIVATE_CACHE_VALID") {
+                vcCheckedAt=Instant.parse(visualCrossing.getString("checkedAt"))
+                vcCurrentAt=visualCrossing.optString("validAt").takeIf{
+                    it.isNotBlank()&&it!="null"
+                }?.let(Instant::parse)
+                val available=visualCrossing.getJSONArray("fields")
+                require(available.length()<=10)
+                val permitted=mapOf(
+                    "temperatureC" to ("°C" to (-40.0..60.0)),
+                    "feelsLikeC" to ("°C" to (-60.0..70.0)),
+                    "relativeHumidityPct" to ("%" to (0.0..100.0)),
+                    "dewPointC" to ("°C" to (-60.0..60.0)),
+                    "windSpeedKmh" to ("km/h" to (0.0..350.0)),
+                    "windGustKmh" to ("km/h" to (0.0..450.0)),
+                    "precipitationMm" to ("mm" to (0.0..500.0)),
+                    "precipitationProbabilityPct" to ("%" to (0.0..100.0)),
+                    "pressureHpa" to ("hPa" to (800.0..1100.0)),
+                    "severeRiskIndex" to ("index 0-100" to (0.0..100.0))
+                )
+                val seenVc=mutableSetOf<String>()
+                for(i in 0 until available.length()){
+                    val field=available.getJSONObject(i)
+                    val id=field.getString("field")
+                    val rule=permitted[id] ?: throw IllegalArgumentException("unexpected_vc_field")
+                    require(seenVc.add(id) && field.getString("kind")=="E" &&
+                        field.getString("unit")==rule.first)
+                    val value=(field.get("value") as? Number)?.toDouble()
+                        ?: throw IllegalArgumentException("invalid_vc_value")
+                    require(value.isFinite() && value in rule.second)
+                    vcFields += AdminMeteorologicalMemoryField(id,id,value,rule.first)
+                }
+                val forecast=visualCrossing.getJSONArray("forecast")
+                require(forecast.length()<=36)
+                for(i in 0 until forecast.length()){
+                    val slot=forecast.getJSONObject(i)
+                    require(slot.getString("kind")=="P")
+                    val time=Instant.parse(slot.getString("validAt"))
+                    require(time.isAfter(evaluatedAt.minusSeconds(1)))
+                    vcSlots++
+                }
+                require(visualCrossing.getString("attribution")=="Weather data by Visual Crossing")
+            }
+        }
         val ledger=json.optJSONObject("quotaLedger")
         return AdminMeteorologicalMemorySnapshot(
             evaluatedAt=evaluatedAt,
@@ -178,18 +253,27 @@ object AdminMeteorologicalMemoryClient {
             reservedCallsToday=ledger?.optInt("callsReservedToday",-1)?.takeIf{it>=0},
             noaaWaveHeightM=noaaHeight,
             noaaWaveValidAt=noaaValid,
-            metNorwayValidAt=metValid
+            metNorwayValidAt=metValid,
+            visualCrossingIbge=vcCity,
+            visualCrossingStatus=vcState,
+            visualCrossingValidAt=vcCurrentAt,
+            visualCrossingCheckedAt=vcCheckedAt,
+            visualCrossingCurrentFields=vcFields,
+            visualCrossingForecastSlots=vcSlots
         )
     }
 
-    fun fetch(endpoint: String, idToken: String, onResult: (AdminMeteorologicalMemorySnapshot?) -> Unit) {
-        if (!endpoint.startsWith("https://") || idToken.isBlank()) {
+    fun fetch(endpoint: String, idToken: String,
+        ibge: String = "3304557",
+        onResult: (AdminMeteorologicalMemorySnapshot?) -> Unit) {
+        if (!endpoint.startsWith("https://") || idToken.isBlank() ||
+            !ibge.matches(Regex("[0-9]{7}"))) {
             onResult(null)
             return
         }
         thread(name="blaise-admin-memory-read", isDaemon=true) {
             val result=runCatching {
-                val c=URL(endpoint).openConnection() as HttpURLConnection
+                val c=URL("$endpoint?ibge=$ibge").openConnection() as HttpURLConnection
                 try {
                     c.instanceFollowRedirects=false
                     c.requestMethod="GET"
