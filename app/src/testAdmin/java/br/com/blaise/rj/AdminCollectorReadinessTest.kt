@@ -38,6 +38,14 @@ class AdminCollectorReadinessTest {
             "sealevelpressure_mean"
         ), fields.map { it.jsonKey }.toSet())
         assertTrue(fields.none { it.auditedLiveValue })
+        assertTrue(fields.all { it.presentInOneRealPrivateResponse })
+        assertEquals(7, AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT)
+        assertEquals(29, AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS)
+        assertEquals(4_000, AdminCollectorReadiness.METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES)
         assertTrue(fields.all { it.unit in setOf("mm", "%", "km/h", "hPa") })
         assertTrue(fields.single { it.jsonKey == "windspeed_max" }
             .meaning.contains("NÃO RAJADA OBSERVADA"))
@@ -72,6 +80,6 @@ class AdminCollectorReadinessTest {
         val mb = x.integrations.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertTrue(mb.state.contains("SALDO DO FORNECEDOR NÃO CONSULTADO"))
         assertFalse(mb.publishingToSubscribers)
-        assertTrue(mb.explanation.contains("sete campos reais"))
+        assertTrue(mb.explanation.contains("7/7 campos"))
     }
 }
