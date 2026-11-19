@@ -24,6 +24,8 @@ on:
       - backend/scripts/visual-crossing-firestore-rules-readonly.mjs
       - backend/scripts/visual-crossing-firestore-local-security-check.mjs
       - backend/scripts/visual-crossing-firestore-client-probe.mjs
+      - backend/scripts/visual-crossing-iam-inheritance-readonly.py
+      - backend/test/test_visual_crossing_iam_inheritance_readonly.py
       - backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs
       - docs/RJ_VISUAL_CROSSING_92_CACHE_ROLLOUT_SAFE_20261119.md
       - backend/test/rj-visual-crossing-free-private.test.mjs
@@ -60,6 +62,7 @@ jobs:
           node --check backend/scripts/visual-crossing-firestore-rules-readonly.mjs
           node --check backend/scripts/visual-crossing-firestore-local-security-check.mjs
           node --check backend/scripts/visual-crossing-firestore-client-probe.mjs
+          python3 -B backend/test/test_visual_crossing_iam_inheritance_readonly.py
           node --check backend/src/rj-meteorological-memory-live.mjs
           node --check backend/src/blaise-scientific-http.mjs
           node --check backend/src/runtime.mjs
