@@ -66,3 +66,14 @@ Captura do Cloud Shell da titular após leitura **somente do Firestore** (`creat
 - `publishedToSubscribers=false`
 
 A tentativa privada das 11h54 registrou uma única reserva e a resposta do fornecedor informou `queryCost=1`. Isso comprova a contabilidade **local**, não o saldo atual do painel da Visual Crossing. **Não repetir a consulta real, nem com a mudança de dia UTC**, pois esta campanha foi deliberadamente de um ensaio. Próxima ação sem gasto de registros: verificar no painel da conta Visual Crossing (Uso/uso recente) o consumo externo de 19/11/2026 e guardar a evidência sem chave ou dados pessoais. O projeto original e a produção continuam sem alterações.
+
+
+## Confirmação no fornecedor — 19/11/2026 12h05 BRT
+
+Evidência fornecida pela titular em **três capturas do painel autenticado Visual Crossing** (dados pessoais/chave excluídos deste registro):
+
+- A seção de utilização, calculada pelo fornecedor por dia UTC, mostra **1 consulta**, **custo de registros = 1**, **0 solicitações de mapas**, **0 falhas**.
+- O histórico diário confirma para **2026-11-19**: `consultas=1`, `mapas=0`, `custo=1`, `fracassos=0`. Os dias anteriores visíveis apresentam zero.
+- A franquia indicada é **1.000 grátis/dia**. O campo separado **"Créditos gratuitos disponíveis" = 0** apareceu simultaneamente. Não há evidência suficiente para concluir que esse campo mede o saldo remanescente da franquia diária, nem para declará-lo como um saldo de 999 disponíveis. O plano Free/sem método de pagamento havia sido confirmado em captura anterior.
+- A documentação oficial estabelece a franquia diária de 1.000 registros Free, mas **não explica claramente o significado deste indicador específico** na tela da usuária; antes de agendar coleta em 92 municípios, confirmar com a Visual Crossing se o campo "free credits" representa créditos adicionais ou outro benefício versus registros gratuitos diários. Referências: <https://www.visualcrossing.com/resources/blog/what-will-my-weather-data-cost/> e <https://support.visualcrossing.com/hc/en-us/community/posts/25607201645197-1000-free-records-per-day-via-api>.
+- O painel do fornecedor agora confirma a **mesma única chamada e custo 1** que o Firestore local reservou. Não repetir ensaio: `maxTrialCalls=1`. Nada foi publicado, comprado, mesclado ou implantado.
