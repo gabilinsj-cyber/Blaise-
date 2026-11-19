@@ -5,6 +5,7 @@ import { initializeOptionalMetNorwayRuntime } from './rj-met-norway-runtime-opti
 import { initializeOptionalMeteoblueFreeRuntime } from './rj-meteoblue-runtime-optional.mjs';
 import {createRjMeteoblueFreeFirestoreStore} from './rj-meteoblue-free-firestore-store.mjs';
 import {createRjMeteorologicalMemoryReader} from './rj-meteorological-memory-live.mjs';
+import {createRjVisualCrossingPrivateCache} from './rj-visual-crossing-free-cache.mjs';
 import { createPaidAgent13HttpHandler } from './rj-agent13-paid-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
@@ -276,6 +277,12 @@ async function main() {
       const {Firestore}=await import('@google-cloud/firestore');
       const db=new Firestore({projectId:'blaise-v6-rj',databaseId:'(default)'});
       const memoryStore=createRjMeteoblueFreeFirestoreStore({db});
+      // Off unless explicitly enabled in a future approved admin-only
+      // revision; a read never fetches weather from Visual Crossing.
+      const visualCrossingCache=
+        process.env.BLAISE_VISUAL_CROSSING_ADMIN_PRIVATE_CACHE_ENABLED==='true'
+          ?createRjVisualCrossingPrivateCache({db})
+          :null;
       readMeteorologicalMemory=createRjMeteorologicalMemoryReader({
         getCached:memoryStore.getCached,
         readLocalBudgetStatus:memoryStore.readLocalBudgetStatus,
@@ -283,6 +290,9 @@ async function main() {
         readMetNorway:metNorwayRuntime.configured===true
           ?code=>metNorwayRuntime.readCachedCity(code)
           :null,
+        readVisualCrossing:visualCrossingCache===null
+          ?null
+          :code=>visualCrossingCache.read(code),
       });
     }catch{
       // Optional read-only feature is unavailable, never break production.
