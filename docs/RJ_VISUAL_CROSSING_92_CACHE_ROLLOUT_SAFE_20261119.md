@@ -160,3 +160,16 @@ Captura do Cloud Shell com o resultado do comando `gcloud projects get-iam-polic
 **Não interpretar como ausência total de acesso:** esta consulta não resolve grants via grupos, herança da organização/pasta, permissões de IAM específicas do segredo ou outros recursos, permissões delegadas ou identidade realmente utilizada por outras revisões de Cloud Run. Não alterar serviço, regras, grupo, IAM, secret, chave ou produção sem autorização.
 
 Os 30 testes de cliente **negados em emulador** permanecem evidência favorável, mas não substituem IAM. **Próxima leitura segura**: `gcloud secrets get-iam-policy blaise-visual-crossing-free-api-key --project=blaise-v6-rj --format=json` filtrado pelas contas de serviço; jamais `gcloud secrets versions access` para esta auditoria, pois o valor da chave não é necessário. Verificar bindings de recursos específicos; ausência de vínculo direto também não é prova de acesso negado ou permitido.
+
+
+## Secret Manager: política direta verificada — 19/11/2026 16h03 BRT
+
+A titular executou `gcloud secrets get-iam-policy blaise-visual-crossing-free-api-key --project=blaise-v6-rj --format=json` e filtrou apenas as roles diretas de duas identidades Cloud Run. A captura de 16h03 confirma:
+
+- `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`: `PAPEIS_DIRETOS: nenhum`;
+- `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`: `PAPEIS_DIRETOS: nenhum`;
+- Nenhum `ACESSO_AMPLO` foi impresso para `allUsers` ou `allAuthenticatedUsers` na **política direta desse segredo**.
+
+**Escopo da afirmação:** não foram encontradas concessões diretas ou públicas explícitas no segredo consultado. Isso **não é prova de bloqueio efetivo nem de menor privilégio**, porque podem existir concessões herdadas, grupos, conditions, outros recursos ou políticas IAM deny. Não provar que o backend tem acesso à chave: não houve impersonação de conta de serviço nem operação real de `secretmanager.versions.access` neste ensaio. Não acessar versão/valor da chave durante a auditoria.
+
+Próximo passo recomendado: usar o **IAM Policy Troubleshooter** em modo somente leitura para checar `secretmanager.versions.access` na versão de segredo para cada uma das duas service accounts. A documentação oficial do gcloud é <https://docs.cloud.google.com/sdk/gcloud/reference/policy-intelligence/troubleshoot-policy/iam>. Evitar interpretar resultados `UNKNOWN`/permissão insuficiente como `DENIED`. Não conceder/revogar roles, não girar chave nem implantar coleta sem a titular autorizar.
