@@ -4,6 +4,17 @@ on:
     paths:
       - backend/src/rj-visual-crossing-free-private.mjs
       - backend/src/rj-visual-crossing-free-budget.mjs
+      - backend/src/rj-visual-crossing-free-cache.mjs
+      - backend/src/rj-visual-crossing-free-92-rollout.mjs
+      - backend/src/rj-visual-crossing-free-92-collector.mjs
+      - backend/src/rj-meteorological-memory-live.mjs
+      - backend/src/blaise-scientific-http.mjs
+      - backend/src/runtime.mjs
+      - backend/test/rj-visual-crossing-free-cache.test.mjs
+      - backend/test/rj-visual-crossing-free-92-rollout.test.mjs
+      - backend/test/rj-visual-crossing-free-92-collector.test.mjs
+      - backend/test/rj-meteorological-memory-live.test.mjs
+      - backend/test/blaise-scientific-http.test.mjs
       - backend/scripts/visual-crossing-free-private-audit.mjs
       - backend/test/rj-visual-crossing-free-private.test.mjs
       - docs/RJ_VISUAL_CROSSING_FREE_SECURE_STAGING_20261119.md
@@ -28,6 +39,18 @@ jobs:
           set -euo pipefail
           node --check backend/src/rj-visual-crossing-free-private.mjs
           node --check backend/src/rj-visual-crossing-free-budget.mjs
+          node --check backend/src/rj-visual-crossing-free-cache.mjs
+          node --check backend/src/rj-visual-crossing-free-92-rollout.mjs
+          node --check backend/src/rj-visual-crossing-free-92-collector.mjs
+          node --check backend/src/rj-meteorological-memory-live.mjs
+          node --check backend/src/blaise-scientific-http.mjs
+          node --check backend/src/runtime.mjs
           node --check backend/scripts/visual-crossing-free-private-audit.mjs
           node backend/scripts/visual-crossing-free-private-audit.mjs
-          node --test backend/test/rj-visual-crossing-free-private.test.mjs
+          node --test \
+            backend/test/rj-visual-crossing-free-private.test.mjs \
+            backend/test/rj-visual-crossing-free-cache.test.mjs \
+            backend/test/rj-visual-crossing-free-92-rollout.test.mjs \
+            backend/test/rj-visual-crossing-free-92-collector.test.mjs \
+            backend/test/rj-meteorological-memory-live.test.mjs \
+            backend/test/blaise-scientific-http.test.mjs
