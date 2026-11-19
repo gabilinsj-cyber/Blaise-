@@ -148,3 +148,15 @@ A captura exibe dois serviços e respectivas identidades de execução:
 Essa listagem **não mostra permissões de IAM**, roles de projeto/recurso, vínculos herdados, Secret Manager grants ou permissões do serviço, nem prova que essas identidades operam o backend de produção com o mesmo escopo esperado. **Não modificar** contas, roles, regras, Secret Manager, flags nem tráfego de Cloud Run com base nesta saída.
 
 **Próximo controle em somente leitura:** extrair do IAM policy do projeto apenas os vínculos explícitos e conditions dessas duas service accounts, sem publicar o policy completo. Posteriormente conferir vinculações por recurso (Firestore/Secret Manager) e herança de IAM; não declarar princípio do menor privilégio aprovado apenas com roles de projeto. Manter a Visual Crossing sem cliente/automação e a chave atual conforme decisão da titular.
+
+
+## IAM de projeto — duas contas sem bindings diretos (19/11/2026 16h00 BRT)
+
+Captura do Cloud Shell com o resultado do comando `gcloud projects get-iam-policy blaise-v6-rj --format=json`, filtrado localmente por **duas service accounts específicas** (não imprimiu o documento completo).
+
+- `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`: **SEM VINCULO DIRETO NO IAM DO PROJETO**.
+- `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`: **SEM VINCULO DIRETO NO IAM DO PROJETO**.
+
+**Não interpretar como ausência total de acesso:** esta consulta não resolve grants via grupos, herança da organização/pasta, permissões de IAM específicas do segredo ou outros recursos, permissões delegadas ou identidade realmente utilizada por outras revisões de Cloud Run. Não alterar serviço, regras, grupo, IAM, secret, chave ou produção sem autorização.
+
+Os 30 testes de cliente **negados em emulador** permanecem evidência favorável, mas não substituem IAM. **Próxima leitura segura**: `gcloud secrets get-iam-policy blaise-visual-crossing-free-api-key --project=blaise-v6-rj --format=json` filtrado pelas contas de serviço; jamais `gcloud secrets versions access` para esta auditoria, pois o valor da chave não é necessário. Verificar bindings de recursos específicos; ausência de vínculo direto também não é prova de acesso negado ou permitido.
