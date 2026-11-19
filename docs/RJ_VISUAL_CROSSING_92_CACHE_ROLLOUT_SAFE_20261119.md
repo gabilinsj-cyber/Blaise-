@@ -278,3 +278,17 @@ Comando seguro:
 `python3 ~/blaise-vc-security-check/visual-crossing-secret-effective-permission-readonly.py`
 
 **Status:** implementação no PR draft com testes offline; o comando ainda não foi executado pela titular, portanto nenhum resultado de acesso atual foi observado. Chave atual preservada, sem merge, deploy ou nova chamada meteorológica.
+
+
+## Teste da permissão do segredo sob identidade do backend — 19/11/2026 17h32 BRT
+
+A titular executou no Cloud Shell o script de diagnóstico somente leitura `backend/scripts/visual-crossing-secret-effective-permission-readonly.py`, recuperado pela branch de desenvolvimento. A captura das **17h32 BRT** mostra na saída `BLAISE_VC_BACKEND_SECRET_PERMISSION`:
+
+- `state=SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE`;
+- `testedPrincipal=BLAISE_CLOUD_RUN_RUNTIME`, `requestedPermission=secretmanager.versions.access`, `resource=blaise-visual-crossing-free-api-key`;
+- `caveat=CANNOT_INFER_SECRET_ACCESS_FROM_IMPERSONATION_FAILURE`;
+- `accessTokenDisplayed=false`, `apiKeyDisplayed=false`, `secretValueRead=false`, `iamPolicyModified=false`, `serviceEnabled=false`, `meteorologicalProviderCalls=0`, `productionChanged=false`, `subscriberPublishingEnabled=false`, `releaseApproved=false`.
+
+**Interpretação:** a identidade interativa do Cloud Shell não conseguiu assumir a conta de serviço `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`, então a chamada `testIamPermissions` sob a identidade do backend **não foi realizada**. O erro não é um veredito sobre o acesso do backend a versões do segredo, e não demonstra falha da Visual Crossing. Não conceder `roles/iam.serviceAccountTokenCreator`/Secret Accessor, ativar APIs ou modificar a conta apenas para contornar esse teste sem autorização específica.
+
+**Situação de release:** as três coleções privadas passaram em **30/30** operações simuladas negadas; as políticas de projeto/ancestrais consultadas não identificaram vínculos IAM explícitos com a conta do backend e três bindings condicionais foram comprovadamente destinados a outras identidades. Ainda **não foi demonstrado** `secretmanager.versions.access` efetivo da identidade de execução. Coleta automática e publicação de Visual Crossing seguem desligadas; chave previamente exposta preservada a pedido da titular; sem novo GET à Visual Crossing, merge ou deploy. Próxima alternativa não invasiva: auditar a política de **impersonação da conta de serviço** e/ou configuração existente do serviço Cloud Run, sem assumir a identidade e sem ler a chave. Nenhum passo não conclusivo deverá ser tratado como aprovação.
