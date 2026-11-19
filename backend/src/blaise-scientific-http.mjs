@@ -38,7 +38,7 @@ export function createScientificHttpHandler(next, {
     // Only one optional IBGE code, and only from the 92 audited RJ points.
     // GET is authenticated BEFORE parsing, so unauthenticated callers
     // cannot probe city coverage through error messages.
-    const route=/^\\/v1\\/admin\\/meteorological-memory(?:\\?ibge=(\\d{7}))?$/.exec(req.url);
+    const route=/^\/v1\/admin\/meteorological-memory(?:\?ibge=(\d{7}))?$/.exec(req.url);
     const ibge=route?.[1]??'3304557';
     if(!route||!RJ_IBGE.has(ibge)){
       res.writeHead(400);
