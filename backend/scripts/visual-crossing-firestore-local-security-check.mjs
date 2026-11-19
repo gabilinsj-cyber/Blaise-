@@ -71,14 +71,23 @@ try{
  invoke('npm',['install','--no-audit','--no-fund','--no-save',
   'firebase-tools@14','firebase@12','@firebase/rules-unit-testing@5'],
   {cwd:working,timeout:180000,maxBuffer:512*1024});
- const output=invoke(join(working,'node_modules','.bin','firebase'),[
-  'emulators:exec','--only','firestore','--project',DEMO,
-  '--config',join(working,'firebase.json'),'node probe.mjs'
- ],{cwd:working,timeout:180000,maxBuffer:2*1024*1024});
+ let output='';
+ try{
+  output=invoke(join(working,'node_modules','.bin','firebase'),[
+   'emulators:exec','--only','firestore','--project',DEMO,
+   '--config',join(working,'firebase.json'),'node probe.mjs'
+  ],{cwd:working,timeout:180000,maxBuffer:2*1024*1024});
+ }catch(e){
+  // A security discovery (ALLOWED) makes the probe exit nonzero. Still
+  // report the result, never mask it as a setup failure.
+  output=typeof e?.stdout==='string'?e.stdout:'';
+ }
  const marker=output.split('\n').find(x=>
   x.startsWith('BLAISE_VC_LOCAL_SECURITY_RESULTS='));
  if(!marker)throw Error('EMULATOR_RESULT_MISSING');
  console.log(marker);
+ if(JSON.parse(marker.slice('BLAISE_VC_LOCAL_SECURITY_RESULTS='.length))
+    .state!=='SIMULATED_CLIENTS_DENIED')process.exitCode=3;
 }catch(e){
  const reasons=['PROBE_REQUIRED','PROBE_INVALID','AUTH_UNAVAILABLE',
   'RULESET_FETCH_UNAVAILABLE','RULESET_RESPONSE_TOO_LARGE',
