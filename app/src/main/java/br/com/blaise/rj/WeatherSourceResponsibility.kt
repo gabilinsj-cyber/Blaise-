@@ -27,6 +27,9 @@ object WeatherSourceResponsibilities {
         WeatherSourceResponsibility("METEOBLUE_FREE_FORECAST", "meteoblue Free • mLM 6h",
             "Uma resposta REAL privada com 7/7 campos basic-6h validada em 19/11/2026: chuva prevista e convectiva, probabilidade, vento médio/máximo, umidade e pressão. NÃO mede chuva atual, rajadas, temperatura nem sensação. Valores não homologados para clientes; máximo 1 consulta/dia UTC.",
             "P", "METEOBLUE_MLM", false),
+        WeatherSourceResponsibility("VISUAL_CROSSING_FREE", "Visual Crossing Free",
+            "Uma consulta REAL privada validou temperatura, sensação, umidade, orvalho, vento, probabilidade de chuva e pressão (E), e 36 horários futuros (P). Sem medição por estação; cache não foi salvo no teste; coleta de 92 municípios e publicação continuam desligadas.",
+            "E/P", "VISUAL_CROSSING_FREE", false),
         WeatherSourceResponsibility("NOAA_GFS_WAVE", "NOAA GFS-Wave",
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
         WeatherSourceResponsibility("ECMWF_WAVE", "ECMWF Waves",
@@ -43,7 +46,7 @@ object WeatherSourceResponsibilities {
             "UV previsto em céu limpo, não UV observado", "P", "CAMS", true),
     )
     init {
-        require(providers.size == 12)
+        require(providers.size == 13)
         require(providers.map { it.id }.distinct().size == providers.size)
         require(providers.all { it.nature.all { c -> c in "OEP/" } })
         require(providers.none {
@@ -60,6 +63,7 @@ object WeatherSourceResponsibilities {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
         "METEOBLUE_FREE_FORECAST" -> "1 RESPOSTA REAL PRIVADA • 7/7 CAMPOS • NÃO HOMOLOGADA • SEM PUBLICAÇÃO"
+        "VISUAL_CROSSING_FREE" -> "1 RESPOSTA REAL PRIVADA • 7/10 CAMPOS ATUAIS • SEM CACHE • SEM PUBLICAÇÃO"
         "HG_BRASIL_WEATHER_PRO" -> "AUTORIZAÇÃO COMERCIAL RECEBIDA • ASSINATURA ADIADA • SEM COLETA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
