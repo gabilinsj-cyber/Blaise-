@@ -80,8 +80,58 @@ export function evaluatePrivateMeteoblueCache(forecast,{now=Date.now()}={}){
  });
 }
 
+
+const unavailableNoaaWave=Object.freeze({
+ sourceId:'NOAA_GFS_WAVE',kind:'P',status:'INDISPONIVEL',
+ waveHeightM:null,issuedAt:null,validAt:null,checkedAt:null,
+ physicalObservation:false,publishedToSubscriber:false
+});
+export function evaluatePrivateNoaaWaveReading(reading,{now=Date.now()}={}){
+ const x=reading?.snapshot;
+ const issued=Date.parse(x?.issuedAt),valid=Date.parse(x?.validAt),
+   checked=Date.parse(x?.checkedAt),expires=Date.parse(x?.expiresAt);
+ const url=typeof x?.sourceUrl==='string'?x.sourceUrl:'';
+ if(!Number.isSafeInteger(now)||reading?.state!=='CURRENT'||!x||
+   x.nature!=='MODELO'||x.units!=='m'||
+   !url.startsWith('https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?')||
+   typeof x.waveHeightM!=='number'||!Number.isFinite(x.waveHeightM)||
+   x.waveHeightM<0||x.waveHeightM>35||
+   ![issued,valid,checked,expires].every(Number.isFinite)||
+   issued>valid||valid>checked||checked>now||valid>now||
+   now-valid>=60*60_000||now-checked>12*60_000||expires<=now||
+   typeof x.latitude!=='number'||typeof x.longitude!=='number'||
+   x.latitude < -25||x.latitude > -21||x.longitude < -45||x.longitude > -40)
+  return unavailableNoaaWave;
+ return Object.freeze({
+  sourceId:'NOAA_GFS_WAVE',kind:'P',status:'PRIVATE_CACHE_VALID',
+  waveHeightM:x.waveHeightM,unit:'m',issuedAt:x.issuedAt,validAt:x.validAt,
+  checkedAt:x.checkedAt,physicalObservation:false,
+  publishedToSubscriber:false
+ });
+}
+export function evaluatePrivateMetNorwayReading(forecast,{now=Date.now()}={}){
+ const invalid=Object.freeze({sourceId:'ECMWF_IFS',kind:'P',
+   status:'INDISPONIVEL',issuedAt:null,validAt:null,
+   officialObservation:false,publishedToSubscriber:false});
+ const issued=Date.parse(forecast?.issuedAt),valid=Date.parse(forecast?.validAt),
+   checked=Date.parse(forecast?.checkedAt);
+ if(forecast?.status!=='FORECAST_AVAILABLE'||
+    forecast.ibge!=='3304557'||forecast.source!=='MET_NORWAY_LOCATIONFORECAST_2'||
+    forecast.originWeather!=='ECMWF_IFS'||forecast.license!=='CC BY 4.0'||
+    forecast.officialObservation!==false||forecast.officialAlert!==false||
+    ![issued,valid,checked].every(Number.isFinite)||issued>valid||
+    valid>now||now-valid>90*60_000||
+    checked>now||now-checked>120_000||
+    issued>now||now-issued>12*60*60_000)
+  return invalid;
+ return Object.freeze({sourceId:'ECMWF_IFS',kind:'P',
+   status:'PRIVATE_CACHE_VALID',issuedAt:forecast.issuedAt,
+   validAt:forecast.validAt,officialObservation:false,
+   publishedToSubscriber:false});
+}
 export function createRjMeteorologicalMemoryReader({
- getCached=null,readLocalBudgetStatus=null,clock=()=>Date.now()
+ getCached=null,readLocalBudgetStatus=null,readNoaaWave=null,
+ readMetNorway=null,clock=()=>Date.now()
 }={}){
  return async()=>{
   const now=clock();
@@ -104,6 +154,17 @@ export function createRjMeteorologicalMemoryReader({
        providerCreditBalance:'UNVERIFIED_IN_PROVIDER_DASHBOARD'});
    }catch{}
   }
+  let noaaWave=unavailableNoaaWave;
+  if(typeof readNoaaWave==='function'){
+   try{noaaWave=evaluatePrivateNoaaWaveReading(await readNoaaWave(),{now});}
+   catch{noaaWave=unavailableNoaaWave;}
+  }
+  let met=Object.freeze({sourceId:'ECMWF_IFS',kind:'P',status:'INDISPONIVEL',
+   issuedAt:null,validAt:null,officialObservation:false,publishedToSubscriber:false});
+  if(typeof readMetNorway==='function'){
+   try{met=evaluatePrivateMetNorwayReading(await readMetNorway('3304557'),{now});}
+   catch{}
+  }
   return Object.freeze({
    contract:'RJ_ADMIN_METEOROLOGICAL_MEMORY_V1',
    scope:'ADMIN_ONLY',
@@ -112,12 +173,20 @@ export function createRjMeteorologicalMemoryReader({
    clientPublishingEnabled:false,
    currentObservationsClaimed:false,
    privateMeteoblue:mb,
+   privateNoaaWave:noaaWave,
+   privateMetNorway:met,
    quotaLedger:ledger,
    sources:Object.freeze([
     source(MB,'meteoblue Free • mLM basic-6h','P',
       'Sete campos de previsão sem medições atuais/rajadas/temperatura',
       mb.status, {validAt:mb.forecastValidAt??null}),
-    ...registered
+    ...registered.map(item=>item.id==='NOAA_GFS_WAVE'
+      ?source(item.id,item.label,item.kind,item.role,noaaWave.status,
+       {validAt:noaaWave.validAt})
+      :item.id==='ECMWF_IFS'
+      ?source(item.id,item.label,item.kind,item.role,met.status,
+       {validAt:met.validAt})
+      :item)
    ])
   });
  };
