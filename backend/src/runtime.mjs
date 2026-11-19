@@ -258,6 +258,26 @@ async function main() {
     p0ReplayGuard,
     subscriberVerifier,
   });
+  // Subscriber adapter is strictly cache-only and defaults OFF. Never
+  // fetch provider data from a paying user's dashboard request.
+  const vcSubscriberReleaseApproved =
+    (process.env.GOOGLE_CLOUD_PROJECT||process.env.GCLOUD_PROJECT)==='blaise-v6-rj' &&
+    process.env.BLAISE_VC_SUBSCRIBER_CACHED_DISPLAY_ENABLED==='true' &&
+    process.env.BLAISE_VC_SUBSCRIBER_LICENSE_APPROVED==='true' &&
+    process.env.BLAISE_VC_FIRESTORE_RULES_AUDITED==='true' &&
+    process.env.BLAISE_VC_USER_NOTICE_APPROVED==='true' &&
+    process.env.BLAISE_VC_OPERATOR_APPROVED_RELEASE==='true';
+  let readVisualCrossingPrivateCache=null;
+  if(vcSubscriberReleaseApproved){
+    try{
+      const {Firestore}=await import('@google-cloud/firestore');
+      const vcDb=new Firestore({projectId:'blaise-v6-rj',databaseId:'(default)'});
+      const vcCache=createRjVisualCrossingPrivateCache({db:vcDb});
+      readVisualCrossingPrivateCache=code=>vcCache.read(code);
+    }catch{
+      // No Firestore client or IAM? No customer data.
+    }
+  }
   const dashboardDataHandler = createPaidDashboardDataHttpHandler(coreHandler, {
     config,
     gateway,
@@ -265,6 +285,9 @@ async function main() {
     metrics,
     subscriberVerifier,
     readInternationalForecasts,
+    readVisualCrossingPrivateCache,
+    visualCrossingSubscriberReleaseApproved:vcSubscriberReleaseApproved &&
+      readVisualCrossingPrivateCache!==null,
   });
   // Read-only ADMIN memory: opt-in and independent from the meteoblue
   // collector. No weather-provider API calls, no client endpoints, no polling.
