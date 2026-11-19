@@ -118,3 +118,24 @@ Todos os sete campos previstos constaram como `FORECAST_VALUES_PRESENT`: `foreca
 
 **Próxima etapa sem cobrança:** `node scripts/meteoblue-free-credit-status.mjs --read-firestore-budget` e inspeção de estatísticas no painel da meteoblue, sem nova solicitação `basic-6h`. Até 20/11 UTC não tentar novamente. A chave foi exposta anteriormente, e a versão 3 é uma nova versão do *mesmo segredo*, não rotação da credencial no fornecedor. Manter PR #173 em draft, sem merge/deploy, sem atualizar tráfego ou APK cliente.
 
+
+## Firestore após consulta — 19/11/2026 10h20 BRT
+
+Evidência recebida em captura da titular: `node scripts/meteoblue-free-credit-status.mjs --read-firestore-budget` executado na worktree isolada. Resposta local do Firestore (`METEOBLUE_LOCAL_BUDGET`):
+
+| Campo | Valor |
+|---|---|
+| `campaign` | `trial_2026_11_18` |
+| `providerCreditBalance` | `UNVERIFIED_IN_PROVIDER_DASHBOARD` |
+| `providerChargeAuthorized` | `false` |
+| `sourceOfCounts` | `LOCAL_FIRESTORE_RESERVATIONS_ONLY` |
+| `creditCostPerBasic6h` | 4.000 |
+| `localSpentCredits` | **4.000** |
+| `localCreditCeiling` | 8.000.000 |
+| `localRemainingReservedAllowance` | **7.996.000** |
+| `localCallsReserved` | **1** |
+| `callsReservedToday` | **1** |
+| `maxCallsPerUtcDay` | **1** |
+| `freeExpiryUtc` | `2027-11-18T00:00:00.000Z` |
+
+**Conclusão:** a única chamada real de 19/11 teve reserva atômica persistida no Firestore. O bloqueio de novas reservas no mesmo dia UTC está previsto pelo código e testes, sem necessidade de executar outra chamada. O orçamento interno restante **não equivale ao saldo real de créditos do fornecedor**. Verificar dashboard meteoblue para cobrança externa e consumo total; nenhuma nova consulta `basic-6h` hoje. Não alterar chave, produção, cliente nem PR draft por este registro.
