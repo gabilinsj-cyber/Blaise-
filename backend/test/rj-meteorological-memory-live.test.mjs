@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {METEOBLUE_BASIC6H_FIELDS} from '../src/rj-meteoblue-basic6h-parse.mjs';
-import {evaluatePrivateMeteoblueCache,createRjMeteorologicalMemoryReader}
+import {evaluatePrivateMeteoblueCache,evaluatePrivateNoaaWaveReading,evaluatePrivateMetNorwayReading,createRjMeteorologicalMemoryReader}
  from '../src/rj-meteorological-memory-live.mjs';
 
 const NOW=Date.parse('2026-11-19T13:00:00Z');
@@ -86,4 +86,54 @@ test('absent cache and Firestore fail closed without assigning zeros to missing 
  assert.equal(r.privateMeteoblue.status,'INDISPONIVEL');
  assert.deepEqual(r.privateMeteoblue.fields,[]);
  assert.equal(r.quotaLedger,null);
+});
+
+test('real NOAA GFS-Wave worker cache can be read without ever fetching provider',async()=>{
+ const validAt=new Date(NOW-20*60_000).toISOString();
+ const checkedAt=new Date(NOW-60_000).toISOString();
+ const example={state:'CURRENT',snapshot:{
+  nature:'MODELO',units:'m',waveHeightM:1.45,
+  sourceUrl:'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?file=test',
+  issuedAt:new Date(NOW-7*60*60_000).toISOString(),
+  validAt,checkedAt,expiresAt:new Date(NOW+30*60_000).toISOString(),
+  latitude:-23.2,longitude:-42.1
+ }};
+ const result=evaluatePrivateNoaaWaveReading(example,{now:NOW});
+ assert.equal(result.status,'PRIVATE_CACHE_VALID');
+ assert.equal(result.waveHeightM,1.45);
+ assert.equal(result.kind,'P');
+ for(const invalid of [
+  {...example,state:'STALE'},
+  {...example,snapshot:{...example.snapshot,validAt:new Date(NOW-65*60_000).toISOString()}},
+  {...example,snapshot:{...example.snapshot,waveHeightM:NaN}},
+  {...example,snapshot:{...example.snapshot,units:'knots'}},
+  {...example,snapshot:{...example.snapshot,sourceUrl:'https://example.org/'}},
+  {...example,snapshot:{...example.snapshot,expiresAt:new Date(NOW-1).toISOString()}}
+ ]){
+  assert.equal(evaluatePrivateNoaaWaveReading(invalid,{now:NOW}).status,'INDISPONIVEL');
+ }
+ const reader=createRjMeteorologicalMemoryReader({
+  clock:()=>NOW,readNoaaWave:async()=>example
+ });
+ const report=await reader();
+ assert.equal(report.privateNoaaWave.waveHeightM,1.45);
+ assert.equal(report.sources.find(x=>x.id==='NOAA_GFS_WAVE').state,'PRIVATE_CACHE_VALID');
+ assert.equal(report.pollingWeatherProviders,false);
+});
+test('MET Norway optional cache is a licensed P forecast; no ECMWF station observation',async()=>{
+ const f={status:'FORECAST_AVAILABLE',ibge:'3304557',source:'MET_NORWAY_LOCATIONFORECAST_2',
+  originWeather:'ECMWF_IFS',license:'CC BY 4.0',officialObservation:false,
+  officialAlert:false,
+  issuedAt:new Date(NOW-2*60*60_000).toISOString(),
+  validAt:new Date(NOW-30*60_000).toISOString(),
+  checkedAt:new Date(NOW-2000).toISOString()};
+ assert.equal(evaluatePrivateMetNorwayReading(f,{now:NOW}).status,'PRIVATE_CACHE_VALID');
+ assert.equal(evaluatePrivateMetNorwayReading({...f,officialObservation:true},{now:NOW}).status,'INDISPONIVEL');
+ assert.equal(evaluatePrivateMetNorwayReading({...f,checkedAt:new Date(NOW-4*60_000).toISOString()},{now:NOW}).status,'INDISPONIVEL');
+ const reader=createRjMeteorologicalMemoryReader({
+  clock:()=>NOW,readMetNorway:async code=>{assert.equal(code,'3304557');return f;}
+ });
+ const r=await reader();
+ assert.equal(r.privateMetNorway.status,'PRIVATE_CACHE_VALID');
+ assert.equal(r.sources.find(x=>x.id==='ECMWF_IFS').state,'PRIVATE_CACHE_VALID');
 });
