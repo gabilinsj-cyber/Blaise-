@@ -13,7 +13,7 @@ const base=()=>({
  fields:[
   {field:'temperatureC',value:28,kind:'E',unit:'°C'},
   {field:'feelsLikeC',value:31,kind:'E',unit:'°C'},
-  {field:'humidityPct',value:70,kind:'E',unit:'%'},
+  {field:'relativeHumidityPct',value:70,kind:'E',unit:'%'},
   {field:'precipitationMm',value:0,kind:'E',unit:'mm'}
  ],
  forecast:[{validAt:stamp(60*60_000),kind:'P',
