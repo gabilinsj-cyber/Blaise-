@@ -15,7 +15,7 @@ const classifyEmulatorFailure=(combined='',code=null)=>{
  const t=String(combined).slice(0,80000);
  if(/(?:Java 21|JDK 21|requires Java|UnsupportedClassVersionError|java version is too old|JDK version)/i.test(t))
   return 'JAVA_VERSION_UNSUPPORTED';
- if(/(?:java: command not found|java: not found|spawn java ENOENT|Unable to find a Java Runtime)/i.test(t))
+ if(/(?:java: command not found|java: not found|spawn java ENOENT|Unable to find a Java Runtime|Could not find Java|java executable not found|Failed to find a Java installation)/i.test(t))
   return 'JAVA_NOT_INSTALLED';
  if(/EADDRINUSE|port .*already in use|address already in use/i.test(t))
   return 'EMULATOR_PORT_BUSY';
