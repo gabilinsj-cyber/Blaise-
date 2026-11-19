@@ -25,7 +25,7 @@ object WeatherSourceResponsibilities {
             "Temperatura atual agregada (E); autorização comercial escrita recebida, mas plano Pro ainda não contratado. Origem individual das estações não é informada.",
             "E", "HG_BRASIL_AGGREGATED", false),
         WeatherSourceResponsibility("METEOBLUE_FREE_FORECAST", "meteoblue Free • mLM 6h",
-            "Comparação privada de chuva prevista em 6h, probabilidade, vento médio/máximo, umidade e pressão; NÃO mede chuva atual, rajadas, temperatura nem sensação. Coletor ainda não homologado.",
+            "Uma resposta REAL privada com 7/7 campos basic-6h validada em 19/11/2026: chuva prevista e convectiva, probabilidade, vento médio/máximo, umidade e pressão. NÃO mede chuva atual, rajadas, temperatura nem sensação. Valores não homologados para clientes; máximo 1 consulta/dia UTC.",
             "P", "METEOBLUE_MLM", false),
         WeatherSourceResponsibility("NOAA_GFS_WAVE", "NOAA GFS-Wave",
             "Altura de ondas no oceano", "P", "NOAA_GFS_WAVE", true),
@@ -59,7 +59,7 @@ object WeatherSourceResponsibilities {
     ): String = when (id) {
         "RAMMB_CIRA_SLIDER" -> "CONSULTA VISUAL EXTERNA • SEM COLETA NUMÉRICA"
         "OPENWEATHER_AGENT13" -> "CONTINGÊNCIA TÉRMICA CONDICIONAL • NÃO É ALERTA OFICIAL"
-        "METEOBLUE_FREE_FORECAST" -> "TESTES OFFLINE • COLETA PRIVADA NÃO HOMOLOGADA • SEM PUBLICAÇÃO"
+        "METEOBLUE_FREE_FORECAST" -> "1 RESPOSTA REAL PRIVADA • 7/7 CAMPOS • NÃO HOMOLOGADA • SEM PUBLICAÇÃO"
         "HG_BRASIL_WEATHER_PRO" -> "AUTORIZAÇÃO COMERCIAL RECEBIDA • ASSINATURA ADIADA • SEM COLETA"
         "MET_NO_ECMWF" -> if (hasValidatedMet) "PREVISÃO VALIDADA NO BACKEND" else "SEM PREVISÃO VÁLIDA RECEBIDA"
         "NOAA_GFS_WAVE" -> if (hasValidatedNoaaWave) "MODELO MARÍTIMO VALIDADO" else "SEM PREVISÃO VÁLIDA RECEBIDA"
