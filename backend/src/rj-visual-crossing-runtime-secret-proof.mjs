@@ -6,14 +6,15 @@
  * Never requests the Visual Crossing provider, Firestore or the Android app.
  * The Secret Manager access response includes secret bytes: discard its body
  * WITHOUT parsing, logging, storing, hashing, decoding or printing any bytes.
- * Only run inside a reviewed Cloud Run no-traffic diagnostic workload with
+ * Only run inside a reviewed single-task Cloud Run Job with
  * explicit separate operator approval and IAM configuration.
  */
 export const VISUAL_CROSSING_PROOF_SPEC=Object.freeze({
  projectId:'blaise-v6-rj',
  secret:'blaise-visual-crossing-free-api-key',
  version:'1',
- expectedServiceAccount:'blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com',
+ expectedServiceAccount:'blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com',
+ expectedJobName:'blaise-vc-secret-proof-once',
  metadataBase:'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default',
  secretManagerEndpoint:'https://secretmanager.googleapis.com/v1/projects/blaise-v6-rj/secrets/blaise-visual-crossing-free-api-key/versions/1:access'
 });
@@ -52,9 +53,10 @@ export async function probeVisualCrossingSecretFromApprovedRuntime({
  env={},fetchImpl=globalThis.fetch,clock=()=>Date.now()
 }={}){
  if(env.BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED!=='true'||
-    !(env.K_SERVICE||env.CLOUD_RUN_JOB)||
+    env.CLOUD_RUN_JOB!==VISUAL_CROSSING_PROOF_SPEC.expectedJobName||
+    env.CLOUD_RUN_TASK_INDEX!=='0'||env.CLOUD_RUN_TASK_COUNT!=='1'||
     typeof fetchImpl!=='function'||typeof clock!=='function')
-  return result('EXPLICIT_APPROVAL_AND_CLOUD_RUN_REQUIRED');
+  return result('EXPLICIT_APPROVAL_AND_ISOLATED_JOB_REQUIRED');
  let identity;
  try{
   const r=await fetchImpl(
