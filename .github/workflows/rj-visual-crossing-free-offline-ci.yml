@@ -35,6 +35,7 @@ on:
       - backend/test/test_visual_crossing_iam_inheritance_readonly.py
       - backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs
       - docs/RJ_VISUAL_CROSSING_92_CACHE_ROLLOUT_SAFE_20261119.md
+      - docs/RJ_VISUAL_CROSSING_SECRET_MANAGER_BINDING_DRYRUN_20261119.md
       - backend/test/rj-visual-crossing-free-private.test.mjs
       - docs/RJ_VISUAL_CROSSING_FREE_SECURE_STAGING_20261119.md
       - .github/workflows/rj-visual-crossing-free-offline-ci.yml
