@@ -39,6 +39,23 @@ class AdminMeteorologicalMemoryClientTest {
         assertFalse(basic.copy(fields=basic.fields.drop(1)).readable(now))
         assertFalse(basic.copy(cacheState="INDISPONIVEL").readable(now))
         assertFalse(basic.providerCreditBalanceVerified)
+        val vc=basic.copy(
+            visualCrossingIbge="3304557",
+            visualCrossingStatus="PRIVATE_CACHE_VALID",
+            visualCrossingValidAt=now.minusSeconds(240),
+            visualCrossingCheckedAt=now.minusSeconds(40),
+            visualCrossingCurrentFields=listOf(
+                AdminMeteorologicalMemoryField("temperatureC","Temperatura",26.0,"°C")
+            ),
+            visualCrossingForecastSlots=36
+        )
+        assertTrue(vc.visualCrossingReadable(now))
+        assertFalse(vc.copy(visualCrossingCurrentFields=emptyList()).visualCrossingReadable(now))
+        assertFalse(vc.copy(visualCrossingValidAt=now.minusSeconds(6000)).visualCrossingReadable(now))
+        assertFalse(vc.copy(visualCrossingCheckedAt=now.minusSeconds(22000)).visualCrossingReadable(now))
+        assertFalse(vc.copy(visualCrossingStatus="INDISPONIVEL").visualCrossingReadable(now))
+        assertFalse(vc.copy(evaluatedAt=now.minusSeconds(600)).visualCrossingReadable(now))
+
         val wave=basic.copy(
             noaaWaveHeightM=1.35,
             noaaWaveValidAt=now.minusSeconds(900)
