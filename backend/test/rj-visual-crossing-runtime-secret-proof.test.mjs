@@ -4,9 +4,10 @@ import {readFileSync} from 'node:fs';
 import {probeVisualCrossingSecretFromApprovedRuntime}
  from '../src/rj-visual-crossing-runtime-secret-proof.mjs';
 
-const ENV={K_SERVICE:'isolated-vc-proof',
+const ENV={CLOUD_RUN_JOB:'blaise-vc-secret-proof-once',
+ CLOUD_RUN_TASK_INDEX:'0',CLOUD_RUN_TASK_COUNT:'1',
  BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'};
-const IDENTITY='blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com';
+const IDENTITY='blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com';
 const KEY='EXPOSED_CREDENTIAL_DO_NOT_PRINT';
 
 function mocks(status=200,{email=IDENTITY}={}){
@@ -35,12 +36,18 @@ function mocks(status=200,{email=IDENTITY}={}){
 
 test('default is fail-closed: no metadata, no secret access, no provider',async()=>{
  const m=mocks();
- for(const env of [{},{K_SERVICE:'a'},{
-  BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'}]){
+ for(const env of [{},{K_SERVICE:'blaise-v6-rj-backend',
+  BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'},
+  {CLOUD_RUN_JOB:'other-job',CLOUD_RUN_TASK_INDEX:'0',
+   CLOUD_RUN_TASK_COUNT:'1',BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'},
+  {CLOUD_RUN_JOB:'blaise-vc-secret-proof-once',
+   CLOUD_RUN_TASK_INDEX:'1',CLOUD_RUN_TASK_COUNT:'2',
+   BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'},
+  {BLAISE_VC_SECRET_RUNTIME_PROOF_APPROVED:'true'}]){
   const r=await probeVisualCrossingSecretFromApprovedRuntime({
    env,fetchImpl:m.fetchImpl
   });
-  assert.equal(r.status,'EXPLICIT_APPROVAL_AND_CLOUD_RUN_REQUIRED');
+  assert.equal(r.status,'EXPLICIT_APPROVAL_AND_ISOLATED_JOB_REQUIRED');
   assert.equal(r.secretAccessAttempted,false);
   assert.equal(r.releaseApproved,false);
  }
