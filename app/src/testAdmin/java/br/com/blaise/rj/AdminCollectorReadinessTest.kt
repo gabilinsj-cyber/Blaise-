@@ -72,6 +72,6 @@ class AdminCollectorReadinessTest {
         val mb = x.integrations.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertTrue(mb.state.contains("SALDO DO FORNECEDOR NÃO CONSULTADO"))
         assertFalse(mb.publishingToSubscribers)
-        assertTrue(mb.explanation.contains("sete campos numéricos"))
+        assertTrue(mb.explanation.contains("sete campos reais"))
     }
 }
