@@ -87,12 +87,20 @@ As extensões anteriores documentam CAPE/CIN, LCL/LFC/EL, radar polarimétrico, 
 ## 5. Meteorologia, cotas, plano gratuito e outras decisões atuais
 
 - Meteoblue Free Weather API: pacote `basic-6h`, 7 campos P privados, **10 milhões** de créditos gratuitos segundo registro de conta, expiração exibida 18/11/2027; **1 chamada / 4.000 créditos** documentados no painel por feed entre 03–18/11. Limite diário de chave exibido **10 milhões** (isto **não** é saldo real). A titular **confirmou que salvou o limite de 4.000 créditos/dia na chave existente, sem trocá-la** (18/11/2026). A integração do assistente **não verificou diretamente a configuração pós-salvamento do provedor**. O Firestore desta branch agora restringe a **uma chamada de 4.000 créditos por dia UTC**, sem consulta live ou publicação.
-- Firestore de proteção: `trial_2026_11_18` com **0 reservas** quando consultado; teto interno 8M, 4 chamadas máximas UTC/dia, 24h/município, cache 6h; rede/admin real OFF. A chamada antiga de 4.000 ocorreu **fora** desse ledger.
+- Firestore de proteção: campanha `trial_2026_11_18`, teto interno 8M, **máximo 1 consulta por dia UTC**, 24h por município, cache privado 6h e sem publicação. Na manhã de 19/11 o ledger tinha zero reservas; às **09h42 BRT de 19/11/2026** a auditoria real reservou **4.000 créditos** e recebeu a resposta privada com **7/7 campos numéricos de previsão e 29 intervalos de 6h**. Unidades, data de emissão e coordenadas passaram, sem bloqueios. Isso não confirma o saldo atualizado do fornecedor e não autoriza nova chamada hoje nem publicação. A chamada histórica de 4.000 em 18/11 ocorreu **fora** desse ledger.
 - Chave meteoblue foi exibida em screenshot anterior. A escolha atual é manter a chave; isso não remove o risco de acesso indevido. Recomendação de proteção: limite externo 4.000/dia e rotação assim que permitido, sem revelar valor em chat, Git, APK ou logs.
 - HG Brasil Pro: autorização escrita de uso comercial no app de assinantes, **R$49,90/mês anunciado**, 100 cidades, 20.000 chamadas/dia, 15 dias de previsão; **não contratado**. Climatempo Advisor: orçamento solicitado, nenhum plano contratado.
 - DWD/ICON 92 pontos IBGE em PRs #163/#165; NOAA ondas/SST/GLM em PRs #166/#168/#170. São referências de código/staging, **não medidores reais de todos os 92 municípios em produção**. Agente 13 quota 900/dia, térmico apenas; sem ativar.
 - Conectividade Cloud Run/Secret Manager/Firestore foi preparada anteriormente; não deslocar tráfego de produção, não afirmar que chave cloud ou plano não renovável está seguro sem auditoria real.
 - Material detalhado da meteoblue em `docs/RJ_METEOBLUE_RECUPERACAO_TOTAL_INTERFACE_PREPARACAO_19NOV_20261118.md`, com histórico de testes e créditos.
+
+### Marco de 19/11/2026 — primeira auditoria real com sucesso
+
+- Evidência da titular na tela Cloud Shell às **09h42 BRT**: `PRIVATE_STAGING_FORECAST_READY`, `providerContacted=true`, `reservedCreditsThisInvocation=4000`, `modelRunVerified=true`, `unitMetadataVerified=true`, `sourceCoordinatesVerified=true`, `sixHourForecastSlots=29`, `completeSevenFieldCoverage=true`, `privateAuditReady=true`, `auditBlockers=[]`. Todos os sete campos `FORECAST_VALUES_PRESENT`; natureza P, nunca O.
+- A chave da conta meteoblue é a **mesma**, exposta em captura anterior. O Google Secret Manager passou a versão **3 ativa com formato correto**; versões 1 e 2 foram desativadas pela titular. Limite de 4.000/dia no painel comprovado por captura. Sem envio da chave a GitHub e sem contrato pago.
+- Script de inspeção do cache privado `backend/scripts/meteoblue-free-private-cache-inspect.mjs` não consulta o fornecedor nem reserva novos créditos; permite auditar um próximo período de 6h com valores reais sob acesso ADM apenas se ainda estiver no TTL. Se expirado, indisponível e **não repetir consulta em 19/11 UTC**.
+- Painel ADM atualizado na branch PR #173 para marcar evidência histórica de presença dos campos reais, mantendo `auditedLiveValue=false`, sem apresentar números não revisados e sem modificar app dos clientes.
+- Auditoria científica/autorizações de produção e saldos pós-teste continuam pendentes. A PR permanece DRAFT.
 
 ## 6. Como retomar sem refazer ou perder nada
 
