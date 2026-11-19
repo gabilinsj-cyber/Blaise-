@@ -28,10 +28,11 @@ data class AdminMeteoblueForecastField(
     val unit: String,
     val meaning: String,
     val auditedLiveValue: Boolean = false,
+    val presentInOneRealPrivateResponse: Boolean = false,
 )
 
 object AdminCollectorReadiness {
-    const val SNAPSHOT_DATE = "18/11/2026"
+    const val SNAPSHOT_DATE = "19/11/2026"
     const val RJ_MUNICIPALITIES = 92
     const val METEOBLUE_TOTAL_TRIAL_CREDITS = 10_000_000
     const val METEOBLUE_LOCAL_CEILING_CREDITS = 8_000_000
@@ -50,6 +51,16 @@ object AdminCollectorReadiness {
     const val METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API = false
     const val METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT = 4_000
     const val METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION = true
+    // Operator Cloud Shell evidence, 19/11/2026 09:42 BRT. Historical proof
+    // of one PRIVATE, real supplier response, NOT current live readings.
+    const val METEOBLUE_PRIVATE_AUDIT_DATE = "19/11/2026 às 09h42 BRT"
+    const val METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT = 7
+    const val METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS = 29
+    const val METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED = 4_000
+    const val METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED = true
+    const val METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED = true
+    const val METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS = false
+    const val METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES = false
     const val METEOBLUE_PRIVATE_COLLECTOR_ENABLED = false
     const val METEOBLUE_PUBLISHED_TO_SUBSCRIBERS = false
     // Null is deliberately distinct from zero: no provider dashboard or
@@ -57,13 +68,13 @@ object AdminCollectorReadiness {
     val meteoblueCurrentProviderCredits: Int? = null
     val meteoblueActualLocalCreditsReserved: Int? = null
     val meteoblueFieldAudit = listOf(
-        AdminMeteoblueForecastField("precipitation", "Chuva prevista acumulada em 6h", "mm", "PREVISÃO 6H, NÃO CHUVA OBSERVADA"),
-        AdminMeteoblueForecastField("convective_precipitation", "Chuva convectiva prevista em 6h", "mm", "PREVISÃO 6H, NÃO DETECÇÃO DE TEMPESTADE"),
-        AdminMeteoblueForecastField("precipitation_probability", "Probabilidade de chuva em 6h", "%", "PROBABILIDADE DE PREVISÃO 6H"),
-        AdminMeteoblueForecastField("windspeed_mean", "Vento médio previsto em 6h", "km/h", "MÉDIA PREVISTA, NÃO VENTO OBSERVADO"),
-        AdminMeteoblueForecastField("windspeed_max", "Vento máximo previsto em 6h", "km/h", "MÁXIMO PREVISTO, NÃO RAJADA OBSERVADA"),
-        AdminMeteoblueForecastField("relativehumidity_mean", "Umidade relativa média prevista em 6h", "%", "MÉDIA PREVISTA EM 6H"),
-        AdminMeteoblueForecastField("sealevelpressure_mean", "Pressão média prevista ao nível do mar em 6h", "hPa", "MÉDIA PREVISTA AO NÍVEL DO MAR"),
+        AdminMeteoblueForecastField("precipitation", "Chuva prevista acumulada em 6h", "mm", "PREVISÃO 6H, NÃO CHUVA OBSERVADA", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("convective_precipitation", "Chuva convectiva prevista em 6h", "mm", "PREVISÃO 6H, NÃO DETECÇÃO DE TEMPESTADE", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("precipitation_probability", "Probabilidade de chuva em 6h", "%", "PROBABILIDADE DE PREVISÃO 6H", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("windspeed_mean", "Vento médio previsto em 6h", "km/h", "MÉDIA PREVISTA, NÃO VENTO OBSERVADO", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("windspeed_max", "Vento máximo previsto em 6h", "km/h", "MÁXIMO PREVISTO, NÃO RAJADA OBSERVADA", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("relativehumidity_mean", "Umidade relativa média prevista em 6h", "%", "MÉDIA PREVISTA EM 6H", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("sealevelpressure_mean", "Pressão média prevista ao nível do mar em 6h", "hPa", "MÉDIA PREVISTA AO NÍVEL DO MAR", presentInOneRealPrivateResponse = true),
     )
     const val HG_PRO_ADVERTISED_PRICE_BRL = 49.90
     const val HG_PRO_CITY_LIMIT = 100
@@ -94,7 +105,7 @@ object AdminCollectorReadiness {
         AdminCollectorReadinessItem(
             "METEOBLUE_FREE_FORECAST", "meteoblue Free API • mLM basic-6h",
             "COLETOR PRIVADO OFF • SALDO DO FORNECEDOR NÃO CONSULTADO",
-            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; 4.000 créditos/consulta, agora no máximo 1/dia UTC. Titular informou ter salvo teto de 4.000/dia na chave atual; verificação independente pendente. HTTP 200 com 29 horários anterior, sete campos reais ainda não auditados. Sem scheduler."
+            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; máximo 1 consulta/dia UTC. Em 19/11 às 09h42 BRT a resposta PRIVADA REAL confirmou 7/7 campos de previsão, 29 intervalos de 6h, horários, unidades e geografia. Reserva Firestore de 4.000 créditos; cobrança/saldo no fornecedor não verificados após chamada. Valores numéricos ainda não publicados nem homologados; coletor contínuo OFF."
         ),
         AdminCollectorReadinessItem(
             "NOAA_RJ_MARINE", "NOAA • ondas / SST / raios",
@@ -122,6 +133,12 @@ object AdminCollectorReadiness {
         require(meteoblueFieldAudit.size == 7)
         require(meteoblueFieldAudit.map { it.jsonKey }.distinct().size == 7)
         require(meteoblueFieldAudit.none { it.auditedLiveValue })
+        require(meteoblueFieldAudit.all { it.presentInOneRealPrivateResponse })
+        require(METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT == meteoblueFieldAudit.size)
+        require(METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED == METEOBLUE_COST_PER_BASIC_6H_REQUEST)
+        require(METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS == 29)
+        require(METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED && METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED)
+        require(!METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS && !METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES)
         require(meteoblueCurrentProviderCredits == null && meteoblueActualLocalCreditsReserved == null)
         require(!METEOBLUE_PRIVATE_COLLECTOR_ENABLED && !METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
         require(integrations.map { it.id }.distinct().size == integrations.size)
