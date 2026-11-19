@@ -165,8 +165,10 @@ class AdminScientificActivity : ComponentActivity() {
                                 Text("A captura ANTERIOR mostrava limite de " +
                                     "${AdminCollectorReadiness.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED} por dia. " +
                                     "Limite diário e saldo anual são informações diferentes.")
-                                Text("SEGURANÇA: chave mostrada em captura. Rotação pendente; " +
-                                    "não repetir consulta em 19/11 UTC nem revelar chave na interface.")
+                                Text("SEGURANÇA: chave mostrada em captura. Com a chave antiga exposta, " +
+                                    "o coletor bloqueia novas consultas após o PRIMEIRO ensaio privado da campanha. " +
+                                    "Não há atualização contínua, mesmo com o novo dia UTC, sem revisão de segurança. " +
+                                    "Não revelar a chave na interface.")
                                 Text("Saldo atual no fornecedor: " +
                                     (AdminCollectorReadiness.meteoblueCurrentProviderCredits
                                         ?.toString() ?: "NÃO CONSULTADO"))
