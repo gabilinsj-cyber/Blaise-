@@ -11,6 +11,27 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const PROJECT='blaise-v6-rj';
 const DEMO='demo-blaise-vc-firestore-rules';
+const classifyEmulatorFailure=(combined='',code=null)=>{
+ const t=String(combined).slice(0,80000);
+ if(/(?:Java 21|JDK 21|requires Java|UnsupportedClassVersionError|java version is too old|JDK version)/i.test(t))
+  return 'JAVA_VERSION_UNSUPPORTED';
+ if(/(?:java: command not found|java: not found|spawn java ENOENT|Unable to find a Java Runtime)/i.test(t))
+  return 'JAVA_NOT_INSTALLED';
+ if(/EADDRINUSE|port .*already in use|address already in use/i.test(t))
+  return 'EMULATOR_PORT_BUSY';
+ if(/Failed to download|Unable to download|Failed.*emulator.*binary|Failed to connect to.*storage.googleapis.com/i.test(t))
+  return 'EMULATOR_DOWNLOAD_UNAVAILABLE';
+ if(/Cannot find package|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(t))
+  return 'LOCAL_TEST_MODULE_UNAVAILABLE';
+ if(/(?:Error parsing rules|failed to compile rules|Parse error|rules compilation failed)/i.test(t))
+  return 'RULES_COMPILATION_FAILED';
+ if(/Timeout|ETIMEDOUT|timed out|SIGTERM/i.test(t)||code==='ETIMEDOUT')
+  return 'EMULATOR_EXECUTION_TIMEOUT';
+ if(/Failed to start emulator|Error: An unexpected error has occurred/i.test(t))
+  return 'EMULATOR_START_FAILED';
+ return 'EMULATOR_OUTPUT_MISSING';
+};
+
 const report=reason=>console.log('BLAISE_VC_LOCAL_SECURITY_CHECK='+JSON.stringify({
  state:'REVIEW_REQUIRED',reason,productionChanged:false,
  productionDocumentsRead:false,weatherApiCalled:false,clientRelease:false
@@ -71,23 +92,35 @@ try{
  invoke('npm',['install','--no-audit','--no-fund','--no-save',
   'firebase-tools@14','firebase@12','@firebase/rules-unit-testing@5'],
   {cwd:working,timeout:180000,maxBuffer:512*1024});
- let output='';
+ let output='',failureDiagnostic='';
  try{
   output=invoke(join(working,'node_modules','.bin','firebase'),[
    'emulators:exec','--only','firestore','--project',DEMO,
    '--config',join(working,'firebase.json'),'node probe.mjs'
   ],{cwd:working,timeout:180000,maxBuffer:2*1024*1024});
  }catch(e){
-  // A security discovery (ALLOWED) makes the probe exit nonzero. Still
-  // report the result, never mask it as a setup failure.
+  // An ALLOWED permission is a security finding, not a setup error:
+  // recover its stdout and report it even when child exit code is nonzero.
   output=typeof e?.stdout==='string'?e.stdout:'';
+  failureDiagnostic=classifyEmulatorFailure(
+    output+'\n'+(typeof e?.stderr==='string'?e.stderr:''),
+    e?.code
+  );
  }
- const marker=output.split('\n').find(x=>
-  x.startsWith('BLAISE_VC_LOCAL_SECURITY_RESULTS='));
- if(!marker)throw Error('EMULATOR_RESULT_MISSING');
- console.log(marker);
- if(JSON.parse(marker.slice('BLAISE_VC_LOCAL_SECURITY_RESULTS='.length))
+ const tag='BLAISE_VC_LOCAL_SECURITY_RESULTS=';
+ // firebase-tools may decorate the beginning of each child output line.
+ // Search inside the line rather than requiring an exact prefix.
+ const marker=output.replace(/\x1b\[[0-9;]*m/g,'').split('\n')
+  .map(line=>line.slice(line.indexOf(tag)))
+  .find(line=>line.startsWith(tag)&&line.length<=16000);
+ if(!marker){
+  report(failureDiagnostic||'EMULATOR_OUTPUT_MISSING');
+  process.exitCode=2;
+ }else{
+  console.log(marker);
+  if(JSON.parse(marker.slice(tag.length))
     .state!=='SIMULATED_CLIENTS_DENIED')process.exitCode=3;
+ }
 }catch(e){
  const reasons=['PROBE_REQUIRED','PROBE_INVALID','AUTH_UNAVAILABLE',
   'RULESET_FETCH_UNAVAILABLE','RULESET_RESPONSE_TOO_LARGE',
