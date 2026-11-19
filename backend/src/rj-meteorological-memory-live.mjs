@@ -23,6 +23,7 @@ const registered=Object.freeze([
  source('NOAA_COASTWATCH_SST','NOAA CoastWatch','E','SST estimada por satélite com QA','UNVERIFIED_CURRENT_CACHE'),
  source('NOAA_GLM','NOAA GOES-19 GLM','O','Detecção satelital de raios, com validade','UNVERIFIED_CURRENT_CACHE'),
  source('OPENWEATHER_AGENT13','OpenWeather/Agente 13','E','Contingência térmica condicionada por quota','UNVERIFIED_CURRENT_CACHE'),
+ source('VISUAL_CROSSING_FREE','Visual Crossing Free','E','Condições agregadas E e previsões horárias P; sem estação homologada; 1000 registros/dia anunciados, 1 teste privado permitido','NOT_YET_VALIDATED'),
  source('HG_BRASIL_WEATHER_PRO','HG Brasil Pro','E','Condições agregadas; plano ainda não contratado','NOT_CONTRACTED'),
  source('ANA_RIVER','ANA/Hidroweb','O','Nível de rios por estação auditada','UNVERIFIED_CURRENT_CACHE'),
  source('SGB_SACE','SGB/SACE','O','Rios e cheias por estação auditada','UNVERIFIED_CURRENT_CACHE')
