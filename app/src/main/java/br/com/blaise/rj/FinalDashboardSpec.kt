@@ -36,6 +36,7 @@ object FinalDashboardSpec {
     val officialSources = listOf(
         "NOAA", "NOAA GOES-19", "NOAA GFS-Wave",
         "ECMWF/IFS", "DWD/ICON Global", "meteoblue Free • mLM 6h",
+        "Visual Crossing Free",
         "RAMMB/CIRA SLIDER",
         "OpenWeather", "INPE/CPTEC",
         "ANA/Hidroweb", "SGB/SACE", "USGS"
