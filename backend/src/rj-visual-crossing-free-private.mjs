@@ -80,6 +80,8 @@ export function parseVisualCrossingPrivateSample(body,{
  return Object.freeze({
   status:'PRIVATE_REAL_SAMPLE_READY',
   sourceId:SOURCE,ibge:String(ibge),
+  requestedPoint:Object.freeze({lat:point.lat,lon:point.lon}),
+  sourceCoordinatesVerified:true,
   checkedAt:new Date(now).toISOString(),validAt:time,
   category:'E',current:Object.freeze({
    validAt:time,kind:'E',measurementStationVerified:false,
