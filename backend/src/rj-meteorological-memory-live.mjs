@@ -132,9 +132,9 @@ export function evaluatePrivateMetNorwayReading(forecast,{now=Date.now()}={}){
 }
 export function createRjMeteorologicalMemoryReader({
  getCached=null,readLocalBudgetStatus=null,readNoaaWave=null,
- readMetNorway=null,clock=()=>Date.now()
+ readMetNorway=null,readVisualCrossing=null,clock=()=>Date.now()
 }={}){
- return async()=>{
+ return async({ibge='3304557'}={})=>{
   const now=clock();
   if(!Number.isSafeInteger(now)||now<0)throw Error('invalid_clock');
   let mb=noData('NO_FRESH_PRIVATE_CACHE');
@@ -166,6 +166,22 @@ export function createRjMeteorologicalMemoryReader({
    try{met=evaluatePrivateMetNorwayReading(await readMetNorway('3304557'),{now});}
    catch{}
   }
+  let visualCrossing=Object.freeze({
+    sourceId:'VISUAL_CROSSING_FREE',ibge:String(ibge),
+    status:'INDISPONIVEL',reason:'PRIVATE_CACHE_NOT_PRESENT',
+    kindCurrent:'E',kindForecast:'P',fields:[],forecast:[],
+    publishedToSubscribers:false,providerBalanceVerified:false
+  });
+  if(typeof readVisualCrossing==='function'){
+   try{
+    const result=await readVisualCrossing(String(ibge));
+    if(result?.sourceId==='VISUAL_CROSSING_FREE' &&
+       result.ibge===String(ibge) &&
+       result.publishedToSubscribers===false &&
+       ['INDISPONIVEL','PRIVATE_CACHE_VALID'].includes(result.status))
+     visualCrossing=result;
+   }catch{}
+  }
   return Object.freeze({
    contract:'RJ_ADMIN_METEOROLOGICAL_MEMORY_V1',
    scope:'ADMIN_ONLY',
@@ -176,12 +192,20 @@ export function createRjMeteorologicalMemoryReader({
    privateMeteoblue:mb,
    privateNoaaWave:noaaWave,
    privateMetNorway:met,
+   privateVisualCrossing:visualCrossing,
+   selectedIbge:String(ibge),
    quotaLedger:ledger,
    sources:Object.freeze([
     source(MB,'meteoblue Free • mLM basic-6h','P',
       'Sete campos de previsão sem medições atuais/rajadas/temperatura',
       mb.status, {validAt:mb.forecastValidAt??null}),
-    ...registered.map(item=>item.id==='NOAA_GFS_WAVE'
+    ...registered.map(item=>item.id==='VISUAL_CROSSING_FREE'
+      ?source(item.id,item.label,item.kind,item.role,
+        visualCrossing.status==='PRIVATE_CACHE_VALID'?'PRIVATE_CACHE_VALID':
+          'PRIVATE_ONE_SHOT_AUDITED_NO_CURRENT_CACHE',
+        {validAt:visualCrossing.validAt??null,
+         selectedMunicipality:String(ibge)})
+      :item.id==='NOAA_GFS_WAVE'
       ?source(item.id,item.label,item.kind,item.role,noaaWave.status,
        {validAt:noaaWave.validAt})
       :item.id==='ECMWF_IFS'
