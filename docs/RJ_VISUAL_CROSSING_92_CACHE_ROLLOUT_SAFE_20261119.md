@@ -28,6 +28,12 @@ Fontes oficiais:
 
 **Limitação física importante:** 8 rodadas/dia (3h) podem sustentar previsões P ainda válidas, mas **não** manter condições atuais E continuamente válidas por 30 minutos. Para 92 municípios, observar E a cada 30 minutos seriam **92 × 48 = 4.416 registros/dia** se cada consulta custar 1, acima da franquia Free. Portanto, o app cliente deve exibir E indisponível no intervalo e usar outras fontes autorizadas de atualidade diferente, sem chamar E de tempo real contínuo. Atribuição e aviso de incerteza meteorológica permanecem necessários para publicação futura.
 
+## Segurança de acesso ao cache (pendência obrigatória de implantação)
+
+O armazenamento foi preparado para ser acessado **somente pelo backend via credencial de serviço**. A API de leitura existente exige Firebase ID token e allowlist de UIDs administrativos antes de consultar o Firestore. **Ainda falta auditar as regras Firestore implantadas no projeto GCP**: como não há arquivo de regras Firebase visível neste repositório, não é possível afirmar que algum wildcard atual bloqueie clientes SDK do Firestore de ler a nova coleção. Antes de salvar dados reais ou habilitar a revisão, aplicar/testar regras que neguem leitura e escrita direta de aplicativos cliente sobre `blaise_rj_visual_crossing_free_private_weather_v1` e `blaise_rj_vc_free_92_future_budget_v1`, mantendo as regras existentes das outras coleções intactas. Operações de servidor precisam de IAM mínimo e logs sem chave. **Não aplicar regras às cegas em produção.**
+
+Um documento expirado não é servido como atual; exclusão física por TTL do Firestore é uma configuração adicional que requer verificação de índices/serviço e aprovação antes de deploy, separada da validação de frescor já implementada.
+
 ## Segurança da chave e do crédito
 
 A primeira chave Visual Crossing foi **exposta numa captura anterior**. Ela continua no Secret Manager (nome `blaise-visual-crossing-free-api-key`, versão inicial 1, formato lido com sucesso), mas **isso não equivale a rotação do segredo no fornecedor**. Antes de qualquer execução recorrente, o administrador deverá substituir a chave na conta Visual Crossing e adicionar nova versão ao mesmo segredo no GCP, sem publicá-la em conversas, APK, GitHub ou logs. Não efetuar essa mudança sem decisão explícita da titular.
