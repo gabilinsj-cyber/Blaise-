@@ -1,6 +1,8 @@
 package br.com.blaise.rj
 
 import android.os.Bundle
+import java.time.Instant
+import br.com.blaise.rj.BuildConfig
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +49,9 @@ class AdminScientificActivity : ComponentActivity() {
             var adminEmail by remember { mutableStateOf("") }
             var adminPassword by remember { mutableStateOf("") }
             var loginMessage by remember { mutableStateOf("") }
+            var meteorologicalMemory by remember { mutableStateOf<AdminMeteorologicalMemorySnapshot?>(null) }
+            var memoryStatus by remember { mutableStateOf("Somente leitura • ainda não consultada.") }
+            var memoryLoading by remember { mutableStateOf(false) }
             MaterialTheme {
                 Column(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -189,6 +194,82 @@ class AdminScientificActivity : ComponentActivity() {
                                 Text("A resposta real de 19/11 confirma 7 campos numéricos e metadados, " +
                                     "mas não exibe números individuais neste painel, não comprova saldo atual " +
                                     "nem disponibilidade contínua. Sem valores fictícios.")
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Card(modifier=Modifier.fillMaxWidth()
+                            .testTag("admin-meteorological-memory-live")) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("MEMÓRIA METEOROLÓGICA • FONTES E VALIDADE",
+                                    style=MaterialTheme.typography.titleMedium)
+                                Text("Atualiza a leitura do cache no servidor, NÃO consulta a meteoblue " +
+                                    "nem faz nova coleta das outras fontes. " +
+                                    "Somente previsões reais e atuais entram; medição ausente = indisponível.")
+                                Button(
+                                    enabled=!memoryLoading,
+                                    modifier=Modifier.testTag("admin-refresh-meteorological-cache"),
+                                    onClick={
+                                        memoryLoading=true
+                                        memoryStatus="Verificando cache autenticado…"
+                                        meteorologicalMemory=null
+                                        val endpoint=AdminMeteorologicalMemoryClient.endpointFromVerifier(
+                                            BuildConfig.BLAISE_ENTITLEMENT_VERIFY_URL)
+                                        val auth=runCatching {FirebaseAuth.getInstance().currentUser}.getOrNull()
+                                        if(endpoint==null||auth==null){
+                                            memoryStatus="Backend admin indisponível ou sem sessão."
+                                            memoryLoading=false
+                                        } else {
+                                            auth.getIdToken(true).addOnCompleteListener { task ->
+                                                val token=task.result?.token?.takeIf { task.isSuccessful }
+                                                if(!task.isSuccessful||token.isNullOrBlank()){
+                                                    memoryStatus="Autorização administrativa indisponível."
+                                                    memoryLoading=false
+                                                } else {
+                                                    AdminMeteorologicalMemoryClient.fetch(
+                                                        endpoint,token
+                                                    ){ snapshot ->
+                                                        runOnUiThread {
+                                                            if(authorized) {
+                                                                meteorologicalMemory=snapshot
+                                                                memoryStatus=if(snapshot==null)
+                                                                    "Memória indisponível: recurso privado ainda não ativado no backend."
+                                                                else "Consulta privada concluída. Sem chamada às APIs meteorológicas."
+                                                            }
+                                                            memoryLoading=false
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                ) { Text(if(memoryLoading) "Consultando cache…" else "Atualizar fontes no cache") }
+                                Text(memoryStatus,style=MaterialTheme.typography.bodySmall)
+                                meteorologicalMemory?.let { snapshot ->
+                                    Text("Checado em: ${snapshot.evaluatedAt} (UTC)")
+                                    Text("Meteoblue: ${snapshot.cacheState} • modelo: " +
+                                        (snapshot.modelRun?.toString()?:"indisponível") +
+                                        " • validade: " +
+                                        (snapshot.forecastValidAt?.toString()?:"indisponível"))
+                                    if(snapshot.readable(Instant.now())) {
+                                        Text("7 CAMPOS P • PREVISÃO DE MODELO • NÃO OBSERVAÇÃO",
+                                            style=MaterialTheme.typography.titleSmall)
+                                        snapshot.fields.forEach { field ->
+                                            Text(field.description(),
+                                                modifier=Modifier.testTag("admin-live-${field.jsonKey}"))
+                                        }
+                                    } else {
+                                        Text("Valores indisponíveis ou vencidos — não repetir consulta ao fornecedor.")
+                                    }
+                                    Text("Reservas no Firestore: " +
+                                        (snapshot.localCreditsReserved?.toString()?:"indisponível") +
+                                        " créditos • chamadas UTC hoje: " +
+                                        (snapshot.reservedCallsToday?.toString()?:"indisponível") +
+                                        " • saldo real da meteoblue NÃO verificado.")
+                                    snapshot.sourceStates.forEach { (name,state) ->
+                                        Text("${name}: ${state}",
+                                            style=MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                             }
                         }
                         Text("Sem contrato pago novo • Sem publicação para assinantes • " +
