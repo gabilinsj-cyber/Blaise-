@@ -76,3 +76,20 @@ Por decisão da titular, **não houve rotação** na conta Visual Crossing ou no
 - Revisar custos reais da conta Free (incluindo `Créditos gratuitos disponíveis: 0`), armazenamento permitido, atribuição e aviso adequado para consumidores.
 - Reconciliar a limitação do código de coleta para chave exposta com a decisão da titular; **sem afrouxar silenciosamente** a proteção de uma chave divulgada.
 - Conferir CI Android + backend verde no **HEAD definitivo**, revisão de limites, compatibilidade das lojas e aprovação expressa antes de deploy e mudança de tráfego.
+
+
+## Auditoria real somente leitura das regras Firebase — 19/11/2026 14h04 BRT
+
+A titular executou na Cloud Shell a leitura oficial da release ativa de regras `cloud.firestore` do projeto `blaise-v6-rj`, usando `backend/scripts/visual-crossing-firestore-rules-readonly.mjs`, após `git fetch` e `git show`. A captura do terminal confirma a saída:
+
+- `status=REVIEW_REQUIRED`
+- `rulesRead=true`, `ruleFiles=1`, `rulesReleaseIsDefault=true`
+- `explicitPathMention=false` para **todas as três coleções** `blaise_rj_visual_crossing_free_private_weather_v1`, `blaise_rj_vc_free_92_future_budget_v1` e `blaise_rj_visual_crossing_free_trial_budget_v1`
+- **`hasRecursiveWildcard=true`**: a regra ativa contém pelo menos um padrão do tipo `{document=**}`. Este detalhe é crucial: uma permissão `allow` em correspondência recursiva **pode abranger** as novas coleções mesmo sem regra explícita de nome.
+- `suspiciousBroadAllowHeuristic=false` indica apenas que o detector **não identificou uma das formas textuais simples** de concessão ampla; **não prova segurança**, pois condições complexas, funções e regras sobrepostas podem existir.
+- `isSecureVerdict=false`, `manualReviewRequired=true`, `dataCopied=false`, `modifiedProduction=false`, `noChanges=true`.
+- A captura não fornece o texto integral das regras nem resultados de requisições cliente simuladas. **Não afirmar que cliente está bloqueado** ou que as regras Firestore passaram. A leitura só inspecionou metadados e padrões.
+
+**Bloqueio atual da liberação:** realizar avaliação formal de `get`, `list`, `create`, `update` e `delete` em **cada uma das três coleções** com usuário não autenticado e assinante autenticado **no emulador local ou simulador oficial**. Atestar que o cliente não consegue ler/escrever os dados privados, mesmo quando há `match /{document=**}`. Documentar resultado e revisão de IAM do serviço backend. Não modificar ruleset/roles de produção a partir desta captura. O SDK Admin de servidor ignora regras Firestore e deve ser limitado por IAM.
+
+Fontes de procedimento oficial: <https://firebase.google.com/docs/firestore/security/test-rules-emulator> e <https://firebase.google.com/docs/firestore/security/rules-structure>. A versão cliente e as flags de publicação Visual Crossing ficam OFF até evidência de negação real e autorização explícita. Chave antiga preservada a pedido da titular; exposição anterior não desaparece.
