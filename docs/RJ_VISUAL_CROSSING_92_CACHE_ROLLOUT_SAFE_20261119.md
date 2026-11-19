@@ -347,3 +347,25 @@ python3 ~/blaise-vc-security-check/visual-crossing-cloud-run-config-readonly.py
 ```
 
 **Status de segurança e release:** PENDENTE: acesso real da identidade do backend à versão do segredo. Não executar `gcloud services enable`, `gcloud projects add-iam-policy-binding`, `gcloud run services update`, `gcloud secrets versions access`, novas chamadas do fornecedor, publicar aos clientes ou liberar flags de coleta/cliente. Permanecem no Free com chave atual, PR draft, 92 municípios, memória/14 agentes/coletores preservados.
+
+
+## Cloud Run configuração detalhada inspecionada — 19/11/2026 18h29 BRT
+
+Evidência: captura do Cloud Shell enviada pela titular às **18h29**. Após obter e executar `backend/scripts/visual-crossing-cloud-run-config-readonly.py` a partir da PR #173, a saída começou com `BLAISE_VC_CLOUD_RUN_READONLY=` e informou:
+
+- `state=CLOUD_RUN_CONFIG_READ`;
+- `backendIdentityMatchesExpected=true`;
+- `anySecretReferenceCount=3` (a revisão tem três referências a segredos existentes; **não** inferir os nomes);
+- `explicitSecretReferenceIdentified=false` para `blaise-visual-crossing-free-api-key`;
+- `inlineVisualCrossingKeyEnvPresent=false`;
+- `visualCrossingEnvFlagNameCount=0`;
+- `effectiveSecretAccessVerified=false`;
+- `secretValueRead=false`, `weatherProviderCalled=false`, `productionModified=false`, `subscriberReleaseApproved=false`.
+
+**Interpretação:** o serviço `blaise-v6-rj-backend` possui a identidade esperada e outras três referências a segredo, mas a revisão inspecionada **não possui referência explícita** ao Secret Manager Visual Crossing nem flags de configuração Visual Crossing. Isto indica que a revisão de produção **não foi configurada para a coleta automática ou publicação Visual Crossing via esses mecanismos**. Não prova que o segredo é ilegível pelo SDK, não prova ausência de qualquer outro acesso de código, nem é teste de IAM efetivo.
+
+A captura também mostra uma **tentativa posterior** que falhou por caminho de arquivo não encontrado; depois o usuário repetiu a obtenção do script e iniciou nova execução. Como **já existe uma execução anterior concluída e válida** com o resultado acima, a tentativa posterior não invalida a evidência nem exige repetir o teste.
+
+**CI verificado após atualização da PR:** a workflow `RJ Visual Crossing Free zero-credential offline security gate` do commit `fc7f3975e53a2c0313383a3eb77904d53ff433a4` terminou em **success**. Os outros jobs principais concluídos (meteoblue Free, WeatherAPI Free, NOAA wave/GLM/SST, Android CI) também foram `success`; DWD/ICON seguia em execução na consulta. Esses testes offline não correspondem a deploy, IAM efetivo, coleta ativa ou publicação.
+
+**Próximo gate:** manter a PR draft. Determinar, antes de qualquer deploy, se existirá integração futura da chave por referência Secret Manager (variável de ambiente mapeada) ou pelo SDK; modelar o acesso de menor privilégio para a identidade runtime; depois avaliar termos/licença, chave exposta e saldo/uso real do fornecedor. Não ativar provider polling, publicar cliente, mudar a chave ou criar grants IAM por padrão.
