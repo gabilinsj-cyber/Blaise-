@@ -50,3 +50,38 @@ test('admin memory reader unavailable or invalid never leaks details',async()=>{
  a.equal(r.c,503);
  a.equal(r.body.includes('SECRET_SHOULD_NEVER_BE_PRINTED'),false);
 });
+
+test('admin 92-city IBGE query allows only pre-verified codes; authorization always first',async()=>{
+ let calls=0;
+ const h=make(()=>{},{
+  canReadReports:async token=>token==='Bearer ADMIN',
+  store:{read:()=>[]},
+  readMeteorologicalMemory:async ({ibge})=>{
+   calls++;
+   return {contract:'RJ_ADMIN_METEOROLOGICAL_MEMORY_V1',
+    scope:'ADMIN_ONLY',clientPublishingEnabled:false,selectedIbge:ibge};
+  }
+ });
+ const res=()=>({setHeader(){},writeHead(n){this.c=n},end(b){this.body=b}});
+ const denied=res();
+ await h({url:'/v1/admin/meteorological-memory?ibge=3304557',
+  method:'GET',headers:{authorization:'Bearer VISITOR'}},denied);
+ a.equal(denied.c,403);a.equal(calls,0);
+ const allowed=res();
+ await h({url:'/v1/admin/meteorological-memory?ibge=3304557',
+  method:'GET',headers:{authorization:'Bearer ADMIN'}},allowed);
+ a.equal(allowed.c,200);
+ a.equal(JSON.parse(allowed.body).selectedIbge,'3304557');
+ for(const bad of [
+  '/v1/admin/meteorological-memory?ibge=9999999',
+  '/v1/admin/meteorological-memory?ibge=3304557&other=1',
+  '/v1/admin/meteorological-memory?ibge=3304557%26x',
+  '/v1/admin/meteorological-memory?ibge=3304557/../../../'
+ ]){
+  const r=res();
+  await h({url:bad,method:'GET',
+   headers:{authorization:'Bearer ADMIN'}},r);
+  a.equal(r.c,400);
+ }
+ a.equal(calls,1);
+});
