@@ -306,3 +306,17 @@ Captura de Cloud Shell: leitura somente de `gcloud iam service-accounts get-iam-
 **Interpretação:** existe uma vinculação direta incondicional para um destinatário não identificado na saída. `roles/iam.serviceAccountUser` permite usar/vincular a identidade à carga de trabalho dentro do escopo permitido, mas **não autoriza gerar credenciais de curta duração via `--impersonate-service-account`**. O Google Cloud documenta que isso exige `iam.serviceAccounts.getAccessToken` tipicamente contida em `roles/iam.serviceAccountTokenCreator`, papel **não mostrado na política direta**. Isto é consistente com `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE` observado às 17h32, mas não comprova a causa exclusiva nem impossibilita concessões herdadas/indiretas.
 
 **Não confundir:** a política de quem pode atuar *sobre* a conta de serviço é diferente das roles que a própria conta possui no Secret Manager. `serviceAccountUser` **não prova** `secretmanager.versions.access` da conta do backend. Não conceder `TokenCreator`, `SecretAccessor`, não trocar chave ou habilitar API por este diagnóstico; evitar ler o valor da chave exposta. Próxima verificação recomendada, caso necessária: descrever a configuração já implantada do Cloud Run somente leitura para identificar se o segredo Visual Crossing é referenciado na revisão ativa, sem exibir variáveis de ambiente sensíveis (filtrar somente nomes e referências do Secret Manager). Isso é avaliação de configuração, não teste de permissão efetiva. A integração Visual Crossing segue draft, sem coleta nem liberação ao cliente.
+
+
+## Política de representação da conta backend — 19/11/2026 17h43 BRT
+
+A titular executou em Cloud Shell, somente leitura, `gcloud iam service-accounts get-iam-policy blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com --project=blaise-v6-rj --format=json`, filtrando roles e quantidades, sem nomes de membros. Captura das 17h43:
+
+- `VINCULOS_DIRETOS: 1`;
+- `PAPEL: roles/iam.serviceAccountUser`;
+- `QUANTIDADE_MEMBROS: 1`;
+- `CONDICIONAL: False`.
+
+**Interpretação exata:** esta conta de serviço possui um único vínculo IAM direto para `roles/iam.serviceAccountUser`, sem condição. Esse papel concede `iam.serviceAccounts.actAs` (anexar service account a um recurso), **não** `iam.serviceAccounts.getAccessToken` exigido pela ferramenta de impersonação. A ausência de `roles/iam.serviceAccountTokenCreator` na política *direta* é coerente com `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE` visto às 17h32, sem excluir eventual permissão por outras fontes. **Não concede nem nega `secretmanager.versions.access` por si só.**
+
+**Próxima decisão técnica:** não criar uma concessão de Token Creator só para rodar um diagnóstico e não tentar representar novamente a conta. Verificar em modo somente leitura apenas configuração de identidade e referências de secrets no Cloud Run, sem despejar `env.value` ou conteúdo de secret. Sem chamada real do backend ao Secret Manager, o acesso efetivo continuará `NOT_CONCLUSIVELY_EVALUATED`. Preservar PR draft, chaves, coletores, 92 municípios, app original, backup e assinaturas; sem merge, deploy, cobrança ou coleta automática.
