@@ -24,8 +24,18 @@ data class AdminMeteorologicalMemorySnapshot(
     val sourceStates: List<Pair<String,String>>,
     val localCreditsReserved: Int?,
     val reservedCallsToday: Int?,
+    val noaaWaveHeightM: Double? = null,
+    val noaaWaveValidAt: Instant? = null,
+    val metNorwayValidAt: Instant? = null,
     val providerCreditBalanceVerified: Boolean = false,
 ) {
+    fun noaaWaveReadable(now: Instant): Boolean {
+        val age=Duration.between(evaluatedAt,now).seconds
+        val waveAt=noaaWaveValidAt ?: return false
+        val waveAge=Duration.between(waveAt,now).seconds
+        return age in 0L..180L && waveAge in 0L..3600L &&
+            noaaWaveHeightM?.isFinite()==true && noaaWaveHeightM in 0.0..35.0
+    }
     fun readable(now: Instant): Boolean {
         val age = Duration.between(evaluatedAt, now).seconds
         return age in 0L..180L && cacheState == "PRIVATE_CACHE_VALID" &&
@@ -124,6 +134,34 @@ object AdminMeteorologicalMemoryClient {
                 "INDISPONIVEL","PRIVATE_CACHE_VALID"))
             sourceStates+=item.getString("label").take(80) to status
         }
+        val noaa=json.optJSONObject("privateNoaaWave")
+        var noaaHeight:Double?=null
+        var noaaValid:Instant?=null
+        if(noaa!=null){
+            require(noaa.getString("sourceId")=="NOAA_GFS_WAVE")
+            require(noaa.getString("kind")=="P")
+            require(!noaa.getBoolean("physicalObservation"))
+            require(!noaa.getBoolean("publishedToSubscriber"))
+            require(noaa.getString("status") in setOf("INDISPONIVEL","PRIVATE_CACHE_VALID"))
+            if(noaa.getString("status")=="PRIVATE_CACHE_VALID"){
+                val v=(noaa.get("waveHeightM") as? Number)?.toDouble()
+                    ?: throw IllegalArgumentException("invalid_wave_value")
+                require(v.isFinite() && v in 0.0..35.0 && noaa.getString("unit")=="m")
+                noaaHeight=v
+                noaaValid=Instant.parse(noaa.getString("validAt"))
+            }
+        }
+        val met=json.optJSONObject("privateMetNorway")
+        var metValid:Instant?=null
+        if(met!=null){
+            require(met.getString("sourceId")=="ECMWF_IFS")
+            require(met.getString("kind")=="P")
+            require(!met.getBoolean("officialObservation"))
+            require(!met.getBoolean("publishedToSubscriber"))
+            require(met.getString("status") in setOf("INDISPONIVEL","PRIVATE_CACHE_VALID"))
+            if(met.getString("status")=="PRIVATE_CACHE_VALID")
+                metValid=Instant.parse(met.getString("validAt"))
+        }
         val ledger=json.optJSONObject("quotaLedger")
         return AdminMeteorologicalMemorySnapshot(
             evaluatedAt=evaluatedAt,
@@ -135,7 +173,10 @@ object AdminMeteorologicalMemoryClient {
             fields=fields,
             sourceStates=sourceStates,
             localCreditsReserved=ledger?.optInt("localSpentCredits", -1)?.takeIf{it>=0},
-            reservedCallsToday=ledger?.optInt("callsReservedToday",-1)?.takeIf{it>=0}
+            reservedCallsToday=ledger?.optInt("callsReservedToday",-1)?.takeIf{it>=0},
+            noaaWaveHeightM=noaaHeight,
+            noaaWaveValidAt=noaaValid,
+            metNorwayValidAt=metValid
         )
     }
 
