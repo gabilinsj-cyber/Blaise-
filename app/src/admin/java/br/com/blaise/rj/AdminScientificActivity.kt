@@ -145,7 +145,8 @@ class AdminScientificActivity : ComponentActivity() {
                                 Text("METEOBLUE FREE • 7 CAMPOS DE PREVISÃO",
                                     style = MaterialTheme.typography.titleMedium)
                                 Text("Auditoria administrativa do pacote basic-6h • natureza P. " +
-                                    "As unidades e os horários precisam ser verificados na resposta real.")
+                                    "UMA resposta REAL privada validou campos, unidades, emissão e coordenadas. " +
+                                    "Não é medição observada nem dado vivo do cliente.")
                                 Text("Oferta inicial: 10.000.000 créditos • limite interno: " +
                                     "8.000.000 • reserva planejada: 2.000.000.")
                                 Text("Cada consulta basic-6h: 4.000 créditos registrados no fornecedor. " +
@@ -160,25 +161,34 @@ class AdminScientificActivity : ComponentActivity() {
                                     "${AdminCollectorReadiness.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED} por dia. " +
                                     "Limite diário e saldo anual são informações diferentes.")
                                 Text("SEGURANÇA: chave mostrada em captura. Rotação pendente; " +
-                                    "não executar consulta real nem revelar chave na interface.")
+                                    "não repetir consulta em 19/11 UTC nem revelar chave na interface.")
                                 Text("Saldo atual no fornecedor: " +
                                     (AdminCollectorReadiness.meteoblueCurrentProviderCredits
                                         ?.toString() ?: "NÃO CONSULTADO"))
                                 Text("Consumo reservado no Firestore: " +
                                     (AdminCollectorReadiness.meteoblueActualLocalCreditsReserved
                                         ?.toString() ?: "NÃO CONSULTADO"))
-                                Text("Coletor privado: DESLIGADO • publicação aos assinantes: NÃO.")
+                                Text("EVIDÊNCIA ${AdminCollectorReadiness.METEOBLUE_PRIVATE_AUDIT_DATE}: " +
+                                    "resposta de fornecedor validada com 7/7 campos, 29 períodos de seis horas, " +
+                                    "metadados de emissão, unidades e coordenadas confirmados.")
+                                Text("Contabilização da auditoria: ${AdminCollectorReadiness.METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED} " +
+                                    "créditos RESERVADOS no Firestore; saldo/cobrança do fornecedor após consulta NÃO CONSULTADOS.")
+                                Text("Coletor automático: DESLIGADO • publicação aos assinantes: NÃO.")
                                 Spacer(Modifier.height(8.dp))
                                 AdminCollectorReadiness.meteoblueFieldAudit.forEach { field ->
                                     Text("${field.label} (${field.unit})",
                                         style = MaterialTheme.typography.bodyMedium)
-                                    Text("P • ${field.meaning} • valor real: NÃO AUDITADO",
+                                    Text("P • ${field.meaning} • " +
+                                        (if (field.presentInOneRealPrivateResponse)
+                                            "CAMPO PRESENTE EM RESPOSTA REAL PRIVADA; VALOR NÃO EXIBIDO/HOMOLOGADO"
+                                         else "SEM EVIDÊNCIA REAL"),
                                         style = MaterialTheme.typography.bodySmall,
                                         modifier = Modifier.testTag("admin-meteoblue-field-${field.jsonKey}"))
                                     Spacer(Modifier.height(4.dp))
                                 }
-                                Text("HTTP 200 e 29 horários do teste anterior não comprovam " +
-                                    "valor, unidade, saldo ou disponibilidade atual. Sem números fictícios.")
+                                Text("A resposta real de 19/11 confirma 7 campos numéricos e metadados, " +
+                                    "mas não exibe números individuais neste painel, não comprova saldo atual " +
+                                    "nem disponibilidade contínua. Sem valores fictícios.")
                             }
                         }
                         Text("Sem contrato pago novo • Sem publicação para assinantes • " +
