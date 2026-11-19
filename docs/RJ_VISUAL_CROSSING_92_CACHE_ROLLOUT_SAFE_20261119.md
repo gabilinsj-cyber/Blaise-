@@ -118,3 +118,19 @@ Captura de Cloud Shell enviada pela titular (após teste com Java OpenJDK 21.0.1
 O script `visual-crossing-firestore-local-security-check.mjs` foi atualizado para emitir marcadores inofensivos de estágio (`ACTIVE_RULES_READ_OK`, `EMULATOR_DEPENDENCIES_INSTALLED`, `EMULATOR_TEST_START`) e distinguir timeout de inicialização/download do timeout após início do processo de teste. Não imprimir regras completas, tokens, segredos, saída integral dos subprocessos. **Não repetir automaticamente a execução longa**, nem implantar regras/mudar IAM, sem inspecionar o ponto onde o emulador parou.
 
 A captura também contém notificação por SMS da Defesa Civil sobre pancadas isoladas, mas o texto está truncado. Não reproduzir nem inferir local, risco, horário ou nível de alerta a partir da prévia.
+
+
+## Auditoria local concluída: 30/30 acessos de clientes negados — 19/11/2026 15h55 BRT
+
+Evidência: captura do Cloud Shell fornecida pela titular, após execução em emulador local com ruleset **lido** da release ativa do projeto `blaise-v6-rj`. O terminal mostra:
+
+- `BLAISE_VC_LOCAL_PHASE=ACTIVE_RULES_READ_OK`
+- `BLAISE_VC_LOCAL_PHASE=EMULATOR_DEPENDENCIES_INSTALLED`
+- `BLAISE_VC_LOCAL_PHASE=EMULATOR_TEST_START`
+- `BLAISE_VC_LOCAL_SECURITY_RESULTS={"state":"SIMULATED_CLIENTS_DENIED","testCases":30,"denied":30,"unexpected":[],"productionChanged":false,"productionDocumentsRead":false,"cloudWeatherCalls":0,"manualRulesAndIamReviewStillRequired":true}`
+
+**Escopo exato:** foram negadas 30 operações no emulador, representando `get`, `list`, `create`, `update`, `delete` em três coleções (`blaise_rj_visual_crossing_free_private_weather_v1`, `blaise_rj_vc_free_92_future_budget_v1`, `blaise_rj_visual_crossing_free_trial_budget_v1`) para dois perfis: cliente anônimo e cliente autenticado comum sem privilégios. **Nenhum acesso inesperado.** Não houve alteração de regras de produção, leitura de documentos reais ou consumo adicional de créditos meteorológicos.
+
+**Limites de interpretação:** esse resultado NÃO comprova segurança de IAM da conta de serviço backend, contas com claims administrativos, todas as variantes de `request.auth`/RBAC, nem garante que outras regras publicadas não sejam modificadas depois. A regra recursiva `{document=**}` observada anteriormente continua exigindo revisão de mudanças. Um emulador que obedece à release atual, com clientes simulados, não representa a aplicação real em produção. A aprovação técnica é **parcial**, limitada aos trinta testes.
+
+**Próximas barreiras:** auditoria somente leitura das permissões IAM do serviço Cloud Run e da conta de serviço, validação de atribuição/termos e risco da chave Visual Crossing anteriormente exposta (titular não autorizou rotação, chave preservada). Nenhum merge/deploy, nova consulta ao fornecedor, contratação ou publicação de dados aos clientes foi realizado. A integração no código permanece em PR #173 como rascunho.
