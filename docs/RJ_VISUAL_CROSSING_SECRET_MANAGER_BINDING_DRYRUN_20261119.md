@@ -128,3 +128,22 @@ Propostas futuras sujeitas a **consentimento explícito e separado**:
 ## Resultado CI de 19/11/2026 após preparação da prova de identidade
 
 No commit `9c4f2dbb004489791d4c63eb7283837b239463e1`, a workflow de GitHub Actions **RJ Visual Crossing Free zero-credential offline security gate** (run `44637047559`) terminou `success`. Os logs mostram **57 testes Node, 57 pass, 0 fail**, além de quatro suítes de Python com **4 testes cada**, incluindo a consulta histórica (sem acessar o GCP durante os testes); total das quatro suítes Python: **16 testes**. São somente casos offline com mocks/dados sintéticos, não há evidência de `secretmanager.versions.access` real. O projeto de produção, segredos e contas IAM não foram alterados por esse CI.
+
+
+## Evidência Cloud Shell — 19/11/2026 20h44 BRT: versão habilitada, acesso atual não comprovado
+
+A titular executou `backend/scripts/visual-crossing-access-history-readonly.py` (obtido da branch da PR #173) e enviou captura do terminal às **20h44 BRT**. Saída `BLAISE_VC_ACCESS_EVIDENCE_READONLY`, resumida sem segredos:
+
+- `state=READ_ONLY_EVIDENCE_REVIEW_COMPLETE`;
+- `secretVersionOneState=ENABLED` — metadados da versão 1, **não leitura do valor**;
+- `auditLoggingQuery=READ`;
+- `historicalSuccessfulAccessCountInReturnedWindow=0`;
+- `mostRecentSuccessfulAccessTimestamp=null`;
+- `effectiveAccessNow=NOT_VERIFIED`;
+- `zeroLogsDoesNotProveDenial=true`;
+- `historicalAccessDoesNotProveCurrentAuthorization=true`;
+- `secretVersionPayloadRead=false`, `cloudRunModified=false`, `iamModified=false`, `providerCalled=false`, `releaseApproved=false`.
+
+**Interpretação segura:** a versão 1 permanece habilitada; **não foi localizada nenhuma leitura bem-sucedida atribuída à identidade `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`** dentro do filtro/janela de 30 dias e limite de 50 registros consultados. Ausência de registros NÃO comprova autorização negada, pois `DATA_READ` pode estar desabilitado ou incompleto, e o filtro pode não encontrar todos os mecanismos. A API de impersonação anterior falhou e a configuração Cloud Run examinada não tem referência explícita ao segredo Visual Crossing, portanto a leitura efetiva **segue não comprovada**.
+
+**Gate de segurança:** plano de ligação Secret Manager -> Cloud Run documentado e testado offline, mas **não aplicar** à revisão ativa. A chave foi exposta em captura e a titular decidiu não rotacioná-la por ora; respeitar a decisão sem classificar a chave como segura para uso produtivo. Não conceder `roles/secretmanager.secretAccessor`, não criar workload/prova, não alterar flags, não habilitar APIs/audit logs, não mexer nos três segredos atuais, não fazer merge ou deploy, não iniciar coleta automática nem publicar ao cliente. Uma prova operacional futura exige decisão explícita sobre identidade, escopo IAM, workload e custos; deve ser executada sem revelar payload.
