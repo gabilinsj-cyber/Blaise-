@@ -36,10 +36,17 @@ export function projectVisualCrossingForPaidDashboard(
   return null;
  const ids=fields.map(f=>f.field);
  if(new Set(ids).size!==ids.length)return null;
- const supported=new Set(['temperatureC','feelsLikeC','relativeHumidityPct',
-  'dewPointC','windSpeedKmh','windGustKmh','precipitationMm',
-  'precipitationProbabilityPct','pressureHpa','severeRiskIndex']);
- if(ids.some(x=>!supported.has(x)))return null;
+ const rules={
+  temperatureC:['°C',-40,60],feelsLikeC:['°C',-60,70],
+  relativeHumidityPct:['%',0,100],dewPointC:['°C',-60,60],
+  windSpeedKmh:['km/h',0,350],windGustKmh:['km/h',0,450],
+  precipitationMm:['mm',0,500],precipitationProbabilityPct:['%',0,100],
+  pressureHpa:['hPa',800,1100],severeRiskIndex:['index 0-100',0,100]
+ };
+ if(fields.some(x=>{
+  const rule=rules[x.field];
+  return !rule||x.unit!==rule[0]||x.value<rule[1]||x.value>rule[2];
+ }))return null;
  const current={
   temperatureC:num(v(fields,'temperatureC'),-40,60),
   feelsLikeC:num(v(fields,'feelsLikeC'),-60,70),
