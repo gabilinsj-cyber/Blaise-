@@ -33,3 +33,20 @@
 Nenhuma alteração nas branches de produção, serviço Cloud Run, Play Store, assinatura HG Brasil ou coletor meteoblue; nenhuma chave gravada no GitHub. Visual Crossing continua com flag `BLAISE_VISUAL_CROSSING_PRIVATE_ENABLED=false` por padrão. O uso automático para 92 cidades exigiria uma implementação posterior de cota compartilhada e revisão de preços, atualidade, cache, direitos de armazenamento/reexibição e atribuição.
 
 **Importante:** previsão 15 dias custar 1 registro normalmente não prova que *qualquer* consulta e parâmetros custam 1. A avaliação `queryCost` no ensaio real é obrigatória, e o teste é interrompido caso a resposta exceda o custo previsto; a reserva ocorre antes da chamada e não é reembolsável pelo programa.
+
+
+## Consulta real concluída — 19/11/2026 11h54 BRT
+
+**Fonte da evidência:** captura do Cloud Shell da titular com a saída do script `node scripts/visual-crossing-free-private-audit.mjs --live --one-record --private-staging` executado na worktree isolada `~/blaise-visual-crossing-audit-20261119/backend`.
+
+- `status: "PRIVATE_REAL_SAMPLE_READY"`, `reason: null`, `providerContacted: true`.
+- `localRecordsReserved: 1` (reserva **local Firestore**), `queryCost: 1` (custo reportado pela resposta real do fornecedor). Ainda convém conferir a contabilização no dashboard da conta; não assumir o saldo de 999 registros sem inspeção do fornecedor.
+- `currentTimeVerified: true`, `forecastHourlySlots: 36`.
+- **7/10 campos atuais E presentes**: `temperatureC`, `feelsLikeC`, `relativeHumidityPct`, `dewPointC`, `windSpeedKmh`, `precipitationProbabilityPct`, `pressureHpa`.
+- **Não vieram como valores numéricos atuais neste ensaio**: `windGustKmh`, `precipitationMm`, `severeRiskIndex`. Ausência **não** é zero. É possível que algum campo apareça em outros horários ou nas previsões, mas o relatório não discrimina seus valores individuais.
+- `categoryCurrent: E_AGGREGATED_NOT_STATION_MEASUREMENT`, `categoryForecast: P_FORECAST_ONLY`, `publishedToSubscribers: false`, `paidApiUsed: false`.
+- O script imprime **nomes dos campos e contagens**, não valores numéricos nem o JSON bruto. Não afirmar homologação de valor individual, aferição de instrumento ou cobertura dos 92 municípios.
+- **Não há persistência do resultado meteorológico Visual Crossing em cache de produção/admin** neste ensaio: o código fez leitura/parsing, registrou a reserva de orçamento e devolveu um relatório de auditoria resumido. Logo, o painel pode mostrar `PRIVATE_ONE_SHOT_AUDITED_NO_CURRENT_CACHE`, mas **não** deve exibir temperatura atual Visual Crossing nem inventar histórico.
+- O controle de Firestore permite **uma única reserva de teste para a campanha inteira**, mesmo após mudar o dia UTC. **Não repetir** a solicitação real; próximo passo seguro é ler o contador Firestore e conferir o painel de consumo Visual Crossing.
+- A chave da conta foi mostrada em captura anterior e deve ser considerada exposta. O valor não deve aparecer aqui, em logs, no APK ou no GitHub. Antes de coleta regular/implantação, planejar rotação no fornecedor e atualização do Secret Manager **somente com autorização expressa do titular**.
+- A PR #173 permanece em rascunho sem merge, produção, cobrança paga ou publicação.
