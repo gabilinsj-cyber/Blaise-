@@ -320,3 +320,30 @@ A titular executou em Cloud Shell, somente leitura, `gcloud iam service-accounts
 **Interpretação exata:** esta conta de serviço possui um único vínculo IAM direto para `roles/iam.serviceAccountUser`, sem condição. Esse papel concede `iam.serviceAccounts.actAs` (anexar service account a um recurso), **não** `iam.serviceAccounts.getAccessToken` exigido pela ferramenta de impersonação. A ausência de `roles/iam.serviceAccountTokenCreator` na política *direta* é coerente com `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE` visto às 17h32, sem excluir eventual permissão por outras fontes. **Não concede nem nega `secretmanager.versions.access` por si só.**
 
 **Próxima decisão técnica:** não criar uma concessão de Token Creator só para rodar um diagnóstico e não tentar representar novamente a conta. Verificar em modo somente leitura apenas configuração de identidade e referências de secrets no Cloud Run, sem despejar `env.value` ou conteúdo de secret. Sem chamada real do backend ao Secret Manager, o acesso efetivo continuará `NOT_CONCLUSIVELY_EVALUATED`. Preservar PR draft, chaves, coletores, 92 municípios, app original, backup e assinaturas; sem merge, deploy, cobrança ou coleta automática.
+
+
+## Cloud Run Visual Crossing: revisão do código e inspeção detalhada de revisão — 19/11/2026 18h15 BRT
+
+A titular executou um filtro de `gcloud run services list --project=blaise-v6-rj --format=json` às **18h15 BRT**, com o resultado:
+`BACKEND_ENCONTRADO: SIM`, `CONTA_EXECUCAO: blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`, `REFERENCIA_VISUAL_CROSSING: NAO_IDENTIFICADA`.
+Isso se refere **somente à configuração de serviço retornada por `list`** e não ao `describe` detalhado da revisão. Não concluir que o backend tem ou não permissão efetiva apenas com essa consulta.
+
+**Revisão estática dos arquivos da PR #173 em 19/11/2026:**
+- `backend/src/rj-visual-crossing-free-private.mjs` lê o segredo de `env.BLAISE_VISUAL_CROSSING_FREE_API_KEY` apenas quando o coletor privado é invocado sob várias flags e um orçamento atômico previamente aprovado; por padrão retorna indisponível, sem rede.
+- `backend/scripts/visual-crossing-free-private-audit.mjs` é uma ferramenta `--live --one-record --private-staging` manual, não uma ligação à execução do Cloud Run de produção. Ela exige que a chave já esteja injetada no ambiente do processo.
+- `backend/src/rj-visual-crossing-free-92-collector.mjs` continua sem rota, agendador ou integração automática e exige flags explícitas, incluindo chave substituída após exposição (atualmente **não autorizada** pela titular).
+- `backend/src/runtime.mjs` tem leitores opcionais de cache Visual Crossing, controlados por flags para o administrativo e a interface, mas **não importa nem executa** os coletores da Visual Crossing no startup. Uma leitura de cache não significa comunicação com o fornecedor.
+- O Secret Manager armazena o segredo com versão ativa conforme capturas anteriores, mas a existência do segredo não injeta automaticamente a credencial no Cloud Run. Nenhuma concessão IAM adicional foi criada, e a impersonação no Cloud Shell falhou, logo `secretmanager.versions.access` efetivo permanece **não comprovado**.
+
+**Ferramenta complementar preparada, sem instalação de dependências:** `backend/scripts/visual-crossing-cloud-run-config-readonly.py`. Usa `gcloud run services list` só para descobrir o nome/região da instância e `gcloud run services describe` para obter configuração **detalhada**, exclusivamente para imprimir *booleanos/contagens* de referências declaradas à chave, presença de variável inline, identidade da revisão. Não imprime valores de variáveis, corpo do serviço, URLs, segredos, tokens ou políticas IAM. Se a região não for descoberta, imprime `REGION_NOT_IDENTIFIED_NO_GUESS` e não inventa. **Não verifica acesso efetivo da conta** — apenas configuração de referência.
+
+**Execução na worktree isolada, sem merge/deploy/ativação:**
+
+```bash
+cd ~/blaise-visual-crossing-audit-20261119
+git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118
+git show FETCH_HEAD:backend/scripts/visual-crossing-cloud-run-config-readonly.py > ~/blaise-vc-security-check/visual-crossing-cloud-run-config-readonly.py
+python3 ~/blaise-vc-security-check/visual-crossing-cloud-run-config-readonly.py
+```
+
+**Status de segurança e release:** PENDENTE: acesso real da identidade do backend à versão do segredo. Não executar `gcloud services enable`, `gcloud projects add-iam-policy-binding`, `gcloud run services update`, `gcloud secrets versions access`, novas chamadas do fornecedor, publicar aos clientes ou liberar flags de coleta/cliente. Permanecem no Free com chave atual, PR draft, 92 municípios, memória/14 agentes/coletores preservados.
