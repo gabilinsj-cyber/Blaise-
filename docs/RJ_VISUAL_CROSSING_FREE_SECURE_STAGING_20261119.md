@@ -50,3 +50,19 @@ Nenhuma alteração nas branches de produção, serviço Cloud Run, Play Store, 
 - O controle de Firestore permite **uma única reserva de teste para a campanha inteira**, mesmo após mudar o dia UTC. **Não repetir** a solicitação real; próximo passo seguro é ler o contador Firestore e conferir o painel de consumo Visual Crossing.
 - A chave da conta foi mostrada em captura anterior e deve ser considerada exposta. O valor não deve aparecer aqui, em logs, no APK ou no GitHub. Antes de coleta regular/implantação, planejar rotação no fornecedor e atualização do Secret Manager **somente com autorização expressa do titular**.
 - A PR #173 permanece em rascunho sem merge, produção, cobrança paga ou publicação.
+
+## Firestore confirmado após consulta — 19/11/2026 12h02 BRT
+
+Captura do Cloud Shell da titular após leitura **somente do Firestore** (`createRjVisualCrossingFreeBudget({db}).readBudget()`), sem consulta HTTP à Visual Crossing:
+
+- `campaign=staging_one_rio_20261119`
+- `sourceOfCounts=LOCAL_FIRESTORE_RESERVATIONS_ONLY`
+- `providerRecordsUsed=UNVERIFIED_IN_PROVIDER_DASHBOARD`
+- `localCallsReserved=1`
+- `localRecordsReserved=1`
+- `maxTrialCalls=1`
+- `automaticPolling=false`
+- `paidAllowed=false`
+- `publishedToSubscribers=false`
+
+A tentativa privada das 11h54 registrou uma única reserva e a resposta do fornecedor informou `queryCost=1`. Isso comprova a contabilidade **local**, não o saldo atual do painel da Visual Crossing. **Não repetir a consulta real, nem com a mudança de dia UTC**, pois esta campanha foi deliberadamente de um ensaio. Próxima ação sem gasto de registros: verificar no painel da conta Visual Crossing (Uso/uso recente) o consumo externo de 19/11/2026 e guardar a evidência sem chave ou dados pessoais. O projeto original e a produção continuam sem alterações.
