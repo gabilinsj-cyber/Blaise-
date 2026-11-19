@@ -16,6 +16,8 @@ on:
       - backend/test/rj-meteorological-memory-live.test.mjs
       - backend/test/blaise-scientific-http.test.mjs
       - backend/scripts/visual-crossing-free-private-audit.mjs
+      - backend/scripts/visual-crossing-free-92-dryrun.mjs
+      - docs/RJ_VISUAL_CROSSING_92_CACHE_ROLLOUT_SAFE_20261119.md
       - backend/test/rj-visual-crossing-free-private.test.mjs
       - docs/RJ_VISUAL_CROSSING_FREE_SECURE_STAGING_20261119.md
       - .github/workflows/rj-visual-crossing-free-offline-ci.yml
@@ -42,11 +44,13 @@ jobs:
           node --check backend/src/rj-visual-crossing-free-cache.mjs
           node --check backend/src/rj-visual-crossing-free-92-rollout.mjs
           node --check backend/src/rj-visual-crossing-free-92-collector.mjs
+          node --check backend/scripts/visual-crossing-free-92-dryrun.mjs
           node --check backend/src/rj-meteorological-memory-live.mjs
           node --check backend/src/blaise-scientific-http.mjs
           node --check backend/src/runtime.mjs
           node --check backend/scripts/visual-crossing-free-private-audit.mjs
           node backend/scripts/visual-crossing-free-private-audit.mjs
+          node backend/scripts/visual-crossing-free-92-dryrun.mjs 2026-11-20
           node --test \
             backend/test/rj-visual-crossing-free-private.test.mjs \
             backend/test/rj-visual-crossing-free-cache.test.mjs \
