@@ -134,3 +134,17 @@ Evidência: captura do Cloud Shell fornecida pela titular, após execução em e
 **Limites de interpretação:** esse resultado NÃO comprova segurança de IAM da conta de serviço backend, contas com claims administrativos, todas as variantes de `request.auth`/RBAC, nem garante que outras regras publicadas não sejam modificadas depois. A regra recursiva `{document=**}` observada anteriormente continua exigindo revisão de mudanças. Um emulador que obedece à release atual, com clientes simulados, não representa a aplicação real em produção. A aprovação técnica é **parcial**, limitada aos trinta testes.
 
 **Próximas barreiras:** auditoria somente leitura das permissões IAM do serviço Cloud Run e da conta de serviço, validação de atribuição/termos e risco da chave Visual Crossing anteriormente exposta (titular não autorizou rotação, chave preservada). Nenhum merge/deploy, nova consulta ao fornecedor, contratação ou publicação de dados aos clientes foi realizado. A integração no código permanece em PR #173 como rascunho.
+
+
+## Cloud Run service account inventory — 19/11/2026 15h57 BRT
+
+A titular executou somente leitura no Cloud Shell:
+`gcloud run services list --project=blaise-v6-rj --format="table(metadata.name,spec.template.spec.serviceAccountName)"`.
+A captura exibe dois serviços e respectivas identidades de execução:
+
+- `blaise-v6-rj-backend`: `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`;
+- `blaise-noaa-homolog`: `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`.
+
+Essa listagem **não mostra permissões de IAM**, roles de projeto/recurso, vínculos herdados, Secret Manager grants ou permissões do serviço, nem prova que essas identidades operam o backend de produção com o mesmo escopo esperado. **Não modificar** contas, roles, regras, Secret Manager, flags nem tráfego de Cloud Run com base nesta saída.
+
+**Próximo controle em somente leitura:** extrair do IAM policy do projeto apenas os vínculos explícitos e conditions dessas duas service accounts, sem publicar o policy completo. Posteriormente conferir vinculações por recurso (Firestore/Secret Manager) e herança de IAM; não declarar princípio do menor privilégio aprovado apenas com roles de projeto. Manter a Visual Crossing sem cliente/automação e a chave atual conforme decisão da titular.
