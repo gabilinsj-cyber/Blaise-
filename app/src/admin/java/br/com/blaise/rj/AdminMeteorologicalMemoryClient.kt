@@ -132,7 +132,8 @@ object AdminMeteorologicalMemoryClient {
             require(!item.getBoolean("clientPublished"))
             val status=item.getString("state")
             require(status in setOf("UNVERIFIED_CURRENT_CACHE","NOT_CONTRACTED",
-                "INDISPONIVEL","PRIVATE_CACHE_VALID","NOT_YET_VALIDATED"))
+                "INDISPONIVEL","PRIVATE_CACHE_VALID","NOT_YET_VALIDATED",
+                "PRIVATE_ONE_SHOT_AUDITED_NO_CURRENT_CACHE"))
             sourceStates+=item.getString("label").take(80) to status
         }
         val noaa=json.optJSONObject("privateNoaaWave")
