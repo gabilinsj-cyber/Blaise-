@@ -11,6 +11,11 @@ on:
       - backend/test/rj-noaa-coastwatch-sst-admin.test.mjs
       - .github/workflows/rj-noaa-coastwatch-sst-live-staging.yml
   workflow_dispatch:
+# No provider keys, account credits, deployment or subscriber publishing.
+# Keep a single bounded public-source read-only staging run per branch.
+concurrency:
+  group: rj-noaa-sst-real-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
