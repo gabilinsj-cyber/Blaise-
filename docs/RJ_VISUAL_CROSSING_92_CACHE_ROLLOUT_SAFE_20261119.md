@@ -237,3 +237,20 @@ A titular enviou captura de comando **somente leitura** `gcloud projects get-anc
 A captura só imprimiu papel, escopo e `CONDICAO_PRESENTE: SIM`. **Não informou quem são os membros nem o predicado da condição**. Resultado anterior do auditor específico registrou listas vazias de vínculos IAM diretos ou herdados **explícitos** para `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com` e `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`; isso não exclui outras identidades ou grant condicional e não equivale a `secretmanager.versions.access` verificado.
 
 Não alterar ou remover roles: podem ser necessárias ao aplicativo original, ao Agente 13 e à homologação. **Próxima leitura recomendada:** imprimir apenas se cada vínculo contém as duas contas de serviço do backend/NOAA, quantidade de membros, tipos de principal (sem endereços) e presença de condição. Também revisar permissões do papel personalizado de forma limitada e sem consultar segredos ou documentos de produção. **Não aprovar release, coleta ou cliente.**
+
+
+## Três IAM bindings condicionais: identidades conferidas — 19/11/2026 16h43 BRT
+
+Captura do Cloud Shell enviada pela titular com saída filtrada de `gcloud projects get-ancestors-iam-policy blaise-v6-rj --include-deny --format=json`. O filtro imprimiu **apenas tipos e contagens de membros**, nunca os identificadores dos destinatários.
+
+| Papel condicional (escopo `project`) | Total membros | Tipos | `blaise-cloud-run-runtime` diretamente incluído? | `blaise-noaa-staging` diretamente incluído? |
+|---|---:|---|---|---|
+| `projects/blaise-v6-rj/roles/blaiseAgent13WriteProbe` | 1 | `serviceAccount` | NÃO | NÃO |
+| `roles/datastore.user` | 1 | `serviceAccount` | NÃO | NÃO |
+| `roles/datastore.viewer` | 1 | `serviceAccount` | NÃO | NÃO |
+
+Assim, **nenhuma das duas identidades sob análise recebe esses três papéis por associação direta**. O comando **não revelou** as identidades que de fato recebem os papéis, o predicado das condições ou todas as concessões possíveis por outros mecanismos. Não inferir vínculo desses papéis com o backend Visual Crossing, nem aprovar acesso efetivo ao segredo.
+
+A auditoria anterior identificou `policyLevelsRead=[{"scope":"project"}]`, `secretDirectPolicyRead=true`, `serviceAccountExplicitAllowBindings` vazios para ambas as identidades, `broadAllowBindings=[]`, `dynamicOrGroupBindings=[]`, `denyPolicyObjectsSeen=0`, `iamConditionsCount=3`, `effectiveSecretAccess=NOT_CONCLUSIVELY_EVALUATED`. As **30/30 requisições anônimas/cliente comum** às três coleções foram negadas no emulador Firestore; isso é avaliação independente de IAM Admin SDK.
+
+**Resultado:** revisão dos vínculos condicionais específicos finalizada; revisão global de IAM **ainda inconclusiva quanto ao acesso efetivo** da conta de serviço ao Secret Manager. A chave foi previamente mostrada em captura e, por opção da titular, **não foi rotacionada**. Não conceder roles, ativar o coletor, modificar a chave, publicar valores, implantar ou mesclar sem uma avaliação e autorização de release posteriores.
