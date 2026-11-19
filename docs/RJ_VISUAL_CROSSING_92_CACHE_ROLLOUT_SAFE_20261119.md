@@ -51,3 +51,28 @@ O sistema atual **não autoriza** a coleta com a chave exposta, o indicador de c
 ## Próxima decisão administrativa, sem repetição da API
 
 Verificar com Visual Crossing o significado específico de `Créditos gratuitos disponíveis: 0` na conta Free com uma chamada contabilizada (1 custo, 0 falhas). Solicitar também confirmação da política de atribuição e da tela de aviso/desresponsabilização para um app meteorológico por assinatura usado por até 3 milhões de assinantes. Nenhuma comunicação externa foi enviada automaticamente.
+
+
+## Integração concluída no código do cliente — aguardando liberação segura
+
+Além do painel ADM de manutenção da memória científica, a PR #173 agora contém uma **ponte do cache para a interface ORIGINAL do aplicativo dos clientes**, que por padrão é **inteiramente inativa** e não faz chamadas ao fornecedor:
+
+1. `backend/src/rj-visual-crossing-client-projection.mjs` projeta até dois municípios selecionados, somente se um cache já armazenado pela API estiver no estado `PRIVATE_CACHE_VALID`, com origem, validade e intervalos E/P corretos; jamais reclassifica agregado/estimativa como estação, previsão como observação ou `severeRiskIndex` como alerta oficial.
+2. `backend/src/dashboard-data-http.mjs` usa `readVisualCrossingPrivateCache` somente **após validação da assinatura Google Play/Firebase** no endpoint de dados dos clientes. Nenhum GET da Visual Crossing é disparado pelo aplicativo. Retorna campo opcional `visualCrossingWeather` apenas se a chave de liberação interna estiver autorizada. Evita tráfego redundante de até 3 milhões de clientes.
+3. `backend/src/runtime.mjs` exige **todas** as flags explícitas, atualmente ausentes/OFF: `BLAISE_VC_SUBSCRIBER_CACHED_DISPLAY_ENABLED`, `BLAISE_VC_SUBSCRIBER_LICENSE_APPROVED`, `BLAISE_VC_FIRESTORE_RULES_AUDITED`, `BLAISE_VC_USER_NOTICE_APPROVED`, `BLAISE_VC_OPERATOR_APPROVED_RELEASE`, além do projeto Cloud correto. Falha em IAM/Firestore => desliga o componente.
+4. `app/src/main/java/br/com/blaise/rj/data/DashboardDataClient.kt` admite um bloco opcional com contrato próprio; valida whitelist de campos, horário, atribuição **Weather data by Visual Crossing**, dados estimados atuais (até 30 minutos) e previsão de até a próxima hora. Ao faltar qualquer requisito, o bloco não é aceito.
+5. `app/src/main/java/br/com/blaise/rj/MainActivity.kt` integra o bloco nos **painéis já existentes de Localidade 1/Localidade 2**, apenas com assinatura ativa, sem substituir layout/marcadores/14 agentes/mapa/gráficos/voz. Temperatura e sensação estimadas são claramente rotuladas, assim como chuva estimada, e a atribuição com aviso de não utilizar como fonte única de decisões de emergência aparece junto aos valores. Valor inexistente é indisponível.
+6. `FinalDashboardSpec.kt` e `WeatherSourceResponsibility.kt` incluem a fonte no catálogo de responsabilidades, **não como prova de integração ativa**. Regresso com testes backend e Android de contrato, assinatura, unidade, local, tempo e ausência de chaves.
+
+**Nenhum número climático do ensaio real de 11h54 pode ser retroativamente recriado:** o teste não persistiu o JSON completo. O caminho atualizado mostrará valores somente quando novas coletas autorizadas, seguras e efetivamente persistidas produzirem cache válido. O ensaio atômico de **um registro está esgotado** e não será reiniciado/contornado. O código de coleta dos 92 municípios ainda requer revisão explícita da chave exposta, da franquia e de IAM antes de novo GET.
+
+### A chave atual está mantida
+
+Por decisão da titular, **não houve rotação** na conta Visual Crossing ou no Secret Manager. Evitar mostrar a chave em capturas, comandos/logs de URL ou GitHub. Como ela foi exposta anteriormente, a coleta automática permanece bloqueada por `BLAISE_VC_KEY_ROTATED_AFTER_EXPOSURE` e pela política de orçamento, até uma decisão de segurança futura. **Preparação completa do código ≠ implantação/ativação**.
+
+### Condições de release restantes
+
+- Verificar regras Firestore atuais no GCP via auditoria *read-only* `node backend/scripts/visual-crossing-firestore-rules-readonly.mjs`; revisar wildcard, regras client SDK, IAM serviço e testes emulator. O script imprime somente metadados, não regras completas nem credenciais.
+- Revisar custos reais da conta Free (incluindo `Créditos gratuitos disponíveis: 0`), armazenamento permitido, atribuição e aviso adequado para consumidores.
+- Reconciliar a limitação do código de coleta para chave exposta com a decisão da titular; **sem afrouxar silenciosamente** a proteção de uma chave divulgada.
+- Conferir CI Android + backend verde no **HEAD definitivo**, revisão de limites, compatibilidade das lojas e aprovação expressa antes de deploy e mudança de tráfego.
