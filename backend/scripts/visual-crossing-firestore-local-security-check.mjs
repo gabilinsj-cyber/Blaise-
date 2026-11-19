@@ -26,7 +26,9 @@ const classifyEmulatorFailure=(combined='',code=null)=>{
  if(/(?:Error parsing rules|failed to compile rules|Parse error|rules compilation failed)/i.test(t))
   return 'RULES_COMPILATION_FAILED';
  if(/Timeout|ETIMEDOUT|timed out|SIGTERM/i.test(t)||code==='ETIMEDOUT')
-  return 'EMULATOR_EXECUTION_TIMEOUT';
+  return /Running script:|All emulators ready/i.test(t)
+    ?'EMULATOR_PROBE_TIMEOUT_AFTER_START'
+    :'EMULATOR_START_OR_DOWNLOAD_TIMEOUT';
  if(/Failed to start emulator|Error: An unexpected error has occurred/i.test(t))
   return 'EMULATOR_START_FAILED';
  return 'EMULATOR_OUTPUT_MISSING';
@@ -76,6 +78,7 @@ try{
  const source=files.map(f=>f.content).join('\n');
  if(source.length>250000||!source.includes('service cloud.firestore'))
   throw Error('FIRESTORE_RULES_INVALID');
+ console.log('BLAISE_VC_LOCAL_PHASE=ACTIVE_RULES_READ_OK');
  working=await mkdtemp(join(tmpdir(),'blaise-vc-local-rules-'));
  await Promise.all([
   writeFile(join(working,'active-firestore.rules'),source,{mode:0o600}),
@@ -92,6 +95,8 @@ try{
  invoke('npm',['install','--no-audit','--no-fund','--no-save',
   'firebase-tools@14','firebase@12','@firebase/rules-unit-testing@5'],
   {cwd:working,timeout:180000,maxBuffer:512*1024});
+ console.log('BLAISE_VC_LOCAL_PHASE=EMULATOR_DEPENDENCIES_INSTALLED');
+ console.log('BLAISE_VC_LOCAL_PHASE=EMULATOR_TEST_START');
  let output='',failureDiagnostic='';
  try{
   output=invoke(join(working,'node_modules','.bin','firebase'),[
@@ -114,6 +119,7 @@ try{
   .map(line=>line.slice(line.indexOf(tag)))
   .find(line=>line.startsWith(tag)&&line.length<=16000);
  if(!marker){
+  console.log('BLAISE_VC_LOCAL_PHASE=NO_TEST_VERDICT');
   report(failureDiagnostic||'EMULATOR_OUTPUT_MISSING');
   process.exitCode=2;
  }else{
