@@ -152,7 +152,7 @@ data class DashboardVisualCrossingWeather(
         val time=forecastNextValidAt ?: return false
         val nextAge=java.time.Duration.between(now,time).seconds
         val checkedAge=java.time.Duration.between(checkedAt,now).seconds
-        return nextAge in 1L..7200L && checkedAge in 0L..21600L &&
+        return nextAge in 1L..3600L && checkedAge in 0L..21600L &&
             listOfNotNull(forecastPrecipitationMm,
                 forecastPrecipitationProbabilityPct,forecastWindGustKmh).isNotEmpty()
     }
@@ -441,7 +441,7 @@ object DashboardDataParser {
                 require(next["kind"]=="P")
                 val nextTime=instant(next["validAt"])
                 require(nextTime.isAfter(generatedAt))
-                require(java.time.Duration.between(generatedAt,nextTime).seconds<=7200)
+                require(java.time.Duration.between(generatedAt,nextTime).seconds<=3600)
                 require(java.time.Duration.between(checked,generatedAt).seconds<=21600)
             }
             DashboardVisualCrossingWeather(
