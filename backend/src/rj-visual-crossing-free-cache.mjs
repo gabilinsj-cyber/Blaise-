@@ -15,7 +15,8 @@ import {VC_FIELD_SPEC} from './rj-visual-crossing-free-private.mjs';
 
 export const VC_PRIVATE_CACHE_COLLECTION='blaise_rj_visual_crossing_free_private_weather_v1';
 export const VC_CACHE_CONTRACT='BLAISE_VC_FREE_PRIVATE_CACHE_V1';
-export const VC_CURRENT_MAX_AGE_MS=90*60_000;
+// Visual Crossing published operational-cache guidance: current ≤30min.
+export const VC_CURRENT_MAX_AGE_MS=30*60_000;
 export const VC_FORECAST_SNAPSHOT_MAX_AGE_MS=6*60*60_000;
 const MAX_FUTURE_MS=48*60*60_000;
 const ALL_CITIES=new Set(geo.points.map(x=>String(x.ibge)));
@@ -116,7 +117,8 @@ export function evaluateVisualCrossingPrivateCache(record,{
  const currentAvailable=record.current?.kind==='E'&&
    record.current?.measurementStationVerified===false&&base&&
    Number.isFinite(valid)&&valid<=now+30_000&&
-   now-valid>=0&&now-valid<=VC_CURRENT_MAX_AGE_MS;
+   now-valid>=0&&now-valid<=VC_CURRENT_MAX_AGE_MS&&
+   now-checked<=VC_CURRENT_MAX_AGE_MS;
  const currentFields=currentAvailable?keys.flatMap(key=>base[key]===null?[]:[
   Object.freeze({field:key,unit:definitions.get(key).unit,value:base[key],kind:'E'})
  ]):[];
