@@ -1,5 +1,29 @@
 # Blaise V6 RJ — 19/11/2026: sete campos reais da meteoblue sem exceder créditos
 
+## Confirmação posterior — 19/11/2026 às 09h42 BRT, captura Cloud Shell da titular
+
+O teste real e único `node scripts/meteoblue-free-private-field-audit.mjs --live --one-credit --private-staging` foi executado pela titular após criar a versão 3 do Secret Manager, confirmar formato por regex e limitar a chave da meteoblue a 4.000 créditos/dia. O roteiro anterior acima permanece como histórico **pré-teste**, não orientação para repetir a chamada.
+
+**Saída observada na captura (sem segredo, sem valores brutos):**
+- `status=PRIVATE_STAGING_FORECAST_READY`
+- `runtimeState=READY_FOR_ADMIN_EXPLICIT_CALL`
+- `providerContacted=true`, `reservedCreditsThisInvocation=4000` (reserva Firestore; não equivale, por si, a faturamento confirmado no painel do fornecedor)
+- `modelRunVerified=true`, `unitMetadataVerified=true`, `sourceCoordinatesVerified=true`
+- `sixHourForecastSlots=29`, `completeSevenFieldCoverage=true`, `privateAuditReady=true`, `auditBlockers=[]`
+- `fieldCoverage`: **sete entradas `FORECAST_VALUES_PRESENT`**: `forecastPrecipitationSixHourMm`, `forecastConvectivePrecipitationSixHourMm`, `forecastPrecipitationProbabilitySixHourPct`, `forecastWindMeanSixHourKmh`, `forecastWindMaxSixHourKmh`, `forecastHumidityMeanSixHourPct`, `forecastSeaLevelPressureMeanSixHourHpa`.
+- `observedData=false`, `paidApiUsed=false`, `publishedToSubscribers=false`.
+
+**Conclusão correta:** houve **uma resposta do fornecedor com valores numéricos de previsão P para os sete campos**, cuja estrutura, unidades, cronologia do modelo e correspondência geográfica passaram no parser privado. Os números concretos e os 29 timestamps não são impressos pelo script; portanto **não** declarar médias/limites/valores meteorológicos exatos, **não** confundir modelo com observação e **não** publicar nos cards do cliente. A **homologação científica/comercial para produção segue pendente**.
+
+**Créditos:** uma reserva local de 4.000 foi efetuada nessa execução. O teto externo é 4.000 por dia UTC, salvo na conta. **Não repetir chamadas reais em 19/11 UTC**, inclusive após falha ou reinicialização. Conferir somente o ledger Firestore e o painel do fornecedor separadamente, porque a reserva local não mede o saldo real. A chave original já apareceu em capturas, e a criação da versão 3 do segredo **não substitui a chave da conta** nem repara sua exposição.
+
+**Segurança e continuidade:** PR #173 continua DRAFT, sem merge/deploy, sem trânsito de clientes e sem conta paga; produção não foi tocada. A versão 3 de `blaise-meteoblue-free-api-key` foi indicada como ativada no Secret Manager; versões 1 e 2 aparecem desativadas — revisar referências a versões explícitas em revisões Cloud Run, somente leitura. Não registrar o valor da credencial, resposta JSON completa ou URL com `apikey` no GitHub.
+
+**Próximo ato sem créditos:** ler somente a cópia do pacote no cache privado Firestore, ainda dentro de seu TTL de seis horas, para inspecionar valores e tempos de previsão por campo em ambiente ADM, mediante script seguro e sem requests à meteoblue. Se estiver expirado, marcar indisponível e **não** chamar novamente hoje.
+
+---
+
+
 **Situação verificada em 19/11/2026, horário de Brasília.** PR #173 continua DRAFT; não implantada e sem mudança no aplicativo em produção. Nenhuma consulta real foi feita por esta revisão. Usuária autorizou a **auditoria única controlada**, mantendo a chave existente do plano Free.
 
 ## Evidências disponíveis / ausentes
