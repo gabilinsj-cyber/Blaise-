@@ -6,7 +6,7 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(12, list.size)
+        assertEquals(13, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val german = list.single { it.id == "DWD_ICON" }
         assertEquals("DWD_ICON", german.originFamily)
@@ -38,6 +38,11 @@ class WeatherSourceResponsibilityTest {
         assertFalse(hg.currentlyIntegratedProduct)
         assertTrue(hg.sectors.contains("autorização comercial escrita recebida"))
         assertTrue(hg.sectors.contains("Origem individual das estações não é informada"))
+        val vc = list.single { it.id == "VISUAL_CROSSING_FREE" }
+        assertEquals("E/P", vc.nature)
+        assertEquals("VISUAL_CROSSING_FREE", vc.originFamily)
+        assertFalse(vc.currentlyIntegratedProduct)
+        assertTrue(vc.sectors.contains("cache não foi salvo"))
         val meteoblue = list.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertEquals("P", meteoblue.nature)
         assertEquals("METEOBLUE_MLM", meteoblue.originFamily)
