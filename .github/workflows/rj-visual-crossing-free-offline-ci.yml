@@ -7,6 +7,10 @@ on:
       - backend/src/rj-visual-crossing-free-cache.mjs
       - backend/src/rj-visual-crossing-free-92-rollout.mjs
       - backend/src/rj-visual-crossing-free-92-collector.mjs
+      - backend/src/rj-visual-crossing-client-projection.mjs
+      - backend/src/dashboard-data-http.mjs
+      - backend/test/rj-visual-crossing-client-projection.test.mjs
+      - backend/test/dashboard-data-http.test.mjs
       - backend/src/rj-meteorological-memory-live.mjs
       - backend/src/blaise-scientific-http.mjs
       - backend/src/runtime.mjs
@@ -46,6 +50,8 @@ jobs:
           node --check backend/src/rj-visual-crossing-free-cache.mjs
           node --check backend/src/rj-visual-crossing-free-92-rollout.mjs
           node --check backend/src/rj-visual-crossing-free-92-collector.mjs
+          node --check backend/src/rj-visual-crossing-client-projection.mjs
+          node --check backend/src/dashboard-data-http.mjs
           node --check backend/scripts/visual-crossing-free-92-dryrun.mjs
           node --check backend/scripts/visual-crossing-firestore-rules-readonly.mjs
           node --check backend/src/rj-meteorological-memory-live.mjs
@@ -59,6 +65,8 @@ jobs:
             backend/test/rj-visual-crossing-free-cache.test.mjs \
             backend/test/rj-visual-crossing-free-92-rollout.test.mjs \
             backend/test/rj-visual-crossing-free-92-collector.test.mjs \
+            backend/test/rj-visual-crossing-client-projection.test.mjs \
+            backend/test/dashboard-data-http.test.mjs \
             backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs \
             backend/test/rj-meteorological-memory-live.test.mjs \
             backend/test/blaise-scientific-http.test.mjs
