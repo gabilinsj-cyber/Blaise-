@@ -43,8 +43,8 @@ data class AdminMeteorologicalMemorySnapshot(
         val observedAge=Duration.between(validAt,now).seconds
         val readAge=Duration.between(checkedAt,now).seconds
         return visualCrossingStatus=="PRIVATE_CACHE_VALID" &&
-            age in 0L..180L && readAge in 0L..21600L &&
-            observedAge in 0L..5400L && visualCrossingCurrentFields.isNotEmpty()
+            age in 0L..180L && readAge in 0L..1800L &&
+            observedAge in 0L..1800L && visualCrossingCurrentFields.isNotEmpty()
     }
     fun noaaWaveReadable(now: Instant): Boolean {
         val age=Duration.between(evaluatedAt,now).seconds
