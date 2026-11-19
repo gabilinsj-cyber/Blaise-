@@ -292,3 +292,17 @@ A titular executou no Cloud Shell o script de diagnóstico somente leitura `back
 **Interpretação:** a identidade interativa do Cloud Shell não conseguiu assumir a conta de serviço `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`, então a chamada `testIamPermissions` sob a identidade do backend **não foi realizada**. O erro não é um veredito sobre o acesso do backend a versões do segredo, e não demonstra falha da Visual Crossing. Não conceder `roles/iam.serviceAccountTokenCreator`/Secret Accessor, ativar APIs ou modificar a conta apenas para contornar esse teste sem autorização específica.
 
 **Situação de release:** as três coleções privadas passaram em **30/30** operações simuladas negadas; as políticas de projeto/ancestrais consultadas não identificaram vínculos IAM explícitos com a conta do backend e três bindings condicionais foram comprovadamente destinados a outras identidades. Ainda **não foi demonstrado** `secretmanager.versions.access` efetivo da identidade de execução. Coleta automática e publicação de Visual Crossing seguem desligadas; chave previamente exposta preservada a pedido da titular; sem novo GET à Visual Crossing, merge ou deploy. Próxima alternativa não invasiva: auditar a política de **impersonação da conta de serviço** e/ou configuração existente do serviço Cloud Run, sem assumir a identidade e sem ler a chave. Nenhum passo não conclusivo deverá ser tratado como aprovação.
+
+
+## Política direta da identidade Cloud Run — 19/11/2026 17h35 BRT
+
+Captura de Cloud Shell: leitura somente de `gcloud iam service-accounts get-iam-policy blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com --project=blaise-v6-rj --format=json`, com filtro de dados pessoais. Resultado mostrado:
+
+- `VINCULOS_DIRETOS: 1`;
+- `PAPEL: roles/iam.serviceAccountUser`;
+- `QUANTIDADE_MEMBROS: 1`;
+- `CONDICIONAL: False`.
+
+**Interpretação:** existe uma vinculação direta incondicional para um destinatário não identificado na saída. `roles/iam.serviceAccountUser` permite usar/vincular a identidade à carga de trabalho dentro do escopo permitido, mas **não autoriza gerar credenciais de curta duração via `--impersonate-service-account`**. O Google Cloud documenta que isso exige `iam.serviceAccounts.getAccessToken` tipicamente contida em `roles/iam.serviceAccountTokenCreator`, papel **não mostrado na política direta**. Isto é consistente com `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE` observado às 17h32, mas não comprova a causa exclusiva nem impossibilita concessões herdadas/indiretas.
+
+**Não confundir:** a política de quem pode atuar *sobre* a conta de serviço é diferente das roles que a própria conta possui no Secret Manager. `serviceAccountUser` **não prova** `secretmanager.versions.access` da conta do backend. Não conceder `TokenCreator`, `SecretAccessor`, não trocar chave ou habilitar API por este diagnóstico; evitar ler o valor da chave exposta. Próxima verificação recomendada, caso necessária: descrever a configuração já implantada do Cloud Run somente leitura para identificar se o segredo Visual Crossing é referenciado na revisão ativa, sem exibir variáveis de ambiente sensíveis (filtrar somente nomes e referências do Secret Manager). Isso é avaliação de configuração, não teste de permissão efetiva. A integração Visual Crossing segue draft, sem coleta nem liberação ao cliente.
