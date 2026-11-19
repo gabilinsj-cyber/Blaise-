@@ -75,3 +75,28 @@ As regras regressivas incluem rejeição no backend de produção, nome de job e
 Referências oficiais do Google Cloud: [Cloud Run jobs](https://docs.cloud.google.com/run/docs/create-jobs), [jobs service identity](https://docs.cloud.google.com/run/docs/configuring/jobs/service-identity), [Secret Manager access control](https://docs.cloud.google.com/secret-manager/docs/access-control).
 
 **Gate final:** `ISOLATED_DIAGNOSTIC_NOT_PROVISIONED`, `IAM_UNCHANGED`, `SECRET_VERSION_NOT_ACCESSED`, `COLLECTION_DISABLED`, `NO_PUBLIC_RELEASE`.
+
+
+## Evidência real: pré-voo isolado Cloud Shell — 19/11/2026 20h58 BRT
+
+A titular executou `backend/scripts/visual-crossing-isolated-job-preflight-readonly.py`, obtido da branch da PR #173, e apresentou captura das **20h58 BRT**. Resultado `BLAISE_VC_ISOLATED_PROOF_PREFLIGHT`:
+
+- `state=READ_ONLY_ISOLATED_PROOF_PREFLIGHT`;
+- `secretPolicyReadSucceeded=true`;
+- `directSecretAccessorBindingFound=false` para `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com`;
+- `directSecretAccessorBindingConditionalCount=0`;
+- `identityDescribeSucceeded=false`, `identityExistenceIfDescribeFailed=UNKNOWN` — **não** afirmar que a conta não existe, pois erro de permissão também é possível;
+- `cloudRunJobs=NO_MATCH_IN_RESULTS` — o nome `blaise-vc-secret-proof-once` não foi encontrado na listagem acessível, mas não provar ausência universal;
+- `effectiveSecretAccess=NOT_VERIFIED`;
+- `jobCreatedByThisCheck=false`, `serviceAccountCreated=false`, `cloudRunExecutionTriggered=false`, `secretPayloadRead=false`, `iamPolicyChanged=false`, `weatherApiCalled=false`, `releaseApproved=false`.
+
+**Decisão técnica:** a inspeção segura já foi concluída. Para a identidade isolada proposta, não há concessão `Secret Accessor` **direta** visível no segredo. A identidade proposta não foi confirmada e o job planejado não foi encontrado na listagem; nenhum teste real de `AccessSecretVersion` sob essa conta foi executado. Não confundir a conta isolada proposta com a conta já existente do backend. Permissões herdadas, bindings condicionais e logs continuam sujeitos a limitações de visibilidade.
+
+**Próximos gates independentes, todos com autorização específica:**
+1. Criar ou confirmar a identidade `blaise-vc-proof` (se a titular autorizar a mudança, após checar que ela ainda não existe por outro meio). Criar uma conta sem dar-lhe automaticamente papel no segredo.
+2. Revisar e aprovar uma concessão no escopo do **segredo único**, `roles/secretmanager.secretAccessor`, exclusivamente para a conta de diagnóstico. **Não conceder papel no projeto, Secret Admin, Token Creator, Owner, Editor, nem atualizar backend principal.**
+3. Criar um Cloud Run Job efêmero e privado, usando imagem aprovada por digest, tarefa única, timeout/retries controlados, quota e custo verificados, sem scheduler, tráfego público ou acesso a dados meteorológicos de clientes. **Não executar na criação.**
+4. Autorizar separadamente a execução pontual do acesso real à **versão 1** do Secret Manager, com descarte de corpo de resposta, evitando logs de credenciais e sem chamar Visual Crossing.
+5. Se autorizado, remover o acesso concedido no diagnóstico e desativar/excluir o job isolado após preservar só logs e evidências seguros; sem mexer na revisão ativa, na chave atual, no aplicativo original e nos três segredos preexistentes.
+
+**Bloqueios mantidos:** chave anteriormente exposta preservada a pedido da titular, mas sem aprovação de uso público; assinatura Free; coleta para 92 municípios desligada; publicação aos clientes desligada; PR draft; IAM e Cloud Run sem mudanças nesta etapa.
