@@ -19,6 +19,7 @@ export const VC_CURRENT_MAX_AGE_MS=90*60_000;
 export const VC_FORECAST_SNAPSHOT_MAX_AGE_MS=6*60*60_000;
 const MAX_FUTURE_MS=48*60*60_000;
 const ALL_CITIES=new Set(geo.points.map(x=>String(x.ibge)));
+const CITY_POINTS=new Map(geo.points.map(x=>[String(x.ibge),x]));
 const keys=Object.values(VC_FIELD_SPEC).map(x=>x.field);
 const definitions=new Map(Object.values(VC_FIELD_SPEC).map(x=>[x.field,x]));
 const empty=(ibge,reason)=>Object.freeze({
@@ -49,6 +50,9 @@ export function normalizeVisualCrossingCacheRecord(sample,{
     sample?.status!=='PRIVATE_REAL_SAMPLE_READY'||
     sample.sourceId!=='VISUAL_CROSSING_FREE'||
     sample.ibge!==city||
+    sample.sourceCoordinatesVerified!==true||
+    sample.requestedPoint?.lat!==CITY_POINTS.get(city)?.lat||
+    sample.requestedPoint?.lon!==CITY_POINTS.get(city)?.lon||
     sample.queryCostVerified!==true||sample.queryCost!==1||
     sample.category!=='E'||
     sample.privateStagingOnly!==true||
