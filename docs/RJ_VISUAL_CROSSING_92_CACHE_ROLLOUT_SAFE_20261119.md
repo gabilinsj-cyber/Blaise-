@@ -206,3 +206,21 @@ Evidência: captura de Cloud Shell às 16h07 BRT. Ao executar `gcloud policy-int
 <https://docs.cloud.google.com/iam/docs/deny-access>
 
 **Resultado da execução real:** ainda aguardando saída deste comando no Cloud Shell. Não inventar conclusão sobre a hierarquia sem evidência; 30/30 testes de cliente do Firestore no emulador permanecem comprovados e a interface Visual Crossing continua em rascunho, sem release.
+
+
+## Auditoria IAM herdada executada — 19/11/2026 16h18 BRT
+
+Captura do Cloud Shell da titular referente à execução de `backend/scripts/visual-crossing-iam-inheritance-readonly.py` em worktree isolada. A saída `BLAISE_VC_INHERITED_IAM_AUDIT` informa:
+
+- `coverage=PROJECT_ANCESTORS_ALLOW_DENY` e `denyPoliciesQueryCompleted=true`;
+- `policyLevelsRead=[{"scope":"project"}]`: **somente o escopo projeto apareceu na lista de políticas efetivamente retornadas**. Não afirmar verificação de pasta ou organização não presentes;
+- `broadAllowBindings=[]`, `dynamicOrGroupBindings=[]`;
+- `iamConditionsCount=3` — há três bindings condicionais a investigar; o script não imprimiu seus membros nem as expressões;
+- `denyPolicyObjectsSeen=0`, `issues=[]`, `unrecognizedPolicyItemsCount=0`;
+- `serviceAccountExplicitAllowBindings` mostra listas vazias tanto para a identidade do backend `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com` como para a NOAA `blaise-noaa-staging@blaise-v6-rj.iam.gserviceaccount.com`;
+- `secretDirectPolicyRead=true`; `effectiveSecretAccess=NOT_CONCLUSIVELY_EVALUATED`, `releaseApproved=false`;
+- `secretValueRead=false`, `weatherApiCalls=0`, `productionChanged=false`, `clientPublished=false`.
+
+**Conclusão exata:** não foram encontrados vínculos `allow` explícitos dessas duas contas nas políticas consultadas nem concessões públicas amplas ou por grupos nesses documentos; isso **não equivale** a aprovação de menor privilégio nem negação/concessão efetiva de `secretmanager.versions.access`. Há três condições IAM cujo conteúdo e membros ainda não foram avaliados; grants podem ocorrer por mecanismos não cobertos (inclusive outros níveis, políticas ou identidades). Nunca ler ou imprimir o segredo. Não alterar a chave atual, regras Firestore, IAM, ativar serviço/cobrança, criar cron, publicar dados, mesclar PR ou implantar produção.
+
+Próxima análise sem habilitar API: coletar **somente metadados seguros das três condições IAM** (escopo, papel e presença de condição), verificando suas relações com contas de execução e permissões relevantes, sem apresentar identidades pessoais, valores de segredo ou expressões sensíveis. Uma conclusão integral de acesso efetivo pode continuar pendente sem ferramentas e permissões adicionais, e isso deve ser comunicado honestamente.
