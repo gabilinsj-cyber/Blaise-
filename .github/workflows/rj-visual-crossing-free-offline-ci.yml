@@ -36,12 +36,14 @@ concurrency:
 jobs:
   vc-security-gate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.20.0'
+      - name: Install backend dependencies locally, without provider credentials
+        run: npm ci --prefix backend --ignore-scripts --no-audit --no-fund
       - name: Validate secret-free offline audit and mock-only source tests
         run: |
           set -euo pipefail
