@@ -279,6 +279,10 @@ async function main() {
       readMeteorologicalMemory=createRjMeteorologicalMemoryReader({
         getCached:memoryStore.getCached,
         readLocalBudgetStatus:memoryStore.readLocalBudgetStatus,
+        readNoaaWave:()=>sourceWorker.readSource(NOAA_WAVE_TASK_ID),
+        readMetNorway:metNorwayRuntime.configured===true
+          ?code=>metNorwayRuntime.readCachedCity(code)
+          :null,
       });
     }catch{
       // Optional read-only feature is unavailable, never break production.
