@@ -52,6 +52,7 @@ class AdminScientificActivity : ComponentActivity() {
             var meteorologicalMemory by remember { mutableStateOf<AdminMeteorologicalMemorySnapshot?>(null) }
             var memoryStatus by remember { mutableStateOf("Somente leitura • ainda não consultada.") }
             var memoryLoading by remember { mutableStateOf(false) }
+            var selectedMeteorologicalIbge by remember { mutableStateOf("3304557") }
             MaterialTheme {
                 Column(
                     modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -204,6 +205,18 @@ class AdminScientificActivity : ComponentActivity() {
                             Column(Modifier.padding(12.dp)) {
                                 Text("MEMÓRIA METEOROLÓGICA • FONTES E VALIDADE",
                                     style=MaterialTheme.typography.titleMedium)
+                                OutlinedTextField(
+                                    value=selectedMeteorologicalIbge,
+                                    onValueChange={ input ->
+                                        selectedMeteorologicalIbge=input.filter{it.isDigit()}.take(7)
+                                        meteorologicalMemory=null
+                                    },
+                                    label={Text("Código IBGE do município RJ (7 dígitos)")},
+                                    singleLine=true,
+                                    modifier=Modifier.fillMaxWidth().testTag("admin-meteorological-ibge")
+                                )
+                                Text("Selecione um dos 92 municípios cadastrados. " +
+                                    "Leitura somente do cache autorizado: sem novas chamadas ao fornecedor.")
                                 Text("Atualiza a leitura do cache no servidor, NÃO consulta a meteoblue " +
                                     "nem faz nova coleta das outras fontes. " +
                                     "Somente previsões reais e atuais entram; medição ausente = indisponível.")
@@ -228,7 +241,7 @@ class AdminScientificActivity : ComponentActivity() {
                                                     memoryLoading=false
                                                 } else {
                                                     AdminMeteorologicalMemoryClient.fetch(
-                                                        endpoint,token
+                                                        endpoint,token,selectedMeteorologicalIbge
                                                     ){ snapshot ->
                                                         runOnUiThread {
                                                             if(authorized) {
@@ -283,6 +296,26 @@ class AdminScientificActivity : ComponentActivity() {
                                                 "$validAt UTC • não é estação local.")
                                         else Text("ECMWF/IFS: cache desatualizado.")
                                     }
+                                    Text("VISUAL CROSSING FREE • ${snapshot.visualCrossingIbge} • " +
+                                        "${snapshot.visualCrossingStatus}",
+                                        style=MaterialTheme.typography.titleSmall)
+                                    if(snapshot.visualCrossingReadable(Instant.now())) {
+                                        Text("Condições agregadas (E), não estação física • validade: " +
+                                            "${snapshot.visualCrossingValidAt} UTC")
+                                        snapshot.visualCrossingCurrentFields.forEach { field ->
+                                            Text(field.description(),
+                                                modifier=Modifier.testTag("admin-live-vc-${field.jsonKey}"))
+                                        }
+                                    } else {
+                                        Text("Visual Crossing: valores atuais ausentes ou vencidos.")
+                                    }
+                                    Text("Visual Crossing: ${snapshot.visualCrossingForecastSlots} " +
+                                        "horários futuros com previsão P no cache • " +
+                                        "sem aviso oficial de tempestade.")
+                                    Text(snapshot.visualCrossingAttribution)
+                                    Text("Conta Free: 1000 registros/dia anunciados. " +
+                                        "Créditos adicionais = 0 no painel; significado ainda em revisão. " +
+                                        "Chave exposta, coleta automática DESLIGADA.")
                                     snapshot.sourceStates.forEach { (name,state) ->
                                         Text("${name}: ${state}",
                                             style=MaterialTheme.typography.bodySmall)
