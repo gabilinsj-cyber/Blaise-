@@ -22,6 +22,8 @@ on:
       - backend/scripts/visual-crossing-free-private-audit.mjs
       - backend/scripts/visual-crossing-free-92-dryrun.mjs
       - backend/scripts/visual-crossing-firestore-rules-readonly.mjs
+      - backend/scripts/visual-crossing-firestore-local-security-check.mjs
+      - backend/scripts/visual-crossing-firestore-client-probe.mjs
       - backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs
       - docs/RJ_VISUAL_CROSSING_92_CACHE_ROLLOUT_SAFE_20261119.md
       - backend/test/rj-visual-crossing-free-private.test.mjs
@@ -56,6 +58,8 @@ jobs:
           node --check backend/src/dashboard-data-http.mjs
           node --check backend/scripts/visual-crossing-free-92-dryrun.mjs
           node --check backend/scripts/visual-crossing-firestore-rules-readonly.mjs
+          node --check backend/scripts/visual-crossing-firestore-local-security-check.mjs
+          node --check backend/scripts/visual-crossing-firestore-client-probe.mjs
           node --check backend/src/rj-meteorological-memory-live.mjs
           node --check backend/src/blaise-scientific-http.mjs
           node --check backend/src/runtime.mjs
