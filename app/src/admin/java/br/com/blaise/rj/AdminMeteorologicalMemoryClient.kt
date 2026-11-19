@@ -75,7 +75,6 @@ object AdminMeteorologicalMemoryClient {
         if (state == "PRIVATE_CACHE_VALID") {
             val values = privateMb.getJSONArray("fields")
             require(values.length() == 7)
-            val allowed = defs.associateBy { it.label }
             val mapping = defs.associateBy {
                 when (it.jsonKey) {
                     "precipitation" -> "forecastPrecipitationSixHourMm"
@@ -94,7 +93,8 @@ object AdminMeteorologicalMemoryClient {
                 val def = mapping[id] ?: throw IllegalArgumentException("unrecognized_forecast_field")
                 require(seen.add(id) && r.getString("kind") == "P" &&
                     r.getString("unit") == def.unit)
-                val n = r.getDouble("value")
+                val n = (r.get("value") as? Number)?.toDouble()
+                    ?: throw IllegalArgumentException("non_numeric_forecast_value")
                 val range = when(def.jsonKey) {
                     "precipitation", "convective_precipitation" -> 0.0..500.0
                     "precipitation_probability", "relativehumidity_mean" -> 0.0..100.0
