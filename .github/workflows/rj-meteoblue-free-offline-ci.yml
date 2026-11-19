@@ -11,6 +11,7 @@ on:
       - backend/src/runtime.mjs
       - backend/scripts/meteoblue-free-private-field-audit.mjs
       - backend/scripts/meteoblue-free-validate-saved-json.mjs
+      - backend/scripts/meteoblue-free-private-cache-inspect.mjs
       - backend/scripts/meteoblue-free-credit-status.mjs
       - backend/test/rj-meteoblue-free-collector.test.mjs
       - backend/test/rj-meteoblue-free-key-check.test.mjs
@@ -42,6 +43,8 @@ jobs:
           node --check backend/scripts/meteoblue-free-private-field-audit.mjs
           node backend/scripts/meteoblue-free-private-field-audit.mjs
           node --check backend/scripts/meteoblue-free-validate-saved-json.mjs
+          node --check backend/scripts/meteoblue-free-private-cache-inspect.mjs
+          node backend/scripts/meteoblue-free-private-cache-inspect.mjs
           node --check backend/scripts/meteoblue-free-credit-status.mjs
           node backend/scripts/meteoblue-free-credit-status.mjs
           node --test backend/test/rj-meteoblue-free-key-check.test.mjs backend/test/rj-meteoblue-free-collector.test.mjs
