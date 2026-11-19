@@ -123,3 +123,8 @@ Propostas futuras sujeitas a **consentimento explícito e separado**:
 5. Aprovar eventual alteração da revisão Cloud Run e, separadamente, habilitação de consultas/92 municípios/publicação. A interface fica sem Visual Crossing ativo até passar todos os gates.
 
 **Status do merge e produção:** `PR_DRAFT`, `IAM_NOT_MODIFIED`, `CLOUD_RUN_NOT_UPDATED`, `PROBE_NOT_RUN`, `KEY_NOT_ROTATED`, `COLLECTION_OFF`, `CLIENT_PUBLISHING_OFF`.
+
+
+## Resultado CI de 19/11/2026 após preparação da prova de identidade
+
+No commit `9c4f2dbb004489791d4c63eb7283837b239463e1`, a workflow de GitHub Actions **RJ Visual Crossing Free zero-credential offline security gate** (run `44637047559`) terminou `success`. Os logs mostram **57 testes Node, 57 pass, 0 fail**, além de quatro suítes de Python com **4 testes cada**, incluindo a consulta histórica (sem acessar o GCP durante os testes); total das quatro suítes Python: **16 testes**. São somente casos offline com mocks/dados sintéticos, não há evidência de `secretmanager.versions.access` real. O projeto de produção, segredos e contas IAM não foram alterados por esse CI.
