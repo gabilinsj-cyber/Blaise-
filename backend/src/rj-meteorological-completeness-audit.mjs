@@ -15,6 +15,9 @@ const sources = Object.freeze({
   NOAA_GFS_WAVE: 'P', ECMWF_WAVE: 'P', NOAA_RTOFS: 'P', NOAA_UVI: 'P',
   NOAA_GLM: 'O', NOAA_GOES: 'O',
   NOAA_COASTWATCH_SST: 'E',
+  // Private weather forecast: the first real basic-6h response was audited
+  // on 19/11/2026. Distinct 6h fields only, never hourly or observed rain.
+  METEOBLUE_FREE_FORECAST: 'P',
   // User-authorized 17/11/2026: Copernicus CAMS strictly via MET Norway/Yr
   // for the clear-sky UV product; not a direct Copernicus collector.
   COPERNICUS_CAMS_UV_VIA_MET_NO: 'P',
@@ -44,6 +47,15 @@ const definitions = [
   ['pressureHpa','hPa',800,1100,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['windKmh','km/h',0,400,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
   ['gustKmh','km/h',0,504,[['DWD_ICON_GLOBAL','P'],['NOAA_GFS','P'],['ECMWF_IFS','P']]],
+  // Private comparison only: no mapping to the client's current weather,
+  // station observations, hourly forecast or gust measurement.
+  ['meteoblueRainForecastSixHourMm','mm',0,500,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueConvectiveRainForecastSixHourMm','mm',0,500,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueRainProbabilitySixHourPct','%',0,100,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueWindMeanSixHourKmh','km/h',0,400,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueWindMaxSixHourKmh','km/h',0,400,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueHumidityMeanSixHourPct','%',0,100,[['METEOBLUE_FREE_FORECAST','P']]],
+  ['meteoblueSeaLevelPressureMeanSixHourHpa','hPa',800,1100,[['METEOBLUE_FREE_FORECAST','P']]],
   ['rainNowMm','mm',0,500,[]],
   ['rainAccumulatedMm','mm',0,2500,[]],
   ['oceanRainMm','mm',0,2500,[]],
@@ -86,9 +98,26 @@ const hasFreshValue=(record,now)=>{
      record.municipalityGeoVerified!==true)return false;
   if(typeof record.sourceUrl!=='string'||!/^https:\/\/[^\s]+$/.test(record.sourceUrl))return false;
   if(!isoTime(record.checkedAt,now,12*60_000))return false;
-  const maxAge=record.category==='O'?12*60_000:12*60*60_000;
-  if(!isoTime(record.validAt,now,maxAge))return false;
-  if(record.category!=='O'&&!isoTime(record.issuedAt,now,12*60*60_000))return false;
+  if(record.sourceId==='METEOBLUE_FREE_FORECAST'){
+    // Fresh upcoming *6h forecast* only. The generic 'past validAt'
+    // condition applies to readings and other models, NOT this comparator.
+    const validMs=Date.parse(record.validAt);
+    if(!field.id.startsWith('meteoblue')||
+       record.intervalHours!==6||
+       record.privateScientificComparison!==true||
+       record.publishedToSubscriber!==false||
+       record.observational!==false||
+       record.modelOrigin!=='METEOBLUE_MLM'||
+       !Number.isFinite(validMs)||validMs<now||
+       validMs-now>6*60*60_000||
+       !isoTime(record.issuedAt,now,36*60*60_000))
+      return false;
+  }else{
+    const maxAge=record.category==='O'?12*60_000:12*60*60_000;
+    if(!isoTime(record.validAt,now,maxAge))return false;
+    if(record.category!=='O'&&!isoTime(record.issuedAt,now,12*60*60_000))
+      return false;
+  }
   if(typeof record.value!=='number'||!Number.isFinite(record.value)||record.value<field.min||record.value>field.max)return false;
   if(['count','level'].includes(field.unit)&&!Number.isInteger(record.value))return false;
   // Explicit model run/underlying dataset must be known, even if a web viewer
