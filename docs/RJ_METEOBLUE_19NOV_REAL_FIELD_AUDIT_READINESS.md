@@ -91,3 +91,30 @@ O output seguro do comando `METEOBLUE_PRIVATE_FIELD_AUDIT={...}` deve indicar:
 - Investigar cada bloqueio sem gastar novos créditos; ajustar o parser com base no schema **real**, usando apenas amostra sanitizada, nunca segredo.
 - Separar classificação de valores/uni dades, período do modelo, geografia e latência antes de conectar visualmente cards/mapas/gráficos.
 - Sem planos pagos, sem `merge`, sem `deploy`, sem alterar a versão original ou fontes removidas.
+
+## Resultado efetivamente obtido — 19/11/2026 09h42 BRT
+
+Evidência: saída do Cloud Shell fornecida pela titular em captura, após consulta única por `backend/scripts/meteoblue-free-private-field-audit.mjs --live --one-credit --private-staging` na worktree separada `~/blaise-meteoblue-audit-20261119/backend` com Secret Manager versão 3 válida **quanto ao formato**. Não imprimir, subir ou armazenar o segredo em Git, resposta ou logs.
+
+| Item reportado pelo script | Valor |
+|---|---|
+| `status` | `PRIVATE_STAGING_FORECAST_READY` |
+| `runtimeState` | `READY_FOR_ADMIN_EXPLICIT_CALL` |
+| `providerContacted` | `true` |
+| `reservedCreditsThisInvocation` | **4.000** no Firestore |
+| `modelRunVerified` | `true` |
+| `unitMetadataVerified` | `true` |
+| `sourceCoordinatesVerified` | `true` |
+| `sixHourForecastSlots` | **29** |
+| `completeSevenFieldCoverage` | `true` |
+| `privateAuditReady` | `true` |
+| `auditBlockers` | `[]` |
+| `observedData` | `false` |
+| `publishedToSubscribers` | `false` |
+
+Todos os sete campos previstos constaram como `FORECAST_VALUES_PRESENT`: `forecastPrecipitationSixHourMm`, `forecastConvectivePrecipitationSixHourMm`, `forecastPrecipitationProbabilitySixHourPct`, `forecastWindMeanSixHourKmh`, `forecastWindMaxSixHourKmh`, `forecastHumidityMeanSixHourPct`, `forecastSeaLevelPressureMeanSixHourHpa`.
+
+**Significado estrito:** uma resposta real do fornecedor para o ponto do Rio de Janeiro (IBGE 3304557) passou por validações estruturais, geográficas, temporais e de unidades. Os valores numéricos de cada período não foram impressos, inspecionados individualmente nem comparados com verificações meteorológicas externas. Isto **não** constitui homologação científica, leituras de estação, validação dos 92 municípios, autorização de publicação ou coleta automática. O saldo restante e eventual cobrança exata no fornecedor **ainda não foram reconferidos**; 4.000 é o valor da reserva local. O limite do fornecedor salvo pela titular é de 4.000 créditos por dia UTC.
+
+**Próxima etapa sem cobrança:** `node scripts/meteoblue-free-credit-status.mjs --read-firestore-budget` e inspeção de estatísticas no painel da meteoblue, sem nova solicitação `basic-6h`. Até 20/11 UTC não tentar novamente. A chave foi exposta anteriormente, e a versão 3 é uma nova versão do *mesmo segredo*, não rotação da credencial no fornecedor. Manter PR #173 em draft, sem merge/deploy, sem atualizar tráfego ou APK cliente.
+
