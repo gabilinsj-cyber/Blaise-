@@ -107,3 +107,14 @@ O simulador do Firebase Console (*Rules Playground*) não estava visível para a
 - Para executar, em worktree isolada Cloud Shell: `git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118`, exportar os dois scripts com `git show FETCH_HEAD:...` para `/tmp` e executar `node /tmp/visual-crossing-firestore-local-security-check.mjs /tmp/visual-crossing-firestore-client-probe.mjs`. Nenhum comando publica regras. **Não executar `firebase deploy`**.
 
 Referência oficial: <https://firebase.google.com/docs/firestore/security/test-rules-emulator>. Não usar a API REST `projects.test` para contornar o simulador, pois a documentação avisa que os testes podem acessar recursos de produção e causar cobranças.
+
+## Auditoria emulador interrompida por timeout — 19/11/2026
+
+Captura de Cloud Shell enviada pela titular (após teste com Java OpenJDK 21.0.13). Saída:
+`BLAISE_VC_LOCAL_SECURITY_CHECK={"state":"REVIEW_REQUIRED","reason":"EMULATOR_EXECUTION_TIMEOUT","productionChanged":false,"productionDocumentsRead":false,"weatherApiCalled":false,"clientRelease":false}`.
+
+**Interpretação correta:** o processo de emulação excedeu o limite; nenhum dos 30 resultados `get/list/create/update/delete` foi verificado. **Não concluir** que as regras são seguras ou inseguras. O ruleset real lido em 14h04 tem `hasRecursiveWildcard=true` e três coleções sem menção explícita, portanto uma revisão de permissões de cliente permanece **obrigatória**, apesar do detector não achar `allow` amplo simples.
+
+O script `visual-crossing-firestore-local-security-check.mjs` foi atualizado para emitir marcadores inofensivos de estágio (`ACTIVE_RULES_READ_OK`, `EMULATOR_DEPENDENCIES_INSTALLED`, `EMULATOR_TEST_START`) e distinguir timeout de inicialização/download do timeout após início do processo de teste. Não imprimir regras completas, tokens, segredos, saída integral dos subprocessos. **Não repetir automaticamente a execução longa**, nem implantar regras/mudar IAM, sem inspecionar o ponto onde o emulador parou.
+
+A captura também contém notificação por SMS da Defesa Civil sobre pancadas isoladas, mas o texto está truncado. Não reproduzir nem inferir local, risco, horário ou nível de alerta a partir da prévia.
