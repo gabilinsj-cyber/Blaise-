@@ -254,3 +254,27 @@ Assim, **nenhuma das duas identidades sob análise recebe esses três papéis po
 A auditoria anterior identificou `policyLevelsRead=[{"scope":"project"}]`, `secretDirectPolicyRead=true`, `serviceAccountExplicitAllowBindings` vazios para ambas as identidades, `broadAllowBindings=[]`, `dynamicOrGroupBindings=[]`, `denyPolicyObjectsSeen=0`, `iamConditionsCount=3`, `effectiveSecretAccess=NOT_CONCLUSIVELY_EVALUATED`. As **30/30 requisições anônimas/cliente comum** às três coleções foram negadas no emulador Firestore; isso é avaliação independente de IAM Admin SDK.
 
 **Resultado:** revisão dos vínculos condicionais específicos finalizada; revisão global de IAM **ainda inconclusiva quanto ao acesso efetivo** da conta de serviço ao Secret Manager. A chave foi previamente mostrada em captura e, por opção da titular, **não foi rotacionada**. Não conceder roles, ativar o coletor, modificar a chave, publicar valores, implantar ou mesclar sem uma avaliação e autorização de release posteriores.
+
+
+## Diagnóstico não divulgador da conta de serviço — 19/11/2026
+
+Foi preparado `backend/scripts/visual-crossing-secret-effective-permission-readonly.py` para o único passo que a análise de políticas não consegue provar: avaliar a solicitação **sob a identidade real** `blaise-cloud-run-runtime@blaise-v6-rj.iam.gserviceaccount.com`, sem trocar chaves nem adicionar IAM roles.
+
+O script apenas **tenta impersonação preexistente**, com token OAuth de curta validade armazenado na memória do processo e nunca exibido, usando `gcloud auth print-access-token --impersonate-service-account=...`. Se a conta do operador não tem `iam.serviceAccounts.getAccessToken` ou a IAM Service Account Credentials API estiver indisponível, responde `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE` e **não deve ser tratado como acesso negado da conta backend ao segredo**. Não habilita APIs, não modifica IAM, não altera a credencial do operador nem o projeto padrão.
+
+Se a impersonação for possível, faz uma única chamada `POST /v1/projects/blaise-v6-rj/secrets/blaise-visual-crossing-free-api-key:testIamPermissions` com `secretmanager.versions.access`. O request **não lê o valor do segredo**, não acessa nenhum número de versão da chave, não solicita a Visual Crossing e não imprime dados de autenticação. Retornos:
+- `PERMISSION_REPORTED_BY_API`: a API declarou a permissão para essa identidade na *secret resource*, **mas a documentação oficial adverte que o método pode falhar aberto e NÃO é verificação de autorização para operação real**;
+- `PERMISSION_NOT_REPORTED`: não declarou permissão, mas **não é prova conclusiva de bloqueio** de acesso a versão específica;
+- `SERVICE_ACCOUNT_IMPERSONATION_UNAVAILABLE`: o operador não conseguiu emitir token para a conta backend; não se pode inferir nada sobre a autorização do backend em Cloud Run;
+- `SECRET_MANAGER_PERMISSION_TEST_UNAVAILABLE`: falha HTTP específica sem revelar corpo ou header; também não é um veredito IAM.
+
+Mesmo quando o método retornar uma permissão, o documento mantém `releaseApproved=false`. **Prova operacional** de `versions.access` exigiria uma operação real sob a identidade do serviço, com revisão de escopo, logs e risco; ela foi deliberadamente excluída deste script porque exige acesso ao valor da chave. Não usar `testIamPermissions` como fundamento único para mudar release, publicar a interface ou ativar coleta. Referências oficiais:
+<https://docs.cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets/testIamPermissions>
+<https://docs.cloud.google.com/iam/docs/service-account-impersonation>
+
+Comando seguro:
+`git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118`
+`git show FETCH_HEAD:backend/scripts/visual-crossing-secret-effective-permission-readonly.py > ~/blaise-vc-security-check/visual-crossing-secret-effective-permission-readonly.py`
+`python3 ~/blaise-vc-security-check/visual-crossing-secret-effective-permission-readonly.py`
+
+**Status:** implementação no PR draft com testes offline; o comando ainda não foi executado pela titular, portanto nenhum resultado de acesso atual foi observado. Chave atual preservada, sem merge, deploy ou nova chamada meteorológica.
