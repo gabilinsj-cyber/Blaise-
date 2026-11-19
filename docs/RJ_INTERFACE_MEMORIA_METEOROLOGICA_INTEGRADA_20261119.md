@@ -32,6 +32,7 @@
 ## Condições técnicas de disponibilidade
 
 - O cache meteoblue tem **TTL de 6 horas**. Após isso, a tela não deve simular atualização; deve exibir `INDISPONIVEL`.
+- **Barreira de chave exposta:** apesar do limite de **1 consulta/dia UTC**, o coletor verifica também `temporaryExposedKey && calls>=1` e bloqueia **qualquer nova consulta com a chave exposta após a primeira chamada privada desta campanha**, mesmo no dia UTC seguinte. A chamada de 19/11 já consumiu essa permissão. O usuário optou por manter a chave atual, portanto **não há atualização automática nem novas previsões meteoblue contínuas** com a política de segurança atual. A rotação futura da credencial não cancela por si só a franquia Free, mas exige decisão e testes específicos. Não contornar essa barreira.
 - O GET admin não muda o TTL, não chama API ou agenda novos 4.000 créditos. Ele pode usar **Firestore**, serviço que tem custos de infraestrutura separados do plano de créditos meteoblue.
 - A interface admin precisa de **backend implantado em revisão autorizada**, `BLAISE_ADMIN_METEOROLOGICAL_MEMORY_ENABLED=true`, `BLAISE_SCIENTIFIC_ADMIN_UIDS` preenchido e autenticação Firebase. Sem isso, o painel deve informar **backend indisponível**.
 - A variante Android administrador depende de `BLAISE_ENTITLEMENT_VERIFY_URL` com HTTPS e caminho `/v1/entitlements/verify` como base confiável de URL. Sem endereço seguro, nenhuma tentativa é feita.
