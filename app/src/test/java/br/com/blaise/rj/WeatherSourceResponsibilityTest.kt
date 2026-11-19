@@ -6,7 +6,7 @@ import org.junit.Test
 class WeatherSourceResponsibilityTest {
     @Test fun sourceMatrixPreservesProvenanceAndNeverClaimsUnverifiedRealTimeData() {
         val list = WeatherSourceResponsibilities.providers
-        assertEquals(13, list.size)
+        assertEquals(14, list.size)
         assertEquals(list.size, list.map { it.id }.toSet().size)
         val german = list.single { it.id == "DWD_ICON" }
         assertEquals("DWD_ICON", german.originFamily)
@@ -43,6 +43,12 @@ class WeatherSourceResponsibilityTest {
         assertEquals("VISUAL_CROSSING_FREE", vc.originFamily)
         assertFalse(vc.currentlyIntegratedProduct)
         assertTrue(vc.sectors.contains("cache não foi salvo"))
+        val weatherApi = list.single { it.id == "WEATHERAPI_FREE" }
+        assertEquals("WEATHERAPI_FREE", weatherApi.originFamily)
+        assertEquals("E/P", weatherApi.nature)
+        assertFalse(weatherApi.currentlyIntegratedProduct)
+        assertTrue(weatherApi.sectors.contains("SEM CHAVE OU TESTE REAL"))
+        assertTrue(weatherApi.sectors.contains("alertas oficiais"))
         val meteoblue = list.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertEquals("P", meteoblue.nature)
         assertEquals("METEOBLUE_MLM", meteoblue.originFamily)
@@ -64,7 +70,9 @@ class WeatherSourceResponsibilityTest {
                 state.contains("CONSULTA VISUAL EXTERNA") ||
                 state.contains("PREVISÃO CANDIDATA") ||
                 state.contains("CONTINGÊNCIA TÉRMICA CONDICIONAL") ||
-                state.contains("ASSINATURA ADIADA"))
+                state.contains("ASSINATURA ADIADA") ||
+                state.contains("1 RESPOSTA REAL PRIVADA") ||
+                state.contains("CANDIDATA FREE"))
         }
         assertTrue(WeatherSourceResponsibilities.availability(
             "HG_BRASIL_WEATHER_PRO", true, true, true).contains("ASSINATURA ADIADA"))
