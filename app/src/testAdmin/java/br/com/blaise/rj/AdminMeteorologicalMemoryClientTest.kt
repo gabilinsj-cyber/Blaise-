@@ -39,5 +39,13 @@ class AdminMeteorologicalMemoryClientTest {
         assertFalse(basic.copy(fields=basic.fields.drop(1)).readable(now))
         assertFalse(basic.copy(cacheState="INDISPONIVEL").readable(now))
         assertFalse(basic.providerCreditBalanceVerified)
+        val wave=basic.copy(
+            noaaWaveHeightM=1.35,
+            noaaWaveValidAt=now.minusSeconds(900)
+        )
+        assertTrue(wave.noaaWaveReadable(now))
+        assertFalse(wave.copy(noaaWaveValidAt=now.minusSeconds(4000)).noaaWaveReadable(now))
+        assertFalse(wave.copy(noaaWaveHeightM=null).noaaWaveReadable(now))
+        assertFalse(wave.copy(evaluatedAt=now.minusSeconds(300)).noaaWaveReadable(now))
     }
 }
