@@ -24,6 +24,7 @@ const registered=Object.freeze([
  source('NOAA_GLM','NOAA GOES-19 GLM','O','Detecção satelital de raios, com validade','UNVERIFIED_CURRENT_CACHE'),
  source('OPENWEATHER_AGENT13','OpenWeather/Agente 13','E','Contingência térmica condicionada por quota','UNVERIFIED_CURRENT_CACHE'),
  source('VISUAL_CROSSING_FREE','Visual Crossing Free','E','Consulta REAL privada em 19/11/2026: 7/10 campos E e 36 horários P, custo declarado 1 registro; prova pontual sem cache atual, sem estação homologada nem publicação','PRIVATE_ONE_SHOT_AUDITED_NO_CURRENT_CACHE'),
+ source('WEATHERAPI_FREE','WeatherAPI.com Free','E/P','Candidata: agregados atuais E e previsões P até 3 dias; Free 100000 chamadas/mês; atribuição e aviso ao usuário; sem conta/chave auditada, sem GET ou dados numéricos','UNVERIFIED_NO_ACCOUNT_OR_SAMPLE'),
  source('HG_BRASIL_WEATHER_PRO','HG Brasil Pro','E','Condições agregadas; plano ainda não contratado','NOT_CONTRACTED'),
  source('ANA_RIVER','ANA/Hidroweb','O','Nível de rios por estação auditada','UNVERIFIED_CURRENT_CACHE'),
  source('SGB_SACE','SGB/SACE','O','Rios e cheias por estação auditada','UNVERIFIED_CURRENT_CACHE')
