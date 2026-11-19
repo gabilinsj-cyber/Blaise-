@@ -63,7 +63,7 @@ export function projectVisualCrossingForPaidDashboard(
  const next=cache.forecast.find(slot=>{
   const t=time(slot.validAt);
   return slot.kind==='P'&&Number.isFinite(t)&&t>now&&
-    t-now<=2*60*60_000&&Array.isArray(slot.fields);
+    t-now<=60*60_000&&Array.isArray(slot.fields);
  });
  const nextPrecip=next?num(v(next.fields,'precipitationMm'),0,500):null;
  const nextProb=next?num(v(next.fields,'precipitationProbabilityPct'),0,100):null;
