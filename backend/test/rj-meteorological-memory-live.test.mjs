@@ -137,3 +137,43 @@ test('MET Norway optional cache is a licensed P forecast; no ECMWF station obser
  assert.equal(r.privateMetNorway.status,'PRIVATE_CACHE_VALID');
  assert.equal(r.sources.find(x=>x.id==='ECMWF_IFS').state,'PRIVATE_CACHE_VALID');
 });
+
+test('admin memory chooses one of 92 IBGE cities and never reads provider directly',async()=>{
+ let requested=null;
+ const reader=createRjMeteorologicalMemoryReader({
+  clock:()=>NOW,
+  readVisualCrossing:async code=>{
+   requested=code;
+   return {sourceId:'VISUAL_CROSSING_FREE',ibge:code,
+    status:'PRIVATE_CACHE_VALID',kindCurrent:'E',kindForecast:'P',
+    validAt:new Date(NOW-5*60_000).toISOString(),
+    checkedAt:new Date(NOW).toISOString(),
+    fields:[{field:'temperatureC',value:27,unit:'°C',kind:'E'}],
+    forecast:[],providerBalanceVerified:false,
+    publishedToSubscribers:false,
+    attribution:'Weather data by Visual Crossing'};
+  }
+ });
+ const report=await reader({ibge:'3304557'});
+ assert.equal(requested,'3304557');
+ assert.equal(report.privateVisualCrossing.status,'PRIVATE_CACHE_VALID');
+ assert.equal(report.privateVisualCrossing.fields[0].value,27);
+ assert.equal(report.selectedIbge,'3304557');
+ assert.equal(report.sources.find(x=>x.id==='VISUAL_CROSSING_FREE').state,'PRIVATE_CACHE_VALID');
+ assert.equal(report.pollingWeatherProviders,false);
+ assert.equal(report.clientPublishingEnabled,false);
+});
+test('Visual Crossing absent or incorrect private cache is never published',async()=>{
+ const reader=createRjMeteorologicalMemoryReader({
+  clock:()=>NOW,
+  readVisualCrossing:async code=>({
+   sourceId:'VISUAL_CROSSING_FREE',ibge:'3304557',
+   status:'PRIVATE_CACHE_VALID',fields:[{value:999}],
+   publishedToSubscribers:true
+  })
+ });
+ const r=await reader({ibge:'3303302'});
+ assert.equal(r.privateVisualCrossing.status,'INDISPONIVEL');
+ assert.equal(r.sources.find(x=>x.id==='VISUAL_CROSSING_FREE').state,
+  'PRIVATE_ONE_SHOT_AUDITED_NO_CURRENT_CACHE');
+});
