@@ -277,3 +277,14 @@ python3 ~/blaise-vc-security-check/visual-crossing-image-build-preflight-readonl
 `gcloud builds submit --tag` pode criar objetos temporários de fonte no Cloud Storage e publica a imagem no Artifact Registry se o build for bem-sucedido. Após um eventual upload, a imagem deve ser **referenciada por `@sha256`**, não por tag mutável, na configuração do job. Uma imagem publicada **não é execução** e **não comprova Secret Manager**.
 
 **Gates:** imagem sem chaves; origem do commit e digest; CI offline verde; API habilitada e custos conhecidos; identidade padrão de build auditada antes de usar; permissões de gravação somente no destino aprovado; nenhum `roles/owner`/Editor/TokenCreator concedido; job ainda não criado; sem `AccessSecretVersion`, nem consulta meteorológica, nem publicação de clientes.
+
+
+## Evidência Cloud Shell — 19/11/2026 22h22 BRT: contexto seguro e pré-voo de build
+
+Captura das **22h22 BRT** da execução dos scripts de preparação e pré-voo (somente leitura). `BLAISE_VC_BUILD_PREP` indicou `state=PREPARED_ONLY`, `fileCount=3`, `sourceBytes=6293`, `sourceCommit=9096abc23b7f0a98a752ec0544e71c53864d960b` e `cloudBuildSubmitted=false`, `artifactUploaded=false`, `iamChanged=false`, `secretRead=false`. Contexto mínimo criado em pasta distinta e sem sobrescrever os repositórios originais.
+
+`BLAISE_VC_BUILD_PREFLIGHT` informou `cloudBuildApi=ENABLED`, `artifactRegistryApi=ENABLED`, `billing=ENABLED`, `targetRepositoryConfirmed=true`, `repositoryIamPolicyVisible=true`; `defaultBuildIdentityType=OTHER_OR_UNRECOGNIZED`, `effectiveArtifactUploadPermission=NOT_VERIFIED`, `remainingFreeBuildMinutes=NOT_VERIFIED`, `billingMayApply=true`; `buildNotSubmitted=true`, `imageNotUploaded=true`, `cloudRunJobNotCreated=true`, `secretNotRead=true`.
+
+**Causa técnica possível corrigida no código, não ainda comprovada no projeto:** a versão original do classificador não considerava o campo `serviceAccountEmail` da API `getDefaultServiceAccount`, que pode retornar um caminho `projects/{project}/serviceAccounts/{email}` em vez de um email simples. Atualizado `backend/scripts/visual-crossing-image-build-preflight-readonly.py` para identificar categorias `CLOUD_BUILD_LEGACY`, `COMPUTE_ENGINE_DEFAULT`, `USER_MANAGED_OR_CUSTOM` quando suportadas, sem divulgar a identidade. Documentação Google Cloud: https://docs.cloud.google.com/build/docs/api/reference/rest/v1/projects.locations/getDefaultServiceAccount.
+
+**Próxima consulta:** buscar a versão corrigida do mesmo script na PR e executar somente o pré-voo de build, sem construir imagem/registrar repositório novo/mudar IAM. A confirmação da categoria da identidade não equivale a verificar as permissões efetivas de upload nem significa custo zero. Após validação do uso/cota, imagem e autorização de build, realizar qualquer build apenas no contexto mínimo do commit revisado; nenhum Cloud Run Job ou acesso real ao segredo autorizado nesta etapa.
