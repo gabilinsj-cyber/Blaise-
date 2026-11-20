@@ -164,3 +164,24 @@ A titular executou o filtro somente leitura de `gcloud secrets get-iam-policy bl
 **Conclusão com escopo correto:** concessão restrita gravada para a conta isolada, com expiração; o filtro verificou prefixo da condição e extraiu o primeiro timestamp, mas **não validou a expressão inteira nem comprovou acesso operacional**. Vínculos IAM distintos/herdados permanecem fora dessa afirmação. A condição impede essa concessão de ser satisfeita após o prazo, mas não remove automaticamente o binding. Nenhum `AccessSecretVersion` foi executado; Secret Manager não revelou o valor. Nenhum Cloud Run Job foi criado ou executado, nenhum deploy, nenhuma chamada Visual Crossing e nenhuma publicação aos clientes foi autorizada.
 
 **Próximo estágio sem mutação:** descobrir região Cloud Run atual, existência de job de nome planejado, imagem executável revisada e digest imutável; registrar custo/limites e verificar se o operador tem permissão de associar a conta isolada a um novo job, **sem conceder papéis ou iniciar jobs**. Uma possível prova de acesso deve ocorrer antes da expiração, mas nunca burlar o prazo nem renová-lo automaticamente. Criar/rodar o Cloud Run Job e ler versão 1 requerem autorização separada.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h25 BRT: região definida e artefato específico preparado
+
+A titular executou consulta de metadados `gcloud run services list --project=blaise-v6-rj --format=json` e apresentou captura às **21h25**:
+- `BACKEND: ENCONTRADO`;
+- `REGIAO: southamerica-east1` (São Paulo).
+A região foi observada **no serviço backend**, e é a candidata preferencial ao job isolado, **não uma ordem de deploy**.
+
+**Inspeção de construção da imagem:** o `backend/Dockerfile` atual é o do servidor de assinantes e usa `COPY src ./src`, mas não copia o diretório `scripts`, onde mora `visual-crossing-runtime-secret-proof.mjs`. Essa imagem **não seria suficiente como está** para executar a prova de forma isolada e jamais deve ser apontada para clientes com argumentos de execução alterados.
+
+Para evitar reutilizar a imagem/servidor de produção, foi criado **apenas como código** `backend/Dockerfile.visual-crossing-secret-proof`, cujo contexto de build futuro será `backend/`; ele:
+- usa imagem base Node 24 Bookworm Slim **fixada por digest já presente no Dockerfile do backend**, sujeito a revisão de CVEs e proveniência antes da construção;
+- copia **somente** `src/rj-visual-crossing-runtime-secret-proof.mjs` e `scripts/visual-crossing-runtime-secret-proof.mjs` — sem pacote de assinantes, chaves, cache nem configuração de produção;
+- executa como usuário `node`, sem listener HTTP, e só chama a checagem protegida por `CLOUD_RUN_JOB`, índice/contagem da tarefa, flag explícita e e-mail exato de service account do metadata server;
+- não tem `npm install`, push, chamada de rede ou leitura real do Secret Manager no procedimento de CI offline.
+O entrypoint retorna **exit code não-zero** quando o diagnóstico não comprova `VERSION_ACCESS_GRANTED_AT_TIME`; falha ou falta de autorização não pode aparecer como execução bem-sucedida.
+
+**Ainda NÃO determinado:** imagem final enviada para Artifact Registry por digest, disponibilidade de permissão `iam.serviceAccounts.actAs` para associar a nova conta ao job, políticas de acesso do operador ao job, custos exatos, configuração do runtime job. Não houve build/push/deploy. Nunca usar a imagem do backend principal como atalho.
+
+**Plano de próxima ação segura:** inspecionar apenas metadados de Artifact Registry e papel `iam.serviceAccountUser` da nova identidade, sem imprimir membros privados nem criar recursos. Depois escolher o procedimento de build restrito e a janela de execução, com autorização separada da titular. IAM `roles/secretmanager.secretAccessor` condicional do segredo foi confirmado e expira em **21/11/2026 00:14:02Z**; se o prazo passar, não renová-lo silenciosamente nem criar prova com privilégio adicional por conveniência.
