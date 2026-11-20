@@ -122,3 +122,17 @@ A titular apresentou captura do Cloud Shell às **21h04 BRT** após executar `gc
 **Evidência confirmada:** a conta de serviço isolada foi criada no projeto. O comando exibido **não concede papel no segredo, cria job, executa prova nem atualiza o backend**. Não se pode inferir a ausência de permissões efetivas por políticas herdadas apenas desse comando.
 
 **Gates pendentes:** verificar políticas efetivas e vínculos diretos para a nova identidade, solicitar autorização **específica** antes de eventual concessão `roles/secretmanager.secretAccessor` **somente no segredo**; aprovar separadamente a imagem do diagnóstico, configuração do Cloud Run Job, custo, execução pontual e descarte de permissões depois do teste. Não conceder Token Creator nem grants de projeto/organização. Sem acesso à versão 1, sem chamadas à Visual Crossing, sem merge, sem deploy e sem publicar a clientes. A chave já exposta permanece preservada a pedido da titular e classificada como risco até nova decisão.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h06 BRT: conta existe, acesso direto ausente
+
+A titular executou novamente o `visual-crossing-isolated-job-preflight-readonly.py` depois de criar `blaise-vc-proof`. Captura das 21h06 BRT confirma:
+
+- `identityDescribeSucceeded=true` para a conta proposta `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com` — confirmação adicional de existência;
+- `secretPolicyReadSucceeded=true`;
+- `directSecretAccessorBindingFound=false` e `directSecretAccessorBindingConditionalCount=0` — nenhum vínculo **direto** de `roles/secretmanager.secretAccessor` para essa conta na política do segredo;
+- `cloudRunJobs=NO_MATCH_IN_RESULTS` — o nome do job não aparece na listagem consultada;
+- `effectiveSecretAccess=NOT_VERIFIED`;
+- `cloudRunExecutionTriggered=false`, `iamPolicyChanged=false`, `secretPayloadRead=false`, `weatherApiCalled=false`, `releaseApproved=false`.
+
+**Próxima etapa depende de autorização explícita da titular** para conceder `roles/secretmanager.secretAccessor` à identidade isolada somente no recurso `blaise-visual-crossing-free-api-key`. Essa permissão permite leitura do valor do segredo pela identidade aprovada. Não executar automaticamente esta concessão; não mexer no papel da conta do backend, não conceder acesso em nível de projeto e não criar/rodar o job até consentimento específico adicional. A chave atual permanece não rotacionada conforme decisão anterior, com risco de exposição reconhecido.
