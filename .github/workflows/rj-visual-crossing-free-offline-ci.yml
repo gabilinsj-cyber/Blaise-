@@ -13,6 +13,8 @@ on:
       - backend/scripts/visual-crossing-proof-image-prepare.py
       - backend/test/test_visual_crossing_proof_image_prepare.py
       - backend/scripts/visual-crossing-image-build-preflight-readonly.py
+      - backend/scripts/visual-crossing-build-identity-iam-readonly.py
+      - backend/test/test_visual_crossing_build_identity_iam_readonly.py
       - backend/test/test_visual_crossing_image_build_preflight_readonly.py
       - backend/scripts/visual-crossing-runtime-secret-proof.mjs
       - backend/test/rj-visual-crossing-runtime-secret-proof.test.mjs
@@ -84,6 +86,7 @@ jobs:
           python3 -B backend/test/test_visual_crossing_isolated_job_preflight_readonly.py
           python3 -B backend/test/test_visual_crossing_proof_image_prepare.py
           python3 -B backend/test/test_visual_crossing_image_build_preflight_readonly.py
+          python3 -B backend/test/test_visual_crossing_build_identity_iam_readonly.py
           node --check backend/scripts/visual-crossing-secret-wiring-dryrun.mjs
           node backend/scripts/visual-crossing-secret-wiring-dryrun.mjs
           node --check backend/src/rj-visual-crossing-client-projection.mjs
