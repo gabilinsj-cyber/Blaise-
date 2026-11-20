@@ -100,3 +100,16 @@ A titular executou `backend/scripts/visual-crossing-isolated-job-preflight-reado
 5. Se autorizado, remover o acesso concedido no diagnóstico e desativar/excluir o job isolado após preservar só logs e evidências seguros; sem mexer na revisão ativa, na chave atual, no aplicativo original e nos três segredos preexistentes.
 
 **Bloqueios mantidos:** chave anteriormente exposta preservada a pedido da titular, mas sem aprovação de uso público; assinatura Free; coleta para 92 municípios desligada; publicação aos clientes desligada; PR draft; IAM e Cloud Run sem mudanças nesta etapa.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h01 BRT: conta isolada não encontrada
+
+Captura enviada pela titular às **21h01 BRT**, após execução de comando Python que invocou
+`gcloud iam service-accounts list --project=blaise-v6-rj --format=json`.
+Saídas confirmadas:
+- `LISTAGEM: CONCLUIDA` — consulta terminou sem erro;
+- `CONTA_ISOLADA: NAO_ENCONTRADA_NA_LISTAGEM` — a identidade `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com` não apareceu entre contas ativas listadas para o projeto.
+
+**Interpretação limitada:** não há evidência de uma conta isolada ativa com esse endereço na lista consultada. Isso não é autorização para criar recursos, não comprova ausência de identidades excluídas anteriormente nem prova IAM efetivo.
+
+**Próximo gate:** propor `gcloud iam service-accounts create blaise-vc-proof --project=blaise-v6-rj --display-name="Blaise VC Secret Proof (isolated)"`, **somente após autorização específica da titular para criação da conta**. Uma conta nova não recebe automaticamente acesso ao segredo; não aplicar `secretAccessor`, Token Creator ou qualquer papel neste estágio. Não criar Cloud Run Job, executar AccessSecretVersion, mudar a chave exposta, habilitar APIs ou liberar coleta/publicação sem autorizações separadas.
