@@ -228,3 +228,52 @@ A titular executou duas consultas somente leitura, com captura às **22h01 BRT**
 **Próximo gate:** revisar o conteúdo mínimo do contexto de build (`backend/Dockerfile.visual-crossing-secret-proof` e dois módulos Node), infraestrutura/credenciais necessárias para build e push, risco de upload acidental de código/segredos, custos/quota do Cloud Build e Artifact Registry. Não executar `gcloud builds submit` nem `docker push` sem autorização separada. Repositórios existentes, backend principal, chave atual e coleta meteorológica dos 92 municípios devem permanecer intactos.
 
 **Prazo de IAM:** o papel condicional Secret Accessor já registrado expira em `2026-11-21T00:14:02Z`, equivalente a `20/11/2026 21:14:02` horário de Brasília; expiração não remove automaticamente o binding.
+
+
+## 19/11/2026 — preparação de build e publicação da imagem (sem submissão)
+
+A titular autorizou avançar na **preparação** da construção e publicação da imagem exclusiva do diagnóstico, condicionada à revisão de custo, identidade/permissão de build e manutenção da separação entre build, Cloud Run Job e execução de prova. Não foi autorizado executar o job nem coletar dados do Secret Manager/Visual Crossing. O repositório `blaise-vc-proof` foi confirmado como Docker em `southamerica-east1`, com `Repository Size: 0.000MB` e nenhuma imagem listada às 22h01 BRT.
+
+**Tarball de fonte minimizado:** foi adicionado `backend/scripts/visual-crossing-proof-image-prepare.py` para copiar **exatamente três arquivos textuais** do commit `FETCH_HEAD` da PR #173, em uma pasta nova e isolada no diretório pessoal, sem apagar/substituir diretórios existentes:
+
+- `Dockerfile` extraído de `backend/Dockerfile.visual-crossing-secret-proof` (imagem base Node 24 fixada por digest, usuário `node`);
+- `src/rj-visual-crossing-runtime-secret-proof.mjs`;
+- `scripts/visual-crossing-runtime-secret-proof.mjs`.
+
+Nenhum repositório completo, backup, `.env`, arquivo `firebase`, APK, pacote npm ou outra origem pode ser incluído. O preparo valida nome, tamanho, digest SHA256, Dockerfile e origem do commit. Se o diretório já existir com conteúdo inesperado, **bloqueia** em vez de sobrescrever; não apaga arquivos nem invoca Docker ou APIs. A saída `BLAISE_VC_BUILD_PREP=` fornece `contextPath`, `sourceCommit` e `proposedImageUri`, mas `cloudBuildSubmitted=false` e `artifactUploaded=false`.
+
+**Pré-voo somente leitura:** `backend/scripts/visual-crossing-image-build-preflight-readonly.py` usa apenas comandos de consulta:
+- APIs **já habilitadas** Cloud Build e Artifact Registry; não as habilita;
+- estado de faturamento `billingEnabled` (não saldo ou franquia);
+- `gcloud builds get-default-service-account --region=southamerica-east1` para classificar conta padrão do build **sem imprimir e-mail da identidade**;
+- metadados e política IAM do repositório dedicado; **não infere permissão efetiva nem concede escritor**.
+
+Os status `remainingFreeBuildMinutes=NOT_VERIFIED` e `effectiveArtifactUploadPermission=NOT_VERIFIED` são deliberados: uma conta de serviço detectada e um papel IAM direto não provam a capacidade final de publicar, e não é possível garantir custo zero somente com o pré-voo.
+
+**Custos públicos verificados em 19/11/2026:** Cloud Build no pool padrão `e2-standard-2`: franquia promocional de **2.500 build-minutes/mês por conta de faturamento**, tarifa **US$ 0,006/min** além da franquia; [tabela oficial](https://cloud.google.com/build/pricing). Artifact Registry: **0,5 GiB-mês gratuitos por conta de faturamento**, excedente de armazenamento faturado; [preços](https://cloud.google.com/artifact-registry/pricing). Build também pode envolver Cloud Storage para staging de fontes, Cloud Logging ou transferência de dados. Tarifas e franquias compartilhadas podem variar; não assumir zero custo sem comparar com o uso da própria conta.
+
+**Procedimento de pré-voo sem custos de build no Cloud Shell:**
+```bash
+cd ~/blaise-visual-crossing-audit-20261119
+git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118
+mkdir -p ~/blaise-vc-security-check
+git show FETCH_HEAD:backend/scripts/visual-crossing-proof-image-prepare.py > ~/blaise-vc-security-check/visual-crossing-proof-image-prepare.py
+git show FETCH_HEAD:backend/scripts/visual-crossing-image-build-preflight-readonly.py > ~/blaise-vc-security-check/visual-crossing-image-build-preflight-readonly.py
+python3 ~/blaise-vc-security-check/visual-crossing-proof-image-prepare.py
+python3 ~/blaise-vc-security-check/visual-crossing-image-build-preflight-readonly.py
+```
+
+**Modelo de publicação futura — NÃO EXECUTADO, e não utilizar até revisão dos outputs acima:**
+```bash
+# O caminho e a URI exatos são produzidos pelo PREP com SHA do commit revisado.
+# Não construir usando ~/Blaise-RJ, o monorepo, nem a pasta raiz da worktree.
+# gcloud builds submit CAMINHO_DO_CONTEXTO_MINIMO \
+#   --project=blaise-v6-rj \
+#   --region=southamerica-east1 \
+#   --machine-type=e2-standard-2 \
+#   --timeout=600s \
+#   --tag=URI_EXATA_DA_IMAGEM_COM_SHA_DO_PREP
+```
+`gcloud builds submit --tag` pode criar objetos temporários de fonte no Cloud Storage e publica a imagem no Artifact Registry se o build for bem-sucedido. Após um eventual upload, a imagem deve ser **referenciada por `@sha256`**, não por tag mutável, na configuração do job. Uma imagem publicada **não é execução** e **não comprova Secret Manager**.
+
+**Gates:** imagem sem chaves; origem do commit e digest; CI offline verde; API habilitada e custos conhecidos; identidade padrão de build auditada antes de usar; permissões de gravação somente no destino aprovado; nenhum `roles/owner`/Editor/TokenCreator concedido; job ainda não criado; sem `AccessSecretVersion`, nem consulta meteorológica, nem publicação de clientes.
