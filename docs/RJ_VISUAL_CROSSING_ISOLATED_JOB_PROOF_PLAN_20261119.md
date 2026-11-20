@@ -214,3 +214,17 @@ A saída confirmou operação concluída: `Created repository [blaise-vc-proof]`
 **Estado comprovado:** repositório Docker dedicado criado. **Não comprovado nessa captura:** upload de qualquer imagem, digest de imagem, deploy/job ou execução do diagnóstico. A próxima etapa segura é ler metadados com `gcloud artifacts repositories describe blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --format=json` e, separadamente, `gcloud artifacts docker images list southamerica-east1-docker.pkg.dev/blaise-v6-rj/blaise-vc-proof --format=json`, filtrando metadados sem credenciais. Nada de `docker build`, `gcloud builds submit`, `docker push`, `gcloud run jobs create/execute` ou expansão de IAM sem aprovação específica.
 
 **Isolamento e custos:** os repositórios `blaise-backend`, `blaise-noaa-staging` e `cloud-run-source-deploy` permanecem fora do escopo; o novo repositório vazio não implica imagem de diagnóstico já publicada. A condição temporária `blaiseVcProof24h` no segredo foi confirmada com expiração **2026-11-21T00:14:02Z**, não deve ser renovada automaticamente. Coleta de Visual Crossing e publicação a clientes permanecem desligadas; chave exposta preservada por escolha da titular.
+
+
+## Evidência Cloud Shell — 19/11/2026 22h01 BRT: repositório vazio confirmado
+
+A titular executou duas consultas somente leitura, com captura às **22h01 BRT**:
+
+1. `gcloud artifacts repositories describe blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --format="table(name,format)"`: identificou recurso `projects/blaise-v6-rj/locations/southamerica-east1/repositories/blaise-vc-proof`, `FORMAT: DOCKER`, criptografia por chave gerenciada pelo Google e `Repository Size: 0.000MB`.
+2. `gcloud artifacts docker images list southamerica-east1-docker.pkg.dev/blaise-v6-rj/blaise-vc-proof --format="table(package,version)"`: terminou sem listar imagens.
+
+**Conclusão:** repositório dedicado existe, vazio no momento da consulta, sem imagens/digests. Não significa que há um build pronto ou Cloud Run Job implantado. Nenhuma dessas consultas criou imagens ou acessou valores de segredo.
+
+**Próximo gate:** revisar o conteúdo mínimo do contexto de build (`backend/Dockerfile.visual-crossing-secret-proof` e dois módulos Node), infraestrutura/credenciais necessárias para build e push, risco de upload acidental de código/segredos, custos/quota do Cloud Build e Artifact Registry. Não executar `gcloud builds submit` nem `docker push` sem autorização separada. Repositórios existentes, backend principal, chave atual e coleta meteorológica dos 92 municípios devem permanecer intactos.
+
+**Prazo de IAM:** o papel condicional Secret Accessor já registrado expira em `2026-11-21T00:14:02Z`, equivalente a `20/11/2026 21:14:02` horário de Brasília; expiração não remove automaticamente o binding.
