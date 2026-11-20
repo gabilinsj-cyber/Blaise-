@@ -297,3 +297,19 @@ Após atualizar o `backend/scripts/visual-crossing-image-build-preflight-readonl
 O Cloud Build padrão identificado é a conta Compute Engine default, não a conta `blaise-vc-proof` de execução do teste. Esse tipo de conta pode ter privilégios amplos e precisa ser auditado; não adicionar `Editor` nem papel Writer de projeto automaticamente. Antes de construir, comparar **somente leituras** de políticas IAM de projeto e repositório para o principal exato, incluindo indicação de condições; não confundir ausência de binding direto com ausência de acesso herdado/efetivo. Permissões de submissão do operador, logs de build, disponibilidade da franquia e custo permanecem para revisão. O vínculo temporário do segredo expira em `2026-11-21T00:14:02Z` e não deve ser renovado automaticamente.
 
 O build precisa ser feito somente com o contexto mínimo de três arquivos (`BLAISE_VC_BUILD_PREP` previamente `PREPARED_ONLY`, commit `9096abc23b7f0a98a752ec0544e71c53864d960b`) após atestar imutabilidade do commit e permissões, e nunca enviar todo o workspace. Sem Cloud Run Job, sem leitura do segredo, sem coleta/assinantes.
+
+
+## 20/11/2026 — próximo gate: auditoria IAM da identidade de construção
+
+O diagnóstico das 10h00 identificou a identidade `COMPUTE_ENGINE_DEFAULT` como padrão do Cloud Build, mas `effectiveArtifactUploadPermission` segue `NOT_VERIFIED`. O Google Cloud recomenda revisar permissões da identidade padrão, que podem ser amplas (especialmente `roles/editor`) ou insuficientes. Não assumir acesso por tipo de conta. Foi preparado `backend/scripts/visual-crossing-build-identity-iam-readonly.py`, que consulta **somente metadados** com `gcloud builds get-default-service-account`, `gcloud projects get-iam-policy` e `gcloud artifacts repositories get-iam-policy`. Imprime **apenas contagens e indicadores de papéis diretamente visíveis para o principal exato**, sem imprimir e-mail da identidade, lista de outros membros, tokens, segredos ou política completa. Os flags `effectiveArtifactUploadPermission`, `buildInvokerActAsPermission` e `remainingFreeBuildMinutes` ficam `NOT_VERIFIED` pois IAM herdado, condições, negações, custo e autorização de submit dependem de análise independente. **Não cria nada.**
+
+Comandos de consulta segura:
+```bash
+cd ~/blaise-visual-crossing-audit-20261119
+git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118
+mkdir -p ~/blaise-vc-security-check
+git show FETCH_HEAD:backend/scripts/visual-crossing-build-identity-iam-readonly.py > ~/blaise-vc-security-check/visual-crossing-build-identity-iam-readonly.py
+python3 ~/blaise-vc-security-check/visual-crossing-build-identity-iam-readonly.py
+```
+
+Se `projectEditorOrOwnerDirect=true`, interromper e revisar risco de privilégio excessivo antes do build (sem remover papel do serviço, pois outros sistemas podem depender dele). Se `repositoryArtifactWriterDirect=false`, **não** concluir que push falhará: pode haver concessão de projeto, herdada ou outro papel que inclua a permissão. A imagem só deve ser construída/publicada após a auditoria de origem e custos; não criar/rodar Cloud Run Job nem ler chave neste passo. Referências oficiais: https://docs.cloud.google.com/build/docs/cloud-build-service-account e https://docs.cloud.google.com/artifact-registry/docs/configure-cloud-build .
