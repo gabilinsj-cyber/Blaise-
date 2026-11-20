@@ -108,3 +108,21 @@ test('production runtime imports neither diagnostic module nor entrypoint',()=>{
  assert.ok(!runtime.includes('rj-visual-crossing-runtime-secret-proof'));
  assert.ok(!runtime.includes('visual-crossing-runtime-secret-proof.mjs'));
 });
+
+
+test('dedicated Dockerfile includes only proof files and never starts subscriber server',()=>{
+ const docker=readFileSync(
+  new URL('../Dockerfile.visual-crossing-secret-proof',import.meta.url),'utf8');
+ assert.match(docker,/^FROM node:24-bookworm-slim@sha256:[0-9a-f]{64}$/m);
+ assert.match(docker,/COPY --chown=node:node src\/rj-visual-crossing-runtime-secret-proof\.mjs/);
+ assert.match(docker,/COPY --chown=node:node scripts\/visual-crossing-runtime-secret-proof\.mjs/);
+ assert.match(docker,/^USER node$/m);
+ assert.match(docker,/^CMD \["node", "scripts\/visual-crossing-runtime-secret-proof\.mjs"\]$/m);
+ assert.ok(!/^EXPOSE\s/m.test(docker));
+ assert.ok(!/^COPY\s+\.\s/m.test(docker));
+ assert.ok(!docker.includes('src/runtime.mjs'));
+ assert.ok(!docker.includes('BLAISE_VISUAL_CROSSING_FREE_API_KEY='));
+ const entry=readFileSync(
+  new URL('../scripts/visual-crossing-runtime-secret-proof.mjs',import.meta.url),'utf8');
+ assert.ok(entry.includes("if(result.status!=='VERSION_ACCESS_GRANTED_AT_TIME')process.exitCode=1;"));
+});
