@@ -136,3 +136,15 @@ A titular executou novamente o `visual-crossing-isolated-job-preflight-readonly.
 - `cloudRunExecutionTriggered=false`, `iamPolicyChanged=false`, `secretPayloadRead=false`, `weatherApiCalled=false`, `releaseApproved=false`.
 
 **Próxima etapa depende de autorização explícita da titular** para conceder `roles/secretmanager.secretAccessor` à identidade isolada somente no recurso `blaise-visual-crossing-free-api-key`. Essa permissão permite leitura do valor do segredo pela identidade aprovada. Não executar automaticamente esta concessão; não mexer no papel da conta do backend, não conceder acesso em nível de projeto e não criar/rodar o job até consentimento específico adicional. A chave atual permanece não rotacionada conforme decisão anterior, com risco de exposição reconhecido.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h14 BRT: IAM temporário aplicado
+
+A titular autorizou explicitamente a concessão restrita ao segredo e apresentou captura das **21h14 BRT** contendo a execução de:
+`gcloud secrets add-iam-policy-binding blaise-visual-crossing-free-api-key --project=blaise-v6-rj --member=serviceAccount:blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor --condition="expression=request.time < timestamp('$EXPIRA'),title=blaiseVcProof24h,description=Temporary isolated diagnostic access" --format=none`.
+
+A CLI confirmou `Updated IAM policy for secret [blaise-visual-crossing-free-api-key]` e imprimiu `EXPIRACAO_UTC: 2026-11-21T00:14:02Z` (20/11/2026 às 21h14min02s no fuso de Brasília, UTC-3). Houve warning de que **adicionar binding condicional em política sem condições muda o tratamento dos comandos add/remove**; **não indica erro da atualização**. Este warning não prova que o vínculo/condição foi persistido conforme intenção; a próxima etapa é uma inspeção `gcloud secrets get-iam-policy` somente leitura, filtrando unicamente o papel e membro aprovados, condição e expiração.
+
+**Estado preciso:** IAM de segredo atualizado após consentimento; conta `blaise-vc-proof` já existente; **Cloud Run Job ainda não foi criado**, acesso operacional `AccessSecretVersion` ainda **não testado**, chave não foi lida nem alterada, backend principal não teve IAM ou revisão alterados, zero consulta Visual Crossing, coleta/publicação de clientes desligadas. A conta isolada pode ganhar acesso ao segredo **somente enquanto a condição IAM de prazo for válida**; isso é permissão sensível. Depois do diagnóstico autorizado, revogar explicitamente o binding **com a mesma condição**, sem usar `--all` e sem remover concessões de terceiros. O prazo temporal impede a avaliação positiva da condição após expirar, mas **não exclui automaticamente o binding** da política.
+
+**Próxima ação aprovada:** confirmar por leitura o binding, título da condição e timestamp, verificando também que não há concessão inesperada ao backend principal. **Não criar job, não executar `AccessSecretVersion`, não conceder papéis adicionais sem autorização específica**.
