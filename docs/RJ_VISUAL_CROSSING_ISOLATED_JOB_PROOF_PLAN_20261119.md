@@ -148,3 +148,19 @@ A CLI confirmou `Updated IAM policy for secret [blaise-visual-crossing-free-api-
 **Estado preciso:** IAM de segredo atualizado após consentimento; conta `blaise-vc-proof` já existente; **Cloud Run Job ainda não foi criado**, acesso operacional `AccessSecretVersion` ainda **não testado**, chave não foi lida nem alterada, backend principal não teve IAM ou revisão alterados, zero consulta Visual Crossing, coleta/publicação de clientes desligadas. A conta isolada pode ganhar acesso ao segredo **somente enquanto a condição IAM de prazo for válida**; isso é permissão sensível. Depois do diagnóstico autorizado, revogar explicitamente o binding **com a mesma condição**, sem usar `--all` e sem remover concessões de terceiros. O prazo temporal impede a avaliação positiva da condição após expirar, mas **não exclui automaticamente o binding** da política.
 
 **Próxima ação aprovada:** confirmar por leitura o binding, título da condição e timestamp, verificando também que não há concessão inesperada ao backend principal. **Não criar job, não executar `AccessSecretVersion`, não conceder papéis adicionais sem autorização específica**.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h18 BRT: condição IAM validada
+
+A titular executou o filtro somente leitura de `gcloud secrets get-iam-policy blaise-visual-crossing-free-api-key --project=blaise-v6-rj --format=json` e enviou captura às **21h18 BRT**. Resultado:
+
+- `VINCULOS_ALVO: 1` — existe exatamente um binding `roles/secretmanager.secretAccessor` para `serviceAccount:blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com` na política do segredo consultada;
+- `CONDICIONAL: True`;
+- `TITULO_CORRETO: True` (`blaiseVcProof24h`);
+- `RESTRICAO_TEMPORAL: True`: expressão começa com `request.time < timestamp(`;
+- `EXPIRACAO_UTC: 2026-11-21T00:14:02Z`, equivalente a **20/11/2026 21h14min02s BRT (UTC-3)**;
+- `BACKEND_PRINCIPAL_NO_MESMO_ROLE: False` — a conta de execução do backend não é membro **direto** desse papel no segredo consultado.
+
+**Conclusão com escopo correto:** concessão restrita gravada para a conta isolada, com expiração; o filtro verificou prefixo da condição e extraiu o primeiro timestamp, mas **não validou a expressão inteira nem comprovou acesso operacional**. Vínculos IAM distintos/herdados permanecem fora dessa afirmação. A condição impede essa concessão de ser satisfeita após o prazo, mas não remove automaticamente o binding. Nenhum `AccessSecretVersion` foi executado; Secret Manager não revelou o valor. Nenhum Cloud Run Job foi criado ou executado, nenhum deploy, nenhuma chamada Visual Crossing e nenhuma publicação aos clientes foi autorizada.
+
+**Próximo estágio sem mutação:** descobrir região Cloud Run atual, existência de job de nome planejado, imagem executável revisada e digest imutável; registrar custo/limites e verificar se o operador tem permissão de associar a conta isolada a um novo job, **sem conceder papéis ou iniciar jobs**. Uma possível prova de acesso deve ocorrer antes da expiração, mas nunca burlar o prazo nem renová-lo automaticamente. Criar/rodar o Cloud Run Job e ler versão 1 requerem autorização separada.
