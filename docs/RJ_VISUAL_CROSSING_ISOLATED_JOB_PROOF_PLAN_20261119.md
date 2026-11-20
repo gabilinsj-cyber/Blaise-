@@ -313,3 +313,22 @@ python3 ~/blaise-vc-security-check/visual-crossing-build-identity-iam-readonly.p
 ```
 
 Se `projectEditorOrOwnerDirect=true`, interromper e revisar risco de privilégio excessivo antes do build (sem remover papel do serviço, pois outros sistemas podem depender dele). Se `repositoryArtifactWriterDirect=false`, **não** concluir que push falhará: pode haver concessão de projeto, herdada ou outro papel que inclua a permissão. A imagem só deve ser construída/publicada após a auditoria de origem e custos; não criar/rodar Cloud Run Job nem ler chave neste passo. Referências oficiais: https://docs.cloud.google.com/build/docs/cloud-build-service-account e https://docs.cloud.google.com/artifact-registry/docs/configure-cloud-build .
+
+
+## Evidência Cloud Shell — 20/11/2026 10h10 BRT: identidade de build com privilégio amplo
+
+A titular executou `backend/scripts/visual-crossing-build-identity-iam-readonly.py` e enviou captura das **10h10 BRT**. O resultado `BLAISE_VC_BUILD_IDENTITY_IAM` confirma:
+
+- `state=READ_ONLY_BUILD_IDENTITY_IAM`, `defaultIdentityRecognized=true` (identidade padrão do tipo Compute Engine, proveniente de consulta anterior);
+- `projectPolicyRead=true`, `projectDirectBindingCount=2`;
+- **`projectEditorOrOwnerDirect=true`** — a identidade de build participa diretamente de pelo menos um vínculo `roles/editor` ou `roles/owner` **no projeto**. O relatório não distingue qual; não supor um papel específico sem leitura adicional;
+- `projectArtifactWriterDirect=false`; `repositoryArtifactWriterDirect=false`, `repositoryDirectBindingCount=0`, `targetRepositoryPolicyRead=true`;
+- `projectConditionalBindingCount=0`, `repositoryConditionalBindingCount=0`;
+- `effectiveArtifactUploadPermission=NOT_VERIFIED`, `buildInvokerActAsPermission=NOT_VERIFIED`, `inheritedAndDenyPolicies=NOT_EVALUATED`, `remainingFreeBuildMinutes=NOT_VERIFIED`, `billingMayApply=true`;
+- `noIamModified=true`, `noBuildSubmitted=true`, `noSecretRead=true`, `noCloudRunJobCreated=true`.
+
+**Decisão técnica de segurança:** BLOQUEAR o uso da conta padrão de construção com Editor/Owner direto neste diagnóstico (risco de privilégio excessivo); não tirar esse papel automaticamente, pois dependências de outros workloads são desconhecidas. O fato de não haver escritor direto no repo **não prova impossibilidade de push**, já que o papel amplo no projeto pode incluir permissões relevantes. Não conceder Editor, Owner ou writer a nível de projeto. Não utilizar a conta isolada **de runtime** `blaise-vc-proof` como identidade de build, pois ela possui temporariamente Secret Accessor e o privilégio de build criaria uma combinação inadequada.
+
+**Novo plano recomendado (ainda não implementado):** reservar a futura identidade **separada** `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com` apenas para construção. Antes de criá-la, comprovar ausência na lista IAM e revisar a configuração do Cloud Build. Depois, somente com autorização explícita, conceder `roles/artifactregistry.writer` **no repositório `blaise-vc-proof` apenas** e `roles/logging.logWriter` se for selecionado `CLOUD_LOGGING_ONLY`, que é necessário com conta personalizada (documentação: https://docs.cloud.google.com/build/docs/securing-builds/configure-user-specified-service-accounts e https://docs.cloud.google.com/artifact-registry/docs/configure-cloud-build). Verificar também `iam.serviceAccounts.actAs` do operador e Cloud Build invoker, sem conceder automaticamente. O build deve usar conta explícita no `cloudbuild.yaml`, contexto mínimo já preparado de 3 arquivos, somente uma imagem com commit fixo e logs revisados. **Sem criar conta, conceder roles, executar build ou enviar imagem nesta etapa.**
+
+**Separação mantida:** a autorização para criar repositório e preparar build não autoriza conceder novos papéis nem substituir identidade padrão. Vínculo temporário `blaiseVcProof24h` permanece com expiração em `2026-11-21T00:14:02Z`; não prolongar por conveniência. Cloud Run Job, leitura da chave e coleta/publicação aos clientes seguem desligados.
