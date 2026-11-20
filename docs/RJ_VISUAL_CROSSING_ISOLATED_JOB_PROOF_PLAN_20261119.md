@@ -378,3 +378,14 @@ gcloud artifacts repositories add-iam-policy-binding blaise-vc-proof \
   --role="roles/artifactregistry.writer"
 ```
 Confirmar depois, via `gcloud artifacts repositories get-iam-policy`, **apenas** se esse vínculo aparece. `artifactregistry.writer` habilita escrita e outras ações sobre artefatos do repositório, não é permissão exclusiva de upload; revogar após a publicação autorizada se não houver necessidade operacional persistente. Antes da execução da CLI, este estado é **AUTHORIZED_NOT_APPLIED**. A CLI exigirá IAM adequado da identidade humana; se retornar `PERMISSION_DENIED`, não ampliar papéis automaticamente. Nenhum comando de Cloud Build será executado nesta autorização.
+
+
+## Evidência Cloud Shell — 20/11/2026 19h51 BRT: Writer ainda não confirmado
+
+A titular enviou captura às **19h51 BRT** de um `gcloud artifacts repositories get-iam-policy blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --format=json` filtrado localmente para `serviceAccount:blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com` e a role `roles/artifactregistry.writer`. Saída:
+- `WRITER_REPOSITORIO: NAO_CONFIRMADO`;
+- `VINCULOS: 0`.
+
+**Interpretação restrita:** não se encontrou esse binding direto na política no momento da consulta; a captura **não mostra execução anterior** de `gcloud artifacts repositories add-iam-policy-binding`, nem revela a causa exata de ausência. A titular já autorizou explicitamente o binding restrito em 20/11/2026, e foi orientada a executar **apenas** o `add-iam-policy-binding` no repositório `blaise-vc-proof` para a conta isolada `blaise-vc-build`, seguido de nova leitura da política. **Não houve evidência de construção, publicação, Cloud Run Job ou leitura do segredo**. A conta padrão de Cloud Build e as outras fontes não devem sofrer alterações. Qualquer erro IAM deve ser analisado antes de conceder novos papéis.
+
+A autorização anterior permanece limitada a `roles/artifactregistry.writer` no repositório indicado. O vínculo temporário separado `roles/secretmanager.secretAccessor` para `blaise-vc-proof` expira em **2026-11-21T00:14:02Z**; não renová-lo automaticamente por causa de atrasos no build.
