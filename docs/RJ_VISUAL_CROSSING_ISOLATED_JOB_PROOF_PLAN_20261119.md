@@ -350,3 +350,16 @@ Captura da titular às **10h17 BRT** confirma que o comando `gcloud iam service-
 **Estado técnico:** identidade dedicada de **build** criada, distinta de `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com`, que é a identidade dedicada ao futuro job e detém um acesso **condicional/temporário** ao segredo. Nenhuma alteração IAM de projeto/repositório, nem acesso ao segredo, nem Docker build/push/deploy, nem Cloud Run Job é comprovada nessa captura. Uma conta nova pode estar sujeita a grants herdados; não afirmar inexistência de permissão efetiva até leitura das políticas.
 
 **Próximo gate separado:** comprovar o e-mail da identidade criada e inspecionar, sem alterações, papéis diretos na política do repositório `blaise-vc-proof`. Se necessário, solicitar autorização específica para `roles/artifactregistry.writer` **somente no repositório** à identidade de build. Dependendo do modo Cloud Build escolhido, revisar `roles/logging.logWriter` e `iam.serviceAccounts.actAs` do invocador antes de `gcloud builds submit`; não conceder Editor/Owner, acesso ao Secret Manager ou papéis no projeto inteiro por conveniência. Não rodar job nem executar prova da versão 1. Prazo de IAM de `blaise-vc-proof`: `2026-11-21T00:14:02Z`; nunca renovar automaticamente.
+
+
+## Evidência Cloud Shell — 20/11/2026 10h20 BRT: build sem Writer direto no Artifact Registry
+
+A titular executou `gcloud artifacts repositories get-iam-policy blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --format=json`, filtrando localmente o principal `serviceAccount:blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com`. A captura das **10h20 BRT** confirma:
+
+- `POLITICA_REPOSITORIO: CONSULTADA`;
+- `VINCULOS_DIRETOS: 0`;
+- `WRITER_DIRETO: False`.
+
+**Interpretação:** não foi observado nenhum binding direto desse principal na política do repositório, inclusive `roles/artifactregistry.writer`. Isso **não comprova ausência de permissões efetivas** derivadas do projeto/organização, outras roles, condições ou políticas de negação. Nenhuma permissão foi concedida por esta leitura.
+
+**Gate seguinte:** somente após autorização separada, adicionar `roles/artifactregistry.writer` a `blaise-vc-build` **na política IAM do repositório exato `blaise-vc-proof`**, nunca no projeto inteiro; verificar posteriormente por leitura. Não conceder Secret Accessor à conta de build. A conta padrão do Cloud Build, detectada com Editor/Owner direto, deve ficar intacta e não ser utilizada na imagem restrita. Revisar separadamente a necessidade de `roles/logging.logWriter` ou logs em bucket e `iam.serviceAccounts.actAs` para a conta personalizada antes do build; nenhuma permissão adicional automática. O Cloud Run Job e a leitura de Secret Manager continuam sem autorização de execução; vínculo temporal da conta `blaise-vc-proof` expira em `2026-11-21T00:14:02Z` sem renovação implícita.
