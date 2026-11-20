@@ -9,6 +9,7 @@ on:
       - backend/src/rj-visual-crossing-free-92-collector.mjs
       - backend/src/rj-visual-crossing-secret-wiring-plan.mjs
       - backend/src/rj-visual-crossing-runtime-secret-proof.mjs
+      - backend/Dockerfile.visual-crossing-secret-proof
       - backend/scripts/visual-crossing-runtime-secret-proof.mjs
       - backend/test/rj-visual-crossing-runtime-secret-proof.test.mjs
       - backend/scripts/visual-crossing-access-history-readonly.py
