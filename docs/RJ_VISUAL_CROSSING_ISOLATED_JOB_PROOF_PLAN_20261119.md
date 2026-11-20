@@ -363,3 +363,18 @@ A titular executou `gcloud artifacts repositories get-iam-policy blaise-vc-proof
 **Interpretação:** não foi observado nenhum binding direto desse principal na política do repositório, inclusive `roles/artifactregistry.writer`. Isso **não comprova ausência de permissões efetivas** derivadas do projeto/organização, outras roles, condições ou políticas de negação. Nenhuma permissão foi concedida por esta leitura.
 
 **Gate seguinte:** somente após autorização separada, adicionar `roles/artifactregistry.writer` a `blaise-vc-build` **na política IAM do repositório exato `blaise-vc-proof`**, nunca no projeto inteiro; verificar posteriormente por leitura. Não conceder Secret Accessor à conta de build. A conta padrão do Cloud Build, detectada com Editor/Owner direto, deve ficar intacta e não ser utilizada na imagem restrita. Revisar separadamente a necessidade de `roles/logging.logWriter` ou logs em bucket e `iam.serviceAccounts.actAs` para a conta personalizada antes do build; nenhuma permissão adicional automática. O Cloud Run Job e a leitura de Secret Manager continuam sem autorização de execução; vínculo temporal da conta `blaise-vc-proof` expira em `2026-11-21T00:14:02Z` sem renovação implícita.
+
+
+## 20/11/2026 — autorização explícita para Writer apenas no repositório
+
+A titular respondeu **“Sim”** à solicitação específica para conceder `roles/artifactregistry.writer` exclusivamente à identidade `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com` na política do repositório Artifact Registry `blaise-vc-proof`, região `southamerica-east1`, projeto `blaise-v6-rj`. Esse consentimento **não** autoriza outros papéis, build, publicação de imagem, criação/execução de Cloud Run Job, leitura de segredo, troca da chave ou ativação meteorológica.
+
+A operação autorizada a ser executada pela titular em Cloud Shell é:
+```bash
+gcloud artifacts repositories add-iam-policy-binding blaise-vc-proof \
+  --project=blaise-v6-rj \
+  --location=southamerica-east1 \
+  --member="serviceAccount:blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+```
+Confirmar depois, via `gcloud artifacts repositories get-iam-policy`, **apenas** se esse vínculo aparece. `artifactregistry.writer` habilita escrita e outras ações sobre artefatos do repositório, não é permissão exclusiva de upload; revogar após a publicação autorizada se não houver necessidade operacional persistente. Antes da execução da CLI, este estado é **AUTHORIZED_NOT_APPLIED**. A CLI exigirá IAM adequado da identidade humana; se retornar `PERMISSION_DENIED`, não ampliar papéis automaticamente. Nenhum comando de Cloud Build será executado nesta autorização.
