@@ -341,3 +341,12 @@ A titular consultou `gcloud iam service-accounts list --project=blaise-v6-rj --f
 **Próximo gate:** obter autorização específica para criar **somente** a conta isolada `blaise-vc-build`, sem papéis IAM novos, sem chaves JSON, sem build/push, sem Cloud Run Job, sem acesso à chave Visual Crossing. Manter separados `blaise-vc-build` (construção) e `blaise-vc-proof` (futura prova de acesso ao segredo). A identidade padrão Compute Engine com vínculo direto Editor/Owner fica inalterada: não revogar/usar automaticamente. Depois da criação, revisar e solicitar autorização independente para `roles/artifactregistry.writer` **somente no repo** e para qualquer permissão de logs/actAs necessária. Nenhuma política nem infraestrutura alterada por esta consulta.
 
 A concessão temporária de Secret Accessor à identidade `blaise-vc-proof` expira `2026-11-21T00:14:02Z` (20/11 às 21h14 BRT); **não** renovar automaticamente nem antecipar deploy por causa do prazo.
+
+
+## Evidência Cloud Shell — 20/11/2026 10h17 BRT: identidade de build criada
+
+Captura da titular às **10h17 BRT** confirma que o comando `gcloud iam service-accounts create blaise-vc-build --project=blaise-v6-rj --display-name="Blaise VC Isolated Image Builder"` foi executado com sucesso, retornando `Created service account [blaise-vc-build]` e `Service account email: blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com`.
+
+**Estado técnico:** identidade dedicada de **build** criada, distinta de `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com`, que é a identidade dedicada ao futuro job e detém um acesso **condicional/temporário** ao segredo. Nenhuma alteração IAM de projeto/repositório, nem acesso ao segredo, nem Docker build/push/deploy, nem Cloud Run Job é comprovada nessa captura. Uma conta nova pode estar sujeita a grants herdados; não afirmar inexistência de permissão efetiva até leitura das políticas.
+
+**Próximo gate separado:** comprovar o e-mail da identidade criada e inspecionar, sem alterações, papéis diretos na política do repositório `blaise-vc-proof`. Se necessário, solicitar autorização específica para `roles/artifactregistry.writer` **somente no repositório** à identidade de build. Dependendo do modo Cloud Build escolhido, revisar `roles/logging.logWriter` e `iam.serviceAccounts.actAs` do invocador antes de `gcloud builds submit`; não conceder Editor/Owner, acesso ao Secret Manager ou papéis no projeto inteiro por conveniência. Não rodar job nem executar prova da versão 1. Prazo de IAM de `blaise-vc-proof`: `2026-11-21T00:14:02Z`; nunca renovar automaticamente.
