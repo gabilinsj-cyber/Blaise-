@@ -13,3 +13,5 @@ const result=await probeVisualCrossingSecretFromApprovedRuntime({
  env:process.env
 });
 console.log('BLAISE_VC_SECRET_RUNTIME_ACCESS_PROOF='+JSON.stringify(result));
+// Fail closed in Cloud Run Job result: unavailable/denied is not a success.
+if(result.status!=='VERSION_ACCESS_GRANTED_AT_TIME')process.exitCode=1;
