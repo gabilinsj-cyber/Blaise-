@@ -201,3 +201,16 @@ Resultado da captura:
 **Interpretação:** existem 3 repositórios de imagens Docker na região do backend. Isso **não significa** que a imagem de prova Visual Crossing já exista nem que tenhamos o digest ou permissões de escrita/leitura. Evitar reutilizar `blaise-noaa-staging` (outro coletor), `cloud-run-source-deploy` (gerenciamento do serviço) ou sobrescrever imagens do backend. Um repositório dedicado ao diagnóstico poderia reduzir risco de colisão e facilitar inventário/limpeza, mas **criá-lo, fazer build/push, conceder papéis Artifact Registry, criar job e executá-lo exigem decisões/autorização independentes**, com prévia verificação de custo e IAM.
 
 **Próximo passo sem mutação:** consultar **metadados** do repositório candidato de uso exclusivo (`blaise-vc-proof`) e versões/imagens já presentes, se existirem, para evitar duplicatas; não baixar, construir, apagar, mover ou publicar imagens. Por enquanto `IAM_SECRET_CONDITIONAL_ONLY`, `JOB_NOT_CREATED`, `SECRET_ACCESS_NOT_TESTED`, `CLIENT_COLLECTION_OFF`, `PR_DRAFT`. O vínculo condicional da conta isolada expira em **21/11/2026 00:14:02Z** e não será renovado automaticamente.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h58 BRT: repositório Docker isolado criado
+
+A titular aprovou especificamente **criar somente o repositório Artifact Registry** `blaise-vc-proof` na região `southamerica-east1`, sem build, push nem deploy. Captura do Cloud Shell às **21h58 BRT** mostra o comando:
+
+`gcloud artifacts repositories create blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --repository-format=docker --description="Blaise V6 RJ - Visual Crossing isolated security proof"`
+
+A saída confirmou operação concluída: `Created repository [blaise-vc-proof]`. Houve um `describe` anterior com `NOT_FOUND`, **antes** da criação; não representa falha do `create`.
+
+**Estado comprovado:** repositório Docker dedicado criado. **Não comprovado nessa captura:** upload de qualquer imagem, digest de imagem, deploy/job ou execução do diagnóstico. A próxima etapa segura é ler metadados com `gcloud artifacts repositories describe blaise-vc-proof --project=blaise-v6-rj --location=southamerica-east1 --format=json` e, separadamente, `gcloud artifacts docker images list southamerica-east1-docker.pkg.dev/blaise-v6-rj/blaise-vc-proof --format=json`, filtrando metadados sem credenciais. Nada de `docker build`, `gcloud builds submit`, `docker push`, `gcloud run jobs create/execute` ou expansão de IAM sem aprovação específica.
+
+**Isolamento e custos:** os repositórios `blaise-backend`, `blaise-noaa-staging` e `cloud-run-source-deploy` permanecem fora do escopo; o novo repositório vazio não implica imagem de diagnóstico já publicada. A condição temporária `blaiseVcProof24h` no segredo foi confirmada com expiração **2026-11-21T00:14:02Z**, não deve ser renovada automaticamente. Coleta de Visual Crossing e publicação a clientes permanecem desligadas; chave exposta preservada por escolha da titular.
