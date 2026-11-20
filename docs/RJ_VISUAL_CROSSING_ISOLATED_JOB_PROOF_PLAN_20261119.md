@@ -185,3 +185,19 @@ O entrypoint retorna **exit code não-zero** quando o diagnóstico não comprova
 **Ainda NÃO determinado:** imagem final enviada para Artifact Registry por digest, disponibilidade de permissão `iam.serviceAccounts.actAs` para associar a nova conta ao job, políticas de acesso do operador ao job, custos exatos, configuração do runtime job. Não houve build/push/deploy. Nunca usar a imagem do backend principal como atalho.
 
 **Plano de próxima ação segura:** inspecionar apenas metadados de Artifact Registry e papel `iam.serviceAccountUser` da nova identidade, sem imprimir membros privados nem criar recursos. Depois escolher o procedimento de build restrito e a janela de execução, com autorização separada da titular. IAM `roles/secretmanager.secretAccessor` condicional do segredo foi confirmado e expira em **21/11/2026 00:14:02Z**; se o prazo passar, não renová-lo silenciosamente nem criar prova com privilégio adicional por conveniência.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h35 BRT: Artifact Registry inventariado
+
+Consulta **somente leitura** concluída pela titular em captura das **21h35 BRT**: `gcloud artifacts repositories list --project=blaise-v6-rj --location=southamerica-east1 --format=json`, filtrada por `format=DOCKER` e sem mostrar credenciais.
+
+Resultado da captura:
+- `ARTIFACT_REGISTRY: CONSULTADO`;
+- `REPOSITORIOS_DOCKER: 3`;
+- `blaise-backend`;
+- `blaise-noaa-staging`;
+- `cloud-run-source-deploy`.
+
+**Interpretação:** existem 3 repositórios de imagens Docker na região do backend. Isso **não significa** que a imagem de prova Visual Crossing já exista nem que tenhamos o digest ou permissões de escrita/leitura. Evitar reutilizar `blaise-noaa-staging` (outro coletor), `cloud-run-source-deploy` (gerenciamento do serviço) ou sobrescrever imagens do backend. Um repositório dedicado ao diagnóstico poderia reduzir risco de colisão e facilitar inventário/limpeza, mas **criá-lo, fazer build/push, conceder papéis Artifact Registry, criar job e executá-lo exigem decisões/autorização independentes**, com prévia verificação de custo e IAM.
+
+**Próximo passo sem mutação:** consultar **metadados** do repositório candidato de uso exclusivo (`blaise-vc-proof`) e versões/imagens já presentes, se existirem, para evitar duplicatas; não baixar, construir, apagar, mover ou publicar imagens. Por enquanto `IAM_SECRET_CONDITIONAL_ONLY`, `JOB_NOT_CREATED`, `SECRET_ACCESS_NOT_TESTED`, `CLIENT_COLLECTION_OFF`, `PR_DRAFT`. O vínculo condicional da conta isolada expira em **21/11/2026 00:14:02Z** e não será renovado automaticamente.
