@@ -113,3 +113,12 @@ Saídas confirmadas:
 **Interpretação limitada:** não há evidência de uma conta isolada ativa com esse endereço na lista consultada. Isso não é autorização para criar recursos, não comprova ausência de identidades excluídas anteriormente nem prova IAM efetivo.
 
 **Próximo gate:** propor `gcloud iam service-accounts create blaise-vc-proof --project=blaise-v6-rj --display-name="Blaise VC Secret Proof (isolated)"`, **somente após autorização específica da titular para criação da conta**. Uma conta nova não recebe automaticamente acesso ao segredo; não aplicar `secretAccessor`, Token Creator ou qualquer papel neste estágio. Não criar Cloud Run Job, executar AccessSecretVersion, mudar a chave exposta, habilitar APIs ou liberar coleta/publicação sem autorizações separadas.
+
+
+## Evidência Cloud Shell — 19/11/2026 21h04 BRT: identidade isolada criada
+
+A titular apresentou captura do Cloud Shell às **21h04 BRT** após executar `gcloud iam service-accounts create blaise-vc-proof --project=blaise-v6-rj --display-name="Blaise VC Secret Proof Isolated"`. O terminal confirmou `Created service account [blaise-vc-proof]` e exibiu o endereço `blaise-vc-proof@blaise-v6-rj.iam.gserviceaccount.com`.
+
+**Evidência confirmada:** a conta de serviço isolada foi criada no projeto. O comando exibido **não concede papel no segredo, cria job, executa prova nem atualiza o backend**. Não se pode inferir a ausência de permissões efetivas por políticas herdadas apenas desse comando.
+
+**Gates pendentes:** verificar políticas efetivas e vínculos diretos para a nova identidade, solicitar autorização **específica** antes de eventual concessão `roles/secretmanager.secretAccessor` **somente no segredo**; aprovar separadamente a imagem do diagnóstico, configuração do Cloud Run Job, custo, execução pontual e descarte de permissões depois do teste. Não conceder Token Creator nem grants de projeto/organização. Sem acesso à versão 1, sem chamadas à Visual Crossing, sem merge, sem deploy e sem publicar a clientes. A chave já exposta permanece preservada a pedido da titular e classificada como risco até nova decisão.
