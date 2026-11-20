@@ -47,6 +47,33 @@ class SafeBuildPreflightTests(unittest.TestCase):
         self.assertEqual(r["billing"], "DISABLED")
         self.assertFalse(r["targetRepositoryConfirmed"])
 
+
+    def test_google_documented_service_account_email_resource_field(self):
+        google_shape = {
+            "name": "projects/blaise-v6-rj/locations/southamerica-east1/defaultServiceAccount",
+            "serviceAccountEmail": (
+                "projects/blaise-v6-rj/serviceAccounts/"
+                "123456789-compute@developer.gserviceaccount.com"
+            ),
+        }
+        self.assertEqual(mod.classify_default_identity(google_shape),
+                         "COMPUTE_ENGINE_DEFAULT")
+        google_shape["serviceAccountEmail"] = (
+            "projects/blaise-v6-rj/serviceAccounts/"
+            "123456789@cloudbuild.gserviceaccount.com"
+        )
+        self.assertEqual(mod.classify_default_identity(google_shape),
+                         "CLOUD_BUILD_LEGACY")
+        google_shape["serviceAccountEmail"] = (
+            "projects/blaise-v6-rj/serviceAccounts/"
+            "private-build@blaise-v6-rj.iam.gserviceaccount.com"
+        )
+        self.assertEqual(mod.classify_default_identity(google_shape),
+                         "USER_MANAGED_OR_CUSTOM")
+        self.assertNotIn("private-build@", str(mod.summarize(
+            [], {}, google_shape, {}, {}
+        )))
+
     def test_main_calls_only_safe_read_methods(self):
         queries = []
         def fake(*args):
