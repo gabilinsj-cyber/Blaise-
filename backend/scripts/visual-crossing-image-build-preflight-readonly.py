@@ -27,19 +27,35 @@ def run_json(*args):
 
 
 def classify_default_identity(raw):
+    """Classify documented Cloud Build response; never print identity address.
+
+    getDefaultServiceAccount returns a serviceAccountEmail *resource path*,
+    not always an email-only value: projects/*/serviceAccounts/EMAIL.
+    """
     if isinstance(raw, str):
         account = raw
     elif isinstance(raw, dict):
-        account = (raw.get("serviceAccount") or raw.get("email")
-                   or raw.get("name") or "")
+        account = (
+            raw.get("serviceAccountEmail")
+            or raw.get("service_account_email")
+            or raw.get("serviceAccount")
+            or raw.get("email")
+            or raw.get("name")
+            or ""
+        )
     else:
         account = ""
     if not isinstance(account, str) or not account:
         return "UNAVAILABLE"
-    if "cloudbuild.gserviceaccount.com" in account:
+    candidate = account.rsplit("/serviceAccounts/", 1)[-1]
+    if "/" in candidate or " " in candidate or "\\n" in candidate:
+        return "OTHER_OR_UNRECOGNIZED"
+    if candidate.endswith("@cloudbuild.gserviceaccount.com"):
         return "CLOUD_BUILD_LEGACY"
-    if "-compute@developer.gserviceaccount.com" in account:
+    if candidate.endswith("-compute@developer.gserviceaccount.com"):
         return "COMPUTE_ENGINE_DEFAULT"
+    if candidate.endswith(".iam.gserviceaccount.com"):
+        return "USER_MANAGED_OR_CUSTOM"
     return "OTHER_OR_UNRECOGNIZED"
 
 
