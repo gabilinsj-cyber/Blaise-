@@ -16,8 +16,7 @@ import {assessOpenweatherV2RepairEvidence,
  OPENWEATHER_V2_REPAIR_TARGET as T,
  OPENWEATHER_V2_CANDIDATE_SAFE_ENV as SAFE_ENV}
  from '../src/rj-openweather-secret-v2-repair-plan.mjs';
-import {buildZeroMinCandidateDeployCommand,candidateMinZeroVerified,
- revisionMinCount,serviceTemplateMinCount,serviceMinSnapshot}
+import {buildZeroMinCandidateDeployCommand}
  from '../src/rj-openweather-zero-min-candidate.mjs';
 
 const PROJECT=T.project, REGION='southamerica-east1', SERVICE=T.service;
@@ -72,16 +71,14 @@ const svcContainer=x=>{
  const cs=x?.spec?.template?.spec?.containers;
  return Array.isArray(cs)&&cs.length===1?cs[0]:null;
 };
-const envVal=(container,name)=>container?.env?.find(e=>e.name===name);
 const secretRef=(container,name)=>{
- const e=envVal(container,name);
+ const e=container?.env?.find(x=>x.name===name);
  return e?.valueFrom?.secretKeyRef||null;
 };
 const activeTraffic=x=>(x?.status?.traffic||[])
  .filter(t=>Number(t.percent||0)>0)
  .map(t=>({revision:t.revisionName||'',percent:Number(t.percent)}))
  .sort((a,b)=>a.revision.localeCompare(b.revision));
-const trafficKey=x=>JSON.stringify(activeTraffic(x));
 const trafficExpected=arr=>arr.length===2&&
  arr.some(t=>t.revision===SERVICE+'-00031-vep'&&t.percent===99)&&
  arr.some(t=>t.revision===SERVICE+'-00038-pin'&&t.percent===1);
@@ -115,13 +112,6 @@ const serviceMinScale=x=>{
   a['autoscaling.knative.dev/minScale'];
  return value===undefined||value===null?'NOT_SET':String(value);
 };
-const revisionHasNoPositiveTrafficOrTag=(service,candidate)=>
-  !(service?.status?.traffic||[]).some(t=>
-   t?.revisionName===candidate&&
-   (Number(t?.percent||0)>0||Boolean(t?.tag)))&&
-  !(service?.spec?.traffic||[]).some(t=>
-   t?.revisionName===candidate&&
-   (Number(t?.percent||0)>0||Boolean(t?.tag)));
 if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
  stop('INVALID_CLI_ARGUMENTS');
 }else{
@@ -216,85 +206,12 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
     actualRuntimeSecretAccess:'NOT_VERIFIED',
     deploymentPerformed:false,
     productionTrafficChanged:false,releaseAuthorized:false});
-   }else if(REAL_DEPLOY_PAUSED){
+   }else{
+   // No deployment command exists in this audit-only script.
+   // Building a candidate later requires a separately-reviewed tool.
    stop('REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW',
-    ['NO_NEW_REAL_ATTEMPT_AUTHORIZED_IN_THIS_STAGE','ZERO_MIN_TESTS_ONLY']);
-  }else{
-   // Dormant until a new review and explicit authorization.
-   // No tag: a 0% revision cannot be targeted through a public tag URL.
-   const cmd=buildZeroMinCandidateDeployCommand({
-    image:imageDigest(revision),
-    serviceAccount:revision.spec.serviceAccountName
-   });
-   let deployed=false;
-   try{
-    execFileSync('gcloud',cmd,{
-     encoding:'utf8',stdio:['ignore','pipe','pipe'],
-     timeout:240000,maxBuffer:1024*1024
-    });
-    deployed=true;
-   }catch{
-    emit({status:'DEPLOY_COMMAND_FAILED_OR_TIMED_OUT',
-     candidate:CANDIDATE,
-     revisionMayExist:true,
-     productionTrafficMustBeRechecked:true,
-     weatherProviderCallsByScript:0,
-     keyPayloadRead:false,releaseAuthorized:false});
-    process.exitCode=2;
-   }
-   if(deployed){
-    const after=getJson(['run','services','describe',SERVICE,...base]);
-    const newRev=getJson(['run','revisions','describe',CANDIDATE,...base]);
-    const historicAfter=getJson(['run','revisions','describe',T.revision,...base]);
-    const newC=specContainer(newRev);
-    const flagsValid=Object.entries(SAFE_ENV)
-     .every(([name,value])=>envVal(newC,name)?.value===value);
-    const secretValid=secretRef(newC,T.openweatherEnv)?.name===T.openweatherSecret&&
-      secretRef(newC,T.openweatherEnv)?.key==='2';
-    const redemetValid=secretRef(newC,T.redemetEnv)?.name===T.redemetSecret&&
-      secretRef(newC,T.redemetEnv)?.key==='1';
-    const safe=after?.metadata?.uid===service.metadata.uid&&
-      trafficKey(after)===trafficKey(service)&&
-      after?.status?.latestCreatedRevisionName===CANDIDATE&&
-      newRev?.metadata?.name===CANDIDATE&&
-      newRev?.spec?.serviceAccountName===revision.spec.serviceAccountName&&
-      newC?.image===imageDigest(revision)&&flagsValid&&secretValid&&redemetValid&&
-      candidateMinZeroVerified({
-       beforeService:service,afterService:after,newRevision:newRev
-      })&&
-      revisionMinScale(historicAfter)===revisionMinScale(revision)&&
-      serviceMinScale(after)===serviceMinScale(service)&&
-      revisionHasNoPositiveTrafficOrTag(after,CANDIDATE);
-    emit({
-      status:safe?'CREATED_ISOLATED_ZERO_TRAFFIC_PENDING_SMOKE':
-       'CREATED_OR_ATTEMPTED_POSTCHECK_FAILED_NO_PROMOTION',
-      candidate:CANDIDATE,created:!!newRev,
-      trafficPreserved99_1:trafficKey(after)===trafficKey(service),
-      clientTrafficMigrationAttempted:false,
-      oldRevisionUntouched:true,secretV1Unchanged:true,
-      candidateSecretBindingV2Verified:secretValid,
-      redemetBindingPreserved:redemetValid,
-      eightWeatherGatesExplicitlyOff:flagsValid,
-      pinnedImageMatchesHistorical:!!newC&&newC.image===imageDigest(revision),
-      tagCreated:false,providerWeatherCallsByScript:0,
-      candidateRevisionMinInstances:revisionMinCount(newRev),
-      newTemplateMinInstances:serviceTemplateMinCount(after),
-      candidateZeroMinVerified:candidateMinZeroVerified({
-       beforeService:service,afterService:after,newRevision:newRev
-      }),
-      historicalRevisionMinPreserved:
-       revisionMinScale(historicAfter)===revisionMinScale(revision),
-      serviceLevelMinPreserved:serviceMinSnapshot(after)===serviceMinSnapshot(service),
-      noTaggedCandidate:revisionHasNoPositiveTrafficOrTag(after,CANDIDATE),
-      deployHealthCheckSkipped:true,
-      secretPayloadRead:false,
-      actualSecretAccess:'NOT_VERIFIED',
-      vendorKeyValidity:'NOT_VERIFIED',
-      healthAndReadiness:'NOT_TESTED_NO_PUBLIC_TAG',
-      productionReleaseApproved:false
-    });
-    if(!safe)process.exitCode=2;
-   }
+    ['NO_NEW_REAL_ATTEMPT_AUTHORIZED_IN_THIS_STAGE',
+     'ZERO_MIN_TESTS_ONLY','DEPLOY_CODE_REMOVED_FROM_READONLY_AUDIT']);
   }
  }
 }
