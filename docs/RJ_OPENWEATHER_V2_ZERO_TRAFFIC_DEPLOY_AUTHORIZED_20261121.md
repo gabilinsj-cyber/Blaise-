@@ -1,6 +1,6 @@
-# Blaise V6 RJ — execução autorizada: UMA revisão Cloud Run com 0% tráfego
+# Blaise V6 RJ — correção do plano de candidata Cloud Run com 0% tráfego
 
-**Autorização explícita da titular:** 21/11/2026, para criar nova revisão de homologação com OpenWeather Secret Manager v2, sem alterar a distribuição 99%/1%, sem ativar coletores nem publicar alertas/dados. **Não autoriza** rollout, merge de PR, atualização de APK, novas consultas meteorológicas intencionais, novo plano ou alteração da chave.
+**Autorização explícita da titular:** 21/11/2026, para uma única nova revisão de homologação com OpenWeather Secret Manager v2, sem alterar a distribuição 99%/1%, sem ativar coletores nem publicar alertas/dados. **Ação atual (após 10h06 BRT): corrigir o procedimento e testar OFFLINE, sem nova tentativa real de implantação.** A autorização anterior **não autoriza** rollout, merge de PR, atualização de APK, novas consultas meteorológicas, novos planos, alteração de chave ou mudança das mínimas das revisões anteriores.
 
 ## Resultado do preparatório
 
@@ -14,34 +14,24 @@
 ## Implementação pronta
 
 - `backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs`: sem flags faz **preflight somente de leitura**. A execução real exige o parâmetro exato `--execute-approved-zero-traffic`.
-- Antes de criar: valida projeto, identidade, região, revisão histórica, estados OpenWeather v1/v2 e Redemet v1, IAM direta, distribuição **99% na 00031-vep e 1% na 00038-pin**, ausência de roteamento *latest*, imagem **@sha256 digest** verificável, 1 contêiner, porta 8080, CPU 1, RAM 512Mi, service account igual, flags propostas OFF, ausência de mínima de instâncias não-zero e inexistência do sufixo de candidata. Se qualquer condição mudou: **bloqueia sem deploy**.
-- Criação: usa `gcloud run deploy blaise-v6-rj-backend` com `--no-traffic`, **sem tag**, sufixo fixo `owv2-211126`, imagem **immutável** da revisão histórica, `--update-secrets=BLAISE_OPENWEATHER_API_KEY=blaise-rj-openweather-api-key:2` e 8 overrides `false`; não altera Redemet nem versão antiga, não executa `update-traffic` e não gera APK.
-- Depois: confere a existência de `blaise-v6-rj-backend-owv2-211126`, digest do contêiner, vínculo OpenWeather v2, Redemet v1, oito flags OFF, identidade e **exatamente a mesma distribuição 99%/1%**. Se falhar, **não tenta correção/rollback automático**, reporta o conflito. Não faz requisições HTTP ao serviço ou fornecedores.
+- Antes de criar: valida projeto, identidade, região, revisão histórica, estados OpenWeather v1/v2 e Redemet v1, IAM direta, distribuição **99% na 00031-vep e 1% na 00038-pin**, ausência de roteamento *latest*, imagem **@sha256 digest** verificável, 1 contêiner, porta 8080, CPU 1, RAM 512Mi, service account igual, flags propostas OFF e inexistência do sufixo de candidata. A configuração atual foi verificada como **última criada 00043-hjk** (estado *Retired*, não elegível como revisão de atendimento), **última pronta 00058-sos** (não funcional em HTTP), **template OpenWeather v2** e mínimos de **1** na revisão histórica e no template atual. O serviço deve continuar **sem mínimo global não-zero**. Mudança inesperada bloqueia sem deploy.
+- Criação **somente em etapa posterior**: `gcloud run deploy blaise-v6-rj-backend` com `--no-traffic`, **sem tag**, **`--min-instances=0` (por revisão; NÃO `--min=0` que atua no serviço)**, `--no-deploy-health-check` para não iniciar instância apenas para smoke de implantação, sufixo fixo `owv2-211126`, digest imutável da revisão histórica, `--update-secrets=BLAISE_OPENWEATHER_API_KEY=blaise-rj-openweather-api-key:2` e oito overrides `false`. O **template do serviço** passará a refletir a configuração da candidata, inclusive minScale 0; **revisões existentes e tráfego devem permanecer intactos**. Não altera Redemet nem versão antiga, não executa `update-traffic` e não gera APK.
+- Depois: confere existência da candidata, digest do contêiner, vínculo OpenWeather v2, Redemet v1, oito flags OFF, identidade, **minScale=0 na candidata e no novo template**, **minScale=1 preservado na antiga 00058-sos**, mínimo no nível do serviço inalterado e **exatamente a mesma distribuição 99%/1%**, sem tag nova. Se falhar, **não tenta correção/rollback automático**: reporta conflito. Não faz requisições HTTP ao serviço ou fornecedores.
 - Aviso financeiro: criação de revisão pode ter efeitos de provisionamento e custos de infraestrutura conforme configuração da conta. O script não usa créditos meteorológicos diretamente; mesmo com switches OFF, **não constitui prova independente** de que uma imagem histórica não faça chamadas de rede incondicionais na inicialização.
 
-## Execute no Cloud Shell AUTENTICADO (somente após CI aprovado)
+## Testes do plano corrigido (não implantar nesta etapa)
 
-A versão `~/blaise-rj-ow-v2-ajuste-20261121` é uma cópia antiga, não sobrescrevê-la. Crie outra worktree separada:
+**O comando antigo de implantação está revogado para a execução atual.** Ele foi bloqueado às 09h51 e não pode ser repetido. Para a tarefa atual, usar exclusivamente testes sintéticos no GitHub Actions e, quando desejar, o comando offline na worktree local **já atualizada para o último commit**:
 
 ```bash
 set +x
-cd ~/Blaise-RJ || exit 1
-git fetch --no-tags origin feature/rj-meteoblue-full-recovery-admin-ui-20261118 || exit 1
-if [ -e "$HOME/blaise-rj-ow-v2-candidate-20261121" ]; then
-  echo "CANDIDATE_WORKTREE_EXISTS_NOT_OVERWRITTEN"
-  exit 2
-fi
-git worktree add --detach "$HOME/blaise-rj-ow-v2-candidate-20261121" FETCH_HEAD || exit 1
-cd "$HOME/blaise-rj-ow-v2-candidate-20261121/backend" || exit 1
-nvm use 24 || nvm install 24
-node --test test/rj-openweather-v2-zero-traffic-candidate.test.mjs || exit 1
-node scripts/rj-openweather-v2-zero-traffic-candidate.mjs --preflight-only || exit 1
-node scripts/rj-openweather-v2-zero-traffic-candidate.mjs --execute-approved-zero-traffic
+node --check backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs
+node --test backend/test/rj-openweather-v2-zero-traffic-candidate.test.mjs
 ```
 
-O nome de saída é **`RJ_OPENWEATHER_V2_CANDIDATE`**. Se `BLOCKED_NO_DEPLOY`, não contornar o bloqueio. Se `CREATED_ISOLATED_ZERO_TRAFFIC_PENDING_SMOKE`, a revisão está criada, com 0% de tráfego normal, **ainda sem homologação HTTP**. O processo não publica tag nem implementa exposição de acesso público.
+Os testes usam um executável `gcloud` **falso** e confirmam: template atual OpenWeather v2, minScale anterior 1, argumento revision-level `--min-instances=0`, nenhuma opção `--min` de serviço, `--no-deploy-health-check`, 0% de tráfego, sem tag, preservação da minScale histórica, pós-checagem da minScale 0 da candidata e bloqueios negativos (drift de IAM, versões, tráfego, escala e saída incorreta). **Nenhum teste offline acessa Google Cloud, lê segredo ou chama provedor.** A CI sem credenciais reais não valida o comportamento de uma implantação real.
 
-Nunca executar comandos separados `gcloud run deploy`, `services update-traffic`, `secrets versions enable`, `secrets versions access` ou consultar APIs meteorológicas para tentar superar falhas. Compartilhar somente resultado agregado redigido do CLI, nunca chaves/JSON de configuração completo.
+Para execução real futura, será necessário conferir novamente o ambiente, os custos e a conformidade da imagem no Cloud Shell autenticado. **Não executar agora `--execute-approved-zero-traffic`**, nem comandos `gcloud run deploy` diretos. A titular deverá ver a nova verificação de prontidão antes da tentativa real.
 
 ## Limites de conclusão
 
@@ -93,3 +83,13 @@ A consulta de metadados feita no Cloud Shell mostra duas revisões presentes, am
 - `blaise-v6-rj-backend-00058-sos`: criada em **2026-10-16T23:43:54.247642Z**; `Ready=True`; motivo de prontidão não informado pela consulta. Essa revisão, acessada pela tag de validação, respondeu **HTTP 500** nas rotas de teste e referencia o segredo OpenWeather v1 desabilitado.
 
 **Implicação operacional:** `latestCreatedRevisionName=00043-hjk` não significa candidata homologada; `latestReadyRevisionName=00058-sos` não supera os erros HTTP 500. Manter `BLOCKED_NO_DEPLOY`, sem reexecução do script anterior. Somente ler a configuração de tráfego e as condições efetivas de cada revisão antes de reconsiderar o isolamento. Ambas ainda não foram homologadas para tráfego normal.
+
+## Atualização da solução — 21/11/2026, após 10h06 BRT
+
+- Condições observadas: `00043-hjk` = `Ready=False/Active=False` com motivo `Retired`, 0% e sem tag; `00058-sos` = `Ready=True/Active=True`, tag de validação e 0% (apesar dos erros HTTP 500), com `MinInstancesProvisioned=True` na consulta. **Não confundir Ready com saúde HTTP.**
+- A regra anterior `REVISION_MIN_INSTANCES_NOT_ZERO` bloqueava também o **mínimo histórico legítimo de 1**. Foi corrigida: exige `minScale=1` **no histórico/template ANTES**, exige `--min-instances=0` **somente na candidata**, e confere que o histórico se mantém em 1, sem modificar o mínimo global do serviço. Se a configuração observada mudar, bloqueia.
+- O template corrente já referencia OpenWeather **versão 2**; o script não deve exigir v1 no template. Sua origem esperada é a última criada `00043-hjk`, mas a imagem vem do digest da revisão histórica `00058-sos`. Nenhuma delas foi homologada para atender clientes.
+- O novo script usa `--no-deploy-health-check`: a documentação oficial informa que, desabilitada essa checagem, a validação de startup ocorre quando a revisão for invocada ou tiver instância mínima. Com `minScale=0`, sem tag e sem tráfego, não se prevê inicialização por esse procedimento; **não há garantia de custo absoluto zero** da infraestrutura Cloud Run.
+- Documentação oficial: https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy (`--min-instances` por revisão, `--min` por serviço, `--no-deploy-health-check`); https://docs.cloud.google.com/run/docs/configuring/min-instances.
+
+**Estado final desta etapa: somente código e CI offline, SEM implantação, SEM credenciais novas, SEM consumo intencional de créditos, SEM alteração no tráfego.**
