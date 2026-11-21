@@ -130,15 +130,38 @@ test('audit does not print or disclose service identity and never asserts key va
  assert.ok(text.includes('"proposedRevisionCreated":false'));
 });
 
-test('do not prepare a secret-rebinding candidate while other weather polling is on',()=>{
+test('historical enabled worker is recorded, never changed, and does not block isolated candidate plan',()=>{
  for(const key of ['BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
   'BLAISE_MET_NORWAY_ENABLED','BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
   'BLAISE_INMET_P0_PUBLISH_ENABLED']){
   const x=build();
   x.revision.spec.containers[0].env.push({name:key,value:'true'});
   const r=run(x);
-  assert.equal(r.status,'REPAIR_PLAN_BLOCKED',key);
-  assert.ok(r.blockers.includes('historicalAutomaticWeatherCollectionOff'),key);
+  assert.equal(r.status,'REPAIR_PLAN_ELIGIBLE_NOT_DEPLOYED',key);
+  assert.equal(r.historicalAutomaticWeatherCollectionOn,true,key);
+  assert.deepEqual(r.historicalActiveWeatherFlags,[key]);
+  assert.equal(r.historicalRevisionPreservedWithCurrentFlags,true);
+  assert.equal(r.proposedCandidateExplicitFalseFlags[key],'false');
+  assert.equal(r.checks.proposedCandidateExplicitlyDisablesWeatherCollection,true);
+  assert.equal(r.candidateConfigurationApplied,false);
+  assert.equal(r.proposedRevisionCreated,false);
+  assert.equal(r.productionTrafficChanged,false);
   assert.equal(r.weatherProviderContacted,false,key);
  }
+});
+test('future candidate has explicit OFF values for all eight worker and approval flags',()=>{
+ const r=run(build());
+ const required=[
+ 'BLAISE_OPENWEATHER_AGENT13_ENABLED',
+ 'BLAISE_OPENWEATHER_ONECALL4_SUBSCRIPTION_APPROVED',
+ 'BLAISE_AGENT13_FIRESTORE_ENABLED',
+ 'BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED',
+ 'BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
+ 'BLAISE_MET_NORWAY_ENABLED',
+ 'BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
+ 'BLAISE_INMET_P0_PUBLISH_ENABLED'
+ ];
+ assert.deepEqual(Object.keys(r.proposedCandidateExplicitFalseFlags).sort(),required.sort());
+ for(const key of required)assert.equal(r.proposedCandidateExplicitFalseFlags[key],'false');
+ assert.equal(r.productionReleaseApproved,false);
 });
