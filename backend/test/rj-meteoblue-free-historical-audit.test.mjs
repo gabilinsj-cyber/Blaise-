@@ -78,3 +78,28 @@ test('nulls do not become zero and response remains exclusively historical',()=>
  assert.equal(r.fields[0].min,2.1);
  assert.equal(r.neverUseAsCurrent,true);
 });
+
+test('compares precipitation and convective component per aligned six-hour period',()=>{
+ const record=createRecord();
+ const matched=inspectHistoricalMeteoblueCacheRecord(record,{nowMs:now});
+ assert.deepEqual(matched.precipitationRelationship,{
+   comparedSlots:29,equalSlots:29,wetSlots:29,equalWetSlots:29,
+   convectiveGreaterThanTotalSlots:0,identicalAcrossAllWetSlots:true,
+   needsScientificReview:true,forecastComponentDiagnosticOnly:true
+ });
+ // A difference in only one time slot must be detected even when a
+ // misleading rounded aggregate average might suggest equality.
+ record.forecast.values[1].values[0]=1;
+ const different=inspectHistoricalMeteoblueCacheRecord(record,{nowMs:now});
+ assert.equal(different.precipitationRelationship.equalSlots,28);
+ assert.equal(different.precipitationRelationship.identicalAcrossAllWetSlots,false);
+ assert.equal(different.precipitationRelationship.needsScientificReview,false);
+ // Convective forecast component greater than total needs review, but
+ // cannot automatically be called an actual observed rainfall event.
+ record.forecast.values[1].values[0]=10.2;
+ const exceeds=inspectHistoricalMeteoblueCacheRecord(record,{nowMs:now});
+ assert.equal(exceeds.precipitationRelationship.convectiveGreaterThanTotalSlots,1);
+ assert.equal(exceeds.precipitationRelationship.needsScientificReview,true);
+ assert.equal(exceeds.scientificallyHomologated,false);
+ assert.equal(exceeds.providerContacted,false);
+});
