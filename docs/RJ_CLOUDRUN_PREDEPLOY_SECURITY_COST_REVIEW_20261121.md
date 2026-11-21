@@ -292,3 +292,36 @@ A auditoria somente leitura dos 3 request logs HTTP 500 da revisão `blaise-v6-r
 A página oficial do Cloud Run sobre troubleshooting descreve explicitamente `The request failed because the instance could not start successfully.` para HTTP 500; problemas com versão/permissão de segredo no Secret Manager são uma das causas comuns, não a única: https://docs.cloud.google.com/run/docs/troubleshooting#container-failed-to-start. A revisão antiga referencia o segredo OpenWeather **v1 DISABLED**, enquanto o template mais recente referencia v2 ENABLED, fato previamente observado. **Ainda não está demonstrada a causalidade** do segredo v1, nem a efetiva capacidade de acesso da conta de serviço à versão correta. Evitar girar/habilitar/desabilitar segredo, mudar IAM ou criar instância durante a investigação.
 
 **Próxima verificação segura:** conferir novamente no Cloud Shell somente o nome/versão de referência do segredo OpenWeather na revisão `00058-sos` e os estados metadata `v1`/`v2` (sem `secrets versions access`), e confrontar resultados com a classificação de falha. Se confirmado, registrar hipótese prioritária de bloqueio de startup por segredo inacessível; manter plano de nova candidata paused, sem promoção do tráfego 99/1, sem consultas meteorológicas e sem qualquer mudança em recursos em funcionamento.
+
+
+## Três HTTP 500 com indicador de falha de inicialização — 21/11/2026, 16h06 BRT
+
+A titular inspecionou apenas indicadores de texto dos três logs de requisição `run.googleapis.com/requests` na revisão `blaise-v6-rj-backend-00058-sos`, sem exibir payload/URL, capturados às 16h06 BRT:
+
+```text
+REQUISICAO: 1
+UTC: 2026-11-21T11:14:06
+RESPOSTA_BYTES: NAO_INFORMADO
+MENSAGEM_PRESENTE: True
+INDICADOR: POSSIVEL_FALHA_INICIALIZACAO
+
+REQUISICAO: 2
+UTC: 2026-11-21T11:26:07
+RESPOSTA_BYTES: NAO_INFORMADO
+MENSAGEM_PRESENTE: True
+INDICADOR: POSSIVEL_FALHA_INICIALIZACAO
+
+REQUISICAO: 3
+UTC: 2026-11-21T11:26:08
+RESPOSTA_BYTES: NAO_INFORMADO
+MENSAGEM_PRESENTE: True
+INDICADOR: POSSIVEL_FALHA_INICIALIZACAO
+TOTAL: 3
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação forte, mas com causa raiz pendente:** o classificador marcou `POSSIVEL_FALHA_INICIALIZACAO` ao encontrar `could not start` ou `failed to start` no texto do registro de requisição. O troubleshooting oficial do Cloud Run identifica `HTTP 500` com a mensagem `The request failed because the instance could not start successfully.` como falha ao inicializar e ficar saudável. Logo, os registros são compatíveis com falha na inicialização da instância **antes de o backend responder**; o texto exato ainda não foi exposto e as causas possíveis são várias.
+
+**Hipótese prioritária, NÃO comprovada:** a revisão imutável `00058-sos` referencia a versão **1 DISABLED** do segredo OpenWeather, enquanto v2 permanece ENABLED no template atual. A documentação oficial informa que um secret injetado por variável de ambiente é resolvido antes da inicialização e, se falhar, a instância não inicia. Isso torna a referência antiga um possível bloqueador de startup, mas não demonstra que este foi o erro dos três pedidos. Necessário confirmar metadados do binding e estado da versão, e investigar erros de acesso sanitizados, sem ler payloads.
+
+**Não reativar v1**, não editar segredo/IAM/tráfego/minScale/tag do serviço que atende clientes e não executar `gcloud run deploy`; o script de candidata da PR #173 permanece fisicamente sem rota de deploy. Sem novas consultas meteorológicas. Referências oficiais: https://docs.cloud.google.com/run/docs/troubleshooting e https://docs.cloud.google.com/run/docs/configuring/services/secrets .
