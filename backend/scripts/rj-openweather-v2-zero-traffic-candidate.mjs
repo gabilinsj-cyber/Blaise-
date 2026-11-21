@@ -15,6 +15,9 @@ import {assessOpenweatherV2RepairEvidence,
  OPENWEATHER_V2_REPAIR_TARGET as T,
  OPENWEATHER_V2_CANDIDATE_SAFE_ENV as SAFE_ENV}
  from '../src/rj-openweather-secret-v2-repair-plan.mjs';
+import {buildZeroMinCandidateDeployCommand,candidateMinZeroVerified,
+ revisionMinCount,serviceTemplateMinCount,serviceMinSnapshot}
+ from '../src/rj-openweather-zero-min-candidate.mjs';
 
 const PROJECT=T.project, REGION='southamerica-east1', SERVICE=T.service;
 const REVISION_SUFFIX='owv2-211126';
@@ -24,6 +27,8 @@ const REVISION_MIN_EXPECTED_BEFORE='1';
 const REVISION_MIN_REQUIRED_AFTER='0';
 const run=process.argv.slice(2);
 const approved=run.includes('--execute-approved-zero-traffic');
+// No new REAL Cloud Run attempt in this stage; prior execute flag is paused.
+const REAL_DEPLOY_PAUSED=true;
 const allowed=new Set(['--execute-approved-zero-traffic','--preflight-only']);
 const emit=x=>console.log('RJ_OPENWEATHER_V2_CANDIDATE='+JSON.stringify(x));
 const stop=(reason,detail)=>{
@@ -180,6 +185,15 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
   if(Object.values(SAFE_ENV).some(x=>x!=='false')||
    Object.keys(SAFE_ENV).length!==8)
    problems.push('CANDIDATE_WEATHER_GATES_NOT_OFF');
+  let proposedCommand=null;
+  try{
+   proposedCommand=buildZeroMinCandidateDeployCommand({
+    image:imageDigest(revision),serviceAccount:revision?.spec?.serviceAccountName
+   });
+   if(!proposedCommand.includes('--min-instances=0')||
+      proposedCommand.some(x=>x.startsWith('--min=')))
+    problems.push('CANDIDATE_REVISION_ZERO_MIN_ARGUMENT_NOT_PROVEN');
+  }catch{problems.push('CANDIDATE_ARGUMENTS_NOT_PROVEN_SAFE');}
   if(problems.length){
    stop('PREFLIGHT_NOT_SAFE_TO_CREATE',problems);
   }else if(!approved){
@@ -192,27 +206,25 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
     priorHistoricalRevisionMinInstances:revisionMinScale(revision),
     priorTemplateMinInstances:revisionMinScale(service?.spec?.template),
     proposedCandidateMinInstances:REVISION_MIN_REQUIRED_AFTER,
+    candidateZeroMinFlagPresent:proposedCommand?.includes('--min-instances=0')===true,
+    serviceMinNotModifiedByProposedCommand:proposedCommand?.every(x=>!x.startsWith('--min='))===true,
+    startupHealthCheckSkippedInPlan:proposedCommand?.includes('--no-deploy-health-check')===true,
+    simulatedPlanOnly:true,
     existingServiceLevelMinInstances:serviceMinScale(service),
     providerKeyValid:'NOT_VERIFIED',
     actualRuntimeSecretAccess:'NOT_VERIFIED',
     deploymentPerformed:false,
     productionTrafficChanged:false,releaseAuthorized:false});
+   }else if(REAL_DEPLOY_PAUSED){
+   stop('REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW',
+    ['NO_NEW_REAL_ATTEMPT_AUTHORIZED_IN_THIS_STAGE','ZERO_MIN_TESTS_ONLY']);
   }else{
-   // Everything read-only has passed. This is the ONLY cloud mutation below.
+   // Dormant until a new review and explicit authorization.
    // No tag: a 0% revision cannot be targeted through a public tag URL.
-   const envUpdates=Object.entries(SAFE_ENV).map(([k,v])=>k+'='+v).join(',');
-   const cmd=[
-    'run','deploy',SERVICE,
-    '--project='+PROJECT,'--region='+REGION,'--platform=managed',
-    '--image='+imageDigest(revision),
-    '--service-account='+revision.spec.serviceAccountName,
-    '--port=8080','--cpu=1','--memory=512Mi',
-    '--min-instances=0','--no-deploy-health-check',
-    '--revision-suffix='+REVISION_SUFFIX,
-    '--update-secrets='+T.openweatherEnv+'='+T.openweatherSecret+':2',
-    '--update-env-vars='+envUpdates,
-    '--no-traffic','--quiet'
-   ];
+   const cmd=buildZeroMinCandidateDeployCommand({
+    image:imageDigest(revision),
+    serviceAccount:revision.spec.serviceAccountName
+   });
    let deployed=false;
    try{
     execFileSync('gcloud',cmd,{
@@ -246,8 +258,9 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
       newRev?.metadata?.name===CANDIDATE&&
       newRev?.spec?.serviceAccountName===revision.spec.serviceAccountName&&
       newC?.image===imageDigest(revision)&&flagsValid&&secretValid&&redemetValid&&
-      revisionMinScale(newRev)===REVISION_MIN_REQUIRED_AFTER&&
-      revisionMinScale(after?.spec?.template)===REVISION_MIN_REQUIRED_AFTER&&
+      candidateMinZeroVerified({
+       beforeService:service,afterService:after,newRevision:newRev
+      })&&
       revisionMinScale(historicAfter)===revisionMinScale(revision)&&
       serviceMinScale(after)===serviceMinScale(service)&&
       revisionHasNoPositiveTrafficOrTag(after,CANDIDATE);
@@ -263,11 +276,14 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
       eightWeatherGatesExplicitlyOff:flagsValid,
       pinnedImageMatchesHistorical:!!newC&&newC.image===imageDigest(revision),
       tagCreated:false,providerWeatherCallsByScript:0,
-      candidateRevisionMinInstances:revisionMinScale(newRev),
-      newTemplateMinInstances:revisionMinScale(after?.spec?.template),
+      candidateRevisionMinInstances:revisionMinCount(newRev),
+      newTemplateMinInstances:serviceTemplateMinCount(after),
+      candidateZeroMinVerified:candidateMinZeroVerified({
+       beforeService:service,afterService:after,newRevision:newRev
+      }),
       historicalRevisionMinPreserved:
        revisionMinScale(historicAfter)===revisionMinScale(revision),
-      serviceLevelMinPreserved:serviceMinScale(after)===serviceMinScale(service),
+      serviceLevelMinPreserved:serviceMinSnapshot(after)===serviceMinSnapshot(service),
       noTaggedCandidate:revisionHasNoPositiveTrafficOrTag(after,CANDIDATE),
       deployHealthCheckSkipped:true,
       secretPayloadRead:false,
