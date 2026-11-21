@@ -199,3 +199,31 @@ Interpretação rigorosa: **todos os 29 pares** `forecastPrecipitationSixHourMm`
 **Decisão de segurança:** marcar **REVISÃO CIENTÍFICA PENDENTE** para a independência semântica dos dois campos; não usar a componente convectiva para cálculo de risco/alerta, distinção de tipos de chuva ou publicação em aplicativo cliente. Todos os dados são históricos (P), com cache operacional vencido. O script do backend `rj-meteoblue-free-historical-audit.mjs` já produz `precipitationRelationship.needsScientificReview=true` nessa condição; seus testes offline foram aprovados, sem chamar o fornecedor. Não gastar outros 4.000 créditos para resolver uma dúvida que pode ser investigada com documentação e o cache existente.
 
 **Créditos:** `creditsUsed=0` é apenas o relatório desta leitura histórica. Ledger continua com **uma reserva de 4.000**; não representa saldo confirmado na meteoblue. Chave original exposta e One-shot usada; nenhum replay live com esta credencial. PR #173 segue DRAFT; o cliente original e as configurações de produção não foram alterados.
+
+## Revisão das definições oficiais e mapeamento — 21/11/2026
+
+**Pesquisa documental pública, sem API de previsão e sem consumir créditos.**
+
+Fontes **oficiais** da meteoblue:
+1. Weather Variables: https://docs.meteoblue.com/en/meteo/variables/weather-variables — precipitação é **acumulado total equivalente em água (mm)** do período precedente; `Convective Precipitation` é **acumulado do componente de origem convectiva (mm)** também do período precedente, disponível na família Basic.
+2. Precipitation: https://content.meteoblue.com/en/research-education/specifications/weather-variables/precipitation — explica os tipos convectivo/orográfico/estratiforme, o total da precipitação e a interpretação temporal dos intervalos.
+3. Forecast API Overview: https://docs.meteoblue.com/en/weather-apis/forecast-api/overview — a lista precisa de nomes/parâmetros depende do pacote/schema; o endpoint OpenAPI em `https://my.meteoblue.com/packages/openapi.json` **não pôde ser lido independentemente pelo navegador da auditoria**. A forma exata `data_6h.<chave>` vem de código existente e do retorno real bem-sucedido, não de uma suposta nova leitura integral do OpenAPI.
+
+### Matriz de mapeamento confirmada no código
+
+| Objeto na resposta de `basic-6h` | Objeto persistido privado | Definição científica | Estado |
+|---|---|---|---|
+| `payload.data_6h.precipitation` | `forecastPrecipitationSixHourMm` | Total previsto acumulado de seis horas, mm | Mapeamento direto correto; fonte com `sourceField` explícito no código novo |
+| `payload.data_6h.convective_precipitation` | `forecastConvectivePrecipitationSixHourMm` | Componente convectivo previsto acumulado de seis horas, mm | Mapeamento direto correto; revisão de identidade numérica pendente |
+
+No `backend/src/rj-meteoblue-basic6h-parse.mjs`, o parser percorre `METEOBLUE_BASIC6H_FIELDS` e acessa `b[sourceField]`. Não há `convective_precipitation = precipitation`, cópia automática do total para o componente ou derivação da chuva convectiva a partir do total. O coletor `rj-meteoblue-free-collector.mjs` usa diretamente o JSON retornado para chamar `parseMeteoblueBasic6h`. **O mapeamento está correto estruturalmente; igualdade de valores não implica erro de mapeamento.**
+
+Melhoria mínima sem alterar semântica: cada `values[]` do parser agora preserva `sourceField` exato, para auditoria de proveniência. Teste offline adicional alimenta chuva total e convectiva com **valores sintéticos intencionalmente diferentes** e verifica que os resultados continuam diferentes; se o campo convectivo estiver ausente, não há fallback para total, e o estado se torna incompleto. Outro teste verifica que entradas iguais não são automaticamente descartadas, mas **nunca recebem** `scientificallyHomologated=true` apenas por passar na estrutura.
+
+### Achado real e interpretação delimitada
+
+A previsão histórica de 19/11 teve 29 pares **iguais** à tolerância de 0,001 mm, dos quais 14 com chuva e 15 secos. **É possível** que um modelo forneça componente convectivo igual ao total, em especial onde toda a precipitação prevista for convectiva; a igualdade em todos os 14 períodos com chuva é, porém, um sinal para revisão da origem dos dados, **não uma prova** de erro, duplicação pelo parser, tempestade real ou fraude do fornecedor.
+
+A versão histórica no Firestore foi normalizada **antes** da inclusão de `sourceField`; o JSON bruto da resposta do dia 19 não foi arquivado nessa coleção. Por isso **não é possível provar retroativamente, só com o cache normalizado, que ambos os arrays originais do fornecedor eram distintos ou iguais antes de qualquer processamento**. O código atual, entretanto, não os unifica. O endpoint OpenAPI exato continua pendente de auditoria documental direta.
+
+**Decisão:** preservar os dois valores históricos, marcá-los como `REVIEW_REQUIRED` para uso semântico, sem derivar índices de risco convectivo, tempestade/raio, nem enviar a clientes. Nenhuma solicitação adicional à meteoblue, nenhuma alteração de Secret Manager, limite de créditos, Firestore, código de produção, app original ou PR draft.
