@@ -66,6 +66,10 @@ if(!metadata){
   const serviceMeta=canDescribe?getJson(['run','services','describe',chosen,
    '--platform=managed','--project='+project,'--region='+region,
    '--format=json']):null;
+  const runtimeServiceAccount=serviceMeta?.spec?.template?.spec?.serviceAccountName??
+   serviceMeta?.template?.serviceAccount??null;
+  const secretIam=getJson(['secrets','get-iam-policy',
+   'blaise-meteoblue-free-api-key','--project='+project,'--format=json']);
   const scheduler=validRegion?getJson(['scheduler','jobs','list',
    '--project='+project,'--location='+region,'--format=json']):null;
   let healthState='NOT_REQUESTED';
@@ -103,6 +107,8 @@ if(!metadata){
    runServices:services,
    runService:serviceMeta,
    meteoblueSecretVersions:secretVersions,
+   secretIamPolicy:secretIam,
+   runtimeServiceAccount,
    schedulerJobs:scheduler,
    health:healthState
   });
