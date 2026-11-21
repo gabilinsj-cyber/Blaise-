@@ -183,7 +183,13 @@ class AdminScientificActivity : ComponentActivity() {
                                     "créditos RESERVADOS no Firestore; saldo/cobrança do fornecedor após consulta NÃO CONSULTADOS.")
                                 Text("Coletor automático: DESLIGADO • publicação aos assinantes: NÃO.")
                                 Text("CONTRATO DE PUBLICAÇÃO: BLOQUEADO • somente staging privado. " +
-                                    "Sem licença comercial verificada, sem homologação científica, sem uso em alertas.")
+                                    "A meteoblue Free API anuncia USO COMERCIAL, mas direitos de " +
+                                    "redistribuir a assinantes, guardar/reproduzir dados e regras " +
+                                    "de atribuição ainda NÃO foram comprovados para esta conta.")
+                                Text("CIÊNCIA: chuva convectiva é componente da chuva total, " +
+                                    "não medição de tempestades. Os 29/29 pares históricos iguais " +
+                                    "exigem revisão de origem semântica; nenhuma previsão vencida " +
+                                    "pode virar leitura atual, alerta ou dado de clientes.")
                                 Text("REVISÃO CIENTÍFICA ${AdminCollectorReadiness.METEOBLUE_SCIENCE_REVIEW_DATE}: " +
                                     "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS}/" +
                                     "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED} " +
