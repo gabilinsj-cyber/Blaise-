@@ -137,30 +137,13 @@ test('default is read-only preflight: no Cloud Run deployment',()=>{
   assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
-test('explicit owner-approved flag produces untagged 0% candidate only in mock GCloud',()=>{
+test('real Cloud Run deployment is explicitly paused after live configuration drift',()=>{
  const dir=make();
  try{
   const result=invoke(dir,['--execute-approved-zero-traffic']);
-  assert.equal(result.status,0,result.stderr+' '+result.stdout);
-  assert.match(result.stdout,/CREATED_ISOLATED_ZERO_TRAFFIC_PENDING_SMOKE/);
-  assert.match(result.stdout,/"trafficPreserved99_1":true/);
-  assert.match(result.stdout,/"eightWeatherGatesExplicitlyOff":true/);
-  assert.match(result.stdout,/"candidateSecretBindingV2Verified":true/);
-  assert.match(result.stdout,/"productionReleaseApproved":false/);
-  assert.match(result.stdout,/"candidateRevisionMinInstances":"0"/);
-  assert.match(result.stdout,/"historicalRevisionMinPreserved":true/);
-  assert.match(result.stdout,/"serviceLevelMinPreserved":true/);
-  assert.match(result.stdout,/"noTaggedCandidate":true/);
-  const cmd=JSON.parse(readFileSync(join(dir,'deployed'),'utf8'));
-  assert.ok(cmd.includes('--no-traffic'));
-  assert.ok(cmd.includes('--min-instances=0'));
-  assert.ok(cmd.includes('--no-deploy-health-check'));
-  assert.ok(!cmd.some(x=>x.startsWith('--min=')));
-  assert.ok(!cmd.some(x=>x.startsWith('--tag')));
-  assert.ok(!cmd.some(x=>x.includes('update-traffic')));
-  assert.ok(cmd.some(x=>x.startsWith('--image=')&&x.includes('@sha256:')));
-  assert.ok(cmd.some(x=>x.includes('blaise-rj-openweather-api-key:2')));
-  assert.ok(cmd.some(x=>x.includes('BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED=false')));
+  assert.equal(result.status,2,result.stderr+' '+result.stdout);
+  assert.match(result.stdout,/REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW/);
+  assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 test('disabled v2 fails closed before deployment',()=>{
@@ -218,16 +201,15 @@ test('historical and template minScale=1 are allowed only as preserved baseline'
   }finally{rmSync(dir,{recursive:true,force:true});}
  }
 });
-test('candidate minScale drift after deploy fails postcheck and never promotes',()=>{
+test('preflight has candidate revision min0 while both historical scales stay at one',()=>{
  const dir=make();
  try{
-  const r=invoke(dir,['--execute-approved-zero-traffic'],'candidate-min-1');
-  assert.equal(r.status,2);
-  assert.match(r.stdout,/CREATED_OR_ATTEMPTED_POSTCHECK_FAILED_NO_PROMOTION/);
-  assert.match(r.stdout,/"candidateRevisionMinInstances":"1"/);
-  const cmd=JSON.parse(readFileSync(join(dir,'deployed'),'utf8'));
-  assert.ok(cmd.includes('--min-instances=0'));
-  assert.ok(!cmd.some(x=>x.startsWith('--tag=')));
-  assert.ok(!cmd.some(x=>x.includes('update-traffic')));
+  const result=invoke(dir,['--preflight-only']);
+  assert.equal(result.status,0,result.stdout);
+  assert.match(result.stdout,/"candidateZeroMinFlagPresent":true/);
+  assert.match(result.stdout,/"serviceMinNotModifiedByProposedCommand":true/);
+  assert.match(result.stdout,/"startupHealthCheckSkippedInPlan":true/);
+  assert.match(result.stdout,/"simulatedPlanOnly":true/);
+  assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
