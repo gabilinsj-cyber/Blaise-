@@ -114,3 +114,20 @@ AUDITORIA: SOMENTE_LEITURA
 **Não modificar** `allUsers`, ingresso global, minScale, tags ou IAM sem avaliação específica, pois o serviço também atende clientes (99%/1%). Próxima auditoria deve apenas verificar se a URL padrão de revisão/tag está habilitada e se há registros por revisão, sem produzir chamadas HTTP nem alterar o serviço. A candidata futura NÃO foi criada.
 
 Referências: https://docs.cloud.google.com/run/docs/securing/managing-access ; https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration ; https://docs.cloud.google.com/run/docs/securing/ingress .
+
+
+## Confirmação de URL por tag — 21/11/2026, 11h29 BRT
+
+A titular executou consulta somente leitura ao status do Cloud Run via `gcloud run services describe`, resumindo apenas os campos booleanos, sem publicar a URL. Captura às **11h29 BRT**:
+
+```text
+REVISAO_58_IDENTIFICADA: True
+TAG_PRESENTE: True
+URL_TAG_DISPONIVEL: True
+TRAFEGO_NORMAL: 0
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Conclusão:** a revisão histórica `00058-sos` está associada a uma tag e tem URL de tag disponível com 0% do tráfego normal; o serviço tem `ingress=all` e `allUsers` autorizado a invocar, conforme auditoria das 11h26. Isso indica possibilidade de acesso externo direto à revisão por tag, sem prova de exploração nem de ausência de autenticação dentro do app. A revisão já apresentou HTTP 500 e apresenta minScale 1 / billing instance-based, criando riscos operacionais e financeiros separados da candidata futura.
+
+**Próxima etapa sem mutação:** ler apenas logs de requisições HTTP por `resource.labels.revision_name=blaise-v6-rj-backend-00058-sos` e período das últimas 24h, produzindo exclusivamente contagens por status, sem exibir URLs, IPs, tokens, payloads ou identidades. Não fazer novas chamadas HTTP à tag ou a APIs meteorológicas, não mudar permissões compartilhadas com clientes, não desativar tags ou serviço, não implantar a PR #173. Ausência de logs não é prova de ausência de acessos caso logging esteja indisponível/limitado.
