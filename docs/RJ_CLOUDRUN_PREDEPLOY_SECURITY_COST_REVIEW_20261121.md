@@ -81,3 +81,14 @@ createdNewRevision: False
 **Política de segurança vigente:** não remover a tag, não alterar mínimo de instância da `00058-sos`, não alterar tipo de faturamento do serviço, não executar `gcloud run deploy`, não criar nova candidata, não alterar tráfego 99%/1%, não ler segredos e não consultar meteorologia. Qualquer ajuste de custo de produção exigirá autorização específica após avaliação do impacto de acesso da revisão histórica e do orçamento. **Próxima etapa: somente consultar os valores reais no Google Cloud Billing Reports**, filtrando projeto `blaise-v6-rj`, serviço `Cloud Run` e intervalo recente, e distinguir uso bruto, créditos e custo líquido. Os custos podem ter defasagem na consolidação dos relatórios.
 
 Referências: https://docs.cloud.google.com/run/docs/configuring/billing-settings ; https://docs.cloud.google.com/run/docs/configuring/min-instances ; https://docs.cloud.google.com/billing/docs/how-to/reports .
+
+
+## Relatório de faturamento real — 21/11/2026, 10h56 BRT
+
+A titular enviou duas capturas do **Google Cloud Billing > Relatórios** às 10h56 BRT. O painel mostra, para o período indicado **1–21/11/2026**, custo de uso por serviço: **Cloud Run R$ 661,25**, **Cloud Build R$ 1,50**, **Cloud Storage R$ 0,03**. Total líquido exibido na página: **R$ 0,00**, com aproximadamente **R$ 662,77 de economia** aplicada no período (o total arredondado dos SKUs e o valor da economia podem diferir por centavos). A previsão do mesmo painel para 1–30/11/2026 mostra líquido R$ 0,00 e economias previstas ~R$ 856,67, **não é garantia de custo futuro zero**.
+
+**Limites críticos:** os prints mostram serviço agregado, não evidenciam filtro aplicado exclusivamente ao projeto `blaise-v6-rj`, não trazem SKU Cloud Run, instância/revisão nem categoria CPU/memória. Logo os **R$ 661,25 não podem ser atribuídos diretamente** à revisão `00058-sos` ou ao próprio projeto sem consultar filtros. O modo `INSTANCE_BASED`, tag ativa e minScale 1 são sinais de exposição financeira, mas o valor proporcional dessa revisão **não está quantificado**. O líquido zero do período não garante cobertura de créditos futuros; confirmação do tipo/duração de economias e créditos exige consulta específica, sem alteração de faturamento.
+
+**Próxima leitura recomendada no próprio console:** Relatórios → selecionar **Projeto blaise-v6-rj** → **Serviço Cloud Run** → **Agrupar por SKU**, primeiro período 1–21/11 e depois últimos 7 dias. Capturar nome da SKU, valor bruto e economia/crédito, omitindo ID de conta e informações pessoais. A documentação oficial confirma que reports por SKU permitem identificar componentes de uso: https://docs.cloud.google.com/billing/docs/how-to/reports.
+
+**Bloqueios mantidos:** nenhum deploy, alteração de tag, minScale, tráfego 99/1, credencial, conta de faturamento ou consulta meteorológica.
