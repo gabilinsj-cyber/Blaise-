@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  summarizeBlaiseProject,summarizeRunServices,summarizeRunService,
- summarizeSecretVersions,summarizeScheduler,assessCloudReadOnlySummary
+ summarizeSecretVersions,summarizeSecretIam,summarizeScheduler,assessCloudReadOnlySummary
 } from '../src/rj-production-control-plane-audit.mjs';
 
 test('offline control plane only reports project identity, never deployment',()=>{
@@ -96,4 +96,24 @@ test('even live green Cloud Run health cannot authorize source publication',()=>
  assert.equal(report.releaseApproval,false);
  assert.equal(report.observations.selectedRunService.releaseApproved,false);
  assert.equal(report.contractualRights,'NOT_PROVED_BY_CONTROL_PLANE');
+});
+
+test('IAM metadata proves only direct secret grant, not effective permission or key content',()=>{
+ const sa='runtime@blaise-v6-rj.iam.gserviceaccount.com';
+ const fake={
+  bindings:[{role:'roles/secretmanager.secretAccessor',
+    members:['serviceAccount:'+sa,'user:private@example.com']}]
+ };
+ const x=summarizeSecretIam(fake,sa);
+ assert.equal(x.runtimeServiceIdentityAvailable,true);
+ assert.equal(x.directSecretAccessorBinding,'REPORTED_PRESENT');
+ assert.equal(x.effectiveAccessNotVerified,true);
+ assert.equal(x.projectInheritedAccessNotInspected,true);
+ assert.ok(!JSON.stringify(x).includes(sa));
+ assert.ok(!JSON.stringify(x).includes('private@example.com'));
+ const incomplete=summarizeSecretIam(fake,null);
+ assert.equal(incomplete.directSecretAccessorBinding,'NOT_PROVED');
+ const conditional=summarizeSecretIam({bindings:[{...fake.bindings[0],
+  condition:{title:'temporary'}}]},sa);
+ assert.equal(conditional.directSecretAccessorBinding,'NOT_PROVED');
 });
