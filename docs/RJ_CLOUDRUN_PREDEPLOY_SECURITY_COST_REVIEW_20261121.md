@@ -189,3 +189,27 @@ AUDITORIA: SOMENTE_LEITURA
 **Interpretação cuidadosa:** o limite 1.000 foi atingido, portanto os dados **não constituem inventário completo das 24h**. O conjunto consultado é dominado por logs do sistema; `varlog/system` inclui eventos de escalonamento, inicialização e desligamento de instâncias, conforme documentação oficial do Cloud Run. Os 3 `ERROR` podem corresponder aos 3 HTTP 500 dos logs de requisição. Não atribuir automaticamente as 499 advertências à falha HTTP nem ao segredo. A ausência de `stdout`/`stderr` nessa amostra limitada não comprova que o contêiner não emitiu logs fora da amostra. Referência: https://docs.cloud.google.com/run/docs/logging.
 
 **Próxima ação:** consulta somente leitura **exclusiva** de `run.googleapis.com%2Fvarlog%2Fsystem`, em duas janelas pequenas de 21/11/2026 em UTC ao redor de `11:14` e `11:26`. Exibir apenas contagem por severidade, motivo de escalonamento categorizado e indicadores anônimos de erros, sem textos brutos/URLs/identificadores de instâncias. Manter PR Draft, acesso e tráfego inalterados, sem deploy/consulta meteorológica.
+
+
+## Janelas de logs do sistema sobre inicialização — 21/11/2026, 11h55 BRT
+
+A titular executou análise **somente leitura** de logs de sistema da revisão `blaise-v6-rj-backend-00058-sos` em duas janelas de 5 minutos, em UTC, próximas aos três HTTP 500 observados anteriormente. Captura das 11h55 BRT:
+
+```text
+JANELA: ERRO_0814
+LOGS: 4
+SEVERIDADES: {'WARNING': 2, 'INFO': 2}
+MOTIVOS: {'INSTANCIA_MINIMA': 2}
+LIMITE_ATINGIDO: False
+
+JANELA: ERROS_0826
+LOGS: 4
+SEVERIDADES: {'WARNING': 2, 'INFO': 2}
+MOTIVOS: {'INSTANCIA_MINIMA': 2}
+LIMITE_ATINGIDO: False
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação restrita:** as duas janelas têm eventos classificados pelo script como `STARTING NEW INSTANCE` por `MANUAL_OR_CUSTOMER_MIN_INSTANCE`, compatíveis com manutenção do mínimo 1 previamente observado. A contagem de dois eventos por janela **não é contagem de instâncias simultâneas**, nem evidencia por si só reinícios por crash ou motivo do HTTP 500. As janelas não mostram entradas de severidade ERROR nesse log específico; isso não exclui falhas noutras severidades, códigos de saída ou logs de containers. O efeito financeiro pode estar relacionado ao mínimo de instâncias e modo `INSTANCE_BASED`, mas valores atribuíveis a esta revisão ainda não foram medidos.
+
+**Próxima ação segura:** analisar apenas contagens e categorias dos eventos de ciclo de vida no `varlog/system` e a presença de `stdout/stderr` nas janelas (consultas separadas, sem payload bruto). **Não alterar** minimum scale, IAM, tráfego 99%/1%, tag ou segredos; não implantar candidata, não executar chamadas meteorológicas.
