@@ -150,3 +150,21 @@ AUDITORIA: SOMENTE_LEITURA
 **Interpretação:** os três registros de requisição recuperados para essa revisão tiveram status HTTP 5xx; esses dados são compatíveis com as falhas de `/health` e `/readyz` já observadas nos testes anteriores. **Não comprovam origem externa maliciosa, comprometimento, exposição de dados ou causa técnica do 500.** Não temos ainda correlação por horário nem mensagens do container sobre `startup_failed`, segredo v1, permissões ou falha de dependências. Também não devemos confundir o total recuperado na janela de 24h com uma contagem histórica de todos os acessos.
 
 **Próxima ação:** somente análise agregada dos timestamps e dos logs de erro/instância da revisão sem exibir IPs, URLs, payloads, chaves, principal ou tokens. Não chamar a tag, não executar deploy, não remover IAM/allUsers nem alterar serviço/instâncias ou chave. A candidata segue inexistente.
+
+## Horários dos HTTP 500 e ausência de logs ERROR — 21/11/2026, 11h49 BRT
+
+Auditoria somente leitura da titular, filtrando revisão `blaise-v6-rj-backend-00058-sos`, horizonte de 24h, via Cloud Logging. Captura das 11h49 BRT:
+
+```text
+REQUISICOES: 3
+REQ 1 UTC: 2026-11-21T11:14 HTTP: 500
+REQ 2 UTC: 2026-11-21T11:26 HTTP: 500
+REQ 3 UTC: 2026-11-21T11:26 HTTP: 500
+REGISTROS_ERRO_CONTAINER: 0
+AUDITORIA: SOMENTE_LEITURA
+DEPLOY: NAO_EXECUTADO
+```
+
+As requisições correspondem aproximadamente a **08h14 e 08h26 BRT**, horários compatíveis com testes já realizados pelo usuário. Correspondência temporal **não prova identidade/origem**; não afirmar invasão. O contador de erros de contêiner é referente a `severity>=ERROR` excluindo o log de requisições; **não significa que stdout/stderr/system estejam vazios**, que não houve startup failure ou que o segredo v1 desabilitado seja a causa exclusiva. Causa dos HTTP 500 continua não comprovada.
+
+**Próxima etapa:** consultar, somente leitura, a distribuição dos logs do mesmo período entre `requests`, `stdout`, `stderr` e `varlog/system`, com contagens por severidade, sem imprimir mensagens, endereços, IPs, chaves ou identificadores. Não chamar endpoint de tag, fornecedores, nem efetuar deploy. A PR continua Draft e o serviço dos clientes permanece inalterado.
