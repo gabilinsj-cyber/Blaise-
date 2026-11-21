@@ -42,6 +42,26 @@ const envTrue=(revision,name)=>asArray(revision?.spec?.containers)
  .flatMap(c=>asArray(c?.env))
  .some(e=>e?.name===name&&e?.value==='true');
 
+// The historical revision is immutable. Its flags are observed, not
+// requirements for mutating it. Explicit false values must be supplied when
+// creating a SEPARATE zero-traffic candidate in a later authorized release.
+export const OPENWEATHER_V2_CANDIDATE_SAFE_ENV = Object.freeze({
+ BLAISE_OPENWEATHER_AGENT13_ENABLED:'false',
+ BLAISE_OPENWEATHER_ONECALL4_SUBSCRIPTION_APPROVED:'false',
+ BLAISE_AGENT13_FIRESTORE_ENABLED:'false',
+ BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED:'false',
+ BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED:'false',
+ BLAISE_MET_NORWAY_ENABLED:'false',
+ BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED:'false',
+ BLAISE_INMET_P0_PUBLISH_ENABLED:'false',
+});
+const historicalAutomaticFlags = Object.freeze([
+ 'BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
+ 'BLAISE_MET_NORWAY_ENABLED',
+ 'BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
+ 'BLAISE_INMET_P0_PUBLISH_ENABLED'
+]);
+
 export function assessOpenweatherV2RepairEvidence({
  revision,service,openweatherVersions,redemetVersions,openweatherIamPolicy
 }={}){
@@ -63,12 +83,10 @@ export function assessOpenweatherV2RepairEvidence({
   envTrue(r,'BLAISE_OPENWEATHER_ONECALL4_SUBSCRIPTION_APPROVED')||
   envTrue(r,'BLAISE_AGENT13_FIRESTORE_ENABLED')||
   envTrue(r,'BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED');
- const activeBackgroundCollection=[
-  'BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
-  'BLAISE_MET_NORWAY_ENABLED',
-  'BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
-  'BLAISE_INMET_P0_PUBLISH_ENABLED'
- ].some(name=>envTrue(r,name));
+ const historicActiveWeatherFlags=historicalAutomaticFlags.filter(name=>envTrue(r,name));
+ const candidateSafetyFlagsExplicit=Object.keys(OPENWEATHER_V2_CANDIDATE_SAFE_ENV)
+  .length===8&&Object.values(OPENWEATHER_V2_CANDIDATE_SAFE_ENV)
+  .every(value=>value==='false');
 
  const checks=Object.freeze({
   projectAssumedNotVerifiedInPureReducer:true,
@@ -86,7 +104,7 @@ export function assessOpenweatherV2RepairEvidence({
   originalRevisionZeroTraffic:matching.length>0&&percent===0,
   serviceTrafficTotals100Percent:traffic.length>0&&projectedTotal===100,
   openweatherAgent13AndApprovalsOff:!activeAgent13,
-  historicalAutomaticWeatherCollectionOff:!activeBackgroundCollection,
+  proposedCandidateExplicitlyDisablesWeatherCollection:candidateSafetyFlagsExplicit,
  });
  const blockers=Object.freeze(Object.entries(checks)
   .filter(([name,pass])=>name!=='projectAssumedNotVerifiedInPureReducer'&&!pass)
@@ -96,6 +114,11 @@ export function assessOpenweatherV2RepairEvidence({
   status:planReady?'REPAIR_PLAN_ELIGIBLE_NOT_DEPLOYED':'REPAIR_PLAN_BLOCKED',
   checks,
   blockers,
+  historicalAutomaticWeatherCollectionOn:historicActiveWeatherFlags.length>0,
+  historicalActiveWeatherFlags:Object.freeze([...historicActiveWeatherFlags]),
+  historicalRevisionPreservedWithCurrentFlags:true,
+  proposedCandidateExplicitFalseFlags:OPENWEATHER_V2_CANDIDATE_SAFE_ENV,
+  candidateConfigurationApplied:false,
   openweatherVersion1:versionState(openweatherVersions,'1'),
   openweatherVersion2:versionState(openweatherVersions,'2'),
   redemetVersion1:versionState(redemetVersions,'1'),
