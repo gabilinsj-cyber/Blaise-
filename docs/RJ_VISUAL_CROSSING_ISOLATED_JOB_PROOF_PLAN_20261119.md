@@ -407,3 +407,18 @@ A titular apresentou captura do terminal às **01h40 BRT** com execução bem-su
 **Ponto de segurança temporal:** o binding `roles/secretmanager.secretAccessor` condicional da conta `blaise-vc-proof` tinha expressão `request.time < timestamp('2026-11-21T00:14:02Z')`, ou seja, prazo encerrado em 20/11/2026 às 21h14 BRT; **não** está autorizando acesso por esse vínculo após o vencimento, embora permaneça na política até remoção explícita. Qualquer futura execução de prova exigirá nova aprovação **separada** e uma nova condição temporal, sem automatizar renovação.
 
 **Próximo passo:** verificar somente metadados/autorizações para Cloud Build com identidade personalizada `blaise-vc-build`, em especial `iam.serviceAccounts.actAs`, escolha de logs (`CLOUD_LOGGING_ONLY` demanda escritor de logs ou alternativa segura) e consumo/custo, antes de submeter build limitado aos três arquivos do contexto `BLAISE_VC_BUILD_PREP`. Não usar a identidade padrão com vínculo Editor/Owner. Sem novo IAM, build, deploy, job ou chamada meteorológica nesta confirmação.
+
+
+## Evidência Cloud Shell — 21/11/2026 01h43 BRT: permissões de execução e logs ainda inconclusivas
+
+A titular apresentou captura da saída de consulta IAM somente leitura às **01h43 BRT**. Resultados:
+
+- `POLITICA_CONTA: CONSULTADA` da conta `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com`;
+- `POLITICA_PROJETO: CONSULTADA` do `blaise-v6-rj`;
+- `VINCULOS_SERVICE_ACCOUNT_USER: 0` **na política da própria conta de serviço**: o filtro contou bindings com papel `roles/iam.serviceAccountUser` **sem determinar quem é membro**; não prova ausência de permissão `iam.serviceAccounts.actAs` proveniente de projeto/organização ou outros papéis;
+- `BUILDER_LOG_WRITER_DIRETO: False` **no IAM do projeto** para a conta de build; não exclui grants por pasta/organização/outros papéis;
+- `PERMISSOES_EFETIVAS: NAO_VERIFICADAS`.
+
+**Risco**: build com conta personalizada precisa que **o operador que submete** tenha `iam.serviceAccounts.actAs`; quando usa `CLOUD_LOGGING_ONLY`, a identidade de build precisa poder gravar logs (em geral `roles/logging.logWriter`). Alternativamente, logs podem usar bucket GCS com permissões estreitas e custos adicionais. Documentação oficial: https://docs.cloud.google.com/build/docs/securing-builds/configure-user-specified-service-accounts.
+
+**Decisão:** não iniciar Cloud Build, não conceder `roles/iam.serviceAccountUser`/logWriter automaticamente ou no projeto inteiro, não reusar identidade Compute Engine default Editor/Owner. Continuar com filtro somente leitura para permissões explícitas do **operador atualmente autenticado** e da identidade de build nas políticas de projeto; não imprimir e-mails da política nem tokens. Depois solicitar consentimento específico para eventuais grants mínimos necessários. Repositório `blaise-vc-proof` com `roles/artifactregistry.writer` para `blaise-vc-build` permanece confirmado, mas isso isoladamente não libera build. IAM temporário `blaiseVcProof24h` da conta de teste **expirou**; não renovar sem consentimento. Sem imagem publicada, Cloud Run Job, execução da prova ou coleta/publicação de clientes.
