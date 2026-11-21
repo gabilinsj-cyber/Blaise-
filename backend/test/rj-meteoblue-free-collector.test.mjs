@@ -96,6 +96,56 @@ test('provider 6h schema parses seven auditable numerical comparison fields',()=
  assert.equal(r.scientificallyHomologated,false);
  assert.equal(r.publishedToSubscribers,false);
 });
+test('official basic-6h total and convective precipitation remain distinct provider keys',()=>{
+ const p=sample();
+ const total=p.data_6h.precipitation;
+ p.data_6h.convective_precipitation=total.map((v,i)=>i%2===0?v/4:v/2);
+ const r=parseMeteoblueBasic6h({
+  payload:p,ibge:IBGE,latitude:target.lat,longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(r.auditReadyForPrivateReview,true);
+ assert.equal(r.values.length,7);
+ const totalOut=r.values.find(x=>x.field==='forecastPrecipitationSixHourMm');
+ const convOut=r.values.find(x=>x.field==='forecastConvectivePrecipitationSixHourMm');
+ assert.equal(totalOut.sourceField,'precipitation');
+ assert.equal(convOut.sourceField,'convective_precipitation');
+ assert.equal(totalOut.semantics,'SIX_HOUR_FORECAST_TOTAL');
+ assert.equal(convOut.semantics,'SIX_HOUR_FORECAST_COMPONENT');
+ assert.deepEqual(totalOut.values,total);
+ assert.deepEqual(convOut.values,p.data_6h.convective_precipitation);
+ assert.notDeepEqual(totalOut.values,convOut.values);
+ assert.notStrictEqual(totalOut.values,convOut.values);
+ assert.deepEqual(
+  new Set(r.values.map(x=>x.sourceField)),
+  new Set(Object.keys(METEOBLUE_BASIC6H_FIELDS))
+ );
+ // Equal values are not evidence of duplicated assignments. They remain
+ // two separate, provider-labelled forecasts, not observations.
+ const pEqual=sample();
+ const equal=parseMeteoblueBasic6h({
+  payload:pEqual,ibge:IBGE,latitude:target.lat,longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(equal.auditReadyForPrivateReview,true);
+ assert.equal(equal.scientificallyHomologated,false);
+ const equalTotal=equal.values.find(x=>x.sourceField==='precipitation');
+ const equalConv=equal.values.find(x=>x.sourceField==='convective_precipitation');
+ assert.notStrictEqual(equalTotal.values,equalConv.values);
+ // Missing convective key must never fall back to precipitation total.
+ const missing=sample();
+ delete missing.data_6h.convective_precipitation;
+ const incomplete=parseMeteoblueBasic6h({
+  payload:missing,ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(incomplete.coverage.forecastConvectivePrecipitationSixHourMm,
+  'UNAVAILABLE_NOT_IN_RESPONSE');
+ assert.equal(incomplete.completeFieldCoverage,false);
+ assert.equal(incomplete.auditReadyForPrivateReview,false);
+ assert.equal(incomplete.values.some(x=>
+  x.field==='forecastConvectivePrecipitationSixHourMm'),false);
+});
+
 test('no fabricated missing values; invalid units not claimed as verified',()=>{
  const p=sample();delete p.data_6h.relativehumidity_mean;
  p.data_6h.precipitation[0]=null;
