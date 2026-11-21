@@ -238,3 +238,22 @@ AUDITORIA: SOMENTE_LEITURA
 **Interpretação:** nove eventos classificados como `starting new instance` entre 11h10 e 11h32 UTC não demonstram nove instâncias simultâneas nem ciclos de crash. Outros nove eventos de sistema não foram categorizados; ainda não se pode concluir causa dos três HTTP 500 das 11h14/11h26 UTC. A ausência de STDOUT/STDERR nesse período não prova ausência de erros do aplicativo ou ausência de tráfego meteorológico. Exigem-se evidências adicionais, sem leitura de payloads contendo credenciais e sem chamar endpoints da tag.
 
 **Estado:** PR #173 permanece draft; não executar deploy, alterar instâncias, IAM, segredos ou tráfego 99%/1%. Próximo diagnóstico permitido: contagens anonimizadas das nove entradas `OUTROS` por grupos de palavras-chave previamente fixos, ou metadados de latência do request log, sem mensagens brutas/URLs/IPs.
+
+
+## Classificação ampliada de eventos do sistema — 21/11/2026, 16h01 BRT
+
+O usuário executou no Cloud Shell a classificação somente leitura de `run.googleapis.com/varlog/system` para a revisão `blaise-v6-rj-backend-00058-sos`, janela `2026-11-21T11:10:00Z` a `11:32:00Z`, limite 200. Saída da captura das 16h01 BRT:
+
+```text
+TOTAL: 18
+INICIO_INSTANCIA: 9
+NAO_CLASSIFICADO: 9
+LIMITE_ATINGIDO: False
+AUDITORIA: SOMENTE_LEITURA
+```
+
+Nenhum evento foi classificado pelos padrões textuais específicos `failed to start`, `startup probe failed`, `failed to listen`, `terminated`, `shutting down`, `exit code`, `sigterm`, `out of memory`, `oom`, `memory limit`, `permission denied`, `secretmanager`, `access denied`. Isso **não prova ausência de tais falhas**, já que a categorização é por frases. Os nove registros não classificados não são, por si só, anomalias. As 3 respostas HTTP 500 permaneceram não explicadas, e a existência de eventos de início por minimum instances não comprova crash, nove instâncias simultâneas ou causa de 500.
+
+Próxima leitura recomendada: obter **somente metadados das três requisições HTTP 500** (latência e status, sem caminhos, IPs, URLs, traceIDs ou textos), para distinguir falha imediata da aplicação versus espera pela instância sem chamar a URL. A investigação de código da imagem de produção requer evidência da imagem efetiva e revisão controlada, sem publicar credenciais.
+
+BLOQUEIOS: PR Draft; nenhum merge/deploy; preservar 99%/1% de tráfego, IAM compartilhado, tag, segredos e instâncias. Nenhuma consulta meteorológica intencional.
