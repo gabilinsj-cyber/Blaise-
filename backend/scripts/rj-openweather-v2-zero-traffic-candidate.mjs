@@ -39,6 +39,22 @@ const getJson=(args)=>{
   return parsed&&typeof parsed==='object'?parsed:null;
  }catch{return null;}
 };
+// A missing candidate revision must be CONFIRMED as not found. IAM/API errors
+// are never treated as absence, preventing accidental duplicate deployment.
+const candidateExistence=()=>{
+ try{
+  execFileSync('gcloud',['run','revisions','describe',CANDIDATE,
+   '--project='+PROJECT,'--region='+REGION,'--format=json'],{
+   encoding:'utf8',stdio:['ignore','pipe','pipe'],
+   timeout:30000,maxBuffer:256*1024
+  });
+  return 'EXISTS';
+ }catch(e){
+  const message=String(e?.stderr||'');
+  return /cannot find revision|not[ _-]?found|does not exist/i.test(message)
+   ?'CONFIRMED_ABSENT':'UNKNOWN_API_OR_PERMISSION_ERROR';
+ }
+};
 const specContainer=x=>{
  const cs=x?.spec?.containers;
  return Array.isArray(cs)&&cs.length===1?cs[0]:null;
@@ -127,8 +143,9 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
   if(rc&&(rc.resources?.limits?.cpu!=='1'||rc.resources?.limits?.memory!=='512Mi'))
    problems.push('CPU_OR_MEMORY_UNEXPECTED');
   if(!imageDigest(revision))problems.push('PINNED_IMAGE_DIGEST_NOT_RESOLVED');
-  if(getJson(['run','revisions','describe',CANDIDATE,...base]))
-   problems.push('CANDIDATE_ALREADY_EXISTS');
+  const candidateState=candidateExistence();
+  if(candidateState!=='CONFIRMED_ABSENT')
+   problems.push('CANDIDATE_NOT_CONFIRMED_ABSENT_'+candidateState);
   if(Object.values(SAFE_ENV).some(x=>x!=='false')||
    Object.keys(SAFE_ENV).length!==8)
    problems.push('CANDIDATE_WEATHER_GATES_NOT_OFF');
