@@ -66,6 +66,17 @@ test('seven scientific checks do not silently grant consumer publication',()=>{
  assert.equal(a.creditsReserved,0);
  assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.publicReleaseApproved,false);
  assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.commercialRightsVerified,false);
+ assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.freeApiCommercialUseAdvertised,true);
+ assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.subscriberDistributionRightsVerified,false);
+ assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.dataReproductionAndRetentionRightsVerified,false);
+ assert.equal(METEOBLUE_FREE_PUBLICATION_CONTRACT.customerAttributionRequirementsVerified,false);
+ assert.equal(a.freeApiCommercialUseAdvertised,true);
+ assert.equal(a.subscriberDistributionRightsVerified,false);
+ assert.equal(a.customerAttributionRequirementsVerified,false);
+ assert.equal(a.historicalForecastsUsableAsCurrent,false);
+ assert.equal(a.historicalForecastsUsableAsObservations,false);
+ assert.equal(a.contractualBlockers.length,3);
+ assert.equal(a.convectiveSemanticReviewStatus,'NO_COMPONENT_RELATIONSHIP_WARNING');
 });
 test('probability can differ from deterministic amount without false scientific rejection',()=>{
  const p=makePayload();
@@ -85,6 +96,7 @@ test('identical total and convective wet series trigger review rather than auto-
  assert.ok(a.warnings.includes(
   'CONVECTIVE_COMPONENT_MATCHES_TOTAL_IN_ALL_WET_PERIODS_REVIEW'));
  assert.equal(a.additionalScientificReviewRequired,true);
+ assert.equal(a.convectiveSemanticReviewStatus,'ALL_WET_PERIODS_IDENTICAL_REVIEW_REQUIRED');
  assert.equal(a.clientPublicationAllowed,false);
 });
 test('convective exceeds total and wind maximum below mean trigger scientific review',()=>{
@@ -95,6 +107,8 @@ test('convective exceeds total and wind maximum below mean trigger scientific re
  assert.equal(a.structuralChecksPassed,true);
  assert.ok(a.warnings.includes('CONVECTIVE_COMPONENT_EXCEEDS_TOTAL_REVIEW'));
  assert.ok(a.warnings.includes('SIX_HOUR_WIND_MAX_BELOW_MEAN_REVIEW'));
+ assert.equal(a.convectiveSemanticReviewStatus,'COMPONENT_GREATER_THAN_TOTAL_REVIEW_REQUIRED');
+ assert.equal(a.clientPublicationAllowed,false);
 });
 test('missing values remain missing and historical model runs are not advertised as current',()=>{
  const p=makePayload();
@@ -105,6 +119,8 @@ test('missing values remain missing and historical model runs are not advertised
  assert.ok(a.warnings.includes('INCOMPLETE_PERIOD_VALUES_RELATIVEHUMIDITY_MEAN'));
  assert.ok(a.warnings.includes('MODEL_RUN_NOT_CURRENT_FOR_CLIENT'));
  assert.ok(a.warnings.includes('PRIVATE_CACHE_EXPIRED_OR_CLOCK_INVALID'));
+ assert.equal(a.historicalForecastsUsableAsCurrent,false);
+ assert.equal(a.historicalForecastsUsableAsObservations,false);
  const rh=a.fields.find(x=>x.sourceKey==='relativehumidity_mean');
  assert.equal(rh.numericCount,28);
  assert.equal(rh.missingCount,1);
@@ -156,6 +172,23 @@ test('future subscriber projection cannot be enabled through options or fake app
  assert.equal(attempt.providerContacted,false);
  assert.equal(attempt.creditsReserved,0);
  assert.equal(JSON.stringify(attempt).includes('apikey'),false);
+});
+test('commercial use on public Free plan page never becomes subscriber distribution permission',()=>{
+ const data=f();
+ for(const options of [
+  {commercialUseAdvertised:true,subscriberDistributionRightsVerified:true},
+  {commercialRightsVerified:true,dataReproductionAndRetentionRightsVerified:true},
+  {publicationLicenseId:'unverified',attributionConfirmed:true,releaseApproved:true},
+  {nowMs:now,storedAtMs:now,publishToSubscribers:true}
+ ]){
+  const out=assessMeteoblueFreePublication(data,options);
+  assert.equal(out.freeApiCommercialUseAdvertised,true);
+  assert.equal(out.subscriberDistributionRightsVerified,false);
+  assert.equal(out.clientPublicationAllowed,false);
+  assert.equal(out.commercialUseAuthorized,false);
+  assert.ok(out.contractualBlockers.includes('CUSTOMER_SUBSCRIBER_DISTRIBUTION_PERMISSION_NOT_DOCUMENTED'));
+  assert.equal(out.clientPayload,null);
+ }
 });
 test('no forecast also denies without touching provider or publishing data',()=>{
  const x=buildMeteoblueFreeClientPayload(null,{nowMs:now});
