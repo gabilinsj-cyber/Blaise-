@@ -1,10 +1,11 @@
 /**
  * Owner-authorized ONE-TIME Cloud Run candidate deployment (21 Nov 2026).
  *
- * Without --execute-approved-zero-traffic: read-only preflight only.
- * With the explicit flag: create an untagged Cloud Run revision with 0%
- * production traffic. No Secret Manager payload reads, no public tag, no
- * outbound weather API, no build/push, no traffic migration or promotions.
+ * This stage is READ-ONLY: default/--preflight-only validates a proposed
+ * zero-minimum candidate. Even --execute-approved-zero-traffic is explicitly
+ * PAUSED pending a separate deployment review and must not mutate Cloud Run.
+ * No Secret Manager payload reads, no public tag, no outbound weather API,
+ * no build/push, no traffic migration or promotions.
  *
  * This targets only the HISTORICAL 00058 image digest, not the unmerged PR
  * code. It deliberately does not claim validation of the vendor key or live
