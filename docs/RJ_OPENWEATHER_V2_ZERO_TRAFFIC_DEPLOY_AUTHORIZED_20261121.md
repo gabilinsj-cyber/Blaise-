@@ -48,3 +48,28 @@ Nunca executar comandos separados `gcloud run deploy`, `services update-traffic`
 Mesmo com saída de sucesso, NÃO estão validados: chave v2 do fornecedor; efetiva inicialização por Secret Manager; saúde HTTP da candidata (sem tag intencionalmente); CI Android de publicação; segurança P0; coleta real 92/92; licença de redistribuição; custos da conta. Não promover produção nem liberar clientes. Uma futura inspeção (somente leitura) da condição `Ready` da revisão pode ser feita sem tráfego, mas testes HTTP diretos exigem **plano separado de invocação segura**.
 
 Oficial: [Cloud Run - Revisões e rollout](https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration), [Cloud Run - Secret Manager](https://docs.cloud.google.com/run/docs/configuring/services/secrets), [CLI gcloud run deploy](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy).
+
+
+## Resultado real do Cloud Shell — 21/11/2026, 09h51 BRT
+
+A titular executou o procedimento aprovado, após passar nos testes locais. O comando **interrompeu-se no preflight**, com:
+
+```text
+RJ_OPENWEATHER_V2_CANDIDATE={
+ "status":"BLOCKED_NO_DEPLOY",
+ "reason":"PREFLIGHT_NOT_SAFE_TO_CREATE",
+ "detail":[
+  "SERVICE_TEMPLATE_CHANGED_FROM_HISTORICAL_BASE",
+  "CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V1",
+  "REVISION_MIN_INSTANCES_NOT_ZERO"
+ ],
+ "releaseAuthorized":false,
+ "weatherProviderCalled":false,
+ "secretPayloadRead":false
+}
+```
+
+**Não houve deploy por esse script.** O template atual do serviço é diferente da imagem da revisão histórica, a referência do OpenWeather na configuração atual não é a versão 1 esperada, e há uma configuração de instâncias mínimas diferente de zero. Esses itens podem ser **legítimos em produção**. É proibido ignorar ou remover as travas sem examinar o template e a escala, pois o efeito de `gcloud run deploy` no serviço ativo não estaria suficientemente controlado.
+
+**Ação imediata**: somente consultar o resumo seguro (template versus revisão histórica, versão de referência OpenWeather, localização da configuração minScale, sem ler secret payload nem imprimir valores de ambiente). Não repetir `--execute-approved-zero-traffic`, não alterar min-instances, template, tráfego, segredos ou IAM. Reavaliar o desenho antes de qualquer nova execução. A autorização original não dá permissão para criar serviço diferente, modificar a configuração atual dos clientes, mudar escalonamento ou aumentar custos.
+
