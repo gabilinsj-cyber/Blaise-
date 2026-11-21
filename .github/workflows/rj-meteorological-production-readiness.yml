@@ -8,16 +8,19 @@ on:
       - backend/src/rj-production-control-plane-audit.mjs
       - backend/src/rj-openweather-secret-v2-repair-plan.mjs
       - backend/src/rj-openweather-zero-min-candidate.mjs
+      - backend/src/rj-cloudrun-predeploy-impact-audit.mjs
       - backend/src/rj-openweather-zero-min-candidate.mjs
       - backend/scripts/rj-meteorological-production-readiness.mjs
       - backend/scripts/rj-production-cloud-readonly-probe.mjs
       - backend/scripts/rj-openweather-secret-v2-repair-readonly.mjs
       - backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs
+      - backend/scripts/rj-cloudrun-predeploy-impact-readonly.mjs
       - backend/test/rj-meteorological-production-readiness.test.mjs
       - backend/test/rj-production-control-plane-audit.test.mjs
       - backend/test/rj-openweather-secret-v2-repair-plan.test.mjs
       - backend/test/rj-openweather-v2-zero-traffic-candidate.test.mjs
       - backend/test/rj-openweather-zero-min-candidate.test.mjs
+      - backend/test/rj-cloudrun-predeploy-impact-audit.test.mjs
       - backend/test/rj-openweather-zero-min-candidate.test.mjs
       - .github/workflows/rj-meteorological-production-readiness.yml
   workflow_dispatch:
@@ -39,13 +42,16 @@ jobs:
           node --check backend/src/rj-production-control-plane-audit.mjs
           node --check backend/src/rj-openweather-secret-v2-repair-plan.mjs
           node --check backend/src/rj-openweather-zero-min-candidate.mjs
+          node --check backend/src/rj-cloudrun-predeploy-impact-audit.mjs
+          node --check backend/scripts/rj-cloudrun-predeploy-impact-readonly.mjs
           node --check backend/src/rj-openweather-zero-min-candidate.mjs
           node --check backend/scripts/rj-openweather-secret-v2-repair-readonly.mjs
           node --check backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs
           node --check backend/scripts/rj-production-cloud-readonly-probe.mjs
           node --check backend/scripts/rj-meteorological-production-readiness.mjs
-          node --test backend/test/rj-meteorological-production-readiness.test.mjs backend/test/rj-production-control-plane-audit.test.mjs backend/test/rj-openweather-secret-v2-repair-plan.test.mjs backend/test/rj-openweather-v2-zero-traffic-candidate.test.mjs backend/test/rj-openweather-zero-min-candidate.test.mjs backend/test/rj-openweather-zero-min-candidate.test.mjs
+          node --test backend/test/rj-meteorological-production-readiness.test.mjs backend/test/rj-production-control-plane-audit.test.mjs backend/test/rj-openweather-secret-v2-repair-plan.test.mjs backend/test/rj-openweather-v2-zero-traffic-candidate.test.mjs backend/test/rj-openweather-zero-min-candidate.test.mjs backend/test/rj-cloudrun-predeploy-impact-audit.test.mjs backend/test/rj-openweather-zero-min-candidate.test.mjs
           node backend/scripts/rj-production-cloud-readonly-probe.mjs
           node backend/scripts/rj-openweather-secret-v2-repair-readonly.mjs
+          node backend/scripts/rj-cloudrun-predeploy-impact-readonly.mjs
           node backend/scripts/rj-meteorological-production-readiness.mjs --assert-private
           echo 'RJ_METEOROLOGICAL_NEW_SOURCE_RELEASE=BLOCKED_PENDING_EVIDENCE'
