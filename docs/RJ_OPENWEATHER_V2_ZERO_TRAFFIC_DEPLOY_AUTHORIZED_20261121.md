@@ -128,3 +128,23 @@ node scripts/rj-openweather-v2-zero-traffic-candidate.mjs --preflight-only
 
 **NÃO EXECUTAR** `--execute-approved-zero-traffic`, `gcloud run deploy`, `gcloud run services update-traffic`, `gcloud run services update --min` ou qualquer consulta meteorológica. A futura candidata de 0% continua **NÃO CRIADA**, a PR segue DRAFT, nenhuma versão de segredo foi alterada e o release está BLOQUEADO.
 
+
+
+## Auditoria real de tráfego e ausência de candidata — 21/11/2026, 10h31 BRT
+
+Consulta autenticada, apenas de leitura, ao `gcloud run services describe` e `gcloud run revisions list --service=blaise-v6-rj-backend` realizada no Cloud Shell pelo proprietário. Saída agregada da captura:
+
+```text
+TRAFEGO_31: 99
+TRAFEGO_38: 1
+TRAFEGO_TOTAL: 100
+TRAFEGO_99_1_PRESERVADO: True
+CANDIDATA_EXISTE: False
+CANDIDATA_AUSENTE: True
+AUDITORIA: SOMENTE_LEITURA
+DEPLOY_REAL: BLOQUEADO_NESTA_ETAPA
+```
+
+**Conclusão limitada:** na leitura das 10h31, o roteamento público continuava 99% na `00031-vep` e 1% na `00038-pin`, sem revisão `blaise-v6-rj-backend-owv2-211126` listada. A linha `DEPLOY_REAL: BLOQUEADO_NESTA_ETAPA` é impressa pelo próprio script, não constitui auditoria independente de todas as alterações históricas; a ausência da candidata e os testes de CI são evidência adicional. `REAL_DEPLOY_PAUSED=true` continua no script da PR #173; **não reexecutar a opção de implantação**. O último CI de auditoria offline passou com **42/42 testes**, referência do run 44907990908. Não houve nova chamada meteorológica intencional nem leitura de payload de segredo nesta etapa.
+
+**Próxima etapa segura:** executar somente o modo `--preflight-only` da versão atualizada em worktree separada, mantendo bloqueada a criação real. Qualquer mudança futura de runtime, API key, minScale global ou tráfego exige nova aprovação e validação.
