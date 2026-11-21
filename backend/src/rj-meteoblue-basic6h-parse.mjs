@@ -2,6 +2,13 @@
  * meteoblue basic-6h -> trusted PRIVATE forecast comparison.
  * Schema fields derived from official /packages/openapi.json, 2026-11-18.
  * Forecast ≠ observation, 6h precipitation ≠ hourly measured rainfall.
+ * Official definitions (meteoblue, weather variables):
+ * precipitation = total liquid-water-equivalent forecast accumulated during
+ * the preceding period; convective_precipitation = convective part accumulated
+ * during that same period. They are distinct source keys and MUST NOT be
+ * aliased or derived one from the other. Equal numerical series are possible
+ * and require scientific review, not automatic corruption/replacement.
+ * See https://docs.meteoblue.com/en/meteo/variables/weather-variables
  * No temperature/feels-like override, no gusts, no storm/official alerts.
  */
 export const METEOBLUE_BASIC6H_FIELDS=Object.freeze({
@@ -115,7 +122,8 @@ export function parseMeteoblueBasic6h({payload,ibge,latitude,longitude,nowMs=Dat
   if(isWind&&factor!==1)windUnitConversionApplied=true;
   stats[field.name]=normalized.some(v=>v!==null)?'FORECAST_VALUES_PRESENT':'UNAVAILABLE_NULL_VALUES';
   observations.push(Object.freeze({
-    field:field.name,unit:field.unit,semantics:field.meaning,
+    // Preserve exact provider source key for future private provenance audits.
+    sourceField,field:field.name,unit:field.unit,semantics:field.meaning,
     values:Object.freeze(normalized)
   }));
  }
