@@ -168,3 +168,24 @@ DEPLOY: NAO_EXECUTADO
 As requisições correspondem aproximadamente a **08h14 e 08h26 BRT**, horários compatíveis com testes já realizados pelo usuário. Correspondência temporal **não prova identidade/origem**; não afirmar invasão. O contador de erros de contêiner é referente a `severity>=ERROR` excluindo o log de requisições; **não significa que stdout/stderr/system estejam vazios**, que não houve startup failure ou que o segredo v1 desabilitado seja a causa exclusiva. Causa dos HTTP 500 continua não comprovada.
 
 **Próxima etapa:** consultar, somente leitura, a distribuição dos logs do mesmo período entre `requests`, `stdout`, `stderr` e `varlog/system`, com contagens por severidade, sem imprimir mensagens, endereços, IPs, chaves ou identificadores. Não chamar endpoint de tag, fornecedores, nem efetuar deploy. A PR continua Draft e o serviço dos clientes permanece inalterado.
+
+
+## Distribuição de Cloud Logging — 21/11/2026, 11h52 BRT
+
+A consulta real de Cloud Logging da revisão `blaise-v6-rj-backend-00058-sos`, janela de 24 horas, retornou **exatamente o limite solicitado de 1.000 registros**, conforme captura das 11h52:
+
+```text
+TOTAL_LOGS: 1000
+REQUISICOES: 3
+STDOUT: 0
+STDERR: 0
+SISTEMA: 997
+OUTROS: 0
+SEVERIDADES: {'ERROR': 3, 'INFO': 498, 'WARNING': 499}
+LIMITE_ATINGIDO: True
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação cuidadosa:** o limite 1.000 foi atingido, portanto os dados **não constituem inventário completo das 24h**. O conjunto consultado é dominado por logs do sistema; `varlog/system` inclui eventos de escalonamento, inicialização e desligamento de instâncias, conforme documentação oficial do Cloud Run. Os 3 `ERROR` podem corresponder aos 3 HTTP 500 dos logs de requisição. Não atribuir automaticamente as 499 advertências à falha HTTP nem ao segredo. A ausência de `stdout`/`stderr` nessa amostra limitada não comprova que o contêiner não emitiu logs fora da amostra. Referência: https://docs.cloud.google.com/run/docs/logging.
+
+**Próxima ação:** consulta somente leitura **exclusiva** de `run.googleapis.com%2Fvarlog%2Fsystem`, em duas janelas pequenas de 21/11/2026 em UTC ao redor de `11:14` e `11:26`. Exibir apenas contagem por severidade, motivo de escalonamento categorizado e indicadores anônimos de erros, sem textos brutos/URLs/identificadores de instâncias. Manter PR Draft, acesso e tráfego inalterados, sem deploy/consulta meteorológica.
