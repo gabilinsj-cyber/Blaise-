@@ -139,3 +139,29 @@ Evidência recebida em captura da titular: `node scripts/meteoblue-free-credit-s
 | `freeExpiryUtc` | `2027-11-18T00:00:00.000Z` |
 
 **Conclusão:** a única chamada real de 19/11 teve reserva atômica persistida no Firestore. O bloqueio de novas reservas no mesmo dia UTC está previsto pelo código e testes, sem necessidade de executar outra chamada. O orçamento interno restante **não equivale ao saldo real de créditos do fornecedor**. Verificar dashboard meteoblue para cobrança externa e consumo total; nenhuma nova consulta `basic-6h` hoje. Não alterar chave, produção, cliente nem PR draft por este registro.
+
+## Continuidade — 21/11/2026: auditoria numérica histórica sem novas chamadas
+
+A inspeção anterior `meteoblue-free-private-cache-inspect.mjs` **não** devolve previsão vencida: `getCached` bloqueia após TTL 6h. Como o ensaio real foi às **09h42 BRT de 19/11**, em 21/11 seus valores são **históricos, não atuais**. O documento Firestore pode continuar existindo porque a coleção privada desliga exclusão automática, porém sua existência **não foi verificada diretamente neste chat**.
+
+O novo comando **somente leitura** consulta a versão histórica guardada (se ainda existir), sem depender de segredo ou token meteoblue, sem crédito e sem nova previsão:
+
+```bash
+set +x
+cd ~/Blaise-RJ
+git fetch origin feature/rj-meteoblue-full-recovery-admin-ui-20261118
+# Pasta independente; nunca substituir a auditoria de 19/11 ou o repositório original.
+if [ ! -e ~/blaise-meteoblue-historico-20261121 ]; then
+  git worktree add --detach ~/blaise-meteoblue-historico-20261121 FETCH_HEAD
+fi
+cd ~/blaise-meteoblue-historico-20261121/backend
+nvm use 24
+npm ci --ignore-scripts --no-audit --no-fund
+node --test test/rj-meteoblue-free-historical-audit.test.mjs
+node scripts/meteoblue-free-private-history-inspect.mjs --read-historical-cache
+node scripts/meteoblue-free-credit-status.mjs --read-firestore-budget
+```
+
+Resumo seguro no terminal: `METEOBLUE_HISTORICAL_NUMERIC_AUDIT` indica `HISTORICAL_FORECAST_AUDITED_NOT_CURRENT` com *count/missingCount/min/max/mean/median* de cada um dos sete campos, timestamp de armazenamento, primeiro e último período e marcadores de proveniência; sem chave, endpoints, localização de usuários ou dados crus completos. O resultado **não** homologará produção nem atualizará clientes. `NO_HISTORICAL_CACHE_DOCUMENT` significa que o documento já não existe e **não** autoriza recaptura. `HISTORICAL_RECORD_INVALID` ou `FIRESTORE_READ_UNAVAILABLE` devem ser diagnosticados sem modificar cache e sem nova chamada.
+
+Como já houve uma solicitação real com a **chave exposta**, o ledger da campanha inclui **uma** reserva global e o código bloqueia novas sondagens com aquela credencial; não tentar contornar com outra variável ou chave. O saldo real do fornecedor só pode ser confirmado no próprio painel.
