@@ -63,6 +63,23 @@ export function summarizeSecretVersions(versions){
   paidApiActivationStatus:'NOT_INSPECTED'
  });
 }
+/** Secret-level permission check only. Project-inherited IAM is NOT proved. */
+export function summarizeSecretIam(policy,runtimeServiceAccount){
+ const p=data(policy);
+ const principal=typeof runtimeServiceAccount==='string'&&
+  runtimeServiceAccount.endsWith('.iam.gserviceaccount.com')
+   ?'serviceAccount:'+runtimeServiceAccount:null;
+ const directGrant=!!principal&&array(p.bindings).some(b=>
+  b?.role==='roles/secretmanager.secretAccessor'&&
+  array(b.members).includes(principal)&&!b.condition);
+ return Object.freeze({
+   runtimeServiceIdentityAvailable:!!principal,
+   directSecretAccessorBinding:directGrant?'REPORTED_PRESENT':'NOT_PROVED',
+   projectInheritedAccessNotInspected:true,
+   effectiveAccessNotVerified:true,
+   policyMembersOmitted:true
+ });
+}
 export function summarizeScheduler(jobs){
  const list=array(jobs);
  return Object.freeze({
@@ -75,13 +92,14 @@ export function summarizeScheduler(jobs){
  });
 }
 export function assessCloudReadOnlySummary({project,runServices,runService,
- meteoblueSecretVersions,schedulerJobs,health}={}){
+ meteoblueSecretVersions,secretIamPolicy,runtimeServiceAccount,schedulerJobs,health}={}){
  const observations=Object.freeze({
    project:project===null||project===undefined?null:summarizeBlaiseProject(project),
    runServices:runServices===null||runServices===undefined?null:summarizeRunServices(runServices),
    selectedRunService:runService===null||runService===undefined?null:summarizeRunService(runService),
    meteoblueSecret:meteoblueSecretVersions===null||meteoblueSecretVersions===undefined
      ?null:summarizeSecretVersions(meteoblueSecretVersions),
+   secretAccess:secretIamPolicy===null||secretIamPolicy===undefined?null:summarizeSecretIam(secretIamPolicy,runtimeServiceAccount),
    scheduler:schedulerJobs===null||schedulerJobs===undefined?null:summarizeScheduler(schedulerJobs),
    health:health??'NOT_RUN'
  });
