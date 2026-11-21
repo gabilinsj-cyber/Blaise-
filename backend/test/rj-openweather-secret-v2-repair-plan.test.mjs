@@ -129,3 +129,16 @@ test('audit does not print or disclose service identity and never asserts key va
  assert.ok(text.includes('"vendorKeyValid":"NOT_VERIFIED"'));
  assert.ok(text.includes('"proposedRevisionCreated":false'));
 });
+
+test('do not prepare a secret-rebinding candidate while other weather polling is on',()=>{
+ for(const key of ['BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
+  'BLAISE_MET_NORWAY_ENABLED','BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
+  'BLAISE_INMET_P0_PUBLISH_ENABLED']){
+  const x=build();
+  x.revision.spec.containers[0].env.push({name:key,value:'true'});
+  const r=run(x);
+  assert.equal(r.status,'REPAIR_PLAN_BLOCKED',key);
+  assert.ok(r.blockers.includes('historicalAutomaticWeatherCollectionOff'),key);
+  assert.equal(r.weatherProviderContacted,false,key);
+ }
+});
