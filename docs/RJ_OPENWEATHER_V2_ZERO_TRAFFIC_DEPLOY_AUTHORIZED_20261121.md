@@ -84,3 +84,12 @@ A inspeção **somente leitura** do modelo atual do serviço Cloud Run e da revi
 - `ULTIMA_REVISAO: blaise-v6-rj-backend-00043-hjk` na resposta do serviço; esse valor exige investigação em face da revisão histórica `00058-sos` previamente localizada, sem presumir qual é a mais nova ou alterar o encaminhamento. O gate compara com a histórica e **bloqueou**, corretamente.
 
 **Decisão:** não contornar `SERVICE_TEMPLATE_CHANGED_FROM_HISTORICAL_BASE`, `CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V1` ou `REVISION_MIN_INSTANCES_NOT_ZERO`. A permissão para **uma revisão candidata 0%** não autoriza alterar mínimos de instâncias dos clientes, mudar o modelo ativo, trocar secret bindings já válidos ou criar despesas recorrentes. A próxima etapa é apenas leitura do `latestCreatedRevisionName`/`latestReadyRevisionName`, atributos de escala e distribuição por revisão, sem exibir segredos. O procedimento de implantação atual permanece **bloqueado** e não deve ser reexecutado.
+
+## Verificação de datas e condições da revisão — 21/11/2026, 10h03 BRT
+
+A consulta de metadados feita no Cloud Shell mostra duas revisões presentes, ambas com `Ready=True`, porém com sinais diferentes:
+
+- `blaise-v6-rj-backend-00043-hjk`: criada em **2026-11-18T17:18:58.377216Z**; `Ready=True`; **reason=Retired**. Embora posterior no tempo, uma condição `Retired` não é prova de que deva receber tráfego ou servir como base para implantação.
+- `blaise-v6-rj-backend-00058-sos`: criada em **2026-10-16T23:43:54.247642Z**; `Ready=True`; motivo de prontidão não informado pela consulta. Essa revisão, acessada pela tag de validação, respondeu **HTTP 500** nas rotas de teste e referencia o segredo OpenWeather v1 desabilitado.
+
+**Implicação operacional:** `latestCreatedRevisionName=00043-hjk` não significa candidata homologada; `latestReadyRevisionName=00058-sos` não supera os erros HTTP 500. Manter `BLOCKED_NO_DEPLOY`, sem reexecução do script anterior. Somente ler a configuração de tráfego e as condições efetivas de cada revisão antes de reconsiderar o isolamento. Ambas ainda não foram homologadas para tráfego normal.
