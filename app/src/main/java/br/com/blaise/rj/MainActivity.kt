@@ -27,6 +27,7 @@ import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.data.DashboardInternationalForecast
+import br.com.blaise.rj.data.DashboardVisualCrossingWeather
 import br.com.blaise.rj.geo.RjMunicipalMap
 import br.com.blaise.rj.billing.PlayPurchaseCandidate
 import androidx.compose.runtime.CompositionLocalProvider
@@ -203,6 +204,7 @@ private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
+private val LocalVisualCrossing = compositionLocalOf<Map<Int, DashboardVisualCrossingWeather>> { emptyMap() }
 // Until a signed and audited backend warning contract exists, this list stays empty.
 private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
@@ -324,6 +326,12 @@ fun BlaiseApp(
             billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
             (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.internationalForecasts
                 ?.filter { it.current(observationClock) }?.associateBy { it.ibge }.orEmpty()
+            else emptyMap(),
+        LocalVisualCrossing provides if(powerOn &&
+            billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase!=null)
+            (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.visualCrossingWeather
+                ?.filter { it.current(observationClock) || it.nextForecast(observationClock) }
+                ?.associateBy { it.ibge }.orEmpty()
             else emptyMap()
     ) {
     BlaiseDashboard(
@@ -1188,7 +1196,18 @@ private fun MoreScreen(
         Text("Não existe silêncio automático por horário; o controle é manual.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
-    WeatherSourceResponsibilityPanel()
+    if (FinalDashboardSpec.shouldShowProviderDiagnostics(BuildConfig.APPLICATION_ID)) {
+        WeatherSourceResponsibilityPanel()
+    } else {
+        DashboardSection(
+            title = "ORIGEM DAS INFORMAÇÕES",
+            subtitle = "Dados verificados por município • sem análises internas",
+        ) {
+            Text("Cada medição disponível deve indicar sua fonte e o horário real do dado. " +
+                "Previsões e estimativas não são medições de estação.", color = Muted)
+            Text("Sem leitura válida, o campo permanece Indisponível.", color = WarningAmber)
+        }
+    }
     // Only the physically separate admin build can even open this activity.
     if (BuildConfig.APPLICATION_ID == "br.com.blaise.rj.admin") {
         val context = LocalContext.current
@@ -1777,6 +1796,9 @@ private fun CityPanel(
     val observation = report?.currentObservation(clock)
     // Cached ECMWF forecasts are kept separate from real station observations.
     val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(clock) }
+    val vc=LocalVisualCrossing.current[city.ibgeCode]
+    val vcCurrent=vc?.takeIf{it.current(clock)}
+    val vcNext=vc?.takeIf{it.nextForecast(clock)}
     Surface(
         modifier = modifier,
         color = Panel,
@@ -1789,7 +1811,7 @@ private fun CityPanel(
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.height(2.dp))
             Text(
-                (observation?.temperatureC ?: model?.temperatureC)?.let {
+                (observation?.temperatureC ?: vcCurrent?.temperatureC ?: model?.temperatureC)?.let {
                     String.format(java.util.Locale("pt", "BR"), "%.1f °C", it)
                 } ?: "Indisponível",
                 color = Color.White, fontWeight = FontWeight.Black,
@@ -1798,6 +1820,18 @@ private fun CityPanel(
             if (observation != null) {
                 Text(report?.summary(clock) ?: "Observação indisponível",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
+            } else if(vcCurrent!=null) {
+                Text("ESTIMATIVA AGREGADA • VISUAL CROSSING • NÃO É ESTAÇÃO",
+                    color=GoldSoft,fontWeight=FontWeight.Bold,
+                    style=MaterialTheme.typography.labelSmall)
+                val whenValid=vcCurrent.currentValidAt?.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    ?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                    ?:"Indisponível"
+                Text("Dados atuais válidos em $whenValid • Brasília",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
+                Text(vcCurrent.attribution+" • previsões sujeitas a limitações; " +
+                    "não usar isoladamente para decisões de emergência.",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
             } else if (model != null) {
                 Text("PREVISÃO DE MODELO • MET Norway / ECMWF IFS • NÃO É MEDIÇÃO LOCAL",
                     color = GoldSoft, fontWeight = FontWeight.Bold,
@@ -1817,17 +1851,29 @@ private fun CityPanel(
             fun metric(value: Double?, unit: String): String = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "Indisponível"
-            StatusLine("Umidade", metric(observation?.humidityPercent ?: model?.humidityPct, "%"))
-            StatusLine("Vento médio", metric(observation?.windKmh ?: model?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", metric(model?.feelsLikeC, "°C") +
-                if (model?.feelsLikeC != null) " • estimativa" else "")
+            StatusLine("Umidade", metric(observation?.humidityPercent ?: vcCurrent?.humidityPct ?: model?.humidityPct, "%"))
+            StatusLine("Vento médio", metric(observation?.windKmh ?: vcCurrent?.windKmh ?: model?.windKmh, "km/h"))
+            StatusLine("Sensação térmica", metric(vcCurrent?.feelsLikeC ?: model?.feelsLikeC, "°C") +
+                if (vcCurrent?.feelsLikeC != null || model?.feelsLikeC != null) " • estimativa" else "")
             StatusLine("UV céu limpo (não observado)", metric(model?.uvClearSkyIndex, "índice"))
-            StatusLine("Prob. chuva próxima hora", metric(model?.precipitationProbabilityNextHourPct, "%"))
-            StatusLine("Chuva prevista na próxima hora", metric(model?.precipitationNextHourMm, "mm"))
-            StatusLine("Rajadas previstas", metric(model?.gustKmh, "km/h"))
+            StatusLine("Prob. chuva próxima hora", metric(vcNext?.forecastPrecipitationProbabilityPct ?: model?.precipitationProbabilityNextHourPct, "%"))
+            StatusLine("Chuva prevista na próxima hora", metric(vcNext?.forecastPrecipitationMm ?: model?.precipitationNextHourMm, "mm"))
+            StatusLine("Rajadas previstas", metric(vcNext?.forecastWindGustKmh ?: model?.gustKmh, "km/h"))
             StatusLine("Nuvens previstas", metric(model?.cloudPct, "%"))
-            StatusLine("Pressão prevista", metric(model?.pressureHpa, "hPa"))
-            StatusLine("Ponto de orvalho estimado", metric(model?.dewPointC, "°C"))
+            StatusLine("Pressão prevista", metric(vcCurrent?.pressureHpa ?: model?.pressureHpa, "hPa"))
+            StatusLine("Ponto de orvalho estimado", metric(vcCurrent?.dewPointC ?: model?.dewPointC, "°C"))
+            if(vcCurrent!=null) {
+                StatusLine("Chuva atual estimada • sem pluviômetro",
+                    metric(vcCurrent.precipitationMm,"mm"))
+                StatusLine("Probabilidade atual de chuva • índice",
+                    metric(vcCurrent.precipitationProbabilityPct,"%"))
+                StatusLine("Rajada estimada • não observada",
+                    metric(vcCurrent.gustKmh,"km/h"))
+            }
+            if(vcNext!=null) Text("Previsão horária P • Visual Crossing • " +
+                "válida em ${vcNext.forecastNextValidAt} UTC • " +
+                "não é alerta oficial.",color=Muted,
+                style=MaterialTheme.typography.labelSmall)
             // Agent identities, comparison calculations and provider controls
             // belong only in the administrator application, never this panel.
             // The observation summary above labels its actual source and time.

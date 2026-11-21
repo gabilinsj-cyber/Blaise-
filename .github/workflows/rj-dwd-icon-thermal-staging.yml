@@ -18,6 +18,11 @@ on:
       - backend/test/rj-dwd-icon-v1-migration.test.mjs
       - .github/workflows/rj-dwd-icon-thermal-staging.yml
   workflow_dispatch:
+# No provider keys, account credits, deployment or subscriber publishing.
+# Keep a single bounded public-source read-only staging run per branch.
+concurrency:
+  group: rj-dwd-icon-real-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

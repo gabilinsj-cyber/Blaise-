@@ -30,21 +30,18 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','comparação regional não homologada'),
     E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_HUMIDITY','HG_BRASIL_AGGREGATED','umidade agregada candidata, licença de exibição aprovada; não higrômetro homologado')
   ],'Mesmo ponto, nível atmosférico, unidade e horário de validade.'),
   sector('WIND_GUST','Vento sustentado e rajadas',[
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','comparação'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','vento previsto, sem feed habilitado'),
     E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_WIND','HG_BRASIL_AGGREGATED','vento/rajadas atuais agregados candidatos, não anemômetro; sem coleta ativa')
   ],'Previsão de rajadas não é anemômetro medindo vento.'),
   sector('RAIN_NEXT_HOUR','Chuva prevista na próxima hora',[
     P('ECMWF_IFS','IFS_GLOBAL_VIA_MET_NO','ECMWF_IFS','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','chuva futura prevista, não chuva observada')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
   // This is NOT the NEMS10 raw product: basic-6h uses meteoblue mLM
   // post-processing and is never treated as a fourth independent model.
@@ -60,7 +57,6 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista'),
-    P('METEOBLUE_NEMS10','NEMSSA_RAW','METEOBLUE_NEMS10','nuvens previstas, não imagem de satélite'),
     E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CLOUDINESS','HG_BRASIL_AGGREGATED','nebulosidade atual agregada candidata, não sensor verificado; exibição comercial autorizada')
   ],'Imagem de nuvem observada não prova granizo ou tornado na superfície.'),
   sector('CYCLONE_LAND','Frentes e ciclones com possível impacto terrestre',[
@@ -116,12 +112,12 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     sourceMeasurementsNotAssumed:true,
   }),
   meteoblueComparison:Object.freeze({
-    id:'METEOBLUE_NEMS10',
-    service:'meteoblue MultiModel / NEMS10 South America',
-    modelDomain:'NEMSSA',nominalGridKm:10,
+    id:'METEOBLUE_FREE_FORECAST',
+    service:'meteoblue Free Weather API • mLM basic-6h',
+    modelDomain:'MLM_BLEND_6H',nominalGridKm:null,
     representation:'P_FORECAST_ONLY',
     sameEcmwfNoaaDwdInputsNotIndependent:true,
-    modelSpecificNemsIndependentCandidate:true,
+    modelSpecificNemsIndependentCandidate:false,
     learningMultiModelNotIndependentOfConstituentModels:true,
     commercialApiLicenseVerified:false,
     serverApiCredentialsInstalled:false,
@@ -133,7 +129,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
       trialDurationMonths:12,totalCredits:10000000,
       approximateLowestCostCallsTotal:2500,
       oneYearNotRenewable:true,commercialUsePermittedByProvider:true,
-      userAccountConnected:false,freeTrialActivated:true,
+      userAccountConnected:true,freeTrialActivated:true,
       trialActivatedFromOperatorScreenshot:true,
       freeTrialExpiresOn:'2027-11-18',
       apiKeyExposedInChatScreenshot:true,apiKeyRotationRequired:true,
@@ -142,13 +138,25 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
       cloudShellOneShotPackage:'basic-6h',
       cloudShellOneShotForecastTimeSlots:29,
       cloudShellOneShotEvidence:'USER_SCREENSHOT_2026-11-18_13_15_BRT',
+      // 19/11 09:42 BRT: a second, guarded private request actually returned
+      // all seven 6h fields (29 slots), model run, units and coordinates.
+      privateRealAuditAt:'2026-11-19T12:42:00Z',
+      privateRealAuditFieldCount:7,
+      privateRealAuditForecastSlots:29,
+      privateRealAuditReady:true,
+      privateRealAuditSource:'CLOUD_SHELL_OPERATOR_AUDIT_SCREENSHOT',
+      localFirestoreCreditsReservedObserved:4000,
+      forecastPublishedToCustomers:false,
+      continuousRealTimeUpdatesPossible:false,
+      privateCacheMaxHours:6,
       secretManagerConfigurationConfirmed:true,
       secretManagerProjectId:'blaise-v6-rj',
       secretManagerSecretName:'blaise-meteoblue-free-api-key',
       secretManagerVersionEnabled:true,
-      secretManagerVersion:'1',
+      secretManagerVersion:'3',
+      cloudRunOldFixedVersionBindingRechecked:false,
       secretManagerEvidence:'USER_SCREENSHOT_2026-11-18_14_04_BRT',
-      secretPayloadSameAsTestedKeyNotVerified:true,
+      secretPayloadSameAsTestedKeyNotVerified:false,
       cloudRunLatestRevisionHasSecretBinding:true,
       cloudRunRevisionStagedWithoutTraffic:true,
       cloudRunStagedSecretBindingEvidence:'USER_SCREENSHOT_2026-11-18_14_20_BRT',
@@ -158,7 +166,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
       firestoreAtomicLocalBudgetPrepared:true,
       providerPackageCreditCost:4000,
       privateCreditCeiling:8000000,
-      maximumDailyStagingCalls:4,
+      maximumDailyStagingCalls:1,
       noAutomaticScheduling:true,
       freeForecastProductId:'METEOBLUE_FREE_FORECAST',
       backendProviderConnectionValidated:false,
@@ -172,7 +180,9 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
       freeTierCurrentIncluded:false,
       freeTierMeasurementsIncluded:false,
       freeTierWarningsIncluded:false,
-      freeTierMaxTemporalResolution:'1h',
+      freeTierMaxTemporalResolution:'6h',
+      currentDataFromMeteoblueAllowed:false,
+      modelForecastIsStationObservation:false,
       approvedUse:'FORECAST_COMPARISON_ONLY_AFTER_CREDENTIAL_LICENSE_CYCLE_AUDIT',
       officialInfoUrl:'https://business.meteoblue.com/products/weather-apis/free-weather-api',
       currentPricingUrl:'https://business.meteoblue.com/pricing',

@@ -148,3 +148,39 @@ test('JAXA excluded rainfall source is rejected even with recent authorized-look
   assert.equal(audit.rejectedRecordCount,1);
   assert.equal(audit.fields.find(x=>x.field==='rainNowMm').coveredMunicipalities,0);
 });
+
+test('meteoblue real basic-6h forecast is a private six-hour field, not observed or hourly rain',()=>{
+ const t=new Date(now-60_000).toISOString();
+ const future=new Date(now+5*60*60_000).toISOString();
+ const mb={...base,sourceId:'METEOBLUE_FREE_FORECAST',
+  field:'meteoblueRainForecastSixHourMm',category:'P',
+  value:9.2,checkedAt:t,issuedAt:t,validAt:future,
+  sourceUrl:'https://my.meteoblue.com/packages/basic-6h',
+  datasetId:'METEOBLUE_MLM_BASIC_6H',modelOrigin:'METEOBLUE_MLM',
+  intervalHours:6,privateScientificComparison:true,
+  publishedToSubscriber:false,observational:false};
+ const correct=audit([mb]);
+ assert.equal(correct.verifiedValueCount,1);
+ assert.equal(correct.fields.find(f=>f.field===mb.field).coveredMunicipalities,1);
+ assert.equal(correct.fields.find(f=>f.field==='rainNowMm').coveredMunicipalities,0);
+ assert.equal(correct.fields.find(f=>f.field==='rainNextHourForecastMm').coveredMunicipalities,0);
+ const prohibited=[
+  {...mb,field:'rainNowMm'},
+  {...mb,field:'rainNextHourForecastMm'},
+  {...mb,field:'gustKmh'},
+  {...mb,field:'temperatureC'},
+  {...mb,intervalHours:1},
+  {...mb,publishedToSubscriber:true},
+  {...mb,observational:true},
+  {...mb,modelOrigin:'NEMSSA_RAW'},
+  {...mb,validAt:new Date(now-60_000).toISOString()}
+ ];
+ const denied=audit(prohibited);
+ assert.equal(denied.rejectedRecordCount,prohibited.length);
+ assert.equal(denied.verifiedValueCount,0);
+ const defs=RJ_METEOROLOGICAL_FIELDS
+  .filter(x=>x.candidates.some(y=>y.sourceId==='METEOBLUE_FREE_FORECAST'));
+ assert.equal(defs.length,7);
+ assert.ok(defs.every(x=>x.id.startsWith('meteoblue')));
+ assert.equal(RJ_METEOROLOGY_SOURCE_CATEGORIES.METEOBLUE_FREE_FORECAST,'P');
+});

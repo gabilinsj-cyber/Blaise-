@@ -7,6 +7,8 @@
 import {prepareMeteoblueFreeRjProbe} from './rj-meteoblue-free-connection.mjs';
 import {parseMeteoblueBasic6h} from './rj-meteoblue-basic6h-parse.mjs';
 import {createRjMeteoblueFreeFirestoreStore} from './rj-meteoblue-free-firestore-store.mjs';
+import {METEOBLUE_FREE_PUBLICATION_CONTRACT,buildMeteoblueFreeClientPayload}
+ from './rj-meteoblue-free-publication-contract.mjs';
 const fail=reason=>Object.freeze({
  status:'UNAVAILABLE',reason,sourceId:'METEOBLUE_FREE_FORECAST',
  providerContacted:false,credentialsExposed:false,
@@ -50,7 +52,9 @@ export function createBlaiseRjMeteoblueFreeCollector({
    return fail('SHARED_CACHE_READ_FAILED');
   }
   if(cached)return Object.freeze({
-   status:'PRIVATE_STAGING_CACHE_HIT',reason:null,
+   status:cached.auditReadyForPrivateReview===true
+     ?'PRIVATE_STAGING_CACHE_HIT':'PRIVATE_STAGING_CACHE_AUDIT_INCOMPLETE',
+   reason:cached.auditReadyForPrivateReview===true?null:'PRIVATE_FIELD_AUDIT_INCOMPLETE',
    sourceId:'METEOBLUE_FREE_FORECAST',
    providerContacted:false,credentialsExposed:false,
    creditsReservedThisInvocation:0,
@@ -104,7 +108,9 @@ export function createBlaiseRjMeteoblueFreeCollector({
       providerContacted:true,creditsReservedThisInvocation:permit.creditsReserved});
   }
   return Object.freeze({
-   status:'PRIVATE_STAGING_FORECAST_READY',reason:null,
+   status:normalized.auditReadyForPrivateReview===true
+     ?'PRIVATE_STAGING_FORECAST_READY':'PRIVATE_STAGING_AUDIT_INCOMPLETE',
+   reason:normalized.auditReadyForPrivateReview===true?null:'PRIVATE_FIELD_AUDIT_INCOMPLETE',
    providerContacted:true,credentialsExposed:false,
    sourceId:'METEOBLUE_FREE_FORECAST',
    creditsReservedThisInvocation:permit.creditsReserved,
@@ -124,6 +130,10 @@ export function createBlaiseRjMeteoblueFreeCollector({
   subscriberEndpointEnabled:false,
   publishedToAndroid:false,
   paidUseAllowed:false,
+  // A future adapter cannot turn a private forecast into customer data by
+  // toggling flags or reading a cache. This deliberately returns null payloads.
+  publicationContract:METEOBLUE_FREE_PUBLICATION_CONTRACT,
+  buildClientPayload:buildMeteoblueFreeClientPayload,
   collectOne
  });
 }

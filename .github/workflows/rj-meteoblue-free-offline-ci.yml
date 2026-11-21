@@ -6,12 +6,19 @@ on:
       - backend/src/rj-meteoblue-free-key-check.mjs
       - backend/src/rj-meteoblue-basic6h-parse.mjs
       - backend/src/rj-meteoblue-free-firestore-store.mjs
+      - backend/src/rj-meteoblue-free-historical-audit.mjs
+      - backend/src/rj-meteoblue-free-publication-contract.mjs
       - backend/src/rj-meteoblue-free-collector.mjs
       - backend/src/rj-meteoblue-runtime-optional.mjs
       - backend/src/runtime.mjs
       - backend/scripts/meteoblue-free-private-field-audit.mjs
+      - backend/scripts/meteoblue-free-validate-saved-json.mjs
+      - backend/scripts/meteoblue-free-private-cache-inspect.mjs
+      - backend/scripts/meteoblue-free-private-history-inspect.mjs
       - backend/scripts/meteoblue-free-credit-status.mjs
       - backend/test/rj-meteoblue-free-collector.test.mjs
+      - backend/test/rj-meteoblue-free-historical-audit.test.mjs
+      - backend/test/rj-meteoblue-free-publication-contract.test.mjs
       - backend/test/rj-meteoblue-free-key-check.test.mjs
       - backend/scripts/check-meteoblue-free-one-shot.mjs
       - docs/RJ_METEOBLUE_FREE_SECURE_ACTIVATION_20261118.md
@@ -35,12 +42,19 @@ jobs:
           node --check backend/src/rj-meteoblue-free-key-check.mjs
           node --check backend/src/rj-meteoblue-basic6h-parse.mjs
           node --check backend/src/rj-meteoblue-free-firestore-store.mjs
+          node --check backend/src/rj-meteoblue-free-historical-audit.mjs
+          node --check backend/src/rj-meteoblue-free-publication-contract.mjs
           node --check backend/src/rj-meteoblue-free-collector.mjs
           node --check backend/src/rj-meteoblue-runtime-optional.mjs
           node --check backend/src/runtime.mjs
           node --check backend/scripts/meteoblue-free-private-field-audit.mjs
           node backend/scripts/meteoblue-free-private-field-audit.mjs
+          node --check backend/scripts/meteoblue-free-validate-saved-json.mjs
+          node --check backend/scripts/meteoblue-free-private-cache-inspect.mjs
+          node --check backend/scripts/meteoblue-free-private-history-inspect.mjs
+          node backend/scripts/meteoblue-free-private-history-inspect.mjs
+          node backend/scripts/meteoblue-free-private-cache-inspect.mjs
           node --check backend/scripts/meteoblue-free-credit-status.mjs
           node backend/scripts/meteoblue-free-credit-status.mjs
-          node --test backend/test/rj-meteoblue-free-key-check.test.mjs backend/test/rj-meteoblue-free-collector.test.mjs
+          node --test backend/test/rj-meteoblue-free-key-check.test.mjs backend/test/rj-meteoblue-free-collector.test.mjs backend/test/rj-meteoblue-free-historical-audit.test.mjs backend/test/rj-meteoblue-free-publication-contract.test.mjs
           node backend/scripts/check-meteoblue-free-one-shot.mjs

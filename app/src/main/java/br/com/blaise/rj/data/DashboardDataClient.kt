@@ -111,6 +111,53 @@ data class DashboardInternationalForecast(
         java.time.Duration.between(checkedAt, now).seconds in 0L..120L
 }
 
+/**
+ * Visual Crossing Free current values are E (aggregated/estimated), never O.
+ * Forecast values are P and never become emergency or station observations.
+ * All numbers are optional: absent is not numeric zero.
+ */
+data class DashboardVisualCrossingWeather(
+    val ibge: Int,
+    val checkedAt: Instant,
+    val currentValidAt: Instant?,
+    val temperatureC: Double?,
+    val feelsLikeC: Double?,
+    val humidityPct: Double?,
+    val dewPointC: Double?,
+    val windKmh: Double?,
+    val gustKmh: Double?,
+    val precipitationMm: Double?,
+    val precipitationProbabilityPct: Double?,
+    val pressureHpa: Double?,
+    val severeRiskIndex: Double?,
+    val forecastNextValidAt: Instant?,
+    val forecastPrecipitationMm: Double?,
+    val forecastPrecipitationProbabilityPct: Double?,
+    val forecastWindGustKmh: Double?,
+) {
+    val sourceLabel = "Visual Crossing"
+    val attribution = "Weather data by Visual Crossing"
+    val isStationObservation = false
+    val mayCreateOfficialWarnings = false
+    fun current(now: Instant): Boolean {
+        val valid=currentValidAt ?: return false
+        val age=java.time.Duration.between(valid,now).seconds
+        val checkedAge=java.time.Duration.between(checkedAt,now).seconds
+        return age in 0L..1800L && checkedAge in 0L..1800L &&
+            listOfNotNull(temperatureC,feelsLikeC,humidityPct,dewPointC,windKmh,
+                gustKmh,precipitationMm,precipitationProbabilityPct,pressureHpa,
+                severeRiskIndex).isNotEmpty()
+    }
+    fun nextForecast(now: Instant): Boolean {
+        val time=forecastNextValidAt ?: return false
+        val nextAge=java.time.Duration.between(now,time).seconds
+        val checkedAge=java.time.Duration.between(checkedAt,now).seconds
+        return nextAge in 1L..3600L && checkedAge in 0L..21600L &&
+            listOfNotNull(forecastPrecipitationMm,
+                forecastPrecipitationProbabilityPct,forecastWindGustKmh).isNotEmpty()
+    }
+}
+
 data class DashboardOfficialNotice(val id: String, val name: String, val message: String, val url: String)
 
 data class DashboardDataSnapshot(
@@ -123,6 +170,7 @@ data class DashboardDataSnapshot(
     val sources: List<DashboardOfficialSourceState>,
     val marine: DashboardMarineReading? = null,
     val internationalForecasts: List<DashboardInternationalForecast> = emptyList(),
+    val visualCrossingWeather: List<DashboardVisualCrossingWeather> = emptyList(),
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
@@ -180,7 +228,7 @@ object DashboardDataParser {
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
         require(payload.keys.containsAll(topLevelKeys) &&
-            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts") })
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts", "visualCrossingWeather") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
@@ -347,6 +395,78 @@ object DashboardDataParser {
         require(forecasts.size <= 2 && forecasts.map { it.ibge }.toSet().size == forecasts.size)
         require(forecasts.all { it.current(generatedAt) })
 
+        val vcTopKeys=setOf("contract","ibge","sourceId","sourceLabel",
+            "attribution","currentKind","forecastKind","currentValidAt",
+            "checkedAt","officialAlert","dataNotForSafetyCriticalDecisions",
+            "current","forecastNext")
+        val vcValueKeys=setOf("temperatureC","feelsLikeC","humidityPct",
+            "dewPointC","windKmh","gustKmh","precipitationMm",
+            "precipitationProbabilityPct","pressureHpa","severeRiskIndex")
+        fun vcMetric(map: Map<String,Any?>,key:String,lo:Double,hi:Double):Double? {
+            val raw=map[key] ?: return null
+            val n=(raw as? Number)?.toDouble()
+                ?: throw IllegalArgumentException("invalid_visual_crossing_field")
+            require(n.isFinite() && n in lo..hi)
+            return n
+        }
+        val vcWeather=(payload["visualCrossingWeather"] as? List<*>)?.map { raw ->
+            val row=stringMap(raw)
+            require(row.keys==vcTopKeys)
+            require(row["contract"]=="RJ_VISUAL_CROSSING_BOUNDED_CITY_E_P_V1")
+            require(row["sourceId"]=="VISUAL_CROSSING_FREE")
+            require(row["sourceLabel"]=="Visual Crossing")
+            require(row["attribution"]=="Weather data by Visual Crossing")
+            require(row["currentKind"]=="E_AGGREGATED_NOT_STATION")
+            require(row["forecastKind"]=="P_MODEL_NOT_OBSERVATION")
+            require(row["officialAlert"]==false)
+            require(row["dataNotForSafetyCriticalDecisions"]==true)
+            val ibge=(row["ibge"] as? String)?.toIntOrNull()
+                ?: throw IllegalArgumentException("invalid_vc_city")
+            require(RioMunicipalities.byIbgeCode(ibge)!=null)
+            val checked=instant(row["checkedAt"])
+            require(!checked.isAfter(generatedAt))
+            val currentDate=nullableInstant(row["currentValidAt"])
+            val current=stringMap(row["current"])
+            require(current.keys==vcValueKeys)
+            if(currentDate==null)require(current.values.all{it==null})
+            else {
+                require(!currentDate.isAfter(generatedAt))
+                require(java.time.Duration.between(currentDate,generatedAt).seconds in 0L..1800L)
+                require(java.time.Duration.between(checked,generatedAt).seconds in 0L..1800L)
+            }
+            val next=row["forecastNext"]?.let(::stringMap)
+            if(next!=null){
+                require(next.keys==setOf("validAt","kind","precipitationMm",
+                    "precipitationProbabilityPct","windGustKmh"))
+                require(next["kind"]=="P")
+                val nextTime=instant(next["validAt"])
+                require(nextTime.isAfter(generatedAt))
+                require(java.time.Duration.between(generatedAt,nextTime).seconds<=3600)
+                require(java.time.Duration.between(checked,generatedAt).seconds<=21600)
+            }
+            DashboardVisualCrossingWeather(
+                ibge=ibge,checkedAt=checked,currentValidAt=currentDate,
+                temperatureC=vcMetric(current,"temperatureC",-40.0,60.0),
+                feelsLikeC=vcMetric(current,"feelsLikeC",-60.0,70.0),
+                humidityPct=vcMetric(current,"humidityPct",0.0,100.0),
+                dewPointC=vcMetric(current,"dewPointC",-60.0,60.0),
+                windKmh=vcMetric(current,"windKmh",0.0,350.0),
+                gustKmh=vcMetric(current,"gustKmh",0.0,450.0),
+                precipitationMm=vcMetric(current,"precipitationMm",0.0,500.0),
+                precipitationProbabilityPct=vcMetric(current,"precipitationProbabilityPct",0.0,100.0),
+                pressureHpa=vcMetric(current,"pressureHpa",800.0,1100.0),
+                severeRiskIndex=vcMetric(current,"severeRiskIndex",0.0,100.0),
+                forecastNextValidAt=next?.let{instant(it["validAt"])},
+                forecastPrecipitationMm=next?.let{vcMetric(it,"precipitationMm",0.0,500.0)},
+                forecastPrecipitationProbabilityPct=next?.let{
+                    vcMetric(it,"precipitationProbabilityPct",0.0,100.0)},
+                forecastWindGustKmh=next?.let{vcMetric(it,"windGustKmh",0.0,450.0)},
+            )
+        }.orEmpty()
+        require(vcWeather.size<=2 &&
+            vcWeather.map{it.ibge}.toSet().size==vcWeather.size)
+        require(vcWeather.all{it.current(generatedAt)||it.nextForecast(generatedAt)})
+
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
             mode = mode,
@@ -357,6 +477,7 @@ object DashboardDataParser {
             sources = sources,
             marine = marine,
             internationalForecasts = forecasts,
+            visualCrossingWeather = vcWeather,
         )
     }
 

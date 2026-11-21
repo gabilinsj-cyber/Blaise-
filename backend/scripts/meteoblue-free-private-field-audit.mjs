@@ -14,7 +14,20 @@ if(!armed){
  console.log('METEOBLUE_PRIVATE_FIELD_AUDIT=OFFLINE_NO_NETWORK');
  process.exit(0);
 }
-if(process.argv.some(x=>x.startsWith('--ibge=')&&x!=='--ibge=3304557')){
+// The account dashboard showed one 4,000-credit basic-6h call on
+// 18 Nov 2026. After the operator changed the external daily cap to 4,000,
+// another attempt before the UTC day changes can be refused upstream but
+// still consume a LOCAL Firestore reservation. Fail before touching Firestore.
+const earliestSafeNextUtcDay=Date.parse('2026-11-19T00:00:00.000Z');
+if(Date.now()<earliestSafeNextUtcDay){
+ console.log('METEOBLUE_PRIVATE_FIELD_AUDIT=BLOCKED_TODAY_PROVIDER_4000_ALREADY_USED');
+ process.exitCode=2;
+}else if(process.env.BLAISE_METEOBLUE_PROVIDER_ZERO_USAGE_TODAY_CONFIRMED!=='true'){
+ // Dashboard usage may lag; explicit day-scoped confirmation prevents
+ // a second upstream request, even when our own Firestore counter is zero.
+ console.log('METEOBLUE_PRIVATE_FIELD_AUDIT=PROVIDER_DAILY_USAGE_NOT_CONFIRMED');
+ process.exitCode=2;
+}else if(process.argv.some(x=>x.startsWith('--ibge=')&&x!=='--ibge=3304557')){
  console.log('METEOBLUE_PRIVATE_FIELD_AUDIT=ONLY_FIRST_RIO_POINT_ALLOWED');
  process.exitCode=1;
 }else{
@@ -39,10 +52,15 @@ if(process.argv.some(x=>x.startsWith('--ibge=')&&x!=='--ibge=3304557')){
   sourceCoordinatesVerified:f?.sourceCoordinatesVerified??false,
   sixHourForecastSlots:f?.validTimes?.length??0,
   fieldCoverage:f?.coverage??null,
+  completeSevenFieldCoverage:f?.completeFieldCoverage??false,
+  privateAuditReady:f?.auditReadyForPrivateReview===true,
+  // These are names of missing validation checks, never provider values.
+  auditBlockers:f?.auditBlockers??['NO_VALID_PRIVATE_FORECAST'],
   observedData:false,paidApiUsed:false,
   publishedToSubscribers:false
  };
  console.log('METEOBLUE_PRIVATE_FIELD_AUDIT='+JSON.stringify(summary));
- if(!['PRIVATE_STAGING_FORECAST_READY','PRIVATE_STAGING_CACHE_HIT'].includes(r.status))
+ if(!['PRIVATE_STAGING_FORECAST_READY','PRIVATE_STAGING_CACHE_HIT'].includes(r.status)||
+    f?.auditReadyForPrivateReview!==true)
   process.exitCode=1;
 }

@@ -36,6 +36,7 @@ object FinalDashboardSpec {
     val officialSources = listOf(
         "NOAA", "NOAA GOES-19", "NOAA GFS-Wave",
         "ECMWF/IFS", "DWD/ICON Global", "meteoblue Free • mLM 6h",
+        "Visual Crossing Free",
         "RAMMB/CIRA SLIDER",
         "OpenWeather", "INPE/CPTEC",
         "ANA/Hidroweb", "SGB/SACE", "USGS"
@@ -57,6 +58,11 @@ object FinalDashboardSpec {
     // automatic or manual paid OpenWeather fallback through the city panel.
     const val THERMAL_FALLBACK_INTEGRATED = false
     const val THERMAL_DIAGNOSTICS_ADMIN_ONLY = true
+    // Source audits and package-credit details belong in the protected ADM APK,
+    // not in public subscriber screens.
+    const val PROVIDER_DIAGNOSTICS_ADMIN_ONLY = true
+    fun shouldShowProviderDiagnostics(applicationId: String): Boolean =
+        applicationId == "br.com.blaise.rj.admin"
     // Domestic meteorological references are for private comparison only.
     // An existing client-side INMET station collector is disabled in this branch
     // until an approved international/paid signed weather feed replaces it.
