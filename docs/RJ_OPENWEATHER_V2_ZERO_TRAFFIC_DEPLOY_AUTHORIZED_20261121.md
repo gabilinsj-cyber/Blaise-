@@ -73,3 +73,14 @@ RJ_OPENWEATHER_V2_CANDIDATE={
 
 **Ação imediata**: somente consultar o resumo seguro (template versus revisão histórica, versão de referência OpenWeather, localização da configuração minScale, sem ler secret payload nem imprimir valores de ambiente). Não repetir `--execute-approved-zero-traffic`, não alterar min-instances, template, tráfego, segredos ou IAM. Reavaliar o desenho antes de qualquer nova execução. A autorização original não dá permissão para criar serviço diferente, modificar a configuração atual dos clientes, mudar escalonamento ou aumentar custos.
 
+
+## Resultado real complementar — 21/11/2026, 09h56 BRT
+
+A inspeção **somente leitura** do modelo atual do serviço Cloud Run e da revisão histórica `00058-sos` mostrou:
+
+- `IMAGEM_TEMPLATE_IGUAL_HISTORICA: True` (referência da imagem coincide).
+- `OPENWEATHER_TEMPLATE_VERSAO: 2`; `OPENWEATHER_HISTORICA_VERSAO: 1`. **O template atual já referencia a versão 2**, de modo que reaplicar cegamente o reparo de v1 a v2 seria redundante e poderia sobrescrever outras alterações.
+- `MIN_INST_TEMPLATE: 1`; `MIN_INST_REVISAO: 1`; `MIN_INST_SERVICO: NAO_DEFINIDO`. São anotações de mínimo no modelo/revisão, não prova do número de instâncias efetivamente em execução nem de cobrança. Copiar esse mínimo à candidata poderia manter instância provisionada mesmo sem tráfego normal.
+- `ULTIMA_REVISAO: blaise-v6-rj-backend-00043-hjk` na resposta do serviço; esse valor exige investigação em face da revisão histórica `00058-sos` previamente localizada, sem presumir qual é a mais nova ou alterar o encaminhamento. O gate compara com a histórica e **bloqueou**, corretamente.
+
+**Decisão:** não contornar `SERVICE_TEMPLATE_CHANGED_FROM_HISTORICAL_BASE`, `CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V1` ou `REVISION_MIN_INSTANCES_NOT_ZERO`. A permissão para **uma revisão candidata 0%** não autoriza alterar mínimos de instâncias dos clientes, mudar o modelo ativo, trocar secret bindings já válidos ou criar despesas recorrentes. A próxima etapa é apenas leitura do `latestCreatedRevisionName`/`latestReadyRevisionName`, atributos de escala e distribuição por revisão, sem exibir segredos. O procedimento de implantação atual permanece **bloqueado** e não deve ser reexecutado.
