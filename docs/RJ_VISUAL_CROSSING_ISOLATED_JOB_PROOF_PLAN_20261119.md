@@ -437,3 +437,17 @@ A titular executou a auditoria somente leitura `gcloud config get-value account`
 **Próximo teste proposto:** usar somente leitura o método oficial IAM `projects.serviceAccounts.testIamPermissions` para testar **a identidade autenticada atual** na conta exata `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com` para `iam.serviceAccounts.actAs`. Referência oficial: https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.serviceAccounts/testIamPermissions. Capturar token OAuth em memória (nunca imprimir), consultar endpoint HTTPS com JSON de uma permissão, exibir somente `ACTAS_OPERADOR=SIM/NAO/INCONCLUSIVO`; caso 403, erro de rede ou API desabilitada, não conceder nova role nem habilitar APIs automaticamente. Verificação não testa se o builder pode registrar logs ou completar o build: isso requer gating separado.
 
 **Estado preservado:** conta `blaise-vc-build` recebeu `roles/artifactregistry.writer` diretamente no repositório `blaise-vc-proof`; build continua suspenso, nenhum push de imagem, sem job Cloud Run e sem leitura do segredo; vínculo Secret Accessor da identidade de prova `blaise-vc-proof` expirou em `2026-11-21T00:14:02Z`.
+
+
+## Evidência Cloud Shell — 21/11/2026 01h48 BRT: actAs do operador confirmado
+
+Captura enviada pela titular às **01h48 BRT** de verificação `testIamPermissions` efetuada em sessão autenticada do Cloud Shell para `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com`. O resultado exibido foi:
+- `ACTAS_OPERADOR: SIM`;
+- `IAM_MODIFICADO: NAO`;
+- `BUILD_EXECUTADO: NAO`.
+
+**Interpretação limitada:** as credenciais atuais do operador conseguiram comprovar `iam.serviceAccounts.actAs` **na conta de build indicada**, apesar de a inspeção de bindings diretos às 01h45 não ter encontrado `roles/iam.serviceAccountUser` diretamente na política IAM dessa conta. Isso é compatível com permissões de outras concessões/níveis; não identificar qual concedeu `actAs` nem assumir continuidade indefinida. O teste não concedeu papéis, não revelou o valor do segredo e não submeteu um Cloud Build. O token gerado localmente para consultar `testIamPermissions` não deve ser registrado, colado ou impresso.
+
+**Gates remanescentes antes de build:** confirmar modo e permissões de logging para `blaise-vc-build` (o papel direto `roles/logging.logWriter` não apareceu no projeto às 01h43, mas isso não prova ausência de capacidade efetiva), autorização do invocador para `cloudbuild.builds.create`, limites reais de custo e imagem/contexto mínimo de três arquivos (Dockerfile por digest e SHA do commit), e assegurar que a build **usa explicitamente a conta customizada** em vez da Compute Engine default com Editor/Owner. Não conceder papéis nem fazer build/push/deploy nesta etapa.
+
+**Segredo:** binding condicional `blaiseVcProof24h` da identidade separada de prova expirou em `2026-11-21T00:14:02Z` (20/11 às 21h14 BRT), sem acesso garantido por esse vínculo após o prazo. Não renovar automaticamente, não confundir com o Writer do Artifact Registry. PR continua draft; nenhuma coleta a clientes.
