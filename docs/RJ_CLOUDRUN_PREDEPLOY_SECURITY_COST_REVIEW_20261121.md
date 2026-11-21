@@ -131,3 +131,22 @@ AUDITORIA: SOMENTE_LEITURA
 **Conclusão:** a revisão histórica `00058-sos` está associada a uma tag e tem URL de tag disponível com 0% do tráfego normal; o serviço tem `ingress=all` e `allUsers` autorizado a invocar, conforme auditoria das 11h26. Isso indica possibilidade de acesso externo direto à revisão por tag, sem prova de exploração nem de ausência de autenticação dentro do app. A revisão já apresentou HTTP 500 e apresenta minScale 1 / billing instance-based, criando riscos operacionais e financeiros separados da candidata futura.
 
 **Próxima etapa sem mutação:** ler apenas logs de requisições HTTP por `resource.labels.revision_name=blaise-v6-rj-backend-00058-sos` e período das últimas 24h, produzindo exclusivamente contagens por status, sem exibir URLs, IPs, tokens, payloads ou identidades. Não fazer novas chamadas HTTP à tag ou a APIs meteorológicas, não mudar permissões compartilhadas com clientes, não desativar tags ou serviço, não implantar a PR #173. Ausência de logs não é prova de ausência de acessos caso logging esteja indisponível/limitado.
+
+
+## Logs de requisições à revisão tagueada — 21/11/2026, 11h46 BRT
+
+A titular executou no Cloud Shell, sem chamadas HTTP externas, uma consulta **somente leitura** no Cloud Logging com filtro da revisão `blaise-v6-rj-backend-00058-sos`, `logName=run.googleapis.com%2Frequests`, horizonte de 24 horas e limite 1.000. Captura às 11h46 BRT mostra:
+
+```text
+REGISTROS_RETORNADOS: 3
+HTTP_2XX: 0
+HTTP_4XX: 0
+HTTP_5XX: 3
+SEM_STATUS: 0
+LIMITE_DA_CONSULTA: 1000
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação:** os três registros de requisição recuperados para essa revisão tiveram status HTTP 5xx; esses dados são compatíveis com as falhas de `/health` e `/readyz` já observadas nos testes anteriores. **Não comprovam origem externa maliciosa, comprometimento, exposição de dados ou causa técnica do 500.** Não temos ainda correlação por horário nem mensagens do container sobre `startup_failed`, segredo v1, permissões ou falha de dependências. Também não devemos confundir o total recuperado na janela de 24h com uma contagem histórica de todos os acessos.
+
+**Próxima ação:** somente análise agregada dos timestamps e dos logs de erro/instância da revisão sem exibir IPs, URLs, payloads, chaves, principal ou tokens. Não chamar a tag, não executar deploy, não remover IAM/allUsers nem alterar serviço/instâncias ou chave. A candidata segue inexistente.
