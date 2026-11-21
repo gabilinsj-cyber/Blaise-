@@ -71,3 +71,21 @@ test('scientific, licensing, alert and operational gates stay explicit',()=>{
  assert.ok(y.includes('SEPARATE_HUMAN_PRODUCTION_RELEASE_AUTHORIZATION'));
  assert.ok(RJ_METEOROLOGICAL_SOURCE_AUDIT.every(x=>Object.isFrozen(x)));
 });
+
+test('live one-run DWD/NOAA proof is separate from SST unavailability and continuous service',()=>{
+ const x=assessRjMeteorologicalProductionReadiness();
+ const dwd=x.sourceAudit.find(s=>s.id==='DWD_ICON_92');
+ const waves=x.sourceAudit.find(s=>s.id==='NOAA_GFS_WAVE');
+ const glm=x.sourceAudit.find(s=>s.id==='NOAA_GOES19_GLM');
+ const sst=x.sourceAudit.find(s=>s.id==='NOAA_COASTWATCH_SST');
+ assert.ok(dwd.evidence.includes('ONE_REAL_DWD'));
+ assert.ok(dwd.evidence.includes('92_OF_92'));
+ assert.ok(dwd.blockers.some(v=>v.includes('OFFICIAL_CDO_GRID_WEIGHTS')));
+ assert.ok(waves.evidence.includes('ONE_REAL_NOAA'));
+ assert.ok(glm.evidence.includes('ZERO_RJ_RECTANGLE'));
+ assert.ok(sst.evidence.includes('NO_RECENT_FILE_ZERO_VERIFIED'));
+ assert.equal(sst.clientPublicationAuthorized,false);
+ assert.equal(dwd.productionEvidence,'NOT_ESTABLISHED');
+ assert.equal(waves.productionEvidence,'NOT_ESTABLISHED');
+ assert.equal(glm.productionEvidence,'NOT_ESTABLISHED');
+});
