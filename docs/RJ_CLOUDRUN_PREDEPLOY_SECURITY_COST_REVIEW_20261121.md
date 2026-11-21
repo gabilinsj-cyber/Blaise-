@@ -1,0 +1,61 @@
+# Blaise V6 RJ — auditoria de segurança, inicialização e custos antes de criar revisão
+
+**21/11/2026. Estado: BLOCKED_FOR_REAL_DEPLOY_PENDING_REVIEW.** Escopo: PR #173, Cloud Run `blaise-v6-rj-backend`, projeto `blaise-v6-rj`, região `southamerica-east1`. Revisão somente documental, de código e de metadados. **Não criar revisão, fazer deploy, habilitar chave, alterar IAM, mudar tag/tráfego ou consultar fornecedor meteorológico nesta etapa.**
+
+## Evidência comprovada no Cloud Shell (capturas da titular)
+
+- Às **10h31**, distribuição de tráfego normal: `00031-vep=99%`, `00038-pin=1%`, total 100%; a revisão candidata `owv2-211126` **não existia**.
+- Às **10h33**, preflight somente leitura: `PREFLIGHT_PASS_CANDIDATE_NOT_CREATED`; imagem digest prevista, OpenWeather v2, 8 flags OFF, mínimo histórico 1, template atual 1, futura candidata 0, sem alteração de mínimo global, sem health check de implantação, nenhuma criação.
+- `00043-hjk`: nova em tempo, motivo `Retired`, sem tráfego; modelo corrente de Cloud Run referencia OpenWeather Secret Manager **v2 habilitada**.
+- `00058-sos`: revisão histórica 0% com **tag `validacao-rj`** e **minScale 1**; `Ready=True` não é prova de HTTP (as chamadas isoladas a `/health` e `/readyz` haviam retornado HTTP 500). Seu vínculo OpenWeather v1 está desabilitado. `MinInstancesProvisioned=True` foi observado no status.
+
+## Revisão de impacto (não inferir comportamento não comprovado)
+
+| Área | Dado / hipótese | Risco | Ação segura |
+|---|---|---|---|
+| Template de serviço existente | Um novo `gcloud run deploy` cria revisão imutável **e atualiza o template do mesmo serviço** | Mudanças podem afetar futuras implantações, automações e roteamento `LATEST`, ainda que `--no-traffic` evite tráfego na candidata | Preservar 99/1, proibir tráfego `LATEST`, comparar spec/status antes/depois e não executar sem análise de diffs |
+| Inicialização da futura candidata | Planejada com `--min-instances=0`, `--no-traffic`, sem tag, `--no-deploy-health-check` | Evita a inicialização **específica da checagem de implantação** e o aquecimento por mínimo, mas **não comprova saúde HTTP, ausência de chamadas incondicionais no código ou custo total zero** | Testes offline antes, nenhum smoke real sem plano de isolamento de egress aprovado |
+| Coletor na imagem | No `src/runtime.mjs`, `sourceWorker.start()` só ativa polling se `sourceWorkerConfig.enabled`; `loadOfficialSourceWorkerConfig` usa `BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED` e inicia tarefas imediatamente quando true | Desligar o worker reduz risco, mas outros SDKs e inicializadores podem executar acesso externo; a imagem digest implantada pode diferir dos fontes da PR | Não inferir zero chamadas meteorológicas apenas de 8 flags; revisar imagem digest e fluxos de inicialização |
+| Revisão histórica com tag | `00058-sos` tem tag e mínimo 1; status reportou mínimo provisionado | **Exposição atual de faturamento por instância mantida ativa mesmo com 0% do tráfego normal** | Auditar modo de cobrança e uso em Billing/Monitoring; não excluir tag, revisão nem zerar histórico sem autorização |
+| Tipo de faturamento | Ainda sem dado autenticado sobre CPU throttling/request-based versus instance-based da revisão histórica | Valores financeiros impossíveis de estimar precisamente | Consultar metadados de faturamento e uso real, sem tocar chaves |
+| Tag e acesso público | `validacao-rj` é endereçável por tag, independentemente do % de tráfego normal; acesso exige verificar IAM/ingress | **Possível** exposição/ataque à rota problemática (não é prova de acesso público) | Auditar permissões e políticas de ingresso; não divulgar URL nem desativar recursos agora |
+| Segurança de credencial | OpenWeather v2 habilitada e binding do template atual, mas acesso real da nova instância e validade da chave no fornecedor não foram testados | Teste de startup pode falhar independentemente das flags meteorológicas | Sem leitura de segredo nem chamadas OpenWeather nesta etapa |
+| Política de release | Cloud Shell já havia bloqueado tentativa anterior e nenhum deploy foi feito; PR #173 continua Draft | Um comando futuro mal configurado pode alterar o serviço real | Manter bloqueio físico e solicitar plano de implantação separado com controle de custos |
+
+**Atenção especial ao custo histórico:** os mínimos de revisão e a tag da `00058-sos` podem manter instâncias faturáveis mesmo sem clientes, como descreve o Google Cloud. **Não concluir uma cobrança específica nem um valor em R$ sem Cloud Billing/Monitoring; não atribuir esse custo à candidata, ainda inexistente.**
+
+## O que foi fortalecido na PR #173
+
+1. `backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs` continua somente leitura. O trecho executável de `gcloud run deploy` foi **fisicamente removido**; `--execute-approved-zero-traffic` retorna `REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW`. Um novo deploy futuro exigirá uma ferramenta distinta aprovada separadamente.
+2. `backend/src/rj-cloudrun-predeploy-impact-audit.mjs` audita apenas metadados fornecidos; identifica diferença entre template e revisão, tag/mínimo histórico, tráfego normal, modo de faturamento aparente (se explícito) e questões ainda não verificadas. Retorna **sempre** `BLOCKED_FOR_REAL_DEPLOY_PENDING_REVIEW`.
+3. `backend/scripts/rj-cloudrun-predeploy-impact-readonly.mjs`, por padrão, **offline**. Com `--cloud-readonly`, acessa somente `gcloud projects describe`, `gcloud run services describe` e duas `gcloud run revisions describe`. Não lê segredo, IAM completo, URL de serviço ou contas de faturamento; não exibe valores brutos das variáveis de ambiente.
+4. Os testes em `backend/test/rj-cloudrun-predeploy-impact-audit.test.mjs` exercitam custo potencial por revisão histórica tagueada, modos de faturamento desconhecidos, desvios de tráfego e ausência de homologação de startup. A CI exige esses testes e mantém o release de novas fontes bloqueado.
+
+### Comando para a próxima coleta read-only no Cloud Shell
+
+Use a cópia atualizada da PR #173 em uma worktree independente, sem sobrescrever `~/Blaise-RJ` nem as worktrees anteriores. Depois, dentro de `backend`:
+
+```bash
+set +x
+node --test test/rj-cloudrun-predeploy-impact-audit.test.mjs
+node scripts/rj-cloudrun-predeploy-impact-readonly.mjs --cloud-readonly
+```
+
+A saída tem prefixo `RJ_CLOUDRUN_PREDEPLOY_SAFETY=`; compartilhar apenas esse relatório resumido. O status **continua bloqueado por design**, mesmo com `productionTrafficExactly99_1=true`.
+
+## Decisão e alternativas de arquitetura
+
+- **Manter bloqueado o deploy no serviço dos clientes.** Não é possível garantir custo zero nem segurança de startup apenas com mínimo 0.
+- Uma alternativa a analisar em fase posterior é **um serviço de homologação separado**, com autenticação obrigatória, egress restringido, mínimo 0 e faturamento monitorado. Isso cria um novo recurso e **não está autorizado nesta etapa**; também precisa de orçamento e revisão de risco.
+- Antes de qualquer operação real, exigimos avaliação do modo de faturamento **efetivo**, valor real e histórico de instâncias, política de ingresso/IAM de tags, limites máximos de instância e comparação de todo o template. Nunca reutilizar a revisão `Retired` como evidência de aplicativo saudável.
+
+## Referências oficiais
+
+- Instâncias mínimas no nível de serviço/revisão e cobrança de revisões com tag: https://docs.cloud.google.com/run/docs/configuring/min-instances
+- `--no-deploy-health-check` evita a instância de verificação de startup na implantação: https://docs.cloud.google.com/run/docs/deploying
+- Configuração request-based versus instance-based: https://docs.cloud.google.com/run/docs/configuring/billing-settings
+- Revisões imutáveis e template: https://docs.cloud.google.com/run/docs/managing/revisions
+- `--no-traffic` e migração de LATEST: https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy
+- Preços e modelo de cobrança: https://cloud.google.com/run/pricing
+
+**Nenhum deploy, merge, mudança de tráfego, segredo ou consulta ao fornecedor meteorológico foi realizado por esta revisão da PR #173.**
