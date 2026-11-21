@@ -5,8 +5,11 @@ import {mkdtempSync,writeFileSync,chmodSync,readFileSync,rmSync,existsSync}
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {dirname} from 'node:path';
 
-const SCRIPT=resolve('scripts/rj-openweather-v2-zero-traffic-candidate.mjs');
+const SCRIPT=resolve(dirname(fileURLToPath(import.meta.url)),
+ '../scripts/rj-openweather-v2-zero-traffic-candidate.mjs');
 const FAKE=String.raw`#!/usr/bin/env node
 // This gcloud is an in-memory fixture ONLY, never a Google Cloud connection.
 const fs=require('node:fs');
