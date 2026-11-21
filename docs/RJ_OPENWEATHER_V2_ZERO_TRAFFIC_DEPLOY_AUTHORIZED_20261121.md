@@ -148,3 +148,30 @@ DEPLOY_REAL: BLOQUEADO_NESTA_ETAPA
 **Conclusão limitada:** na leitura das 10h31, o roteamento público continuava 99% na `00031-vep` e 1% na `00038-pin`, sem revisão `blaise-v6-rj-backend-owv2-211126` listada. A linha `DEPLOY_REAL: BLOQUEADO_NESTA_ETAPA` é impressa pelo próprio script, não constitui auditoria independente de todas as alterações históricas; a ausência da candidata e os testes de CI são evidência adicional. `REAL_DEPLOY_PAUSED=true` continua no script da PR #173; **não reexecutar a opção de implantação**. O último CI de auditoria offline passou com **42/42 testes**, referência do run 44907990908. Não houve nova chamada meteorológica intencional nem leitura de payload de segredo nesta etapa.
 
 **Próxima etapa segura:** executar somente o modo `--preflight-only` da versão atualizada em worktree separada, mantendo bloqueada a criação real. Qualquer mudança futura de runtime, API key, minScale global ou tráfego exige nova aprovação e validação.
+
+
+## Preflight real corrigido — 21/11/2026, 10h33 BRT
+
+No Cloud Shell, após novo `git fetch` e checkout isolado, a titular executou **somente** `node scripts/rj-openweather-v2-zero-traffic-candidate.mjs --preflight-only`. A saída fotografada na captura das 10h33 registra:
+
+```text
+status: PREFLIGHT_PASS_CANDIDATE_NOT_CREATED
+historicalWorkerEnabled: true
+historicalFlagsPreserved: true
+clientTraffic: 99_1
+secretVersionRequested: 2
+candidateWeatherFlagsOff: 8
+priorHistoricalRevisionMinInstances: 1
+priorTemplateMinInstances: 1
+proposedCandidateMinInstances: 0
+candidateZeroMinFlagPresent: true
+serviceMinNotModifiedByProposedCommand: true
+startupHealthCheckSkippedInPlan: true
+simulatedPlanOnly: true
+deploymentPerformed: false
+productionTrafficChanged: false
+providerKeyValid: NOT_VERIFIED
+actualRuntimeSecretAccess: NOT_VERIFIED
+```
+
+**Resultado limitado:** o preflight foi aprovado com os metadados reais do momento; nenhuma revisão nova foi criada, não houve implantação, atualização de segredos ou consulta meteorológica intencional. O resultado não comprova startup real, conectividade com a OpenWeather ou homologação em produção. O código permanece com `REAL_DEPLOY_PAUSED=true`, PR Draft, sem merge ou liberação de tráfego. Antes de qualquer implantação, reavaliar preservação da configuração atual do serviço (inclusive template, escalonamento), custos e riscos de inicialização. Não executar o parâmetro `--execute-approved-zero-traffic` nesta etapa.
