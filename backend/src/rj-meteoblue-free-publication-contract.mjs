@@ -25,6 +25,14 @@ export const METEOBLUE_FREE_PUBLICATION_CONTRACT=Object.freeze({
  fieldCount:7,publicReleaseApproved:false,subscriberApiEnabled:false,
  androidPublicationEnabled:false,alertInputEnabled:false,
  scientificHomologationGranted:false,commercialRightsVerified:false,
+ // Official Free API product page explicitly advertises "Commercial use ✓".
+ // This is NOT a confirmed customer-specific permission to reproduce, cache,
+ // redistribute or sublicense forecast data in a paid subscriber app.
+ freeApiCommercialUseAdvertised:true,
+ subscriberDistributionRightsVerified:false,
+ dataReproductionAndRetentionRightsVerified:false,
+ customerAttributionRequirementsVerified:false,
+ contractualPublicationReview:'FREE_COMMERCIAL_USE_ADVERTISED_PAID_APP_RIGHTS_UNVERIFIED',
  modelIndependentOfExistingNwp:false,
  observationalData:false,officialAlert:false,
  allowedProbeCities:Object.freeze(['3304557']),
@@ -41,6 +49,7 @@ export function assessMeteoblueFreePublication(forecast,{nowMs=Date.now(),stored
  const errors=[];
  const warnings=[];
  const details=[];
+ let convectiveSemanticReviewStatus='NOT_ASSESSED';
  const validNow=Number.isSafeInteger(nowMs)&&nowMs>=0;
  if(!validNow)errors.push('INVALID_REVIEW_CLOCK');
  const f=forecast&&typeof forecast==='object'&&!Array.isArray(forecast)
@@ -128,9 +137,19 @@ export function assessMeteoblueFreePublication(forecast,{nowMs=Date.now(),stored
        if(wetSlot){wet++;if(Math.abs(a-b)<=0.001)equalWet++;}
        if(b>a+0.001)exceeds++;
       }
-      if(exceeds>0)warnings.push('CONVECTIVE_COMPONENT_EXCEEDS_TOTAL_REVIEW');
-      if(wet>0&&equalWet===wet)
+      if(exceeds>0){
+       convectiveSemanticReviewStatus='COMPONENT_GREATER_THAN_TOTAL_REVIEW_REQUIRED';
+       warnings.push('CONVECTIVE_COMPONENT_EXCEEDS_TOTAL_REVIEW');
+      }else if(wet>0&&equalWet===wet){
+       convectiveSemanticReviewStatus='ALL_WET_PERIODS_IDENTICAL_REVIEW_REQUIRED';
        warnings.push('CONVECTIVE_COMPONENT_MATCHES_TOTAL_IN_ALL_WET_PERIODS_REVIEW');
+      }else if(wet===0){
+       convectiveSemanticReviewStatus='NO_WET_PERIODS_TO_ASSESS';
+      }else{
+       convectiveSemanticReviewStatus='NO_COMPONENT_RELATIONSHIP_WARNING';
+      }
+      // Even a plausible component relationship does not prove that
+      // forecasts are observations, independent models or release-approved.
     }
     const windMean=paired.get('windspeed_mean');
     const windMax=paired.get('windspeed_max');
@@ -142,8 +161,13 @@ export function assessMeteoblueFreePublication(forecast,{nowMs=Date.now(),stored
     // precipitation can disagree without making either forecast invalid.
   }
  }
+ const contractualBlockers=Object.freeze([
+  'CUSTOMER_SUBSCRIBER_DISTRIBUTION_PERMISSION_NOT_DOCUMENTED',
+  'COMMERCIAL_DATA_REPRODUCTION_RETENTION_PERMISSION_NOT_DOCUMENTED',
+  'ATTRIBUTION_AND_CACHING_CONDITIONS_NOT_DOCUMENTED'
+ ]);
  const reasons=sortedUnique([
-  ...errors,...warnings,
+  ...errors,...warnings,...contractualBlockers,
   'SCIENTIFIC_AND_COMMERCIAL_APPROVAL_NOT_GRANTED',
   'NO_SUBSCRIBER_PUBLICATION_CONTRACT',
   'NO_CLIENT_OR_ALERT_ENDPOINT'
@@ -154,9 +178,17 @@ export function assessMeteoblueFreePublication(forecast,{nowMs=Date.now(),stored
   structuralChecksPassed:errors.length===0,
   additionalScientificReviewRequired:errors.length>0||warnings.length>0,
   errors:sortedUnique(errors),warnings:sortedUnique(warnings),
-  reasons,fields:Object.freeze(details),
+  reasons,fields:Object.freeze(details),contractualBlockers,
+  convectiveSemanticReviewStatus,
+  freeApiCommercialUseAdvertised:true,
+  subscriberDistributionRightsVerified:false,
+  customerAttributionRequirementsVerified:false,
+  historicalForecastsUsableAsCurrent:false,
+  historicalForecastsUsableAsObservations:false,
   clientPublicationAllowed:false,androidPublicationAllowed:false,
   canGenerateOfficialAlerts:false,canPopulateRiskCalculator:false,
+  // Refers to verified scope for THIS paid subscriber app, not whether
+  // meteoblue generally advertises commercial use of its Free API.
   commercialUseAuthorized:false,scientificallyHomologated:false,
   clientPayload:null,alertPayload:null,mapLayerPayload:null,
   providerContacted:false,creditsReserved:0,
