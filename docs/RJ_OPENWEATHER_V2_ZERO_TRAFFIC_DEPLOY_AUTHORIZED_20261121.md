@@ -93,3 +93,34 @@ A consulta de metadados feita no Cloud Shell mostra duas revisões presentes, am
 - Documentação oficial: https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy (`--min-instances` por revisão, `--min` por serviço, `--no-deploy-health-check`); https://docs.cloud.google.com/run/docs/configuring/min-instances.
 
 **Estado final desta etapa: somente código e CI offline, SEM implantação, SEM credenciais novas, SEM consumo intencional de créditos, SEM alteração no tráfego.**
+
+## Atualização de segurança — 21/11/2026, após auditoria de 10h06
+
+**ESTA É A INSTRUÇÃO VIGENTE E SUBSTITUI QUALQUER BLOCO DE DEPLOY ANTERIOR DESTE DOCUMENTO.** A usuária solicitou **corrigir o procedimento e testá-lo com instâncias mínimas zeradas ANTES de qualquer nova tentativa real**. Consequentemente, a opção antiga `--execute-approved-zero-traffic` permanece **deliberadamente bloqueada no código** com `REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW`. Não criar a candidata nesta etapa.
+
+### Evidências concretas de produção, obtidas em modo leitura
+
+- O serviço atual tem `latestCreatedRevisionName=blaise-v6-rj-backend-00043-hjk`; essa revisão foi criada em 18/11/2026 e está `Ready=True, reason=Retired, Active=False`. A última pronta informada é `blaise-v6-rj-backend-00058-sos` (16/10/2026; Active=True, mas HTTP 500 nas rotas testadas).
+- O **template atual já usa** `BLAISE_OPENWEATHER_API_KEY` do Secret Manager na **v2**, enquanto a histórica `00058-sos` usa **v1 DESABILITADA**. Não forçar downgrade nem sobrescrever configurações existentes.
+- **minScale=1 no template atual e na revisão histórica**; deve permanecer sem modificação. Não inferir minScale de uma revisão pela ausência de tráfego.
+- A configuração de tráfego normal previamente comprovada continua 99%/1%; a tag `validacao-rj` em `00058-sos` permite testar diretamente, mas **não torna essa revisão adequada para clientes**.
+- O Cloud Run dispõe de duas flags distintas: `--min-instances=0` configura **a nova revisão**; `--min=0` configura **o serviço inteiro** e é proibida neste procedimento. Documento oficial: https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy
+
+### Correção simulada na PR #173
+
+- `backend/src/rj-openweather-zero-min-candidate.mjs`: função **pura** constrói um plano de comando com `--min-instances=0`, `--no-traffic`, `--no-deploy-health-check` e **sem** `--min` ou `--tag`. Usa digest de imagem imutável e liga OpenWeather somente à referência da v2; oito flags de coletores continuam `false`.
+- O mesmo módulo distingue mínimo de **serviço**, **revisão antiga** e **revisão futura** e verifica, em simulação, que a candidata tenha mínimo zero sem que o mínimo de serviço seja alterado. O mínimo 1 observado nas revisões históricas NÃO é apagado ou reconfigurado.
+- `backend/scripts/rj-openweather-v2-zero-traffic-candidate.mjs`: preflight **somente leitura** já adaptado ao template v2 e ao `latestCreated=00043-hjk`; uso de `--execute-approved-zero-traffic` resulta em **BLOQUEIO**, mesmo após preflight verde, até análise independente posterior.
+- Testes offline: `backend/test/rj-openweather-zero-min-candidate.test.mjs` e `backend/test/rj-openweather-v2-zero-traffic-candidate.test.mjs`. Verificam `minScale` antiga=1, futura=0, serviço preservado, ausência de URL/tag, coleta OFF, bloqueio de tráfego alterado/segredo desabilitado, e proibição de implantar.
+
+### Novo comando permitido no Cloud Shell
+
+Se for solicitada nova captura, entrar na worktree **existente** e atualizar **sem sobrescrever nenhum arquivo modificado** apenas em caminho de trabalho novo. Executar **somente**:
+
+```bash
+node --test test/rj-openweather-zero-min-candidate.test.mjs test/rj-openweather-v2-zero-traffic-candidate.test.mjs
+node scripts/rj-openweather-v2-zero-traffic-candidate.mjs --preflight-only
+```
+
+**NÃO EXECUTAR** `--execute-approved-zero-traffic`, `gcloud run deploy`, `gcloud run services update-traffic`, `gcloud run services update --min` ou qualquer consulta meteorológica. A futura candidata de 0% continua **NÃO CRIADA**, a PR segue DRAFT, nenhuma versão de segredo foi alterada e o release está BLOQUEADO.
+
