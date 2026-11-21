@@ -75,7 +75,10 @@ if(key==='projects describe'){
  }else if(name===candidate&&fs.existsSync(state)){
   result({metadata:{name:candidate},spec:newSpec,
    status:{imageDigest:pinnedImage}});
- }else process.exit(1);
+ }else {
+  process.stderr.write(bad==='forbidden'?'PERMISSION_DENIED':'NOT_FOUND');
+  process.exit(1);
+ }
 }else if(key==='secrets versions'&&a[2]==='list'){
  const name=a[3];
  if(name==='blaise-rj-openweather-api-key'){
@@ -157,6 +160,17 @@ test('unexpected argument fails closed without any GCloud mutation',()=>{
   const result=invoke(dir,['--force']);
   assert.equal(result.status,2);
   assert.match(result.stdout,/BLOCKED_NO_DEPLOY/);
+  assert.equal(existsSync(join(dir,'deployed')),false);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('unknown candidate absence due to IAM denial blocks deployment',()=>{
+ const dir=make();
+ try{
+  const result=invoke(dir,['--execute-approved-zero-traffic'],'forbidden');
+  assert.equal(result.status,2);
+  assert.match(result.stdout,/CANDIDATE_NOT_CONFIRMED_ABSENT/);
+  assert.match(result.stdout,/UNKNOWN_API_OR_PERMISSION_ERROR/);
   assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
