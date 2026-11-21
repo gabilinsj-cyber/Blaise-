@@ -213,3 +213,10 @@ test('preflight has candidate revision min0 while both historical scales stay at
   assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test('audit command contains no executable gcloud run deploy path',()=>{
+ const source=readFileSync(SCRIPT,'utf8');
+ assert.match(source,/REAL_DEPLOY_PAUSED_FOR_SEPARATE_REVIEW/);
+ assert.doesNotMatch(source,/execFileSync\\s*\\(\\s*['\"]gcloud['\"]\\s*,\\s*cmd/);
+ assert.doesNotMatch(source,/child_process[^\\n]*spawnSync/);
+});
