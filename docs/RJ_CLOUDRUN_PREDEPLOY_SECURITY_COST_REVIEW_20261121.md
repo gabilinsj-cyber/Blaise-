@@ -257,3 +257,29 @@ Nenhum evento foi classificado pelos padrões textuais específicos `failed to s
 Próxima leitura recomendada: obter **somente metadados das três requisições HTTP 500** (latência e status, sem caminhos, IPs, URLs, traceIDs ou textos), para distinguir falha imediata da aplicação versus espera pela instância sem chamar a URL. A investigação de código da imagem de produção requer evidência da imagem efetiva e revisão controlada, sem publicar credenciais.
 
 BLOQUEIOS: PR Draft; nenhum merge/deploy; preservar 99%/1% de tráfego, IAM compartilhado, tag, segredos e instâncias. Nenhuma consulta meteorológica intencional.
+
+
+## Latência das três respostas HTTP 500 — 21/11/2026, 16h03 BRT
+
+A titular executou consulta read-only somente dos `run.googleapis.com/requests` da revisão `blaise-v6-rj-backend-00058-sos` em `2026-11-21T11:10:00Z` a `11:32:00Z`, retornando três registros. Captura às 16h03 BRT:
+
+```text
+TOTAL_REQUISICOES: 3
+REQUISICAO: 1
+HORARIO_UTC: 2026-11-21T11:14:06
+HTTP: 500
+LATENCIA: 0s
+REQUISICAO: 2
+HORARIO_UTC: 2026-11-21T11:26:07
+HTTP: 500
+LATENCIA: 0s
+REQUISICAO: 3
+HORARIO_UTC: 2026-11-21T11:26:08
+HTTP: 500
+LATENCIA: 0s
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação:** latência registrada como `0s` sugere falha muito rápida, mas não comprova ausência de inicialização nem implica necessariamente duração exata nula; a precisão e os detalhes do registro precisam de confirmação. Ainda são possíveis resposta imediata da aplicação, falha de inicialização/roteamento ou resposta gerada pela plataforma. O Google Cloud documenta um caso específico de HTTP 500 quando a instância não consegue iniciar, inclusive ao não conseguir acessar Secret Manager; **não afirmar que seja esta a causa sem mensagem de erro**. A configuração `00058-sos` referencia OpenWeather segredo v1 desabilitado, mas isso é fator de risco e não prova conclusiva da origem do 500. Nenhuma nova requisição real deve ser feita à tag para investigar.
+
+Próximo diagnóstico somente leitura: inspecionar **exclusivamente indicadores sanitizados** de origem do HTTP 500 no próprio request log (`textPayload`/`jsonPayload.message` somente por presença de frases públicas de falha; `responseSize` e presença de mensagem, sem revelar conteúdo), correlacionados aos mesmos três horários. Se não houver indicador, procurar marcadores de erros em logs do sistema já armazenados, sem exibir payload bruto, URLs, IPs, segredos ou IDs. Preservar Cloud Run, tráfego 99/1, tags e instâncias; PR permanece Draft sem deploy, merge ou consultas meteorológicas.
