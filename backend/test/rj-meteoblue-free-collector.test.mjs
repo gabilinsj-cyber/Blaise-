@@ -363,6 +363,18 @@ test('one private request, shared cache; no repeated calls or subscriber publica
  assert.equal(r.creditsReservedThisInvocation,4000);
  assert.equal(r.providerRemainingBalanceUnknown,true);
  assert.equal(r.publishedToSubscribers,false);
+ assert.equal(c.publicationContract.publicReleaseApproved,false);
+ assert.equal(c.publicationContract.androidPublicationEnabled,false);
+ const subscriber=c.buildClientPayload(r.forecast,{
+  nowMs:NOW,releaseApproved:true,commercialRightsVerified:true,
+  publishedToSubscribers:true
+ });
+ assert.equal(subscriber.status,'BLOCKED_PRIVATE_STAGING_ONLY');
+ assert.equal(subscriber.forecast,null);
+ assert.equal(subscriber.weather,null);
+ assert.equal(subscriber.alerts,null);
+ assert.equal(subscriber.publishedToSubscribers,false);
+ assert.equal(subscriber.creditsReserved,0);
  assert.equal(c.automaticPolling,false);
  assert.equal(calls,1);
  assert.ok(uri.startsWith('https://my.meteoblue.com/packages/basic-6h?'));
