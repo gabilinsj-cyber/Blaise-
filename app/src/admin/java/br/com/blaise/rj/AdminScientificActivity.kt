@@ -182,6 +182,21 @@ class AdminScientificActivity : ComponentActivity() {
                                 Text("Contabilização da auditoria: ${AdminCollectorReadiness.METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED} " +
                                     "créditos RESERVADOS no Firestore; saldo/cobrança do fornecedor após consulta NÃO CONSULTADOS.")
                                 Text("Coletor automático: DESLIGADO • publicação aos assinantes: NÃO.")
+                                Text("CONTRATO DE PUBLICAÇÃO: BLOQUEADO • somente staging privado. " +
+                                    "Sem licença comercial verificada, sem homologação científica, sem uso em alertas.")
+                                Text("REVISÃO CIENTÍFICA ${AdminCollectorReadiness.METEOBLUE_SCIENCE_REVIEW_DATE}: " +
+                                    "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS}/" +
+                                    "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED} " +
+                                    "pares históricos de chuva total e convectiva iguais; " +
+                                    "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_EQUAL_WET_RAIN_PAIRS}/" +
+                                    "${AdminCollectorReadiness.METEOBLUE_HISTORICAL_WET_RAIN_PAIRS} " +
+                                    "nos períodos úmidos. Origem semântica sob revisão.")
+                                Text("Probabilidade de chuva é previsão por conjunto: diferença em relação ao " +
+                                    "acumulado determinístico não é automaticamente erro. " +
+                                    "Vento máximo previsto NÃO equivale a rajada observada.")
+                                Text("Os 29 períodos são HISTÓRICOS; não representam clima atual, " +
+                                    "não geram notificações, mapa público ou medidores dos clientes.",
+                                    modifier = Modifier.testTag("admin-meteoblue-publication-blocked"))
                                 Spacer(Modifier.height(8.dp))
                                 AdminCollectorReadiness.meteoblueFieldAudit.forEach { field ->
                                     Text("${field.label} (${field.unit})",
