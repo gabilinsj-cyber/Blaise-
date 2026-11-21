@@ -63,6 +63,12 @@ export function assessOpenweatherV2RepairEvidence({
   envTrue(r,'BLAISE_OPENWEATHER_ONECALL4_SUBSCRIPTION_APPROVED')||
   envTrue(r,'BLAISE_AGENT13_FIRESTORE_ENABLED')||
   envTrue(r,'BLAISE_AGENT13_TEMPERATURE_CONTINGENCY_ENABLED');
+ const activeBackgroundCollection=[
+  'BLAISE_OFFICIAL_SOURCE_WORKER_ENABLED',
+  'BLAISE_MET_NORWAY_ENABLED',
+  'BLAISE_METEOBLUE_FREE_COLLECTOR_ENABLED',
+  'BLAISE_INMET_P0_PUBLISH_ENABLED'
+ ].some(name=>envTrue(r,name));
 
  const checks=Object.freeze({
   projectAssumedNotVerifiedInPureReducer:true,
@@ -80,6 +86,7 @@ export function assessOpenweatherV2RepairEvidence({
   originalRevisionZeroTraffic:matching.length>0&&percent===0,
   serviceTrafficTotals100Percent:traffic.length>0&&projectedTotal===100,
   openweatherAgent13AndApprovalsOff:!activeAgent13,
+  historicalAutomaticWeatherCollectionOff:!activeBackgroundCollection,
  });
  const blockers=Object.freeze(Object.entries(checks)
   .filter(([name,pass])=>name!=='projectAssumedNotVerifiedInPureReducer'&&!pass)
