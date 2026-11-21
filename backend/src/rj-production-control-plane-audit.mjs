@@ -60,7 +60,7 @@ export function summarizeSecretVersions(versions){
   enabledVersionCount:list.filter(x=>x?.state==='ENABLED').length,
   secretPayloadRead:false,
   exposedCredentialRotationVerified:false,
-  paidApiEnabled:false
+  paidApiActivationStatus:'NOT_INSPECTED'
  });
 }
 export function summarizeScheduler(jobs){
@@ -95,7 +95,7 @@ export function assessCloudReadOnlySummary({project,runServices,runService,
   releaseApproval:false,
   deploymentsPerformed:0,
   cloudMutationsPerformed:0,
-  newProviderWeatherCalls:0,
+  directProviderWeatherCallsFromAudit:0,
   apiKeyValuesRead:0
  });
 }
