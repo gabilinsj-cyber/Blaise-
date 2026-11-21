@@ -165,3 +165,23 @@ node scripts/meteoblue-free-credit-status.mjs --read-firestore-budget
 Resumo seguro no terminal: `METEOBLUE_HISTORICAL_NUMERIC_AUDIT` indica `HISTORICAL_FORECAST_AUDITED_NOT_CURRENT` com *count/missingCount/min/max/mean/median* de cada um dos sete campos, timestamp de armazenamento, primeiro e último período e marcadores de proveniência; sem chave, endpoints, localização de usuários ou dados crus completos. O resultado **não** homologará produção nem atualizará clientes. `NO_HISTORICAL_CACHE_DOCUMENT` significa que o documento já não existe e **não** autoriza recaptura. `HISTORICAL_RECORD_INVALID` ou `FIRESTORE_READ_UNAVAILABLE` devem ser diagnosticados sem modificar cache e sem nova chamada.
 
 Como já houve uma solicitação real com a **chave exposta**, o ledger da campanha inclui **uma** reserva global e o código bloqueia novas sondagens com aquela credencial; não tentar contornar com outra variável ou chave. O saldo real do fornecedor só pode ser confirmado no próprio painel.
+
+## Resultado histórico numérico — 21/11/2026 às 02h14 BRT
+
+A captura da titular do Cloud Shell na worktree `~/blaise-meteoblue-historico-20261121/backend` mostra que o **documento histórico foi recuperado** e o relatório de sete séries foi calculado: `privateAuditReady=true`, **29 números em cada campo** (`missingCount=0`) e `rangeValidated=true`. Esses valores são **previsões passadas do modelo, não observações meteorológicas nem previsão atual**.
+
+| Campo 6h histórico | Mínimo | Máximo | Média | Mediana |
+|---|---:|---:|---:|---:|
+| `forecastPrecipitationSixHourMm` | 0 mm | 10,2 mm | 1,597 mm | 0 mm |
+| `forecastConvectivePrecipitationSixHourMm` | 0 mm | 10,2 mm | 1,597 mm | 0 mm |
+| `forecastPrecipitationProbabilitySixHourPct` | 0% | 92% | 44,586% | 46% |
+| `forecastWindMeanSixHourKmh` | 1,03 km/h | 12,25 km/h | 4,086 km/h | 3,79 km/h |
+| `forecastWindMaxSixHourKmh` | 1,3 km/h | 16,58 km/h | 6,313 km/h | 6,28 km/h |
+| `forecastHumidityMeanSixHourPct` | 64% | 100% | 93,414% | 98% |
+| `forecastSeaLevelPressureMeanSixHourHpa` | 1006,52 hPa | 1012,21 hPa | 1009,556 hPa | 1009,4 hPa |
+
+**Verificação científica pendente:** precipitação prevista total e convectiva têm exatamente o mesmo mínimo, máximo, média e mediana. Isso não demonstra que todos os 29 pares de valores são iguais. Foi acrescentada à rotina puramente histórica uma auditoria **por período alinhado**, `precipitationRelationship`, com pares comparados, coincidências, períodos úmidos e períodos nos quais o componente convectivo excede o total. Marcar `needsScientificReview` não é declarar falha do fornecedor, alerta ou anomalia meteorológica observada.
+
+**Firestore na mesma captura:** `localSpentCredits=4000`, `localRemainingReservedAllowance=7996000`, `localCallsReserved=1`, `callsReservedToday=0`, `maxCallsPerUtcDay=1`, `providerCreditBalance=UNVERIFIED_IN_PROVIDER_DASHBOARD`. O zero hoje é apenas do ledger e **não** permite nova chamada com chave previamente exposta (`TEMPORARY_KEY_ONESHOT_SPENT`). O histórico real foi lido **sem novos créditos meteoblue**.
+
+Próxima checagem, depois do CI, com a versão mais recente do leitor em worktree **separada**, mantendo a existente intocada. Ler apenas `precipitationRelationship` (não segredo, JSON bruto ou URL com chave). Continuar PR #173 em draft, sem publicar dados expirados, fazer deploy, merge, assinatura paga ou coleta adicional com a mesma credencial.
