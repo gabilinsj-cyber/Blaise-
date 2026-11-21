@@ -59,3 +59,25 @@ A saída tem prefixo `RJ_CLOUDRUN_PREDEPLOY_SAFETY=`; compartilhar apenas esse r
 - Preços e modelo de cobrança: https://cloud.google.com/run/pricing
 
 **Nenhum deploy, merge, mudança de tráfego, segredo ou consulta ao fornecedor meteorológico foi realizado por esta revisão da PR #173.**
+
+
+## Evidência operacional de cobrança por instância — 21/11/2026, 10h50 BRT
+
+A titular executou a auditoria somente leitura `rj-cloudrun-predeploy-impact-readonly.mjs --cloud-readonly` e forneceu a captura dos oito campos em 21/11/2026 às 10h50 BRT. A saída mostrou:
+
+```text
+status: BLOCKED_FOR_REAL_DEPLOY_PENDING_REVIEW
+productionTrafficExactly99_1: True
+historicalRevisionHasTag: True
+minimumInstancesHistorical: 1
+billingModeHistorical: INSTANCE_BASED
+billingModeCurrentTemplate: INSTANCE_BASED
+historicTagCostExposure: True
+createdNewRevision: False
+```
+
+**Conclusão de segurança/custo:** o modo instance-based da revisão histórica e do template atual foi identificado nos metadados. A revisão `00058-sos` tem tag, mínimo 1 e 0% de tráfego normal, portanto **há risco concreto de cobrança contínua** por uma instância sem requisições. Segundo a documentação oficial, no modo instance-based cobra-se durante a vida da instância. Isso **NÃO comprova o valor líquido realmente cobrado nem identifica a parcela por revisão**, pois não consultamos Cloud Billing, créditos promocionais, descontos nem métricas de uso.
+
+**Política de segurança vigente:** não remover a tag, não alterar mínimo de instância da `00058-sos`, não alterar tipo de faturamento do serviço, não executar `gcloud run deploy`, não criar nova candidata, não alterar tráfego 99%/1%, não ler segredos e não consultar meteorologia. Qualquer ajuste de custo de produção exigirá autorização específica após avaliação do impacto de acesso da revisão histórica e do orçamento. **Próxima etapa: somente consultar os valores reais no Google Cloud Billing Reports**, filtrando projeto `blaise-v6-rj`, serviço `Cloud Run` e intervalo recente, e distinguir uso bruto, créditos e custo líquido. Os custos podem ter defasagem na consolidação dos relatórios.
+
+Referências: https://docs.cloud.google.com/run/docs/configuring/billing-settings ; https://docs.cloud.google.com/run/docs/configuring/min-instances ; https://docs.cloud.google.com/billing/docs/how-to/reports .
