@@ -64,7 +64,7 @@ if(key==='projects describe'){
  result({
   metadata:{name:service,uid:'unchanged-uid'},
   spec:{template:{spec:oldSpec},traffic:active},
-  status:{latestCreatedRevisionName:existsSync(state)?candidate:historical,
+  status:{latestCreatedRevisionName:fs.existsSync(state)?candidate:historical,
    traffic:active}
  });
 }else if(key==='run revisions'&&a[2]==='describe'){
@@ -72,7 +72,7 @@ if(key==='projects describe'){
  if(name===historical){
   result({metadata:{name:historical},spec:oldSpec,
    status:{imageDigest:pinnedImage}});
- }else if(name===candidate&&existsSync(state)){
+ }else if(name===candidate&&fs.existsSync(state)){
   result({metadata:{name:candidate},spec:newSpec,
    status:{imageDigest:pinnedImage}});
  }else process.exit(1);
