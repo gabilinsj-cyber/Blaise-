@@ -185,3 +185,17 @@ A captura da titular do Cloud Shell na worktree `~/blaise-meteoblue-historico-20
 **Firestore na mesma captura:** `localSpentCredits=4000`, `localRemainingReservedAllowance=7996000`, `localCallsReserved=1`, `callsReservedToday=0`, `maxCallsPerUtcDay=1`, `providerCreditBalance=UNVERIFIED_IN_PROVIDER_DASHBOARD`. O zero hoje é apenas do ledger e **não** permite nova chamada com chave previamente exposta (`TEMPORARY_KEY_ONESHOT_SPENT`). O histórico real foi lido **sem novos créditos meteoblue**.
 
 Próxima checagem, depois do CI, com a versão mais recente do leitor em worktree **separada**, mantendo a existente intocada. Ler apenas `precipitationRelationship` (não segredo, JSON bruto ou URL com chave). Continuar PR #173 em draft, sem publicar dados expirados, fazer deploy, merge, assinatura paga ou coleta adicional com a mesma credencial.
+
+## Evidência de pares alinhados — 21/11/2026 às 02h19 BRT
+
+A titular executou consulta SOMENTE DE LEITURA ao documento privado Firestore `blaise_rj_meteoblue_free_private_cache_v1/3304557`. O terminal devolveu literalmente as contagens (sem valores crus):
+
+```text
+RAIN_COMPARISON={"valid":29,"equal":29,"wet":14,"equalWet":14,"exceeds":0,"historicalOnly":true,"creditsUsed":0}
+```
+
+Interpretação rigorosa: **todos os 29 pares** `forecastPrecipitationSixHourMm` vs. `forecastConvectivePrecipitationSixHourMm` coincidem à tolerância **0,001 mm**; **14 pares** contêm chuva prevista e também coincidem; os 15 demais são secos na tolerância; em nenhum par o componente convectivo excede o total. Isso vai além da igualdade anterior apenas de mínimo, máximo, média e mediana: as **duas séries históricas coincidem período a período**. Não se sabe ainda se resulta da forma de geração do produto meteoblue ou de uma correspondência indevida do schema, sem revisar documentação do pacote e um payload sanitizado. Não presumir erro ou fraude do fornecedor, e **não** interpretar como chuva medida.
+
+**Decisão de segurança:** marcar **REVISÃO CIENTÍFICA PENDENTE** para a independência semântica dos dois campos; não usar a componente convectiva para cálculo de risco/alerta, distinção de tipos de chuva ou publicação em aplicativo cliente. Todos os dados são históricos (P), com cache operacional vencido. O script do backend `rj-meteoblue-free-historical-audit.mjs` já produz `precipitationRelationship.needsScientificReview=true` nessa condição; seus testes offline foram aprovados, sem chamar o fornecedor. Não gastar outros 4.000 créditos para resolver uma dúvida que pode ser investigada com documentação e o cache existente.
+
+**Créditos:** `creditsUsed=0` é apenas o relatório desta leitura histórica. Ledger continua com **uma reserva de 4.000**; não representa saldo confirmado na meteoblue. Chave original exposta e One-shot usada; nenhum replay live com esta credencial. PR #173 segue DRAFT; o cliente original e as configurações de produção não foram alterados.
