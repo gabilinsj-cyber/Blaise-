@@ -71,6 +71,31 @@ export function inspectHistoricalMeteoblueCacheRecord(record,{nowMs=Date.now()}=
      rangeValidated:true
    }));
  }
+ // Compare matching six-hour precipitation slots instead of assuming
+ // equal min/max/mean implies identical series. Diagnostic, never an alert.
+ const totals=map.get(METEOBLUE_BASIC6H_FIELDS.precipitation.name).values;
+ const convective=map.get(METEOBLUE_BASIC6H_FIELDS.convective_precipitation.name).values;
+ let compared=0,identical=0,wet=0,identicalWet=0,exceeds=0;
+ for(let i=0;i<times.length;i++){
+   const t=totals[i],c=convective[i];
+   if(!finite(t)||!finite(c))continue;
+   compared++;
+   const equals=Math.abs(c-t)<=0.001;
+   const wetPair=t>0.001||c>0.001;
+   if(equals)identical++;
+   if(wetPair){wet++;if(equals)identicalWet++;}
+   if(c>t+0.001)exceeds++;
+ }
+ const precipitationRelationship=Object.freeze({
+   comparedSlots:compared,
+   equalSlots:identical,
+   wetSlots:wet,
+   equalWetSlots:identicalWet,
+   convectiveGreaterThanTotalSlots:exceeds,
+   identicalAcrossAllWetSlots:wet>0&&wet===identicalWet,
+   needsScientificReview:exceeds>0||(wet>0&&wet===identicalWet),
+   forecastComponentDiagnosticOnly:true
+ });
  const out={
    status:'HISTORICAL_FORECAST_AUDITED_NOT_CURRENT',
    source:'METEOBLUE_FREE_FORECAST',
@@ -90,6 +115,7 @@ export function inspectHistoricalMeteoblueCacheRecord(record,{nowMs=Date.now()}=
      privateAuditReady:f.auditReadyForPrivateReview===true
    },
    fields:Object.freeze(fields),
+   precipitationRelationship,
  };
  return Object.freeze(out);
 }
