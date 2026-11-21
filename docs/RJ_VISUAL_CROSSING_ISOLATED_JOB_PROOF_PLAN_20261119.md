@@ -422,3 +422,18 @@ A titular apresentou captura da saída de consulta IAM somente leitura às **01h
 **Risco**: build com conta personalizada precisa que **o operador que submete** tenha `iam.serviceAccounts.actAs`; quando usa `CLOUD_LOGGING_ONLY`, a identidade de build precisa poder gravar logs (em geral `roles/logging.logWriter`). Alternativamente, logs podem usar bucket GCS com permissões estreitas e custos adicionais. Documentação oficial: https://docs.cloud.google.com/build/docs/securing-builds/configure-user-specified-service-accounts.
 
 **Decisão:** não iniciar Cloud Build, não conceder `roles/iam.serviceAccountUser`/logWriter automaticamente ou no projeto inteiro, não reusar identidade Compute Engine default Editor/Owner. Continuar com filtro somente leitura para permissões explícitas do **operador atualmente autenticado** e da identidade de build nas políticas de projeto; não imprimir e-mails da política nem tokens. Depois solicitar consentimento específico para eventuais grants mínimos necessários. Repositório `blaise-vc-proof` com `roles/artifactregistry.writer` para `blaise-vc-build` permanece confirmado, mas isso isoladamente não libera build. IAM temporário `blaiseVcProof24h` da conta de teste **expirou**; não renovar sem consentimento. Sem imagem publicada, Cloud Run Job, execução da prova ou coleta/publicação de clientes.
+
+
+## Evidência Cloud Shell — 21/11/2026 01h45 BRT: operador Editor ou Owner, actAs não comprovado
+
+A titular executou a auditoria somente leitura `gcloud config get-value account` + `gcloud projects get-iam-policy blaise-v6-rj --format=json`, com filtro local para a conta de usuário autenticada. A captura das **01h45 BRT** mostra:
+- `AUDITORIA_OPERADOR: CONCLUIDA`;
+- `SERVICE_ACCOUNT_USER_PROJETO: False`;
+- `EDITOR_OU_OWNER_PROJETO: True` — presença de `roles/editor` **ou** `roles/owner` para o operador, mas não distingue qual;
+- `PERMISSAO_EFETIVA_ACTAS: NAO_VERIFICADA`.
+
+**Interpretação:** ausência do papel específico `roles/iam.serviceAccountUser` **direto no projeto** não prova ausência da permissão `iam.serviceAccounts.actAs`. O operador já tem vínculo administrativo amplo, potencialmente com a permissão via outro papel; IAM condicional/herdado, deny policies e restrições de organização não foram avaliados. Não criar concessão `roles/iam.serviceAccountUser` automaticamente. Em especial, NÃO ampliar `Owner`/`Editor`, nem alterar outros recursos.
+
+**Próximo teste proposto:** usar somente leitura o método oficial IAM `projects.serviceAccounts.testIamPermissions` para testar **a identidade autenticada atual** na conta exata `blaise-vc-build@blaise-v6-rj.iam.gserviceaccount.com` para `iam.serviceAccounts.actAs`. Referência oficial: https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.serviceAccounts/testIamPermissions. Capturar token OAuth em memória (nunca imprimir), consultar endpoint HTTPS com JSON de uma permissão, exibir somente `ACTAS_OPERADOR=SIM/NAO/INCONCLUSIVO`; caso 403, erro de rede ou API desabilitada, não conceder nova role nem habilitar APIs automaticamente. Verificação não testa se o builder pode registrar logs ou completar o build: isso requer gating separado.
+
+**Estado preservado:** conta `blaise-vc-build` recebeu `roles/artifactregistry.writer` diretamente no repositório `blaise-vc-proof`; build continua suspenso, nenhum push de imagem, sem job Cloud Run e sem leitura do segredo; vínculo Secret Accessor da identidade de prova `blaise-vc-proof` expirou em `2026-11-21T00:14:02Z`.
