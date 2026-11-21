@@ -92,3 +92,25 @@ A titular enviou duas capturas do **Google Cloud Billing > Relatórios** às 10h
 **Próxima leitura recomendada no próprio console:** Relatórios → selecionar **Projeto blaise-v6-rj** → **Serviço Cloud Run** → **Agrupar por SKU**, primeiro período 1–21/11 e depois últimos 7 dias. Capturar nome da SKU, valor bruto e economia/crédito, omitindo ID de conta e informações pessoais. A documentação oficial confirma que reports por SKU permitem identificar componentes de uso: https://docs.cloud.google.com/billing/docs/how-to/reports.
 
 **Bloqueios mantidos:** nenhum deploy, alteração de tag, minScale, tráfego 99/1, credencial, conta de faturamento ou consulta meteorológica.
+
+
+## Auditoria de acesso externo / IAM — 21/11/2026, 11h26 BRT
+
+Consulta somente leitura no Cloud Shell, captura às 11h26 BRT:
+
+```text
+INGRESS: all
+INVOCADOR_IAM_DESATIVADO: NAO_INFORMADO
+REVISAO_58_TEM_TAG: True
+ALL_USERS_INVOCADOR: True
+ALL_AUTHENTICATED_INVOCADOR: False
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Achado de segurança:** o serviço aceita ingresso externo (`all`) e a política de invocação contém `roles/run.invoker` para `allUsers`. A revisão histórica `00058-sos` mantém tag com 0% de tráfego normal. Em condições normais de URL de tag habilitada, isso **permite invocação externa sem autenticação IAM do Cloud Run**, ainda que uma rota possa ter controle de autenticação implementado no aplicativo. Não há prova de exploração, nem de todas as rotas serem públicas. `run.googleapis.com/invoker-iam-disabled` não foi informado no campo consultado e não deve ser inferido. Não imprimir URL da tag ou credenciais.
+
+**Risco cruzado:** a revisão com tag já havia retornado HTTP 500 e usa segredo OpenWeather v1 desabilitado. Tag + acesso público + `minScale=1` + billing `INSTANCE_BASED` combina risco operacional e de custos. A ausência de tráfego normal NÃO prova ausência de solicitações pela tag.
+
+**Não modificar** `allUsers`, ingresso global, minScale, tags ou IAM sem avaliação específica, pois o serviço também atende clientes (99%/1%). Próxima auditoria deve apenas verificar se a URL padrão de revisão/tag está habilitada e se há registros por revisão, sem produzir chamadas HTTP nem alterar o serviço. A candidata futura NÃO foi criada.
+
+Referências: https://docs.cloud.google.com/run/docs/securing/managing-access ; https://docs.cloud.google.com/run/docs/rollouts-rollbacks-traffic-migration ; https://docs.cloud.google.com/run/docs/securing/ingress .
