@@ -74,6 +74,14 @@ object AdminCollectorReadiness {
     const val METEOBLUE_SCIENTIFIC_HOMOLOGATION_GRANTED = false
     const val METEOBLUE_CLIENT_PUBLICATION_AUTHORIZED = false
     const val METEOBLUE_WEATHER_ALERT_INPUT_AUTHORIZED = false
+    // Free API product comparison advertises commercial use, but the
+    // broader meteoblue T&C reserves reproduction/storage/redistribution
+    // rights under applicable licence terms. No subscriber release approval.
+    const val METEOBLUE_FREE_COMMERCIAL_USE_ADVERTISED = true
+    const val METEOBLUE_SUBSCRIBER_DISTRIBUTION_RIGHTS_VERIFIED = false
+    const val METEOBLUE_DATA_STORAGE_REPRODUCTION_RIGHTS_VERIFIED = false
+    const val METEOBLUE_ATTRIBUTION_TERMS_VERIFIED = false
+    const val METEOBLUE_EXPIRED_FORECASTS_ELIGIBLE_AS_CURRENT = false
     const val METEOBLUE_COMMERCIAL_RIGHTS_VERIFIED = false
     // Null is deliberately distinct from zero: no provider dashboard or
     // Firestore read occurs in this Android-admin planning view.
@@ -117,7 +125,7 @@ object AdminCollectorReadiness {
         AdminCollectorReadinessItem(
             "METEOBLUE_FREE_FORECAST", "meteoblue Free API • mLM basic-6h",
             "COLETOR PRIVADO OFF • SALDO DO FORNECEDOR NÃO CONSULTADO",
-            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; máximo 1 consulta/dia UTC. Em 19/11 às 09h42 BRT a resposta PRIVADA REAL confirmou 7/7 campos de previsão, 29 intervalos de 6h, horários, unidades e geografia. Reserva Firestore de 4.000 créditos; cobrança/saldo no fornecedor não verificados após chamada. Valores históricos numéricos recuperados de 29 períodos; chuva total e convectiva coincidem em 29/29 pares (14/14 úmidos). Revisão científica pendente; sem licença de publicação verificada, alerta ou clientes. Coletor contínuo OFF."
+            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; máximo 1 consulta/dia UTC. Em 19/11 às 09h42 BRT a resposta PRIVADA REAL confirmou 7/7 campos de previsão, 29 intervalos de 6h, horários, unidades e geografia. Reserva Firestore de 4.000 créditos; cobrança/saldo no fornecedor não verificados após chamada. Valores históricos numéricos recuperados de 29 períodos; chuva total e convectiva coincidem em 29/29 pares (14/14 úmidos). A Free API anuncia uso comercial, MAS direitos de redistribuição a assinantes, guarda/reprodução e atribuição da conta ainda não foram comprovados. Revisão semântica convectiva pendente. Nenhuma medição atual, alerta, publicação ou coleta contínua."
         ),
         AdminCollectorReadinessItem(
             "NOAA_RJ_MARINE", "NOAA • ondas / SST / raios",
@@ -156,6 +164,11 @@ object AdminCollectorReadiness {
         require(METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED == METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS)
         require(METEOBLUE_HISTORICAL_WET_RAIN_PAIRS == METEOBLUE_HISTORICAL_EQUAL_WET_RAIN_PAIRS)
         require(METEOBLUE_RAIN_SEMANTICS_REVIEW_REQUIRED)
+        require(METEOBLUE_FREE_COMMERCIAL_USE_ADVERTISED)
+        require(!METEOBLUE_SUBSCRIBER_DISTRIBUTION_RIGHTS_VERIFIED &&
+            !METEOBLUE_DATA_STORAGE_REPRODUCTION_RIGHTS_VERIFIED &&
+            !METEOBLUE_ATTRIBUTION_TERMS_VERIFIED &&
+            !METEOBLUE_EXPIRED_FORECASTS_ELIGIBLE_AS_CURRENT)
         require(!METEOBLUE_SCIENTIFIC_HOMOLOGATION_GRANTED &&
             !METEOBLUE_CLIENT_PUBLICATION_AUTHORIZED &&
             !METEOBLUE_WEATHER_ALERT_INPUT_AUTHORIZED &&
