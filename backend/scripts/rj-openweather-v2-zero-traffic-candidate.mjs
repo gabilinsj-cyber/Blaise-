@@ -19,6 +19,9 @@ import {assessOpenweatherV2RepairEvidence,
 const PROJECT=T.project, REGION='southamerica-east1', SERVICE=T.service;
 const REVISION_SUFFIX='owv2-211126';
 const CANDIDATE=SERVICE+'-'+REVISION_SUFFIX;
+const CURRENT_TEMPLATE_ORIGIN=SERVICE+'-00043-hjk';
+const REVISION_MIN_EXPECTED_BEFORE='1';
+const REVISION_MIN_REQUIRED_AFTER='0';
 const run=process.argv.slice(2);
 const approved=run.includes('--execute-approved-zero-traffic');
 const allowed=new Set(['--execute-approved-zero-traffic','--preflight-only']);
@@ -91,12 +94,28 @@ const imageDigest=(rev)=>{
   return null;
  return out;
 };
-const minScaleUnsafe=x=>{
+const revisionMinScale=x=>{
  const annotations=x?.metadata?.annotations||{};
- const value=annotations['autoscaling.knative.dev/minScale']||
+ const value=annotations['autoscaling.knative.dev/minScale']??
   annotations['run.googleapis.com/minScale'];
- return value!==undefined && value!==null&&String(value)!=='0';
+ return value===undefined||value===null?'NOT_SET':String(value);
 };
+// Read-only: changing --min would change service-level capacity across
+// revisions. The candidate MUST use --min-instances=0 (revision-level) only.
+const serviceMinScale=x=>{
+ const a=x?.metadata?.annotations||{};
+ const value=x?.spec?.scaling?.minInstanceCount??
+  a['run.googleapis.com/minScale']??
+  a['autoscaling.knative.dev/minScale'];
+ return value===undefined||value===null?'NOT_SET':String(value);
+};
+const revisionHasNoPositiveTrafficOrTag=(service,candidate)=>
+  !(service?.status?.traffic||[]).some(t=>
+   t?.revisionName===candidate&&
+   (Number(t?.percent||0)>0||Boolean(t?.tag)))&&
+  !(service?.spec?.traffic||[]).some(t=>
+   t?.revisionName===candidate&&
+   (Number(t?.percent||0)>0||Boolean(t?.tag)));
 if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
  stop('INVALID_CLI_ARGUMENTS');
 }else{
@@ -117,8 +136,12 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
   const rc=specContainer(revision), sc=svcContainer(service);
   const problems=[...p.blockers];
   if(p.status!=='REPAIR_PLAN_ELIGIBLE_NOT_DEPLOYED')problems.push('READONLY_PLAN_NOT_READY');
-  if(service?.status?.latestCreatedRevisionName!==T.revision)
-   problems.push('SERVICE_TEMPLATE_CHANGED_FROM_HISTORICAL_BASE');
+  // The live service template already uses OpenWeather v2 and is based on
+  // 00043-hjk (Retired), while 00058-sos remains an immutable historical
+  // reference. Do not treat the more recent template as the old v1 snapshot.
+  if(service?.status?.latestCreatedRevisionName!==CURRENT_TEMPLATE_ORIGIN||
+     service?.status?.latestReadyRevisionName!==T.revision)
+   problems.push('SERVICE_REVISION_BASELINE_DRIFT');
   if(service?.metadata?.name!==SERVICE||!service?.metadata?.uid)
    problems.push('SERVICE_UID_NOT_VERIFIED');
   if(!trafficExpected(activeTraffic(service)))
@@ -128,15 +151,23 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
   if(!rc||!sc)problems.push('CONTAINER_COUNT_NOT_ONE');
   if(rc&&sc&&sc.image!==rc.image)
    problems.push('SERVICE_TEMPLATE_IMAGE_DIFFERS_FROM_HISTORICAL_REVISION');
-  if(rc&&sc&&secretRef(sc,T.openweatherEnv)?.key!=='1')
-   problems.push('CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V1');
+  if(rc&&sc&&(secretRef(sc,T.openweatherEnv)?.name!==T.openweatherSecret||
+     secretRef(sc,T.openweatherEnv)?.key!=='2'))
+   problems.push('CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V2');
   if(rc&&sc&&secretRef(sc,T.redemetEnv)?.key!=='1')
    problems.push('CURRENT_TEMPLATE_REDEMET_SECRET_NOT_V1');
   if(revision?.spec?.serviceAccountName!==service?.spec?.template?.spec?.serviceAccountName||
      !revision?.spec?.serviceAccountName)
    problems.push('SERVICE_IDENTITY_MISMATCH');
-  if(minScaleUnsafe(revision)||minScaleUnsafe(service?.spec?.template))
-   problems.push('REVISION_MIN_INSTANCES_NOT_ZERO');
+  // Historical 00058 and current service template both have minScale=1.
+  // These are observations, not a reason to mutate them. Only the FUTURE
+  // candidate is allowed to have minScale=0, expressly via the revision flag.
+  if(revisionMinScale(revision)!==REVISION_MIN_EXPECTED_BEFORE)
+   problems.push('HISTORICAL_MIN_SCALE_DRIFT');
+  if(revisionMinScale(service?.spec?.template)!==REVISION_MIN_EXPECTED_BEFORE)
+   problems.push('CURRENT_TEMPLATE_MIN_SCALE_DRIFT');
+  if(!['NOT_SET','0'].includes(serviceMinScale(service)))
+   problems.push('SERVICE_LEVEL_MIN_INSTANCES_NOT_ZERO');
   if(rc&&((rc.command||[]).length>0||(rc.args||[]).length>0||
       rc.ports?.[0]?.containerPort!==8080))
    problems.push('ENTRYPOINT_OR_PORT_UNEXPECTED');
@@ -158,6 +189,10 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
     historicalFlagsPreserved:true,clientTraffic:'99_1',
     secretVersionRequested:'2',candidateWeatherFlagsOff:8,
     imageDigestPinned:true,tagCreated:false,
+    priorHistoricalRevisionMinInstances:revisionMinScale(revision),
+    priorTemplateMinInstances:revisionMinScale(service?.spec?.template),
+    proposedCandidateMinInstances:REVISION_MIN_REQUIRED_AFTER,
+    existingServiceLevelMinInstances:serviceMinScale(service),
     providerKeyValid:'NOT_VERIFIED',
     actualRuntimeSecretAccess:'NOT_VERIFIED',
     deploymentPerformed:false,
@@ -172,6 +207,7 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
     '--image='+imageDigest(revision),
     '--service-account='+revision.spec.serviceAccountName,
     '--port=8080','--cpu=1','--memory=512Mi',
+    '--min-instances=0','--no-deploy-health-check',
     '--revision-suffix='+REVISION_SUFFIX,
     '--update-secrets='+T.openweatherEnv+'='+T.openweatherSecret+':2',
     '--update-env-vars='+envUpdates,
@@ -196,6 +232,7 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
    if(deployed){
     const after=getJson(['run','services','describe',SERVICE,...base]);
     const newRev=getJson(['run','revisions','describe',CANDIDATE,...base]);
+    const historicAfter=getJson(['run','revisions','describe',T.revision,...base]);
     const newC=specContainer(newRev);
     const flagsValid=Object.entries(SAFE_ENV)
      .every(([name,value])=>envVal(newC,name)?.value===value);
@@ -209,7 +246,11 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
       newRev?.metadata?.name===CANDIDATE&&
       newRev?.spec?.serviceAccountName===revision.spec.serviceAccountName&&
       newC?.image===imageDigest(revision)&&flagsValid&&secretValid&&redemetValid&&
-      !((after?.status?.traffic||[]).some(t=>t.revisionName===CANDIDATE&&Number(t.percent||0)>0));
+      revisionMinScale(newRev)===REVISION_MIN_REQUIRED_AFTER&&
+      revisionMinScale(after?.spec?.template)===REVISION_MIN_REQUIRED_AFTER&&
+      revisionMinScale(historicAfter)===revisionMinScale(revision)&&
+      serviceMinScale(after)===serviceMinScale(service)&&
+      revisionHasNoPositiveTrafficOrTag(after,CANDIDATE);
     emit({
       status:safe?'CREATED_ISOLATED_ZERO_TRAFFIC_PENDING_SMOKE':
        'CREATED_OR_ATTEMPTED_POSTCHECK_FAILED_NO_PROMOTION',
@@ -222,6 +263,13 @@ if(run.some(x=>!allowed.has(x))||(approved&&run.includes('--preflight-only'))){
       eightWeatherGatesExplicitlyOff:flagsValid,
       pinnedImageMatchesHistorical:!!newC&&newC.image===imageDigest(revision),
       tagCreated:false,providerWeatherCallsByScript:0,
+      candidateRevisionMinInstances:revisionMinScale(newRev),
+      newTemplateMinInstances:revisionMinScale(after?.spec?.template),
+      historicalRevisionMinPreserved:
+       revisionMinScale(historicAfter)===revisionMinScale(revision),
+      serviceLevelMinPreserved:serviceMinScale(after)===serviceMinScale(service),
+      noTaggedCandidate:revisionHasNoPositiveTrafficOrTag(after,CANDIDATE),
+      deployHealthCheckSkipped:true,
       secretPayloadRead:false,
       actualSecretAccess:'NOT_VERIFIED',
       vendorKeyValidity:'NOT_VERIFIED',
