@@ -31,6 +31,11 @@ const oldSpec={serviceAccountName:sa,containers:[{
  image:oldImage,env,ports:[{containerPort:8080}],
  resources:{limits:{cpu:'1',memory:'512Mi'}}
 }]};
+const currentSpec={...oldSpec,containers:[{...oldSpec.containers[0],
+ env:env.map(e=>e.name==='BLAISE_OPENWEATHER_API_KEY'
+  ?{...e,valueFrom:{secretKeyRef:{
+    name:'blaise-rj-openweather-api-key',
+    key:bad==='templatekey'?'1':'2'}}}:e)}]};
 const newEnv=[{name:'BLAISE_OPENWEATHER_API_KEY',
  valueFrom:{secretKeyRef:{name:'blaise-rj-openweather-api-key',key:'2'}}},
  {name:'BLAISE_REDEMET_API_KEY',
@@ -45,6 +50,8 @@ const newEnv=[{name:'BLAISE_OPENWEATHER_API_KEY',
  'BLAISE_INMET_P0_PUBLISH_ENABLED'].map(name=>({name,value:'false'}))];
 const newSpec={...oldSpec,containers:[{...oldSpec.containers[0],
  image:pinnedImage,env:newEnv}]};
+const minAnn=n=>({'autoscaling.knative.dev/minScale':n});
+const candidateMin=bad==='candidate-min-1'?'1':'0';
 const active=[{revisionName:service+'-00031-vep',percent:99},
  {revisionName:service+'-00038-pin',percent:1},
  {revisionName:historical,tag:'validacao-rj'}];
@@ -52,6 +59,9 @@ if(bad==='traffic')active[0].percent=98;
 const result=x=>process.stdout.write(JSON.stringify(x)+'\n');
 if(key==='run deploy'){
  if(!a.includes('--no-traffic')||a.some(x=>x.startsWith('--tag='))||
+   !a.includes('--min-instances=0')||
+   a.some(x=>x==='--min=0'||x.startsWith('--min='))||
+   !a.includes('--no-deploy-health-check')||
    !a.some(x=>x.includes('blaise-rj-openweather-api-key:2'))){
   process.exit(13);
  }
@@ -62,18 +72,25 @@ if(key==='projects describe'){
  result({projectId:'blaise-v6-rj',lifecycleState:'ACTIVE'});
 }else if(key==='run services'&&a[2]==='describe'){
  result({
-  metadata:{name:service,uid:'unchanged-uid'},
-  spec:{template:{spec:oldSpec},traffic:active},
-  status:{latestCreatedRevisionName:fs.existsSync(state)?candidate:historical,
+  metadata:{name:service,uid:'unchanged-uid',
+   annotations:bad==='service-min-1'?{'run.googleapis.com/minScale':'1'}:{}},
+  spec:{template:{metadata:{annotations:
+   minAnn(fs.existsSync(state)?candidateMin:(bad==='template-min-0'?'0':'1'))},
+   spec:fs.existsSync(state)?newSpec:currentSpec},
+   traffic:active},
+  status:{latestCreatedRevisionName:fs.existsSync(state)?candidate:service+'-00043-hjk',
+   latestReadyRevisionName:historical,
    traffic:active}
  });
 }else if(key==='run revisions'&&a[2]==='describe'){
  const name=a[3];
  if(name===historical){
-  result({metadata:{name:historical},spec:oldSpec,
+  result({metadata:{name:historical,
+   annotations:minAnn(bad==='historic-min-0'?'0':'1')},spec:oldSpec,
    status:{imageDigest:pinnedImage}});
  }else if(name===candidate&&fs.existsSync(state)){
-  result({metadata:{name:candidate},spec:newSpec,
+  result({metadata:{name:candidate,
+   annotations:minAnn(candidateMin)},spec:newSpec,
    status:{imageDigest:pinnedImage}});
  }else {
   process.stderr.write(bad==='forbidden'?'PERMISSION_DENIED':'NOT_FOUND');
@@ -114,6 +131,9 @@ test('default is read-only preflight: no Cloud Run deployment',()=>{
   assert.match(result.stdout,/PREFLIGHT_PASS_CANDIDATE_NOT_CREATED/);
   assert.match(result.stdout,/"secretVersionRequested":"2"/);
   assert.match(result.stdout,/"candidateWeatherFlagsOff":8/);
+  assert.match(result.stdout,/"priorHistoricalRevisionMinInstances":"1"/);
+  assert.match(result.stdout,/"priorTemplateMinInstances":"1"/);
+  assert.match(result.stdout,/"proposedCandidateMinInstances":"0"/);
   assert.equal(existsSync(join(dir,'deployed')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
@@ -127,8 +147,15 @@ test('explicit owner-approved flag produces untagged 0% candidate only in mock G
   assert.match(result.stdout,/"eightWeatherGatesExplicitlyOff":true/);
   assert.match(result.stdout,/"candidateSecretBindingV2Verified":true/);
   assert.match(result.stdout,/"productionReleaseApproved":false/);
+  assert.match(result.stdout,/"candidateRevisionMinInstances":"0"/);
+  assert.match(result.stdout,/"historicalRevisionMinPreserved":true/);
+  assert.match(result.stdout,/"serviceLevelMinPreserved":true/);
+  assert.match(result.stdout,/"noTaggedCandidate":true/);
   const cmd=JSON.parse(readFileSync(join(dir,'deployed'),'utf8'));
   assert.ok(cmd.includes('--no-traffic'));
+  assert.ok(cmd.includes('--min-instances=0'));
+  assert.ok(cmd.includes('--no-deploy-health-check'));
+  assert.ok(!cmd.some(x=>x.startsWith('--min=')));
   assert.ok(!cmd.some(x=>x.startsWith('--tag')));
   assert.ok(!cmd.some(x=>x.includes('update-traffic')));
   assert.ok(cmd.some(x=>x.startsWith('--image=')&&x.includes('@sha256:')));
@@ -172,5 +199,35 @@ test('unknown candidate absence due to IAM denial blocks deployment',()=>{
   assert.match(result.stdout,/CANDIDATE_NOT_CONFIRMED_ABSENT/);
   assert.match(result.stdout,/UNKNOWN_API_OR_PERMISSION_ERROR/);
   assert.equal(existsSync(join(dir,'deployed')),false);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('historical and template minScale=1 are allowed only as preserved baseline',()=>{
+ for(const [bad,reason] of [
+  ['historic-min-0','HISTORICAL_MIN_SCALE_DRIFT'],
+  ['template-min-0','CURRENT_TEMPLATE_MIN_SCALE_DRIFT'],
+  ['service-min-1','SERVICE_LEVEL_MIN_INSTANCES_NOT_ZERO'],
+  ['templatekey','CURRENT_TEMPLATE_OPENWEATHER_SECRET_NOT_V2']
+ ]){
+  const dir=make();
+  try{
+   const r=invoke(dir,['--execute-approved-zero-traffic'],bad);
+   assert.equal(r.status,2,bad+' '+r.stdout);
+   assert.match(r.stdout,new RegExp(reason),bad);
+   assert.equal(existsSync(join(dir,'deployed')),false,bad);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+ }
+});
+test('candidate minScale drift after deploy fails postcheck and never promotes',()=>{
+ const dir=make();
+ try{
+  const r=invoke(dir,['--execute-approved-zero-traffic'],'candidate-min-1');
+  assert.equal(r.status,2);
+  assert.match(r.stdout,/CREATED_OR_ATTEMPTED_POSTCHECK_FAILED_NO_PROMOTION/);
+  assert.match(r.stdout,/"candidateRevisionMinInstances":"1"/);
+  const cmd=JSON.parse(readFileSync(join(dir,'deployed'),'utf8'));
+  assert.ok(cmd.includes('--min-instances=0'));
+  assert.ok(!cmd.some(x=>x.startsWith('--tag=')));
+  assert.ok(!cmd.some(x=>x.includes('update-traffic')));
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
