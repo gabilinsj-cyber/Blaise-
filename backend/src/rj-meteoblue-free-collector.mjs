@@ -7,6 +7,8 @@
 import {prepareMeteoblueFreeRjProbe} from './rj-meteoblue-free-connection.mjs';
 import {parseMeteoblueBasic6h} from './rj-meteoblue-basic6h-parse.mjs';
 import {createRjMeteoblueFreeFirestoreStore} from './rj-meteoblue-free-firestore-store.mjs';
+import {METEOBLUE_FREE_PUBLICATION_CONTRACT,buildMeteoblueFreeClientPayload}
+ from './rj-meteoblue-free-publication-contract.mjs';
 const fail=reason=>Object.freeze({
  status:'UNAVAILABLE',reason,sourceId:'METEOBLUE_FREE_FORECAST',
  providerContacted:false,credentialsExposed:false,
@@ -128,6 +130,10 @@ export function createBlaiseRjMeteoblueFreeCollector({
   subscriberEndpointEnabled:false,
   publishedToAndroid:false,
   paidUseAllowed:false,
+  // A future adapter cannot turn a private forecast into customer data by
+  // toggling flags or reading a cache. This deliberately returns null payloads.
+  publicationContract:METEOBLUE_FREE_PUBLICATION_CONTRACT,
+  buildClientPayload:buildMeteoblueFreeClientPayload,
   collectOne
  });
 }
