@@ -213,3 +213,28 @@ AUDITORIA: SOMENTE_LEITURA
 **Interpretação restrita:** as duas janelas têm eventos classificados pelo script como `STARTING NEW INSTANCE` por `MANUAL_OR_CUSTOMER_MIN_INSTANCE`, compatíveis com manutenção do mínimo 1 previamente observado. A contagem de dois eventos por janela **não é contagem de instâncias simultâneas**, nem evidencia por si só reinícios por crash ou motivo do HTTP 500. As janelas não mostram entradas de severidade ERROR nesse log específico; isso não exclui falhas noutras severidades, códigos de saída ou logs de containers. O efeito financeiro pode estar relacionado ao mínimo de instâncias e modo `INSTANCE_BASED`, mas valores atribuíveis a esta revisão ainda não foram medidos.
 
 **Próxima ação segura:** analisar apenas contagens e categorias dos eventos de ciclo de vida no `varlog/system` e a presença de `stdout/stderr` nas janelas (consultas separadas, sem payload bruto). **Não alterar** minimum scale, IAM, tráfego 99%/1%, tag ou segredos; não implantar candidata, não executar chamadas meteorológicas.
+
+
+## Ciclo de vida e logs do container — 21/11/2026, 15h59 BRT
+
+A titular enviou captura do Cloud Shell da consulta somente leitura na janela UTC de **2026-11-21T11:10:00Z a 11:32:00Z** para a revisão histórica `blaise-v6-rj-backend-00058-sos`. Resultado visível:
+
+```text
+TIPO: SISTEMA
+REGISTROS: 18
+CATEGORIAS: {'OUTROS': 9, 'INICIO_INSTANCIA': 9}
+LIMITE_ATINGIDO: False
+TIPO: STDOUT
+REGISTROS: 0
+CATEGORIAS: {}
+LIMITE_ATINGIDO: False
+TIPO: STDERR
+REGISTROS: 0
+CATEGORIAS: {}
+LIMITE_ATINGIDO: False
+AUDITORIA: SOMENTE_LEITURA
+```
+
+**Interpretação:** nove eventos classificados como `starting new instance` entre 11h10 e 11h32 UTC não demonstram nove instâncias simultâneas nem ciclos de crash. Outros nove eventos de sistema não foram categorizados; ainda não se pode concluir causa dos três HTTP 500 das 11h14/11h26 UTC. A ausência de STDOUT/STDERR nesse período não prova ausência de erros do aplicativo ou ausência de tráfego meteorológico. Exigem-se evidências adicionais, sem leitura de payloads contendo credenciais e sem chamar endpoints da tag.
+
+**Estado:** PR #173 permanece draft; não executar deploy, alterar instâncias, IAM, segredos ou tráfego 99%/1%. Próximo diagnóstico permitido: contagens anonimizadas das nove entradas `OUTROS` por grupos de palavras-chave previamente fixos, ou metadados de latência do request log, sem mensagens brutas/URLs/IPs.
