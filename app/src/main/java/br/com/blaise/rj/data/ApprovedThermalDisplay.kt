@@ -35,8 +35,12 @@ data class ApprovedThermalDisplay(
             "DWD_ICON_GLOBAL" -> 60L
             else -> return false
         }
+        val maxCheckAge = when(sourceId) {
+            "VISUAL_CROSSING_FREE", "WEATHERAPI_FREE" -> maxAge*60L
+            else -> 720L
+        }
         return Duration.between(validAt,now).seconds in 0L..maxAge*60L &&
-            Duration.between(checkedAt,now).seconds in 0L..720L
+            Duration.between(checkedAt,now).seconds in 0L..maxCheckAge
     }
 }
 
