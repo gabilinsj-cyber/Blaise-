@@ -52,3 +52,12 @@ Compartilhar apenas as propriedades agregadas da saída, principalmente `histori
 ## Estado de aprovação
 
 **SEM HOMOLOGAÇÃO EM PRODUÇÃO.** A PR #173 permanece Draft, sem merge. Não criar revisão, não reativar v1, não trocar chaves, não atualizar minScale/tag/IAM, não chamar Weather APIs. Preservar 92 municípios, interface original, agentes, backups, APK e 99%/1% do tráfego existente. Quaisquer correções de runtime devem ocorrer primeiro apenas no código revisado em PR e testes locais, com implantação exclusivamente após autorização separada.
+
+## Evidência adicional do Cloud Shell — 22/11/2026, 09h05 BRT
+
+A titular executou uma consulta **somente leitura** de Cloud Logging na revisão histórica `blaise-v6-rj-backend-00058-sos`, janela `2026-11-21T11:10:00Z`–`11:32:00Z`. O filtro excluiu request logs, buscando as expressões `secret` e `disabled` na combinação de campos textuais/JSON/Proto. **Nove** registros retornaram indicadores `openweather=True`, `versao_1=True`, `erro_inicio=False` (este último testa somente as frases literais `failed to start` e `could not start`).
+
+Carimbos UTC retornados: `11:10:52`, `11:12:42`, `11:15:17`, `11:18:25`, `11:21:44`, `11:22:16`, `11:24:43`, `11:28:05`, `11:31:34` (todos em 21/11/2026). Os três HTTP 500 conhecidos ocorreram em `11:14:06`, `11:26:07` e `11:26:08` UTC. **Há sobreposição de janela, não associação direta evento a evento.** A contagem de nove não comprova nove tentativas de startup nem o número de instâncias.
+
+Diagnóstico atualizado: a indisponibilidade da versão 1 do segredo OpenWeather na revisão histórica continua sendo uma **causa plausível e forte de impedimento a novos starts**, mas `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN`. O código de saída não encontrou frases de falha de inicialização por correspondência textual; isso **não exclui** falhas de startup. Para a próxima consulta, limitar a saída a metadados `timestamp`, `severity`, tipo de log e código de status estruturado, **sem imprimir** `textPayload`, `jsonPayload`, `protoPayload` completos, conteúdo do segredo ou identidade da conta. Não reativar v1, não alterar IAM, não fazer deploy, merge, restart, rotação automática, teste HTTP real ou mudança do tráfego 99%/1%. Nenhuma chamada meteorológica foi realizada.
+
