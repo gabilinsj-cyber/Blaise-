@@ -26,6 +26,8 @@ import br.com.blaise.rj.data.StatewideDataHttpsClient
 import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
+import br.com.blaise.rj.data.UsgsRecentEarthquakes
+import br.com.blaise.rj.data.UsgsEarthquakeSnapshot
 import br.com.blaise.rj.data.DashboardInternationalForecast
 import br.com.blaise.rj.data.DashboardVisualCrossingWeather
 import br.com.blaise.rj.geo.RjMunicipalMap
@@ -945,33 +947,78 @@ private fun DailyChartPanel(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CompactNewsAndSeismicPanel(modifier: Modifier = Modifier, onNavigate: (String) -> Unit) {
-    var seismicDetails by remember { mutableStateOf(false) }
-    if (seismicDetails) {
-        AlertDialog(onDismissRequest = { seismicDetails = false },
-            title = { Text("Abalos sísmicos • fontes e confirmação") },
-            text = { Text("Eventos e avisos ainda não integrados nesta tela. Magnitude isolada não confirma tsunami ou impacto no RJ. Não há conclusão de ausência de risco.") },
-            confirmButton = { TextButton(onClick = { seismicDetails = false }) { Text("Voltar") } })
+private fun CompactNewsAndSeismicPanel(
+    modifier: Modifier = Modifier,
+    onNavigate: (String) -> Unit,
+    active: Boolean = true,
+) {
+    val context = LocalContext.current
+    val now = LocalObservationClock.current
+    var snapshot by remember { mutableStateOf<UsgsEarthquakeSnapshot?>(null) }
+    LaunchedEffect(active) {
+        if (!active) { snapshot = null; return@LaunchedEffect }
+        while (true) {
+            // Public USGS M4.5+ GeoJSON. No Blaise weather credits, API keys,
+            // subscriber identity or client location. No alert escalation.
+            val fetched = runCatching { UsgsRecentEarthquakes.fetch() }.getOrNull()
+            snapshot = fetched
+            delay(UsgsRecentEarthquakes.REFRESH_MINUTES * 60_000L)
+        }
     }
+    val events = snapshot?.takeIf { it.current(now) }?.events.orEmpty()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         DashboardSection(
-            title = "ABALOS SÍSMICOS",
-            subtitle = "Dois maiores eventos recentes • USGS",
+            title = "ABALOS SÍSMICOS • MUNDO",
+            subtitle = "Três maiores magnitudes dos últimos 7 dias • USGS",
             modifier = Modifier.fillMaxWidth(),
         ) {
-            StatusLine("Evento 1", "Aguardando magnitude, local e horário")
-            StatusLine("Evento 2", "Aguardando magnitude, local e horário")
-            OutlinedButton(onClick = { seismicDetails = true }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            if (events.isEmpty()) {
+                Text("Dados sísmicos recentes indisponíveis. Consulte a fonte oficial.",
+                    color = Muted, style = MaterialTheme.typography.bodySmall)
+            } else {
+                events.take(FinalDashboardSpec.HOME_SEISMIC_EVENT_COUNT).forEach { quake ->
+                    val time = java.time.format.DateTimeFormatter
+                        .ofPattern("dd/MM HH:mm 'UTC'")
+                        .withZone(java.time.ZoneOffset.UTC).format(quake.occurredAt)
+                    StatusLine(
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"),
+                            "M %.1f", quake.magnitude),
+                        "${quake.location} • $time"
+                    )
+                    TextButton(onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse(quake.officialUrl)))
+                        }
+                    }) { Text("Detalhes oficiais USGS") }
+                }
+                Text("Verificado: " + java.time.format.DateTimeFormatter
+                    .ofPattern("dd/MM HH:mm").withZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(snapshot!!.checkedAt) + " • Brasília",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+            OutlinedButton(onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse(UsgsRecentEarthquakes.ALL_RECENT_URL)))
+                }
+            }, modifier = Modifier.fillMaxWidth().testTag("official-usgs-all-earthquakes")) {
+                Text("Ver todos os terremotos recentes • USGS")
+            }
+            Text("Magnitude não comprova tsunami ou impacto no RJ.",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
         }
         DashboardSection(
             title = "NOTÍCIAS",
             subtitle = "Rio de Janeiro + internacional",
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Local • aguardando notícia validada", color = Muted, style = MaterialTheme.typography.labelSmall)
-            Text("Internacional • aguardando notícia meteorológica traduzida", color = Gold, style = MaterialTheme.typography.labelSmall)
-            OutlinedButton(onClick = { onNavigate("Notícias") }, modifier = Modifier.fillMaxWidth()) { Text("Mais") }
+            Text("Local • aguardando notícia validada",
+                color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("Internacional • aguardando notícia meteorológica traduzida",
+                color = Gold, style = MaterialTheme.typography.labelSmall)
+            OutlinedButton(onClick = { onNavigate("Notícias") },
+                modifier = Modifier.fillMaxWidth()) { Text("Saiba mais") }
         }
     }
 }
