@@ -111,7 +111,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     providerRainQualifiesAsObservedGauge:false,
     extendOperationalAgent13WithoutAudit:false,
     additionalSourcePublicationEnabled:false,
-    openWeatherDailyInternalMaximum:900,
+    openWeatherDailyInternalMaximum:1,
     requireIndependentSourceStatusByField:true,
     sourceMeasurementsNotAssumed:true,
   }),
