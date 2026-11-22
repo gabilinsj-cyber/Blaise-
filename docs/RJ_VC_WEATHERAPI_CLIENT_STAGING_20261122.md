@@ -46,6 +46,18 @@ Fontes externas de referência:
 - https://www.weatherapi.com/pricing
 - https://www.weatherapi.com/docs/realtime-api/
 
+## Retomada segura 22/11 — horários e preflight sem chaves
+
+A revisão dos testes Android de 22/11 encontrou duas expectativas anteriores incorretas: o teste de OpenWeather tentava interpretar como válida uma medição já vencida, e o teste administrativo esperava o texto antigo de "quota" do Agente 13. Os testes foram ajustados sem retirar os limites de frescor ou a política de desempate INMET. **A evidência final do CI da nova revisão é necessária antes de homologar.**
+
+A apresentação de E válido da WeatherAPI pode permanecer por até **35 minutos a partir da medição original** `last_updated_epoch`, mesmo quando a consulta foi realizada há mais de 12 minutos. O relógio nunca é renovado artificialmente; caso chegue ao limite, a interface exibe `Indisponível`. A Visual Crossing permanece até 30 minutos. O cache Firestore privado `rj-weatherapi-free-private-cache.mjs` salva exclusivamente os 92 IBGE autorizados, valores normalizados, condição por código, timestamps e metadados, sem copiar chave ou texto livre do provedor; a leitura revalida prazo e geografia. **Não há conexão de runtime/deploy habilitada**.
+
+O preflight de metadados `backend/scripts/rj-free-weather-secret-metadata-readonly.sh` confere apenas a existência e versões **ENABLED** dos segredos `blaise-weatherapi-free-api-key` e `blaise-visual-crossing-free-api-key` no projeto `blaise-v6-rj`. Rodar somente em Cloud Shell autenticado, dentro do repositório, com:
+```bash
+bash backend/scripts/rj-free-weather-secret-metadata-readonly.sh
+```
+Este procedimento **não lê conteúdo de nenhuma versão**, não altera permissões/IAM, não liga Cloud Run e não consome chamadas. `NOT_FOUND` é diferente de `UNKNOWN_OR_PERMISSION_DENIED`. Metadados positivos **não** comprovam chave válida nem habilitam sua publicação: será necessário um único teste controlado posterior sujeito a saldo e autorização.
+
 ## Testes e revisão necessários
 
 Arquivos novos de teste:
