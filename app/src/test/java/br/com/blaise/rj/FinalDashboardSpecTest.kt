@@ -11,8 +11,14 @@ class FinalDashboardSpecTest {
     fun `home dashboard preserves approved compact content counts`() {
         assertEquals(2, FinalDashboardSpec.HOME_LOCAL_NEWS_COUNT)
         assertEquals(1, FinalDashboardSpec.HOME_INTERNATIONAL_NEWS_COUNT)
-        assertEquals(2, FinalDashboardSpec.HOME_SEISMIC_EVENT_COUNT)
+        assertEquals(3, FinalDashboardSpec.HOME_SEISMIC_EVENT_COUNT)
         assertEquals(30, FinalDashboardSpec.RADAR_WINDOW_MINUTES)
+        assertEquals(30, FinalDashboardSpec.WEATHER_MAX_AGE_MINUTES)
+        assertEquals(20, FinalDashboardSpec.HIGH_SEVERITY_RECALC_SECONDS)
+        assertEquals(3, FinalDashboardSpec.MAX_TOP_OFFICIAL_ALERTS)
+        assertEquals(7, FinalDashboardSpec.weatherLayers.size)
+        assertEquals(3, FinalDashboardSpec.trafficStatusLabels.size)
+        assertFalse(FinalDashboardSpec.METEOBLUE_FREE_CLIENT_PUBLICATION)
     }
 
     @Test
@@ -80,7 +86,7 @@ class FinalDashboardSpecTest {
         assertTrue(colors.all { it != null })
         assertEquals(5, colors.filterNotNull().toSet().size)
         assertEquals(0xFF16803D.toInt(), colors.first())
-        assertEquals(0xFF7F1D1D.toInt(), colors.last())
+        assertEquals(0xFF7E22CE.toInt(), colors.last())
     }
 
 }
