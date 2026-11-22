@@ -69,7 +69,7 @@ test('one source can update sky without overwriting a newer temperature or feels
  ];
  const x=auditAgent13Minute({nowMs:now,rows:records,enabledSources:enabled});
  assert.deepEqual(x.previewLatest.map(v=>v.field),
-  ['skyCondition','temperatureC','feelsLikeC']);
+  ['feelsLikeC','skyCondition','temperatureC']);
  assert.ok(x.previewLatest.every(v=>v.alertLevel===null&&v.officialAlert===false));
 });
 test('stale, future, unlicensed and invalid-source records are excluded',()=>{
