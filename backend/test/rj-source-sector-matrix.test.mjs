@@ -40,13 +40,18 @@ test('meteoblue free six-hour sector remains private and independent from therma
    .some(p=>p.sourceId==='METEOBLUE_FREE_FORECAST'));
  }
 });
-test('thermal sectors exclude NOAA/ECMWF and allow HG/OpenWeather/DWD only',()=>{
+test('thermal sectors exclude NOAA/ECMWF and include staged Visual Crossing and WeatherAPI',()=>{
   const air=matrix.find(s=>s.id==='AIR_TEMPERATURE');
   const independent=getUnderlyingFamiliesForSector(air.id);
-  assert.deepEqual(independent,['HG_BRASIL_AGGREGATED','OPENWEATHER_AGGREGATED','DWD_ICON']);
-  assert.equal(air.products.length,3);
+  assert.deepEqual(independent,['HG_BRASIL_AGGREGATED','OPENWEATHER_AGGREGATED','DWD_ICON','VISUAL_CROSSING_AGGREGATED','WEATHERAPI_AGGREGATED']);
+  assert.equal(air.products.length,5);
   assert.deepEqual(air.products.map(x=>x.sourceId),policy.thermalApprovedDisplaySources);
   assert.equal(policy.thermalOfficialAutoFetchEnabled,false);
+  assert.equal(policy.visualCrossingFree.developerApprovalGranted,true);
+  assert.equal(policy.visualCrossingFree.liveCollectorEnabled,false);
+  assert.equal(policy.weatherApiFree.developerApprovalGranted,true);
+  assert.equal(policy.weatherApiFree.serverSecretVerified,false);
+  assert.equal(policy.weatherApiFree.internalMonthlyCeiling,80000);
   const meta=policy.meteoblueComparison;
   assert.equal(meta.nominalGridKm,null);
   assert.equal(meta.id,'METEOBLUE_FREE_FORECAST');
