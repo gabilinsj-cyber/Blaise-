@@ -31,8 +31,8 @@ data class ApprovedThermalDisplay(
             "DWD_ICON_GLOBAL" -> 60L
             else -> return false
         }
-        return Duration.between(validAt,now).seconds in 0..maxAge*60 &&
-            Duration.between(checkedAt,now).seconds in 0..720
+        return Duration.between(validAt,now).seconds in 0L..maxAge*60L &&
+            Duration.between(checkedAt,now).seconds in 0L..720L
     }
 }
 
