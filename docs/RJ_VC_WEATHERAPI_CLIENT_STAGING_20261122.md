@@ -104,3 +104,18 @@ Fontes documentais para código e natureza dos campos: https://www.weatherapi.co
 4. Para concorrência entre dados Blaise, continuar retendo valores conflitantes e usar INMET **somente como referência privada** se houver revisão de estação/horário comparáveis. Não publicar INMET na interface.
 
 **Estado de homologação atualizado:** chave principal v2 e `current.json` funcionaram numa chamada real; o código de desenvolvimento está preparado e em testes. **Ainda não** existe coletor WeatherAPI ativo no Cloud Run nem liberação dos resultados na interface pública. Sem merge/deploy/tráfego alterado por esta atualização documental.
+
+
+## Auditoria das revisões em produção — 22/11/2026, 17h23 BRT
+
+Evidência de leitura **somente de metadados** enviada pelo operador, sem alteração GCP:
+
+- Cloud Run `blaise-v6-rj-backend`, projeto `blaise-v6-rj`, região `southamerica-east1`.
+- Revisão `blaise-v6-rj-backend-00031-vep`: **99%** do tráfego; nenhum `secretKeyRef` localizado com nomes de ambiente `BLAISE_OPENWEATHER_API_KEY` nem `BLAISE_REDEMET_API_KEY` na configuração de contêiner inspecionada.
+- Revisão `blaise-v6-rj-backend-00038-pin`: **1%** do tráfego; idem, referências não encontradas nos nomes pesquisados.
+- A ausência nessas duas revisões **não prova** ausência de credenciais por SDK, cache ou outros caminhos, nem prova saúde de runtime ou acurácia de dados.
+- Modelo atual do serviço exibe OpenWeather segredo `blaise-rj-openweather-api-key` versão **2**, REDEMET `blaise-rj-redemet-api-key` versão **1**. Versões OpenWeather 1 **DISABLED**, 2 **ENABLED**, REDEMET 1 **ENABLED**.
+- Revisão histórica e **sem percentual de tráfego** `blaise-v6-rj-backend-00058-sos`: OpenWeather v1 desativada e REDEMET v1; três HTTP 500 históricos nas rotas `/readyz` (11:14:06Z, 11:26:08Z) e `/health` (11:26:07Z), em 21/11/2026. As requisições foram rápidas e a causa **não está comprovada**. Não reativar versão 1 nem mutar esta revisão.
+- O CI do head `92f290cb2acd0b24d8cb6048b2b4c17a6d4b381a` da PR #174 concluiu em **success** nos jobs backend, Android verify, auditoria meteorológica e Visual Crossing security gate (checagem via GitHub, 22/11/2026). Esta evidência não autoriza deploy.
+
+Próxima ação de engenharia: planejar em código (não executar) um ambiente isolado/sem tráfego com leitura da WeatherAPI v2 e cache privado, controles de franquia desligados e avaliação explícita de licença; solicitar autorização separada antes de criar qualquer revisão, job ou liberar o cliente. Preservar a produção 99%/1%, os 92 municípios, os 14 agentes, a PR #173, as chaves, o APK original e backups.
