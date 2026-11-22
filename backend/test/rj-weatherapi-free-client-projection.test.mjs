@@ -66,3 +66,30 @@ test('invalid numeric values are omitted instead of fabricated or displayed as z
  assert.equal(r.windKmh,null);
  assert.equal(r.precipitationMm,1.2);
 });
+
+test('22-Nov real WeatherAPI V2 reading is mapped as light drizzle / rain, not a critical alert',()=>{
+ // Values taken from the operator's authorized one-off Cloud Shell test,
+ // never persisted as current readings or shown after source expiration.
+ const now=Date.parse('2026-11-22T17:52:24.000Z');
+ const cached=sample();
+ cached.checkedAt=new Date(now).toISOString();
+ cached.data={
+  last_updated_epoch:Math.floor(Date.parse('2026-11-22T17:45:00.000Z')/1000),
+  temp_c:31.1,feelslike_c:35.5,humidity:61,cloud:93,
+  wind_kph:6.1,gust_kph:20.1,precip_mm:0.17,
+  pressure_mb:1007.0,uv:8.2,condition:{code:1153}
+ };
+ const result=project(cached,{ibge:'3304557',now});
+ assert.ok(result);
+ assert.equal(result.temperatureC,31.1);
+ assert.equal(result.feelsLikeC,35.5);
+ assert.equal(result.humidityPct,61);
+ assert.equal(result.cloudPct,93);
+ assert.equal(result.skyCondition,'CHUVA');
+ assert.equal(result.precipitationMm,0.17);
+ assert.equal(result.validAt,'2026-11-22T17:45:00.000Z');
+ assert.equal(result.officialAlert,false);
+ assert.equal(result.actualStormConfirmed,false);
+ assert.equal(result.criticalAlertEscalationAuthorized,false);
+ assert.equal(project(cached,{ibge:'3304557',now:Date.parse('2026-11-22T18:21:00Z')}),null);
+});
