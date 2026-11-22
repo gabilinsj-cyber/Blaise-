@@ -5,6 +5,7 @@
  * P=forecast. Display actual values only after independent provenance checks.
  */
 import {RJ_HG_BRASIL_PRO_PLAN} from './rj-hgbrasil-pro-plan.mjs';
+import {RJ_CLIMATEMPO_RADAR_PLAN} from './rj-climatempo-radar-readiness.mjs';
 const product=(sourceId,kind,productId,family,role)=>Object.freeze({
   sourceId,kind,productId,family,role,
   liveIngestionConfirmed:false,validatedRjCoverage:false,
@@ -101,6 +102,9 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   marineSstApprovedSources:Object.freeze(['NOAA_COASTWATCH_SST']),
   marineSstValidatedLive:false,
   hgBrasilPro:RJ_HG_BRASIL_PRO_PLAN,
+  climatempoRadarPending:RJ_CLIMATEMPO_RADAR_PLAN,
+  climatempoRadarLive:false,
+  climatempoRadarPermittedToRender:false,
   openWeatherOtherFieldsAssessment:Object.freeze({
     recommendedForLaterLicenseReview:Object.freeze(['humidityPct','windKmh','gustKmh']),
     providerRainMayBeModeled:true,
