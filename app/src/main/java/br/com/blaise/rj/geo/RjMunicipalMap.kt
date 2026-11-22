@@ -118,6 +118,7 @@ private fun loadRjMap(): BoundaryMap? {
 fun RjMunicipalMap(
     snapshot: StatewideSnapshot?, modifier: Modifier = Modifier,
     selectedIbgeCode: Int? = null,
+    selectedRegionIbgeCodes: Set<Int> = emptySet(),
 ) {
     var boundary by remember { mutableStateOf<BoundaryMap?>(null) }
     var unavailable by remember { mutableStateOf(false) }
@@ -165,7 +166,8 @@ fun RjMunicipalMap(
                             3 -> Color(0xFF9C612E)
                             else -> Color(0xFF16416B)
                         }
-                        else -> Color(0xFF16416B)
+                        else -> if (shape.ibge in selectedRegionIbgeCodes)
+                            Color(0xFF206A75) else Color(0xFF16416B)
                     }
                     shape.rings.forEach { ring ->
                         val path = Path().apply {
