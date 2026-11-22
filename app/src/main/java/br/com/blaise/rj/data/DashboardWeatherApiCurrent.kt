@@ -26,7 +26,7 @@ data class DashboardWeatherApiCurrent(
     val mayIssueCriticalAlerts=false
     fun current(now:Instant):Boolean =
         Duration.between(validAt,now).seconds in 0L..2100L &&
-        Duration.between(checkedAt,now).seconds in 0L..720L
+        Duration.between(checkedAt,now).seconds in 0L..2100L
 }
 
 /** Strict signed-snapshot parser; unknown fields (including secrets) fail. */
