@@ -11,6 +11,7 @@
  * Temperature and sky observations have separate source/provenance timestamps.
  */
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
+import {reviewAgent13ConflictWithInmet} from './rj-agent13-inmet-private-tiebreak.mjs';
 
 export const AGENT13_MINUTE_AUDIT_MS = 60_000;
 export const AGENT13_CONTRACT = 'BLAISE_RJ_AGENT13_FRESHNESS_AUDIT_V1';
@@ -102,10 +103,13 @@ const SOURCE_ORDER=freeze([
  * This produces proposals ONLY. No real release is performed by this module.
  */
 export function auditAgent13Minute({
- nowMs,rows=[],existing=[],enabledSources={},selectedMunicipalityIbges=[]
+ nowMs,rows=[],existing=[],enabledSources={},selectedMunicipalityIbges=[],
+ privateInmetReviews={}
 }={}){
  if(!Number.isSafeInteger(nowMs)||nowMs<0||!Array.isArray(rows)||
     !Array.isArray(existing)||rows.length>2000||existing.length>2000||
+    !privateInmetReviews||typeof privateInmetReviews!=='object'||
+    Array.isArray(privateInmetReviews)||
     !Array.isArray(selectedMunicipalityIbges)||
     selectedMunicipalityIbges.length>2||
     selectedMunicipalityIbges.some(x=>!knownCities.has(String(x)))||
@@ -148,6 +152,29 @@ export function auditAgent13Minute({
    if(mismatch)conflicts.add(key);
   }
  }
+ // Only conflicts eligible under the original 15-minute comparable-source
+ // check can trigger an INMET review, and only from an already-authenticated,
+ // human-reviewed PRIVATE snapshot. Never fetch or expose INMET in Android.
+ let privateInmetReviewAttempts=0;
+ const resolvedPrivately=[];
+ for(const key of [...conflicts]){
+  if(!Object.hasOwn(privateInmetReviews,key))continue;
+  const values=byPlaceField.get(key)??[];
+  if(values.length<2)continue;
+  privateInmetReviewAttempts++;
+  const first=values[0];
+  const tie=reviewAgent13ConflictWithInmet({
+   ibge:first.ibge,regionId:first.regionId,field:first.field,
+   candidates:values,review:privateInmetReviews[key],nowMs
+  });
+  if(tie.status==='PRIVATE_DISPUTE_RESOLVED'){
+   // The only displayed candidate is still a Blaise-licensed provider.
+   // Its ORIGINAL measurement time and source identity are preserved.
+   group.set(key,tie.selectedBlaiseReading);
+   conflicts.delete(key);
+   resolvedPrivately.push(Object.freeze({key,winnerSourceId:tie.selectedBlaiseReading.sourceId}));
+  }
+ }
  const previous=new Map();
  for(const item of existing){
   if(!knownCities.has(String(item?.ibge))||
@@ -181,6 +208,10 @@ export function auditAgent13Minute({
   eligibleRows:verified.length,
   rejectedCount:rejected.length,
   heldForConflictCount:conflicts.size,
+  privateInmetReviewAttemptedCount:privateInmetReviewAttempts,
+  resolvedByPrivateInmetCount:resolvedPrivately.length,
+  privatelyResolvedBlaiseSources:freeze(resolvedPrivately),
+  inmetMeasurementsInClientData:false,
   heldFields:freeze([...conflicts].sort()),
   rejectionCounts:freeze(Object.fromEntries(
     [...new Set(rejected.map(x=>x.reason))].map(reason=>[
