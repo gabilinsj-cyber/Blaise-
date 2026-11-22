@@ -31,7 +31,7 @@ export function projectRjTwoFreeThermalSources({
     now-time(visualCrossing.currentValidAt)>=0&&
     now-time(visualCrossing.currentValidAt)<=30*60_000&&
     now-time(visualCrossing.checkedAt)>=0&&
-    now-time(visualCrossing.checkedAt)<=12*60_000){
+    now-time(visualCrossing.checkedAt)<=30*60_000){
   const row=base(visualCrossing.ibge,'VISUAL_CROSSING_FREE',
     visualCrossing.currentValidAt,visualCrossing.checkedAt);
   row.temperatureC=finite(visualCrossing.current?.temperatureC);
