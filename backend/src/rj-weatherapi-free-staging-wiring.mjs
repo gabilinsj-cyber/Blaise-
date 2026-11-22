@@ -133,7 +133,7 @@ export async function initializeRjWeatherApiFreeStaging({
    // The dashboard accepts this reader via dependency injection, but its
    // release flags MUST remain false until a separate authorized change.
    dashboardOptions:Object.freeze({
-    readWeatherApiPrivateCache,
+    readWeatherApiPrivateCache:readPrivateCache,
     weatherApiSubscriberReleaseApproved:false,
     weatherApiThermalRedistributionApproved:false
    }),
