@@ -29,15 +29,71 @@ class AdminCollectorReadinessTest {
         assertTrue(hg.explanation.contains("estação original"))
     }
 
+    @Test fun meteoblueSevenBasic6hFieldsStayPrivateAndUnaudited() {
+        val fields = AdminCollectorReadiness.meteoblueFieldAudit
+        assertEquals(7, fields.size)
+        assertEquals(setOf(
+            "precipitation", "convective_precipitation", "precipitation_probability",
+            "windspeed_mean", "windspeed_max", "relativehumidity_mean",
+            "sealevelpressure_mean"
+        ), fields.map { it.jsonKey }.toSet())
+        assertTrue(fields.none { it.auditedLiveValue })
+        assertTrue(fields.all { it.presentInOneRealPrivateResponse })
+        assertEquals(7, AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT)
+        assertEquals(29, AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS)
+        assertEquals(4_000, AdminCollectorReadiness.METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES)
+        assertTrue(fields.all { it.unit in setOf("mm", "%", "km/h", "hPa") })
+        assertTrue(fields.single { it.jsonKey == "windspeed_max" }
+            .meaning.contains("NÃO RAJADA OBSERVADA"))
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PRIVATE_COLLECTOR_ENABLED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
+        assertEquals(29, AdminCollectorReadiness.METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED)
+        assertEquals(29, AdminCollectorReadiness.METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS)
+        assertEquals(14, AdminCollectorReadiness.METEOBLUE_HISTORICAL_WET_RAIN_PAIRS)
+        assertEquals(14, AdminCollectorReadiness.METEOBLUE_HISTORICAL_EQUAL_WET_RAIN_PAIRS)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_RAIN_SEMANTICS_REVIEW_REQUIRED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_SCIENTIFIC_HOMOLOGATION_GRANTED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_CLIENT_PUBLICATION_AUTHORIZED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_WEATHER_ALERT_INPUT_AUTHORIZED)
+        assertTrue(AdminCollectorReadiness.METEOBLUE_FREE_COMMERCIAL_USE_ADVERTISED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_SUBSCRIBER_DISTRIBUTION_RIGHTS_VERIFIED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_DATA_STORAGE_REPRODUCTION_RIGHTS_VERIFIED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_ATTRIBUTION_TERMS_VERIFIED)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_EXPIRED_FORECASTS_ELIGIBLE_AS_CURRENT)
+        assertFalse(AdminCollectorReadiness.METEOBLUE_COMMERCIAL_RIGHTS_VERIFIED)
+        assertEquals(null, AdminCollectorReadiness.meteoblueCurrentProviderCredits)
+        assertEquals(null, AdminCollectorReadiness.meteoblueActualLocalCreditsReserved)
+        assertEquals(24, AdminCollectorReadiness.METEOBLUE_MUNICIPAL_COOLDOWN_HOURS)
+        assertEquals(6, AdminCollectorReadiness.METEOBLUE_CACHE_HOURS)
+    }
+
+    @Test fun meteoblueScreenshotDoesNotConfuseDailyCapWithRealBalance() {
+        val x = AdminCollectorReadiness
+        assertEquals(4_000, x.METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD)
+        assertEquals(10_000_000, x.METEOBLUE_KEY_DAILY_LIMIT_OBSERVED)
+        assertEquals(4_000, x.METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        assertEquals(4_000, x.METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED)
+        assertFalse(x.METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API)
+        assertTrue(x.METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
+        assertEquals(null, x.meteoblueCurrentProviderCredits)
+        assertEquals(null, x.meteoblueActualLocalCreditsReserved)
+        assertFalse(x.METEOBLUE_PRIVATE_COLLECTOR_ENABLED)
+        assertFalse(x.METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
+    }
+
     @Test fun meteoblueLocalBudgetDoesNotPretendToKnowRealProviderBalance() {
         val x = AdminCollectorReadiness
         assertEquals(10_000_000, x.METEOBLUE_TOTAL_TRIAL_CREDITS)
         assertEquals(8_000_000, x.METEOBLUE_LOCAL_CEILING_CREDITS)
         assertEquals(4_000, x.METEOBLUE_COST_PER_BASIC_6H_REQUEST)
-        assertEquals(4, x.METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
+        assertEquals(1, x.METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
         val mb = x.integrations.single { it.id == "METEOBLUE_FREE_FORECAST" }
         assertTrue(mb.state.contains("SALDO DO FORNECEDOR NÃO CONSULTADO"))
         assertFalse(mb.publishingToSubscribers)
-        assertTrue(mb.explanation.contains("sete campos numéricos"))
+        assertTrue(mb.explanation.contains("7/7 campos"))
     }
 }

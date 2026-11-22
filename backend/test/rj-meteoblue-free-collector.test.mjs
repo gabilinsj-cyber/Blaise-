@@ -83,6 +83,9 @@ test('provider 6h schema parses seven auditable numerical comparison fields',()=
  assert.equal(r.metadataRunVerified,true);
  assert.equal(r.unitMetadataVerified,true);
  assert.equal(r.sourceCoordinatesVerified,true);
+ assert.equal(r.completeFieldCoverage,true);
+ assert.equal(r.auditReadyForPrivateReview,true);
+ assert.deepEqual(r.auditBlockers,[]);
  assert.equal(r.values.length,Object.keys(METEOBLUE_BASIC6H_FIELDS).length);
  assert.ok(r.values.some(f=>f.field==='forecastPrecipitationSixHourMm'&&
    f.semantics==='SIX_HOUR_FORECAST_TOTAL'));
@@ -93,16 +96,99 @@ test('provider 6h schema parses seven auditable numerical comparison fields',()=
  assert.equal(r.scientificallyHomologated,false);
  assert.equal(r.publishedToSubscribers,false);
 });
+test('official basic-6h total and convective precipitation remain distinct provider keys',()=>{
+ const p=sample();
+ const total=p.data_6h.precipitation;
+ p.data_6h.convective_precipitation=total.map((v,i)=>i%2===0?v/4:v/2);
+ const r=parseMeteoblueBasic6h({
+  payload:p,ibge:IBGE,latitude:target.lat,longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(r.auditReadyForPrivateReview,true);
+ assert.equal(r.values.length,7);
+ const totalOut=r.values.find(x=>x.field==='forecastPrecipitationSixHourMm');
+ const convOut=r.values.find(x=>x.field==='forecastConvectivePrecipitationSixHourMm');
+ assert.equal(totalOut.sourceField,'precipitation');
+ assert.equal(convOut.sourceField,'convective_precipitation');
+ assert.equal(totalOut.semantics,'SIX_HOUR_FORECAST_TOTAL');
+ assert.equal(convOut.semantics,'SIX_HOUR_FORECAST_COMPONENT');
+ assert.deepEqual(totalOut.values,total);
+ assert.deepEqual(convOut.values,p.data_6h.convective_precipitation);
+ assert.notDeepEqual(totalOut.values,convOut.values);
+ assert.notStrictEqual(totalOut.values,convOut.values);
+ assert.deepEqual(
+  new Set(r.values.map(x=>x.sourceField)),
+  new Set(Object.keys(METEOBLUE_BASIC6H_FIELDS))
+ );
+ // Equal values are not evidence of duplicated assignments. They remain
+ // two separate, provider-labelled forecasts, not observations.
+ const pEqual=sample();
+ const equal=parseMeteoblueBasic6h({
+  payload:pEqual,ibge:IBGE,latitude:target.lat,longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(equal.auditReadyForPrivateReview,true);
+ assert.equal(equal.scientificallyHomologated,false);
+ const equalTotal=equal.values.find(x=>x.sourceField==='precipitation');
+ const equalConv=equal.values.find(x=>x.sourceField==='convective_precipitation');
+ assert.notStrictEqual(equalTotal.values,equalConv.values);
+ // Missing convective key must never fall back to precipitation total.
+ const missing=sample();
+ delete missing.data_6h.convective_precipitation;
+ const incomplete=parseMeteoblueBasic6h({
+  payload:missing,ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:NOW
+ });
+ assert.equal(incomplete.coverage.forecastConvectivePrecipitationSixHourMm,
+  'UNAVAILABLE_NOT_IN_RESPONSE');
+ assert.equal(incomplete.completeFieldCoverage,false);
+ assert.equal(incomplete.auditReadyForPrivateReview,false);
+ assert.equal(incomplete.values.some(x=>
+  x.field==='forecastConvectivePrecipitationSixHourMm'),false);
+});
+
 test('no fabricated missing values; invalid units not claimed as verified',()=>{
  const p=sample();delete p.data_6h.relativehumidity_mean;
  p.data_6h.precipitation[0]=null;
- p.units.windspeed='m/s';
+ p.units.windspeed='unknown-unit';
  const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
   latitude:target.lat,longitude:target.lon,nowMs:NOW});
  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
  assert.equal(r.unitMetadataVerified,false);
+ assert.equal(r.completeFieldCoverage,false);
+ assert.equal(r.auditReadyForPrivateReview,false);
+ assert.ok(r.auditBlockers.includes('FIELD_UNITS_NOT_VERIFIED'));
+ assert.ok(r.auditBlockers.includes('SEVEN_FIELD_COVERAGE_INCOMPLETE'));
  assert.equal(r.coverage.forecastHumidityMeanSixHourPct,'UNAVAILABLE_NOT_IN_RESPONSE');
  assert.equal(r.values.find(x=>x.field==='forecastPrecipitationSixHourMm').values[0],null);
+});
+test('recognized meteoblue m/s wind metadata is converted to km/h without guessing',()=>{
+ const p=sample();p.units.windspeed='ms-1';
+ p.units.pressure=p.units.sealevelpressure;
+ delete p.units.sealevelpressure;
+ const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(r.unitMetadataVerified,true);
+ assert.equal(r.windUnitConversionApplied,true);
+ assert.equal(r.auditReadyForPrivateReview,true);
+ const mean=r.values.find(x=>x.field==='forecastWindMeanSixHourKmh');
+ const max=r.values.find(x=>x.field==='forecastWindMaxSixHourKmh');
+ assert.equal(mean.unit,'km/h');
+ assert.equal(mean.values[0],36);
+ assert.equal(max.values[0],54);
+ assert.equal(max.semantics,'SIX_HOUR_MAX_WIND_SPEED_NOT_GUST');
+ const invalid=sample();invalid.units.windspeed='knots';
+ const dropped=parseMeteoblueBasic6h({payload:invalid,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(dropped.auditReadyForPrivateReview,false);
+ assert.equal(dropped.coverage.forecastWindMeanSixHourKmh,'UNAVAILABLE_WIND_UNIT_NOT_VERIFIED');
+ assert.equal(dropped.values.some(x=>x.field==='forecastWindMeanSixHourKmh'),false);
+ const forged=sample();forged.units.windspeed='m/s';
+ forged.data_6h.windspeed_mean[0]='10';
+ const rejected=parseMeteoblueBasic6h({payload:forged,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW});
+ assert.equal(rejected.status,'UNAVAILABLE');
+ assert.equal(rejected.reason,'NON_NUMERIC_WINDSPEED_MEAN');
 });
 test('reject invalid lengths, physical range, wrong point and six-hour timeline',()=>{
  const bad=sample();bad.data_6h.precipitation=[1];
@@ -118,12 +204,70 @@ test('reject invalid lengths, physical range, wrong point and six-hour timeline'
  assert.equal(parseMeteoblueBasic6h({payload:bad4,ibge:IBGE,
   latitude:target.lat,longitude:target.lon,nowMs:NOW}).status,'UNAVAILABLE');
 });
+test('strict private audit rejects missing run, conflicting field units and calendar rollover',()=>{
+ const cases=[
+  {change:p=>{delete p.metadata.modelrun_utc},missing:'MODEL_RUN_NOT_VERIFIED'},
+  {change:p=>{p.units.windspeed_max='mph'},missing:'FIELD_UNITS_NOT_VERIFIED'},
+  {change:p=>{delete p.metadata.latitude},missing:'SOURCE_COORDINATES_NOT_VERIFIED'},
+  {change:p=>{p.data_6h.windspeed_max=Array(samples).fill(null)},missing:'SEVEN_FIELD_COVERAGE_INCOMPLETE'}
+ ];
+ for(const {change,missing} of cases){
+  const p=sample();change(p);
+  const r=parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+   latitude:target.lat,longitude:target.lon,nowMs:NOW});
+  assert.equal(r.status,'FORECAST_PARSED_PRIVATE_STAGING');
+  assert.equal(r.auditReadyForPrivateReview,false);
+  assert.ok(r.auditBlockers.includes(missing),missing);
+  assert.equal(r.publishedToSubscribers,false);
+ }
+ const p=sample();p.data_6h.time[0]='2026-02-30 12:00';
+ assert.equal(parseMeteoblueBasic6h({payload:p,ibge:IBGE,
+  latitude:target.lat,longitude:target.lon,nowMs:NOW}).reason,'INVALID_TIMESTAMPS');
+});
+
+test('private collector caches incomplete audit without claiming ready or using more credits',async()=>{
+ let calls=0;
+ const p=sample();delete p.units;
+ const c=createBlaiseRjMeteoblueFreeCollector({
+  env:goodEnv,db:dbFake(),clock:()=>NOW,
+  fetchImpl:async()=>{calls++;return {status:200,headers:{get:()=>null},
+   text:async()=>JSON.stringify(p)};}
+ });
+ const one=await c.collectOne({ibge:IBGE});
+ assert.equal(one.status,'PRIVATE_STAGING_AUDIT_INCOMPLETE');
+ assert.equal(one.reason,'PRIVATE_FIELD_AUDIT_INCOMPLETE');
+ assert.equal(one.creditsReservedThisInvocation,4000);
+ assert.equal(one.forecast.auditReadyForPrivateReview,false);
+ assert.equal(one.publishedToSubscribers,false);
+ const two=await c.collectOne({ibge:IBGE});
+ assert.equal(two.status,'PRIVATE_STAGING_CACHE_AUDIT_INCOMPLETE');
+ assert.equal(two.creditsReservedThisInvocation,0);
+ assert.equal(two.providerContacted,false);
+ assert.equal(calls,1);
+});
+
+test('one 4k-credit request per UTC day matches the operator-saved key limit',async()=>{
+ assert.equal(METEOBLUE_MAX_DAILY_CALLS,1);
+ assert.equal(METEOBLUE_BASIC6H_CREDITS,4_000);
+ const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
+ const first=await store.reserve(IBGE,NOW);
+ assert.equal(first.approved,true);
+ const second=await store.reserve('3303906',NOW+1_000);
+ assert.equal(second.approved,false);
+ assert.equal(second.reason,'LOCAL_DAILY_CALL_CEILING');
+ const report=await store.readLocalBudgetStatus();
+ assert.equal(report.localSpentCredits,4_000);
+ assert.equal(report.callsReservedToday,1);
+ assert.equal(report.maxCallsPerUtcDay,1);
+ assert.equal(report.providerCreditBalance,'UNVERIFIED_IN_PROVIDER_DASHBOARD');
+});
+
 test('Firestore budget reserves atomically, cannot exceed daily cap under concurrency',async()=>{
  const db=dbFake(),store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>NOW});
  const ids=['3304557','3303906','3305802','3303401','3300100','3300159'];
  const results=await Promise.all(ids.map(id=>store.reserve(id,NOW)));
  assert.equal(results.filter(x=>x.approved).length,METEOBLUE_MAX_DAILY_CALLS);
- assert.equal(results.filter(x=>!x.approved).length,2);
+ assert.equal(results.filter(x=>!x.approved).length,ids.length-METEOBLUE_MAX_DAILY_CALLS);
  assert.equal(results[0].creditsReserved,METEOBLUE_BASIC6H_CREDITS);
  assert.equal(results[0].providerBalanceChecked,false);
  assert.equal(METEOBLUE_PRIVATE_CEILING_CREDITS,8_000_000);
@@ -135,7 +279,7 @@ test('private credit ledger reports local reservations only, never invents provi
  const zero=await store.readLocalBudgetStatus();
  assert.equal(zero.localSpentCredits,0);
  assert.equal(zero.providerCreditBalance,'UNVERIFIED_IN_PROVIDER_DASHBOARD');
- assert.equal(zero.maxCallsPerUtcDay,4);
+ assert.equal(zero.maxCallsPerUtcDay,1);
  await store.reserve(IBGE,NOW);
  const one=await store.readLocalBudgetStatus();
  assert.equal(one.localSpentCredits,4000);
@@ -151,6 +295,45 @@ test('day change cannot bypass 24h city cooldown; expiry stops before billed cal
  const expiry=Date.parse('2027-11-18T00:00:00Z');
  assert.equal((await store.reserve('3303906',expiry)).reason,'TRIAL_NOT_VALID_AT_REQUEST_TIME');
 });
+test('private cached forecast cannot outlive the free-trial expiry date',async()=>{
+ let now=Date.parse('2027-11-17T23:50:00Z');
+ const db=dbFake();
+ const store=createRjMeteoblueFreeFirestoreStore({db,clock:()=>now});
+ const p=sample();
+ const start=Date.parse('2027-11-17T18:00:00Z');
+ p.data_6h.time=Array.from({length:samples},(_,i)=>
+  new Date(start+i*6*60*60_000).toISOString().slice(0,16).replace('T',' '));
+ p.metadata.modelrun_utc='2027-11-17 18:00';
+ p.metadata.modelrun_updatetime_utc='2027-11-17 19:00';
+ const parsed=parseMeteoblueBasic6h({
+  payload:p,ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:now
+ });
+ assert.equal(parsed.status,'FORECAST_PARSED_PRIVATE_STAGING');
+ assert.equal(parsed.auditReadyForPrivateReview,true);
+ await store.setCached(IBGE,parsed);
+ assert.equal((await store.getCached(IBGE))?.ibge,IBGE);
+ now=Date.parse('2027-11-18T00:00:00Z');
+ assert.equal(await store.getCached(IBGE),null);
+ assert.equal((await store.reserve(IBGE,now)).reason,'TRIAL_NOT_VALID_AT_REQUEST_TIME');
+});
+test('private cache refuses expired forecast even if stored recently',async()=>{
+ let now=NOW;
+ const store=createRjMeteoblueFreeFirestoreStore({db:dbFake(),clock:()=>now});
+ const parsed=parseMeteoblueBasic6h({
+  payload:sample(),ibge:IBGE,latitude:target.lat,
+  longitude:target.lon,nowMs:now
+ });
+ await store.setCached(IBGE,parsed);
+ assert.ok(await store.getCached(IBGE));
+ now=NOW+7*24*60*60_000+60*60_000;
+ assert.equal(await store.getCached(IBGE),null);
+ // Even a *new* Firestore write must not revive old forecast timestamps.
+ await assert.rejects(store.setCached(IBGE,parsed),/invalid_private_cache_write/);
+ const invalid={...parsed,validTimes:['bad']};
+ await assert.rejects(store.setCached(IBGE,invalid),/invalid_private_cache_write/);
+});
+
 test('off by default; no Firestore or key must mean zero provider calls',async()=>{
  let calls=0;
  const fetchImpl=async()=>{calls++;throw Error('should not be called')};
@@ -180,6 +363,18 @@ test('one private request, shared cache; no repeated calls or subscriber publica
  assert.equal(r.creditsReservedThisInvocation,4000);
  assert.equal(r.providerRemainingBalanceUnknown,true);
  assert.equal(r.publishedToSubscribers,false);
+ assert.equal(c.publicationContract.publicReleaseApproved,false);
+ assert.equal(c.publicationContract.androidPublicationEnabled,false);
+ const subscriber=c.buildClientPayload(r.forecast,{
+  nowMs:NOW,releaseApproved:true,commercialRightsVerified:true,
+  publishedToSubscribers:true
+ });
+ assert.equal(subscriber.status,'BLOCKED_PRIVATE_STAGING_ONLY');
+ assert.equal(subscriber.forecast,null);
+ assert.equal(subscriber.weather,null);
+ assert.equal(subscriber.alerts,null);
+ assert.equal(subscriber.publishedToSubscribers,false);
+ assert.equal(subscriber.creditsReserved,0);
  assert.equal(c.automaticPolling,false);
  assert.equal(calls,1);
  assert.ok(uri.startsWith('https://my.meteoblue.com/packages/basic-6h?'));
@@ -203,7 +398,9 @@ test('failed or malformed upstream never refunded and cannot double-spend',async
  assert.equal(JSON.stringify(a).includes('SECRET_NEVER_PRINT'),false);
  const b=await c.collectOne({ibge:IBGE});
  assert.equal(b.providerContacted,false);
- assert.equal(b.reason,'MUNICIPAL_COOLDOWN');
+ // With 4,000 credits/day externally, the local DAILY gate is stricter
+ // than the same-city 24h cooldown. Both prevent additional provider calls.
+ assert.equal(b.reason,'LOCAL_DAILY_CALL_CEILING');
  assert.equal(calls,1);
 });
 test('exposed key may perform only one approved private budgeted staging call',async()=>{

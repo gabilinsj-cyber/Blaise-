@@ -17,13 +17,85 @@ data class AdminCollectorReadinessItem(
     val publishingToSubscribers: Boolean = false,
 )
 
+/**
+ * Audit checklist only: the Kotlin client does not retrieve the provider's
+ * current balance, API response, key, Firestore account or backend secrets.
+ * These fields correspond 1:1 to the STRICT private basic-6h parser.
+ */
+data class AdminMeteoblueForecastField(
+    val jsonKey: String,
+    val label: String,
+    val unit: String,
+    val meaning: String,
+    val auditedLiveValue: Boolean = false,
+    val presentInOneRealPrivateResponse: Boolean = false,
+)
+
 object AdminCollectorReadiness {
-    const val SNAPSHOT_DATE = "18/11/2026"
+    const val SNAPSHOT_DATE = "19/11/2026"
     const val RJ_MUNICIPALITIES = 92
     const val METEOBLUE_TOTAL_TRIAL_CREDITS = 10_000_000
     const val METEOBLUE_LOCAL_CEILING_CREDITS = 8_000_000
     const val METEOBLUE_COST_PER_BASIC_6H_REQUEST = 4_000
-    const val METEOBLUE_MAX_REQUESTS_PER_UTC_DAY = 4
+    const val METEOBLUE_MAX_REQUESTS_PER_UTC_DAY = 1
+    const val METEOBLUE_MUNICIPAL_COOLDOWN_HOURS = 24
+    const val METEOBLUE_CACHE_HOURS = 6
+    const val METEOBLUE_EXPIRY_DATE = "18/11/2027"
+    // Provider console screenshot at 18/11/2026 16:34 BRT; historical only.
+    // Do not mistake key daily cap for remaining account credits.
+    const val METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD = 4_000
+    const val METEOBLUE_PROVIDER_PERIOD_LABEL = "03/11 a 18/11/2026"
+    // Historic screenshot before the operator saved the new daily key cap.
+    const val METEOBLUE_KEY_DAILY_LIMIT_OBSERVED = 10_000_000
+    const val METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED = 4_000
+    const val METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API = false
+    const val METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT = 4_000
+    const val METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION = true
+    // Operator Cloud Shell evidence, 19/11/2026 09:42 BRT. Historical proof
+    // of one PRIVATE, real supplier response, NOT current live readings.
+    const val METEOBLUE_PRIVATE_AUDIT_DATE = "19/11/2026 às 09h42 BRT"
+    const val METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT = 7
+    const val METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS = 29
+    const val METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED = 4_000
+    const val METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED = true
+    const val METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED = true
+    const val METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS = false
+    const val METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES = false
+    const val METEOBLUE_PRIVATE_COLLECTOR_ENABLED = false
+    const val METEOBLUE_PUBLISHED_TO_SUBSCRIBERS = false
+    // Read-only Firestore historical comparison observed 21/11/2026.
+    // This never represents today's weather or an alert.
+    const val METEOBLUE_SCIENCE_REVIEW_DATE = "21/11/2026 às 02h19 BRT"
+    const val METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED = 29
+    const val METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS = 29
+    const val METEOBLUE_HISTORICAL_WET_RAIN_PAIRS = 14
+    const val METEOBLUE_HISTORICAL_EQUAL_WET_RAIN_PAIRS = 14
+    const val METEOBLUE_RAIN_SEMANTICS_REVIEW_REQUIRED = true
+    const val METEOBLUE_SCIENTIFIC_HOMOLOGATION_GRANTED = false
+    const val METEOBLUE_CLIENT_PUBLICATION_AUTHORIZED = false
+    const val METEOBLUE_WEATHER_ALERT_INPUT_AUTHORIZED = false
+    // Free API product comparison advertises commercial use, but the
+    // broader meteoblue T&C reserves reproduction/storage/redistribution
+    // rights under applicable licence terms. No subscriber release approval.
+    const val METEOBLUE_FREE_COMMERCIAL_USE_ADVERTISED = true
+    const val METEOBLUE_SUBSCRIBER_DISTRIBUTION_RIGHTS_VERIFIED = false
+    const val METEOBLUE_DATA_STORAGE_REPRODUCTION_RIGHTS_VERIFIED = false
+    const val METEOBLUE_ATTRIBUTION_TERMS_VERIFIED = false
+    const val METEOBLUE_EXPIRED_FORECASTS_ELIGIBLE_AS_CURRENT = false
+    const val METEOBLUE_COMMERCIAL_RIGHTS_VERIFIED = false
+    // Null is deliberately distinct from zero: no provider dashboard or
+    // Firestore read occurs in this Android-admin planning view.
+    val meteoblueCurrentProviderCredits: Int? = null
+    val meteoblueActualLocalCreditsReserved: Int? = null
+    val meteoblueFieldAudit = listOf(
+        AdminMeteoblueForecastField("precipitation", "Chuva prevista acumulada em 6h", "mm", "PREVISÃO 6H, NÃO CHUVA OBSERVADA", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("convective_precipitation", "Chuva convectiva prevista em 6h", "mm", "PREVISÃO 6H, NÃO DETECÇÃO DE TEMPESTADE", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("precipitation_probability", "Probabilidade de chuva em 6h", "%", "PROBABILIDADE DE PREVISÃO 6H", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("windspeed_mean", "Vento médio previsto em 6h", "km/h", "MÉDIA PREVISTA, NÃO VENTO OBSERVADO", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("windspeed_max", "Vento máximo previsto em 6h", "km/h", "MÁXIMO PREVISTO, NÃO RAJADA OBSERVADA", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("relativehumidity_mean", "Umidade relativa média prevista em 6h", "%", "MÉDIA PREVISTA EM 6H", presentInOneRealPrivateResponse = true),
+        AdminMeteoblueForecastField("sealevelpressure_mean", "Pressão média prevista ao nível do mar em 6h", "hPa", "MÉDIA PREVISTA AO NÍVEL DO MAR", presentInOneRealPrivateResponse = true),
+    )
     const val HG_PRO_ADVERTISED_PRICE_BRL = 49.90
     const val HG_PRO_CITY_LIMIT = 100
     const val HG_PRO_DAILY_LIMIT = 20_000
@@ -53,7 +125,7 @@ object AdminCollectorReadiness {
         AdminCollectorReadinessItem(
             "METEOBLUE_FREE_FORECAST", "meteoblue Free API • mLM basic-6h",
             "COLETOR PRIVADO OFF • SALDO DO FORNECEDOR NÃO CONSULTADO",
-            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; 4.000 créditos/consulta e até 4/dia UTC. HTTP 200 com 29 horários em teste anterior; sete campos numéricos ainda carecem de auditoria real. Sem scheduler ou fonte de temperatura atual."
+            "Créditos iniciais 10 milhões até 18/11/2027; teto local 8 milhões; máximo 1 consulta/dia UTC. Em 19/11 às 09h42 BRT a resposta PRIVADA REAL confirmou 7/7 campos de previsão, 29 intervalos de 6h, horários, unidades e geografia. Reserva Firestore de 4.000 créditos; cobrança/saldo no fornecedor não verificados após chamada. Valores históricos numéricos recuperados de 29 períodos; chuva total e convectiva coincidem em 29/29 pares (14/14 úmidos). A Free API anuncia uso comercial, MAS direitos de redistribuição a assinantes, guarda/reprodução e atribuição da conta ainda não foram comprovados. Revisão semântica convectiva pendente. Nenhuma medição atual, alerta, publicação ou coleta contínua."
         ),
         AdminCollectorReadinessItem(
             "NOAA_RJ_MARINE", "NOAA • ondas / SST / raios",
@@ -72,6 +144,35 @@ object AdminCollectorReadiness {
         require(HG_PLANNED_CALLS_PER_DAY <= HG_PRO_DAILY_LIMIT)
         require(HG_PRO_CITY_LIMIT >= RJ_MUNICIPALITIES)
         require(METEOBLUE_LOCAL_CEILING_CREDITS < METEOBLUE_TOTAL_TRIAL_CREDITS)
+        require(METEOBLUE_KEY_DAILY_LIMIT_OBSERVED > METEOBLUE_KEY_CAP_FOR_SINGLE_PRIVATE_AUDIT)
+        require(METEOBLUE_KEY_DAILY_LIMIT_OPERATOR_REPORTED_SAVED ==
+            METEOBLUE_COST_PER_BASIC_6H_REQUEST * METEOBLUE_MAX_REQUESTS_PER_UTC_DAY)
+        require(!METEOBLUE_KEY_CURRENT_LIMIT_VERIFIED_BY_API)
+        require(METEOBLUE_PROVIDER_USED_IN_SELECTED_PERIOD >= 0)
+        require(METEOBLUE_KEY_EXPOSED_REQUIRES_ROTATION)
+        require(meteoblueFieldAudit.size == 7)
+        require(meteoblueFieldAudit.map { it.jsonKey }.distinct().size == 7)
+        require(meteoblueFieldAudit.none { it.auditedLiveValue })
+        require(meteoblueFieldAudit.all { it.presentInOneRealPrivateResponse })
+        require(METEOBLUE_PRIVATE_RESPONSE_FIELDS_PRESENT == meteoblueFieldAudit.size)
+        require(METEOBLUE_ONE_PRIVATE_FORECAST_CREDITS_RESERVED == METEOBLUE_COST_PER_BASIC_6H_REQUEST)
+        require(METEOBLUE_PRIVATE_RESPONSE_SIX_HOUR_SLOTS == 29)
+        require(METEOBLUE_PRIVATE_ONE_RESPONSE_VALIDATED && METEOBLUE_PRIVATE_PROVIDER_CONTACT_CONFIRMED)
+        require(!METEOBLUE_PRIVATE_RESPONSE_HAS_OBSERVATIONS && !METEOBLUE_PRIVATE_RESPONSE_HAS_PUBLIC_VALUES)
+        require(meteoblueCurrentProviderCredits == null && meteoblueActualLocalCreditsReserved == null)
+        require(!METEOBLUE_PRIVATE_COLLECTOR_ENABLED && !METEOBLUE_PUBLISHED_TO_SUBSCRIBERS)
+        require(METEOBLUE_HISTORICAL_RAIN_PAIRS_COMPARED == METEOBLUE_HISTORICAL_EQUAL_RAIN_PAIRS)
+        require(METEOBLUE_HISTORICAL_WET_RAIN_PAIRS == METEOBLUE_HISTORICAL_EQUAL_WET_RAIN_PAIRS)
+        require(METEOBLUE_RAIN_SEMANTICS_REVIEW_REQUIRED)
+        require(METEOBLUE_FREE_COMMERCIAL_USE_ADVERTISED)
+        require(!METEOBLUE_SUBSCRIBER_DISTRIBUTION_RIGHTS_VERIFIED &&
+            !METEOBLUE_DATA_STORAGE_REPRODUCTION_RIGHTS_VERIFIED &&
+            !METEOBLUE_ATTRIBUTION_TERMS_VERIFIED &&
+            !METEOBLUE_EXPIRED_FORECASTS_ELIGIBLE_AS_CURRENT)
+        require(!METEOBLUE_SCIENTIFIC_HOMOLOGATION_GRANTED &&
+            !METEOBLUE_CLIENT_PUBLICATION_AUTHORIZED &&
+            !METEOBLUE_WEATHER_ALERT_INPUT_AUTHORIZED &&
+            !METEOBLUE_COMMERCIAL_RIGHTS_VERIFIED)
         require(integrations.map { it.id }.distinct().size == integrations.size)
         require(integrations.none { it.paidSubscriptionActive || it.publishingToSubscribers })
     }

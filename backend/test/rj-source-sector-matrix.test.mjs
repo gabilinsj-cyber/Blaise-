@@ -33,6 +33,8 @@ test('meteoblue free six-hour sector remains private and independent from therma
  assert.equal(policy.meteoblueComparison.freeWeatherApi2026.privateCreditCeiling,8000000);
  assert.equal(policy.meteoblueComparison.freeWeatherApi2026.noAutomaticScheduling,true);
  assert.equal(policy.meteoblueComparison.liveNumericIngestionEnabled,false);
+ assert.equal(policy.meteoblueComparison.freeWeatherApi2026.localFirestoreCreditsReservedObserved,4000);
+ assert.equal(policy.meteoblueComparison.freeWeatherApi2026.secretManagerVersion,'3');
  for(const id of ['AIR_TEMPERATURE','THERMAL_SENSATION','RAIN_NEXT_HOUR','LIGHTNING','SST']){
   assert.ok(!matrix.find(s=>s.id===id).products
    .some(p=>p.sourceId==='METEOBLUE_FREE_FORECAST'));
@@ -46,7 +48,15 @@ test('thermal sectors exclude NOAA/ECMWF and allow HG/OpenWeather/DWD only',()=>
   assert.deepEqual(air.products.map(x=>x.sourceId),policy.thermalApprovedDisplaySources);
   assert.equal(policy.thermalOfficialAutoFetchEnabled,false);
   const meta=policy.meteoblueComparison;
-  assert.equal(meta.nominalGridKm,10);
+  assert.equal(meta.nominalGridKm,null);
+  assert.equal(meta.id,'METEOBLUE_FREE_FORECAST');
+  assert.equal(meta.service,'meteoblue Free Weather API • mLM basic-6h');
+  assert.equal(meta.freeWeatherApi2026.privateRealAuditFieldCount,7);
+  assert.equal(meta.freeWeatherApi2026.privateRealAuditReady,true);
+  assert.equal(meta.freeWeatherApi2026.maximumDailyStagingCalls,1);
+  assert.equal(meta.freeWeatherApi2026.freeTierMaxTemporalResolution,'6h');
+  assert.equal(meta.freeWeatherApi2026.forecastPublishedToCustomers,false);
+  assert.equal(meta.freeWeatherApi2026.continuousRealTimeUpdatesPossible,false);
   assert.equal(meta.commercialApiLicenseVerified,false);
   assert.equal(meta.serverApiCredentialsInstalled,false);
   assert.equal(meta.liveNumericIngestionEnabled,false);
@@ -56,9 +66,7 @@ test('thermal sectors exclude NOAA/ECMWF and allow HG/OpenWeather/DWD only',()=>
   for (const id of ['AIR_PRESSURE_HUMIDITY','WIND_GUST','RAIN_NEXT_HOUR','CLOUDS']) {
     const sector=matrix.find(x=>x.id===id);
     const mb=sector.products.filter(x=>x.sourceId==='METEOBLUE_NEMS10');
-    assert.equal(mb.length,1);
-    assert.equal(mb[0].kind,'P');
-    assert.equal(mb[0].liveIngestionConfirmed,false);
+    assert.equal(mb.length,0); // NEMS10 raw is not the tested Free mLM product
   }
   for (const id of ['SATELLITE_VISUAL_RJ','SATELLITE_VISUAL_ATLANTIC','LIGHTNING','SST','RIVERS_FLOODS']) {
     assert.ok(!matrix.find(x=>x.id===id).products.some(x=>x.sourceId==='METEOBLUE_NEMS10'));

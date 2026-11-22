@@ -2,6 +2,7 @@ import { STATEWIDE_DASHBOARD_PATH, STATEWIDE_DASHBOARD_CONTRACT, STATEWIDE_DASHB
 import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 import {projectRjInternationalForecast} from './rj-international-forecast-public.mjs';
+import {projectVisualCrossingForPaidDashboard} from './rj-visual-crossing-client-projection.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
@@ -246,6 +247,8 @@ export function createPaidDashboardDataHttpHandler(
     subscriberVerifier = null,
     maxConcurrent = DASHBOARD_DATA_HTTP_DEFAULT_MAX_CONCURRENT,
     readInternationalForecasts = null,
+    readVisualCrossingPrivateCache = null,
+    visualCrossingSubscriberReleaseApproved = false,
   } = {},
 ) {
   if (typeof delegate !== 'function') throw new Error('dashboard_http_delegate_invalid');
@@ -254,6 +257,10 @@ export function createPaidDashboardDataHttpHandler(
   if (!sourceWorker || typeof sourceWorker.status !== 'function' || typeof sourceWorker.readSource !== 'function') {
     throw new Error('dashboard_http_source_worker_invalid');
   }
+  if (readVisualCrossingPrivateCache !== null && typeof readVisualCrossingPrivateCache !== 'function')
+    throw new Error('visual_crossing_cache_reader_invalid');
+  if(typeof visualCrossingSubscriberReleaseApproved!=='boolean')
+    throw new Error('visual_crossing_subscriber_release_flag_invalid');
   if (readInternationalForecasts !== null && typeof readInternationalForecasts !== 'function')
     throw new Error('forecast_provider_invalid');
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 1_000) {
@@ -313,13 +320,31 @@ export function createPaidDashboardDataHttpHandler(
             forecasts=[]; // Loss of optional source never invents weather or breaks billing.
           }
         }
+        // Optional, read-only, strictly after purchase verification. Never
+        // contacts Visual Crossing or starts a provider poll per subscriber.
+        let vc=[];
+        if(!isStatewide&&visualCrossingSubscriberReleaseApproved===true &&
+           typeof readVisualCrossingPrivateCache==='function'){
+          try {
+            const candidates=await Promise.all(payload.municipalityIbges.map(code=>
+              readVisualCrossingPrivateCache(code)));
+            nowMillis=Date.now();
+            vc=candidates.map((candidate,index)=>
+              projectVisualCrossingForPaidDashboard(candidate,{
+                ibge:payload.municipalityIbges[index],now:nowMillis
+              })).filter(Boolean);
+            if(new Set(vc.map(x=>x.ibge)).size!==vc.length)vc=[];
+          }catch{vc=[];}
+        }
         const snapshot=isStatewide
           ?buildStatewideDashboardSnapshot(sourceWorker,{nowMillis})
           :buildPaidDashboardSnapshot(sourceWorker,{nowMillis});
         const effective=isStatewide? snapshot :
-          snapshot? (forecasts.length?Object.freeze({...snapshot,
-            internationalForecasts:Object.freeze(forecasts)}):snapshot) :
-          forecasts.length?Object.freeze({
+          snapshot? ((forecasts.length||vc.length)?Object.freeze({...snapshot,
+            ...(forecasts.length?{internationalForecasts:Object.freeze(forecasts)}:{}),
+            ...(vc.length?{visualCrossingWeather:Object.freeze(vc)}:{})
+          }):snapshot) :
+          (forecasts.length||vc.length)?Object.freeze({
             contract:DASHBOARD_DATA_HTTP_CONTRACT,
             generatedAt:new Date(nowMillis).toISOString(),mode:'normal',
             scope:'RJ_APPROVED_SOURCES',sourceCount:0,currentSourceCount:0,
@@ -327,6 +352,7 @@ export function createPaidDashboardDataHttpHandler(
             officialNoticeLinks:OFFICIAL_ALERT_LINKS,
             marine:null,sources:Object.freeze([]),
             internationalForecasts:Object.freeze(forecasts),
+            ...(vc.length?{visualCrossingWeather:Object.freeze(vc)}:{}),
             privacy:Object.freeze({purchaseTokenExposed:false,
               rawStationPayloadExposed:false,userLocationStored:false})
           }):null;

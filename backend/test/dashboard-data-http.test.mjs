@@ -104,7 +104,7 @@ async function withServer(handler, callback) {
   }
 }
 
-function handlerWith({ gateway, sourceWorker = currentWorker(), readInternationalForecasts = null, metrics = createOperationalMetrics({ startedAtMillis: NOW }) } = {}) {
+function handlerWith({ gateway, sourceWorker = currentWorker(), readInternationalForecasts = null, readVisualCrossingPrivateCache = null, visualCrossingSubscriberReleaseApproved = false, metrics = createOperationalMetrics({ startedAtMillis: NOW }) } = {}) {
   const fallback = (_req, res) => {
     res.statusCode = 404;
     res.end();
@@ -120,6 +120,8 @@ function handlerWith({ gateway, sourceWorker = currentWorker(), readInternationa
       sourceWorker,
       metrics,
       readInternationalForecasts,
+      readVisualCrossingPrivateCache,
+      visualCrossingSubscriberReleaseApproved,
     }),
   };
 }
@@ -358,4 +360,74 @@ test('invalid, duplicated or excessive municipality selections fail before purch
   });
   assert.equal(authCalls,0);
   assert.equal(sourceCalls,0);
+});
+
+test('Visual Crossing private cache remains invisible to subscriber unless explicitly approved',async()=>{
+ let reads=0;
+ const readVisualCrossingPrivateCache=async()=>{
+  reads++;
+  return {sourceId:'VISUAL_CROSSING_FREE',
+    status:'INDISPONIVEL',ibge:'3304557',fields:[],forecast:[]};
+ };
+ const {handler}=handlerWith({
+  sourceWorker:currentWorker({enabled:false}),
+  readVisualCrossingPrivateCache,
+  visualCrossingSubscriberReleaseApproved:false
+ });
+ await withServer(handler,async base=>{
+  const response=await post(base,validRequest());
+  assert.equal(response.status,503);
+ });
+ assert.equal(reads,0);
+});
+test('Visual Crossing valid E/P snapshot can augment paid two-city dashboard only after entitlement',async()=>{
+ const now=Date.now();
+ const iso=m=>new Date(now+m).toISOString();
+ let reads=[];
+ const snapshot=code=>({
+  sourceId:'VISUAL_CROSSING_FREE',status:'PRIVATE_CACHE_VALID',
+  ibge:code,kindCurrent:'E',kindForecast:'P',
+  publishedToSubscribers:false,providerBalanceVerified:false,
+  attribution:'Weather data by Visual Crossing',
+  validAt:iso(-5*60_000),checkedAt:iso(-1000),
+  fields:[{field:'temperatureC',value:28.0,unit:'°C',kind:'E'},
+    {field:'relativeHumidityPct',value:70,unit:'%',kind:'E'}],
+  forecast:[{validAt:iso(50*60_000),kind:'P',
+    fields:[{field:'precipitationMm',value:1.2,unit:'mm',kind:'P'}]}]
+ });
+ const {handler}=handlerWith({
+  sourceWorker:currentWorker({enabled:false}),
+  readVisualCrossingPrivateCache:async(code)=>{reads.push(code);return snapshot(code)},
+  visualCrossingSubscriberReleaseApproved:true
+ });
+ await withServer(handler,async base=>{
+  const response=await post(base,validRequest({municipalityIbges:['3304557','3303302']}));
+  assert.equal(response.status,200);
+  const body=await response.json();
+  assert.deepEqual(reads,['3304557','3303302']);
+  assert.equal(body.visualCrossingWeather.length,2);
+  assert.equal(body.visualCrossingWeather[0].current.temperatureC,28);
+  assert.equal(body.visualCrossingWeather[0].current.humidityPct,70);
+  assert.equal(body.visualCrossingWeather[0].forecastNext.precipitationMm,1.2);
+  assert.equal(body.visualCrossingWeather[0].officialAlert,false);
+  assert.equal(body.visualCrossingWeather[0].attribution,'Weather data by Visual Crossing');
+  assert.ok(!JSON.stringify(body).includes('weather.visualcrossing.com/VisualCrossingWebServices'));
+  assert.ok(!JSON.stringify(body).includes('apiKey'));
+ });
+});
+test('unpaid subscriber cannot probe private Visual Crossing cache',async()=>{
+ let reads=0;
+ const {handler}=handlerWith({
+  sourceWorker:currentWorker({enabled:false}),
+  readVisualCrossingPrivateCache:async()=>{reads++;return null},
+  visualCrossingSubscriberReleaseApproved:true,
+  gateway:{async getSubscription(){return {
+   subscriptionState:'SUBSCRIPTION_STATE_EXPIRED',lineItems:[]};
+  }}
+ });
+ await withServer(handler,async base=>{
+  const response=await post(base,validRequest());
+  assert.equal(response.status,403);
+ });
+ assert.equal(reads,0);
 });

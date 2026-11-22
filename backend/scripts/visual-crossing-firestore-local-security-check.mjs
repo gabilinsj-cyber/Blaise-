@@ -1,0 +1,139 @@
+/**
+ * READ-ONLY live project RULES retrieval, followed by LOCAL emulator tests.
+ * Never reads live Firestore documents, mutates deployed rules, obtains a
+ * weather API key, invokes Visual Crossing or stores subscriber data.
+ *
+ * Takes one argument: absolute path to offline probe.mjs from same PR.
+ */
+import {execFileSync} from 'node:child_process';
+import {mkdtemp,rm,writeFile,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const PROJECT='blaise-v6-rj';
+const DEMO='demo-blaise-vc-firestore-rules';
+const classifyEmulatorFailure=(combined='',code=null)=>{
+ const t=String(combined).slice(0,80000);
+ if(/(?:Java 21|JDK 21|requires Java|UnsupportedClassVersionError|java version is too old|JDK version)/i.test(t))
+  return 'JAVA_VERSION_UNSUPPORTED';
+ if(/(?:java: command not found|java: not found|spawn java ENOENT|Unable to find a Java Runtime|Could not find Java|java executable not found|Failed to find a Java installation)/i.test(t))
+  return 'JAVA_NOT_INSTALLED';
+ if(/EADDRINUSE|port .*already in use|address already in use/i.test(t))
+  return 'EMULATOR_PORT_BUSY';
+ if(/Failed to download|Unable to download|Failed.*emulator.*binary|Failed to connect to.*storage.googleapis.com/i.test(t))
+  return 'EMULATOR_DOWNLOAD_UNAVAILABLE';
+ if(/Cannot find package|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(t))
+  return 'LOCAL_TEST_MODULE_UNAVAILABLE';
+ if(/(?:Error parsing rules|failed to compile rules|Parse error|rules compilation failed)/i.test(t))
+  return 'RULES_COMPILATION_FAILED';
+ if(/Timeout|ETIMEDOUT|timed out|SIGTERM/i.test(t)||code==='ETIMEDOUT')
+  return /Running script:|All emulators ready/i.test(t)
+    ?'EMULATOR_PROBE_TIMEOUT_AFTER_START'
+    :'EMULATOR_START_OR_DOWNLOAD_TIMEOUT';
+ if(/Failed to start emulator|Error: An unexpected error has occurred/i.test(t))
+  return 'EMULATOR_START_FAILED';
+ return 'EMULATOR_OUTPUT_MISSING';
+};
+
+const report=reason=>console.log('BLAISE_VC_LOCAL_SECURITY_CHECK='+JSON.stringify({
+ state:'REVIEW_REQUIRED',reason,productionChanged:false,
+ productionDocumentsRead:false,weatherApiCalled:false,clientRelease:false
+}));
+const invoke=(cmd,args,{cwd=undefined,timeout=30000,maxBuffer=1024*1024}={})=>
+ execFileSync(cmd,args,{cwd,encoding:'utf8',timeout,maxBuffer,
+  stdio:['ignore','pipe','pipe']});
+let working=null;
+try{
+ if(process.argv.length!==3||
+    !process.argv[2].endsWith('visual-crossing-firestore-client-probe.mjs'))
+  throw Error('PROBE_REQUIRED');
+ const probe=await readFile(process.argv[2],'utf8');
+ if(!probe.includes('local_firestore_emulator_required')||probe.length>10000)
+  throw Error('PROBE_INVALID');
+ const token=invoke('gcloud',['auth','print-access-token'],{timeout:12000}).trim();
+ if(!/^[A-Za-z0-9._~-]{40,}$/.test(token))throw Error('AUTH_UNAVAILABLE');
+ const get=async path=>{
+  const r=await fetch('https://firebaserules.googleapis.com/v1/'+path,{
+   method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+   redirect:'error',signal:AbortSignal.timeout(15000)
+  });
+  if(!r.ok)throw Error('RULESET_FETCH_UNAVAILABLE');
+  const body=await r.text();
+  if(body.length>500000)throw Error('RULESET_RESPONSE_TOO_LARGE');
+  return JSON.parse(body);
+ };
+ const releases=await get('projects/'+PROJECT+'/releases');
+ const candidates=[
+  'projects/'+PROJECT+'/releases/cloud.firestore',
+  'projects/'+PROJECT+'/releases/cloud.firestore/(default)'
+ ];
+ const release=releases?.releases?.find(r=>candidates.includes(r?.name));
+ if(!release||typeof release.rulesetName!=='string'||
+  !/^projects\/blaise-v6-rj\/rulesets\/[A-Za-z0-9_-]+$/.test(release.rulesetName))
+  throw Error('RULESET_NOT_FOUND');
+ const ruleset=await get(release.rulesetName);
+ const files=ruleset?.source?.files;
+ if(!Array.isArray(files)||!files.length||files.length>8||
+    files.some(f=>typeof f?.content!=='string'))
+  throw Error('RULESET_UNEXPECTED');
+ const source=files.map(f=>f.content).join('\n');
+ if(source.length>250000||!source.includes('service cloud.firestore'))
+  throw Error('FIRESTORE_RULES_INVALID');
+ console.log('BLAISE_VC_LOCAL_PHASE=ACTIVE_RULES_READ_OK');
+ working=await mkdtemp(join(tmpdir(),'blaise-vc-local-rules-'));
+ await Promise.all([
+  writeFile(join(working,'active-firestore.rules'),source,{mode:0o600}),
+  writeFile(join(working,'probe.mjs'),probe,{mode:0o600}),
+  writeFile(join(working,'package.json'),
+   JSON.stringify({private:true,type:'module'}),{mode:0o600}),
+  writeFile(join(working,'firebase.json'),JSON.stringify({
+   firestore:{rules:'active-firestore.rules'},
+   emulators:{firestore:{host:'127.0.0.1',port:8185},
+    ui:{enabled:false},singleProjectMode:true}
+  }),{mode:0o600})
+ ]);
+ // Install only into fresh /tmp. Does NOT modify Blaise-RJ, Firebase, or GCP.
+ invoke('npm',['install','--no-audit','--no-fund','--no-save',
+  'firebase-tools@14','firebase@12','@firebase/rules-unit-testing@5'],
+  {cwd:working,timeout:180000,maxBuffer:512*1024});
+ console.log('BLAISE_VC_LOCAL_PHASE=EMULATOR_DEPENDENCIES_INSTALLED');
+ console.log('BLAISE_VC_LOCAL_PHASE=EMULATOR_TEST_START');
+ let output='',failureDiagnostic='';
+ try{
+  output=invoke(join(working,'node_modules','.bin','firebase'),[
+   'emulators:exec','--only','firestore','--project',DEMO,
+   '--config',join(working,'firebase.json'),'node probe.mjs'
+  ],{cwd:working,timeout:180000,maxBuffer:2*1024*1024});
+ }catch(e){
+  // An ALLOWED permission is a security finding, not a setup error:
+  // recover its stdout and report it even when child exit code is nonzero.
+  output=typeof e?.stdout==='string'?e.stdout:'';
+  failureDiagnostic=classifyEmulatorFailure(
+    output+'\n'+(typeof e?.stderr==='string'?e.stderr:''),
+    e?.code
+  );
+ }
+ const tag='BLAISE_VC_LOCAL_SECURITY_RESULTS=';
+ // firebase-tools may decorate the beginning of each child output line.
+ // Search inside the line rather than requiring an exact prefix.
+ const marker=output.replace(/\x1b\[[0-9;]*m/g,'').split('\n')
+  .map(line=>line.slice(line.indexOf(tag)))
+  .find(line=>line.startsWith(tag)&&line.length<=16000);
+ if(!marker){
+  console.log('BLAISE_VC_LOCAL_PHASE=NO_TEST_VERDICT');
+  report(failureDiagnostic||'EMULATOR_OUTPUT_MISSING');
+  process.exitCode=2;
+ }else{
+  console.log(marker);
+  if(JSON.parse(marker.slice(tag.length))
+    .state!=='SIMULATED_CLIENTS_DENIED')process.exitCode=3;
+ }
+}catch(e){
+ const reasons=['PROBE_REQUIRED','PROBE_INVALID','AUTH_UNAVAILABLE',
+  'RULESET_FETCH_UNAVAILABLE','RULESET_RESPONSE_TOO_LARGE',
+  'RULESET_NOT_FOUND','RULESET_UNEXPECTED','FIRESTORE_RULES_INVALID',
+  'EMULATOR_RESULT_MISSING'];
+ report(reasons.includes(e?.message)?e.message:'EMULATOR_SETUP_OR_PERMISSION_UNAVAILABLE');
+ process.exitCode=2;
+}finally{
+ if(working)await rm(working,{recursive:true,force:true}).catch(()=>{});
+}

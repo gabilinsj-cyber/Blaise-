@@ -58,6 +58,12 @@ test('free policy is forecast-only; basic-6h target may be prepared offline',()=
  assert.equal(prepared.mayContactProvider,true);
  assert.equal(prepared.packageName,'basic-6h');
  assert.equal(prepared.query.includes('apikey'),false);
+ const params=new URLSearchParams(prepared.query);
+ assert.equal(params.get('windSpeedUnit'),'km/h');
+ assert.equal(params.get('precipitationUnit'),'metric');
+ assert.equal(params.get('format'),'json');
+ assert.equal(params.get('tz'),'utc');
+ assert.equal(params.has('temperatureUnit'),false);
 });
 
 test('offline auth response inspection rejects bad schema and never prints secrets',()=>{

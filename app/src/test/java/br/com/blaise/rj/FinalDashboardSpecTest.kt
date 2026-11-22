@@ -56,6 +56,14 @@ class FinalDashboardSpecTest {
         }
     }
 
+    @Test fun `public subscribers cannot view internal collector diagnostics`() {
+        assertTrue(FinalDashboardSpec.PROVIDER_DIAGNOSTICS_ADMIN_ONLY)
+        assertTrue(FinalDashboardSpec.shouldShowProviderDiagnostics("br.com.blaise.rj.admin"))
+        assertFalse(FinalDashboardSpec.shouldShowProviderDiagnostics("br.com.blaise.rj"))
+        assertFalse(FinalDashboardSpec.shouldShowProviderDiagnostics(""))
+        assertFalse(FinalDashboardSpec.shouldShowProviderDiagnostics("br.com.blaise.rj.debug"))
+    }
+
     @Test fun `no active color without independently validated Blaise notice`() {
         for (level in 1..5) {
             assertEquals(null, FinalDashboardSpec.validatedBlaiseNoticeColorArgb(level, false))

@@ -114,6 +114,76 @@ class DashboardDataClientTest {
         assertTrue(runCatching { DashboardDataParser.parse(invalid) }.isFailure)
     }
 
+    @Test fun `Visual Crossing aggregated current and next-hour forecast are distinct from station readings`() {
+        val vc = validVc()
+        val payload=validPayload().toMutableMap().apply {
+            put("visualCrossingWeather",listOf(vc))
+        }
+        val snapshot=DashboardDataParser.parse(payload)
+        val reading=snapshot.visualCrossingWeather.single()
+        val now=Instant.parse("2026-09-15T11:00:00Z")
+        assertEquals(3304557,reading.ibge)
+        assertTrue(reading.current(now))
+        assertTrue(reading.nextForecast(now))
+        assertEquals(28.0,reading.temperatureC!!,0.0)
+        assertEquals(70.0,reading.humidityPct!!,0.0)
+        assertNull(reading.precipitationMm)
+        assertEquals(1.2,reading.forecastPrecipitationMm!!,0.0)
+        assertFalse(reading.isStationObservation)
+        assertFalse(reading.mayCreateOfficialWarnings)
+        assertEquals("Weather data by Visual Crossing",reading.attribution)
+        assertFalse(reading.current(now.plusSeconds(1900)))
+        assertFalse(reading.nextForecast(now.plusSeconds(4*3600)))
+    }
+
+    @Test fun `Visual Crossing client rejects expired values, invalid units, source drift and unsupported city`() {
+        for(bad in listOf(
+            validVc().toMutableMap().apply{put("sourceId","UNTRUSTED")},
+            validVc().toMutableMap().apply{put("ibge","9999999")},
+            validVc().toMutableMap().apply{put("attribution","Uncredited")},
+            validVc().toMutableMap().apply{put("officialAlert",true)},
+            validVc().toMutableMap().apply{put("currentValidAt","2026-09-15T10:00:00Z")},
+            validVc().toMutableMap().apply{put("current",mapOf("temperatureC" to "28"))},
+            validVc().toMutableMap().apply{
+                put("current", (get("current") as Map<String,Any?>).toMutableMap().apply {
+                    put("temperatureC",1000)
+                })
+            }
+        )){
+            val payload=validPayload().toMutableMap().apply{
+                put("visualCrossingWeather",listOf(bad))
+            }
+            assertTrue(runCatching{DashboardDataParser.parse(payload)}.isFailure)
+        }
+    }
+
+    private fun validVc(): Map<String,Any?> = mapOf(
+        "contract" to "RJ_VISUAL_CROSSING_BOUNDED_CITY_E_P_V1",
+        "ibge" to "3304557",
+        "sourceId" to "VISUAL_CROSSING_FREE",
+        "sourceLabel" to "Visual Crossing",
+        "attribution" to "Weather data by Visual Crossing",
+        "currentKind" to "E_AGGREGATED_NOT_STATION",
+        "forecastKind" to "P_MODEL_NOT_OBSERVATION",
+        "currentValidAt" to "2026-09-15T10:55:00Z",
+        "checkedAt" to "2026-09-15T10:59:00Z",
+        "officialAlert" to false,
+        "dataNotForSafetyCriticalDecisions" to true,
+        "current" to mapOf(
+            "temperatureC" to 28.0,"feelsLikeC" to 31.0,
+            "humidityPct" to 70.0,"dewPointC" to 21.0,
+            "windKmh" to 12.0,"gustKmh" to null,
+            "precipitationMm" to null,
+            "precipitationProbabilityPct" to 30.0,
+            "pressureHpa" to 1014.0,"severeRiskIndex" to null
+        ),
+        "forecastNext" to mapOf(
+            "validAt" to "2026-09-15T11:50:00Z","kind" to "P",
+            "precipitationMm" to 1.2,
+            "precipitationProbabilityPct" to 70.0,"windGustKmh" to null
+        )
+    )
+
     private fun validPayload(): Map<String, Any?> = mapOf(
         "contract" to DASHBOARD_DATA_CONTRACT,
         "generatedAt" to "2026-09-15T11:00:00Z",

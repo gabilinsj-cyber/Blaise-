@@ -1,0 +1,118 @@
+name: RJ Visual Crossing Free zero-credential offline security gate
+on:
+  pull_request:
+    paths:
+      - backend/src/rj-visual-crossing-free-private.mjs
+      - backend/src/rj-visual-crossing-free-budget.mjs
+      - backend/src/rj-visual-crossing-free-cache.mjs
+      - backend/src/rj-visual-crossing-free-92-rollout.mjs
+      - backend/src/rj-visual-crossing-free-92-collector.mjs
+      - backend/src/rj-visual-crossing-secret-wiring-plan.mjs
+      - backend/src/rj-visual-crossing-runtime-secret-proof.mjs
+      - backend/Dockerfile.visual-crossing-secret-proof
+      - backend/scripts/visual-crossing-proof-image-prepare.py
+      - backend/test/test_visual_crossing_proof_image_prepare.py
+      - backend/scripts/visual-crossing-image-build-preflight-readonly.py
+      - backend/scripts/visual-crossing-build-identity-iam-readonly.py
+      - backend/test/test_visual_crossing_build_identity_iam_readonly.py
+      - backend/test/test_visual_crossing_image_build_preflight_readonly.py
+      - backend/scripts/visual-crossing-runtime-secret-proof.mjs
+      - backend/test/rj-visual-crossing-runtime-secret-proof.test.mjs
+      - backend/scripts/visual-crossing-access-history-readonly.py
+      - backend/scripts/visual-crossing-isolated-job-preflight-readonly.py
+      - backend/test/test_visual_crossing_isolated_job_preflight_readonly.py
+      - docs/RJ_VISUAL_CROSSING_ISOLATED_JOB_PROOF_PLAN_20261119.md
+      - backend/test/test_visual_crossing_access_history_readonly.py
+      - backend/scripts/visual-crossing-secret-wiring-dryrun.mjs
+      - backend/src/rj-visual-crossing-client-projection.mjs
+      - backend/src/dashboard-data-http.mjs
+      - backend/test/rj-visual-crossing-client-projection.test.mjs
+      - backend/test/dashboard-data-http.test.mjs
+      - backend/src/rj-meteorological-memory-live.mjs
+      - backend/src/blaise-scientific-http.mjs
+      - backend/src/runtime.mjs
+      - backend/test/rj-visual-crossing-free-cache.test.mjs
+      - backend/test/rj-visual-crossing-free-92-rollout.test.mjs
+      - backend/test/rj-visual-crossing-free-92-collector.test.mjs
+      - backend/test/rj-visual-crossing-secret-wiring-plan.test.mjs
+      - backend/test/rj-meteorological-memory-live.test.mjs
+      - backend/test/blaise-scientific-http.test.mjs
+      - backend/scripts/visual-crossing-free-private-audit.mjs
+      - backend/scripts/visual-crossing-free-92-dryrun.mjs
+      - backend/scripts/visual-crossing-firestore-rules-readonly.mjs
+      - backend/scripts/visual-crossing-firestore-local-security-check.mjs
+      - backend/scripts/visual-crossing-firestore-client-probe.mjs
+      - backend/scripts/visual-crossing-iam-inheritance-readonly.py
+      - backend/scripts/visual-crossing-secret-effective-permission-readonly.py
+      - backend/scripts/visual-crossing-cloud-run-config-readonly.py
+      - backend/test/test_visual_crossing_cloud_run_config_readonly.py
+      - backend/test/test_visual_crossing_secret_effective_permission_readonly.py
+      - backend/test/test_visual_crossing_iam_inheritance_readonly.py
+      - backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs
+      - docs/RJ_VISUAL_CROSSING_92_CACHE_ROLLOUT_SAFE_20261119.md
+      - docs/RJ_VISUAL_CROSSING_SECRET_MANAGER_BINDING_DRYRUN_20261119.md
+      - backend/test/rj-visual-crossing-free-private.test.mjs
+      - docs/RJ_VISUAL_CROSSING_FREE_SECURE_STAGING_20261119.md
+      - .github/workflows/rj-visual-crossing-free-offline-ci.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rj-vc-free-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  vc-security-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.20.0'
+      - name: Install backend dependencies locally, without provider credentials
+        run: npm ci --prefix backend --ignore-scripts --no-audit --no-fund
+      - name: Validate secret-free offline audit and mock-only source tests
+        run: |
+          set -euo pipefail
+          node --check backend/src/rj-visual-crossing-free-private.mjs
+          node --check backend/src/rj-visual-crossing-free-budget.mjs
+          node --check backend/src/rj-visual-crossing-free-cache.mjs
+          node --check backend/src/rj-visual-crossing-free-92-rollout.mjs
+          node --check backend/src/rj-visual-crossing-free-92-collector.mjs
+          node --check backend/src/rj-visual-crossing-secret-wiring-plan.mjs
+          node --check backend/src/rj-visual-crossing-runtime-secret-proof.mjs
+          node --check backend/scripts/visual-crossing-runtime-secret-proof.mjs
+          python3 -B backend/test/test_visual_crossing_access_history_readonly.py
+          python3 -B backend/test/test_visual_crossing_isolated_job_preflight_readonly.py
+          python3 -B backend/test/test_visual_crossing_proof_image_prepare.py
+          python3 -B backend/test/test_visual_crossing_image_build_preflight_readonly.py
+          python3 -B backend/test/test_visual_crossing_build_identity_iam_readonly.py
+          node --check backend/scripts/visual-crossing-secret-wiring-dryrun.mjs
+          node backend/scripts/visual-crossing-secret-wiring-dryrun.mjs
+          node --check backend/src/rj-visual-crossing-client-projection.mjs
+          node --check backend/src/dashboard-data-http.mjs
+          node --check backend/scripts/visual-crossing-free-92-dryrun.mjs
+          node --check backend/scripts/visual-crossing-firestore-rules-readonly.mjs
+          node --check backend/scripts/visual-crossing-firestore-local-security-check.mjs
+          node --check backend/scripts/visual-crossing-firestore-client-probe.mjs
+          python3 -B backend/test/test_visual_crossing_iam_inheritance_readonly.py
+          python3 -B backend/test/test_visual_crossing_secret_effective_permission_readonly.py
+          python3 -B backend/test/test_visual_crossing_cloud_run_config_readonly.py
+          node --check backend/src/rj-meteorological-memory-live.mjs
+          node --check backend/src/blaise-scientific-http.mjs
+          node --check backend/src/runtime.mjs
+          node --check backend/scripts/visual-crossing-free-private-audit.mjs
+          node backend/scripts/visual-crossing-free-private-audit.mjs
+          node backend/scripts/visual-crossing-free-92-dryrun.mjs 2026-11-20
+          node --test \
+            backend/test/rj-visual-crossing-free-private.test.mjs \
+            backend/test/rj-visual-crossing-free-cache.test.mjs \
+            backend/test/rj-visual-crossing-free-92-rollout.test.mjs \
+            backend/test/rj-visual-crossing-free-92-collector.test.mjs \
+            backend/test/rj-visual-crossing-secret-wiring-plan.test.mjs \
+            backend/test/rj-visual-crossing-runtime-secret-proof.test.mjs \
+            backend/test/rj-visual-crossing-client-projection.test.mjs \
+            backend/test/dashboard-data-http.test.mjs \
+            backend/test/rj-visual-crossing-firestore-rules-readonly.test.mjs \
+            backend/test/rj-meteorological-memory-live.test.mjs \
+            backend/test/blaise-scientific-http.test.mjs
