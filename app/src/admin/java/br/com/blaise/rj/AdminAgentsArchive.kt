@@ -64,6 +64,8 @@ object AdminRjAgentsArchive {
         AdminRjAgentArchiveEntry(13, "Supervisor de Atualidade / OpenWeather",
             "Auditoria de novos dados a cada 60 s no cache central, por campo e município; " +
                 "horários reais de medição, publicação na fonte e recebimento. " +
+                "Em conflito comprovado, INMET é desempate privado por estação e horário " +
+                "comparáveis: exibir somente dados da fonte Blaise mais próxima. " +
                 "OpenWeather: até 1 chamada global/dia, só contingência.",
             "Supervisor privado e testes preparados, sem scheduler nem publicação ativos."),
         AdminRjAgentArchiveEntry(14, "Auditor Meteorológico Internacional RJ",
