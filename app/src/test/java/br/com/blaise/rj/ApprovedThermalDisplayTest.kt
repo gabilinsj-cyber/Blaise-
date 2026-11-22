@@ -67,8 +67,31 @@ class ApprovedThermalDisplayTest {
         assertNotEquals(view.temperatureValidAt,view.feelsLikeValidAt)
         assertEquals("PARCIALMENTE_NUBLADO",view.skyCondition)
     }
+    @Test fun visualCrossingAndWeatherApiAreNowEligibleWhenBackendExplicitlyVerifies() {
+        val vc=ApprovedThermalDisplayParser.parse(base("VISUAL_CROSSING_FREE")+
+            mapOf("skyCondition" to null,"feelsLikeC" to 31.5,
+                "validAt" to "2026-11-22T11:40:00Z"),now)
+        val wa=ApprovedThermalDisplayParser.parse(base("WEATHERAPI_FREE")+
+            mapOf("feelsLikeC" to 32.0,"validAt" to "2026-11-22T11:48:00Z"),now)
+        val chosen=ApprovedThermalMunicipalSelection.select(listOf(vc,wa),now)
+        assertNotNull(chosen)
+        assertEquals("WeatherAPI.com • estimativa",chosen!!.temperatureSourceLabel)
+        assertEquals(32.0,chosen.feelsLikeC!!,0.001)
+        assertEquals("PARCIALMENTE_NUBLADO",chosen.skyCondition)
+    }
+    @Test fun contradictoryBlaiseTemperatureReadingsAreNotArbitrarilySelected() {
+        val vc=ApprovedThermalDisplayParser.parse(base("VISUAL_CROSSING_FREE")+
+            mapOf("skyCondition" to null,"temperatureC" to 21.0,
+                "validAt" to "2026-11-22T11:40:00Z"),now)
+        val wa=ApprovedThermalDisplayParser.parse(base("WEATHERAPI_FREE")+
+            mapOf("temperatureC" to 35.0,
+                "validAt" to "2026-11-22T11:42:00Z"),now)
+        val chosen=ApprovedThermalMunicipalSelection.select(listOf(vc,wa),now)
+        assertNull(chosen?.temperatureC)
+        assertEquals("PARCIALMENTE_NUBLADO",chosen?.skyCondition)
+    }
     @Test fun rejectNonThermalSourcesStaleTimesOrSecretShapedExtraFields() {
-        for(source in listOf("VISUAL_CROSSING_FREE","ECMWF_IFS",
+        for(source in listOf("ECMWF_IFS",
             "CLIMATEMPO_ENTERPRISE_RADAR","METEOBLUE_FREE_FORECAST")){
             assertTrue(runCatching { ApprovedThermalDisplayParser.parse(
                 base(source),now) }.isFailure)
