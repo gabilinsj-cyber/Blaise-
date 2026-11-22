@@ -410,12 +410,13 @@ private fun BlaiseDashboard(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         AppHeader(powerOn, onPowerChange)
-                        OfficialStatusBanner(officialFeedState)
+                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection,
+                            voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
                         OfficialMunicipalLinksStrip(onNavigate = onSelectSection)
-                        AssistantPanel(selectedCity = city1, onNavigate = onSelectSection, voiceEnabled = powerOn && !silentMode, appEnabled = powerOn)
+                        OfficialStatusBanner(officialFeedState)
 
                         when (selectedSection) {
-                            "Início" -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            "Início" -> HomeScreen(city1, city2, wide, powerOn, onChooseCity1, onChooseCity2, onSelectSection)
                             "Cidades" -> CitiesScreen(city1, city2, onChooseCity1, onChooseCity2)
                             "Mapa" -> MapScreen(city1, city2)
                             "Alertas" -> AlertsScreen(city1, city2)
@@ -430,7 +431,7 @@ private fun BlaiseDashboard(
                                 onPowerChange = onPowerChange,
                                 onSilentModeChange = onSilentModeChange,
                             )
-                            else -> HomeScreen(city1, city2, wide, onChooseCity1, onChooseCity2, onSelectSection)
+                            else -> HomeScreen(city1, city2, wide, powerOn, onChooseCity1, onChooseCity2, onSelectSection)
                         }
 
                         if (selectedSection == "Mais") {
@@ -766,18 +767,23 @@ private fun HomeScreen(
     city1: City,
     city2: City,
     wide: Boolean,
+    active: Boolean,
     onChooseCity1: () -> Unit,
     onChooseCity2: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            CityPanel("Cidade 1", city1, "Selecionar cidade", onChooseCity1, Modifier.weight(0.78f))
-            ExpandedRadarPanel(Modifier.weight(1.9f))
-            CityPanel("Cidade 2", city2, "Selecionar cidade", onChooseCity2, Modifier.weight(0.78f))
+            CityPanel("Cidade 1", city1, "Selecionar município", onChooseCity1, Modifier.weight(0.78f))
+            ExpandedRadarPanel(Modifier.weight(1.9f), city1, onChooseCity1)
+            Column(Modifier.weight(0.78f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CityPanel("Cidade 2", city2, "Selecionar município",
+                    onChooseCity2, Modifier.fillMaxWidth())
+                TrafficStatusPanel(Modifier.fillMaxWidth())
+            }
         }
     } else {
-        ExpandedRadarPanel(Modifier.fillMaxWidth())
+        ExpandedRadarPanel(Modifier.fillMaxWidth(), city1, onChooseCity1)
         Spacer(Modifier.height(14.dp))
         CityPair(city1, city2, onChooseCity1, onChooseCity2, Modifier.fillMaxWidth())
     }
@@ -788,14 +794,14 @@ private fun HomeScreen(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             ForecastPanel(Modifier.weight(0.85f))
             DailyChartPanel(Modifier.weight(1.55f))
-            CompactNewsAndSeismicPanel(Modifier.weight(1.1f), onNavigate)
+            CompactNewsAndSeismicPanel(Modifier.weight(1.1f), onNavigate, active)
         }
     } else {
         ForecastPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
         DailyChartPanel(Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
-        CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate)
+        CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate, active)
     }
 }
 
@@ -1095,7 +1101,7 @@ private fun MapScreen(city1: City, city2: City) {
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão territorial: Estado + ${city1.name} + ${city2.name}",
     ) {
-        StatusLine("COR.Rio / CET-Rio", "Aguardando eventos georreferenciados oficiais")
+        StatusLine("Camadas meteorológicas", "Aguardando produtos verificados com área e horário")
         StatusLine("Geo-Rio", "Aguardando riscos georreferenciados por fonte aprovada")
         StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
         Text("Contornos próprios IBGE não equivalem a uma camada de risco validada.",
@@ -1107,11 +1113,13 @@ private fun MapScreen(city1: City, city2: City) {
 private fun AlertsScreen(city1: City, city2: City) {
     DashboardSection(
         title = "ALERTAS POR MUNICÍPIO",
-        subtitle = "Verde • Amarelo • Amarelo piscando • Vermelho • COR.Rio 1–5",
+        subtitle = "Escala Blaise 1–5 • avisos oficiais encaminhados por links",
     ) {
         StatusLine(city1.name, "Sem conclusão até receber evidência oficial válida")
         StatusLine(city2.name, "Sem conclusão até receber evidência oficial válida")
-        Text("Até 4 alertas prioritários ficam na faixa superior. Do quinto em diante, consulte Mais.", color = Gold)
+        Text("Três avisos ou links oficiais no topo • Saiba mais para os demais.", color = Gold)
+        Text("Níveis 4/5 exigem dados científicos em tempo real e recálculo validado em até 20 s; sem isso, apenas link oficial.",
+            color = WarningAmber)
         Text("Última hora: quando existir P0/urgência válida, a mensagem aparece em vermelho, negrito e borda dourada com fonte e horário.", color = Muted)
     }
     Spacer(Modifier.height(14.dp))
@@ -1277,7 +1285,7 @@ private fun MoreScreen(
     ).additional
     DashboardSection(
         title = "MAIS ALERTAS OFICIAIS",
-        subtitle = "A partir do quinto aviso válido • frase própria e link oficial",
+        subtitle = "Demais avisos e fontes • uma frase própria e link oficial",
     ) {
         if (additional.isEmpty()) {
             Text("Nenhum alerta adicional foi validado; consulte os links oficiais acima.",
