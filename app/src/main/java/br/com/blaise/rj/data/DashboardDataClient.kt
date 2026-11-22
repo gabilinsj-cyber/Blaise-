@@ -473,7 +473,11 @@ object DashboardDataParser {
         val thermal = (payload["approvedThermal"] as? List<*>)?.map {
             ApprovedThermalDisplayParser.parse(it, generatedAt)
         }.orEmpty()
-        require(thermal.size <= 2 && thermal.map { it.ibge }.toSet().size == thermal.size)
+        // Two selected municipalities × up to three independent, approved
+        // providers. Field provenance must not be collapsed into one record.
+        require(thermal.size <= 6 &&
+            thermal.map { it.ibge }.toSet().size <= 2 &&
+            thermal.map { it.ibge to it.sourceId }.toSet().size == thermal.size)
 
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
