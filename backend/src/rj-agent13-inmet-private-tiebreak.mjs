@@ -30,7 +30,7 @@ export function fingerprintRjInmetDispute(candidates){
   if(typeof x?.ibge!=='string'||typeof x?.sourceId!=='string'||
     typeof x?.field!=='string'||typeof x?.measuredAt!=='string'||
     typeof x?.value!=='number'||!Number.isFinite(x.value)||
-    (x.regionId!==null&&typeof x.regionId!=='string'))
+    (x.regionId!=null&&typeof x.regionId!=='string'))
    throw Error('invalid_inmet_dispute_candidate');
   return [x.ibge,x.regionId??null,x.field,x.nature,x.sourceId,x.value,x.measuredAt];
  }).sort((a,b)=>String(a[4]).localeCompare(String(b[4])));
