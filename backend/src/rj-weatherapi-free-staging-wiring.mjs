@@ -15,6 +15,7 @@ import {projectWeatherApiFreeCurrentForPaidDashboard}
  from './rj-weatherapi-free-client-projection.mjs';
 import {WEATHERAPI_INTERNAL_MONTHLY_CEILING}
  from './rj-weatherapi-free-92-plan.mjs';
+import {auditAgent13Minute} from './rj-agent13-freshness-supervisor.mjs';
 
 const CITIES=new Set(points.points.map(x=>String(x.ibge)));
 const ONE_MINUTE=60_000;
@@ -47,6 +48,7 @@ export async function auditAgent13WeatherApiCache({
    status:'INVALID_AUDIT_SCOPE',auditPerformed:false,records:Object.freeze([])
   });
  const records=[];
+ const privateAgent13Rows=[];
  for(const ibge of codes){
   let privateRow=null;
   try{privateRow=await readPrivateCache(ibge);}catch{}
@@ -60,6 +62,23 @@ export async function auditAgent13WeatherApiCache({
    }));
    continue;
   }
+  // Translate validated PRIVATE cache fields into the pre-existing Agent13
+  // contract. Its actual source-release gates remain CLOSED for QA.
+  for(const [field,value] of [
+    ['temperatureC',projected.temperatureC],
+    ['feelsLikeC',projected.feelsLikeC],
+    ['skyCondition',projected.skyCondition]
+  ]){
+    if(value===null||value===undefined)continue;
+    privateAgent13Rows.push(Object.freeze({
+      ibge,sourceId:'WEATHERAPI_FREE',nature:'E',field,value,
+      measuredAt:projected.validAt,providerPublishedAt:null,
+      ingestedAt:projected.checkedAt,
+      verifiedByBackend:true,municipalityMappingVerified:true,
+      originalProviderTimestampVerified:true,qualityPass:true,
+      wasIngestedFromAuthorizedCollector:true
+    }));
+  }
   const sourceMs=Date.parse(projected.validAt);
   const age=(now-sourceMs)/ONE_MINUTE;
   records.push(Object.freeze({
@@ -70,9 +89,20 @@ export async function auditAgent13WeatherApiCache({
    notAnOfficialStation:true,officialAlertAllowed:false
   }));
  }
+ // Reuse the real Agente 13 evaluator, without granting a license or
+ // subscriber release in this PR. It must reject all proposals for now.
+ const agent13=auditAgent13Minute({
+  nowMs:now,rows:privateAgent13Rows,existing:[],
+  enabledSources:{},selectedMunicipalityIbges:codes
+ });
  return Object.freeze({
   status:'CACHE_ONLY_AUDIT_COMPLETED',auditPerformed:true,
-  records:Object.freeze(records),providerCalls:0,creditReservations:0,
+  records:Object.freeze(records),
+  agent13Contract:agent13.contract,
+  agent13CandidateRows:privateAgent13Rows.length,
+  agent13ProposedUpdates:agent13.proposedUpdates.length,
+  agent13LicenseGateOpen:false,
+  providerCalls:0,creditReservations:0,
   liveMinuteSchedulerEnabled:false,
   sourceFreshnessCeilingMs:MAX_SOURCE_AGE
  });
