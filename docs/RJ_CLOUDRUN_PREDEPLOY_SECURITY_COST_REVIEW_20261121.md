@@ -325,3 +325,24 @@ AUDITORIA: SOMENTE_LEITURA
 **Hipótese prioritária, NÃO comprovada:** a revisão imutável `00058-sos` referencia a versão **1 DISABLED** do segredo OpenWeather, enquanto v2 permanece ENABLED no template atual. A documentação oficial informa que um secret injetado por variável de ambiente é resolvido antes da inicialização e, se falhar, a instância não inicia. Isso torna a referência antiga um possível bloqueador de startup, mas não demonstra que este foi o erro dos três pedidos. Necessário confirmar metadados do binding e estado da versão, e investigar erros de acesso sanitizados, sem ler payloads.
 
 **Não reativar v1**, não editar segredo/IAM/tráfego/minScale/tag do serviço que atende clientes e não executar `gcloud run deploy`; o script de candidata da PR #173 permanece fisicamente sem rota de deploy. Sem novas consultas meteorológicas. Referências oficiais: https://docs.cloud.google.com/run/docs/troubleshooting e https://docs.cloud.google.com/run/docs/configuring/services/secrets .
+
+## Diagnóstico de Secret Manager / startup — 22/11/2026, 08h39 BRT
+
+A titular executou no Cloud Shell um diagnóstico somente leitura, em worktree destacada da branch da PR #173, com Node 24.22.3. A captura das 08h39 BRT apresenta:
+
+```text
+status: DIAGNOSIS_ONLY_NO_DEPLOY
+historicalBindingVersion: 1
+historicalSecretVersionState: DISABLED
+currentTemplateBindingVersion: 2
+currentSecretVersion2State: ENABLED
+historicalSecretDirectIam: UNCONDITIONAL_GRANT_PRESENT
+historicalStartupErrorPhraseCount: 3
+likelyStartupBlocker: DISABLED_ENV_SECRET_V1
+causeOfThreeHttp500: NOT_CONCLUSIVELY_PROVEN
+productionTraffic99_1: True
+```
+
+Interpretação: a referência à versão 1 DISABLED do segredo de ambiente na revisão histórica 00058-sos é uma hipótese forte para as falhas de inicialização. O template atual solicita versão 2 ENABLED. IAM direto incondicional identificado no segredo histórico não comprova por si só acesso efetivo pela identidade da futura candidata. Os indicadores de HTTP 500 não provam causa exclusiva. Não houve deploy, alteração no Secret Manager nem consulta meteorológica intencional neste diagnóstico.
+
+Próxima ação: comparar somente metadados das identidades das revisões históricas e do template do serviço; verificar referência ao segredo v2 e política IAM direta, sem imprimir identidade, payload ou permissões brutas. Seguir apenas para testes offline se as premissas se confirmarem, nunca para deploy automático. Preservar o tráfego 99%/1%, os 14 agentes, os 92 municípios, backups e chaves.
