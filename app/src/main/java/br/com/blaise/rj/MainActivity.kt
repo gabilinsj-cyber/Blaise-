@@ -27,6 +27,7 @@ import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.data.UsgsRecentEarthquakes
+import br.com.blaise.rj.data.DashboardWeatherApiCurrent
 import br.com.blaise.rj.data.ApprovedThermalMunicipalView
 import br.com.blaise.rj.data.ApprovedThermalMunicipalSelection
 import br.com.blaise.rj.data.RjIbgeRegions
@@ -211,6 +212,7 @@ private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { 
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
 private val LocalVisualCrossing = compositionLocalOf<Map<Int, DashboardVisualCrossingWeather>> { emptyMap() }
+private val LocalWeatherApi = compositionLocalOf<Map<Int, DashboardWeatherApiCurrent>> { emptyMap() }
 private val LocalApprovedThermal = compositionLocalOf<Map<Int, ApprovedThermalMunicipalView>> { emptyMap() }
 // Until a signed and audited backend warning contract exists, this list stays empty.
 private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
@@ -339,6 +341,11 @@ fun BlaiseApp(
         LocalInternationalForecasts provides if (powerOn &&
             billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
             (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.internationalForecasts
+                ?.filter { it.current(observationClock) }?.associateBy { it.ibge }.orEmpty()
+            else emptyMap(),
+        LocalWeatherApi provides if (powerOn &&
+            billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase!=null)
+            (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.weatherApiCurrent
                 ?.filter { it.current(observationClock) }?.associateBy { it.ibge }.orEmpty()
             else emptyMap(),
         LocalVisualCrossing provides if(powerOn &&
