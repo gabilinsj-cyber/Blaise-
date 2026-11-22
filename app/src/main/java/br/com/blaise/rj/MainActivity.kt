@@ -1737,9 +1737,9 @@ private fun BillingPanel(
     }
 }
 
-/** At most four current, verified Blaise alerts in the top ribbon.
- * Empty or unverified provider links remain grey and never imply safety.
- * Multiple validated notices from any approved portal overflow into Mais.
+/** Three official link/alert cards immediately under the header assistant.
+ * Verified levels 1..5 are colored; unverified links are always neutral.
+ * "Saiba mais" opens the remaining official sources and validated warnings.
  */
 @Composable
 private fun OfficialMunicipalLinksStrip(onNavigate: (String) -> Unit) {
@@ -1750,46 +1750,66 @@ private fun OfficialMunicipalLinksStrip(onNavigate: (String) -> Unit) {
         border = BorderStroke(1.dp, Gold),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("ALERTAS OFICIAIS • RIO DE JANEIRO", color = Gold, fontWeight = FontWeight.ExtraBold)
-            page.visible.forEach { item -> OfficialAlertLinkCard(item) }
-            if (page.additional.isNotEmpty()) {
-                OutlinedButton(
-                    onClick = { onNavigate("Mais") },
-                    modifier = Modifier.fillMaxWidth().testTag("more-official-alerts"),
-                ) { Text("Mais alertas (${page.additional.size})") }
+        Column(Modifier.fillMaxWidth().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ALERTAS E LINKS OFICIAIS • ESTADO DO RIO DE JANEIRO",
+                color = Gold, fontWeight = FontWeight.ExtraBold)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth >= 750.dp) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        page.visible.forEach { item ->
+                            OfficialAlertLinkCard(item, Modifier.weight(1f))
+                        }
+                        OutlinedButton(onClick = { onNavigate("Mais") },
+                            modifier = Modifier.testTag("more-official-alerts")) {
+                            Text("Saiba mais")
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        page.visible.forEach { OfficialAlertLinkCard(it, Modifier.fillMaxWidth()) }
+                        OutlinedButton(onClick = { onNavigate("Mais") },
+                            modifier = Modifier.fillMaxWidth().testTag("more-official-alerts")) {
+                            Text("Saiba mais • outros avisos e links")
+                        }
+                    }
+                }
             }
-            Text("Cores 1–5 somente para níveis Blaise verificados; os links não comprovam alerta ativo.",
+            Text("Fundo colorido somente com nível Blaise comprovado • " +
+                "Níveis 4/5: recálculo científico em tempo real a cada 20 s. " +
+                "Sem evidência: frase curta e link oficial.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
-/** One bold sentence + official HTTPS link; ephemeral rendering, never a stored bulletin. */
+/** One own-language sentence and one official HTTPS link. No copied bulletins. */
 @Composable
-private fun OfficialAlertLinkCard(item: OfficialAlertRibbonItem) {
+private fun OfficialAlertLinkCard(
+    item: OfficialAlertRibbonItem,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     Surface(
         color = Color(item.presentation.backgroundArgb),
         shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.fillMaxWidth().testTag("official-link-${item.portal.id}"),
+        modifier = modifier.testTag("official-link-${item.portal.id}"),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                // Exactly one original sentence, without storing or copying
-                // a provider bulletin. Its 1–5 level is Blaise-verified only.
-                Text("${item.portal.name} — ${item.presentation.message}",
-                    color = Color.Black, fontWeight = FontWeight.Black,
-                    style = MaterialTheme.typography.bodySmall)
-            }
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("${item.portal.name} • ${item.presentation.message}",
+                color = Color.Black, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = {
                 runCatching {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(item.portal.url)))
+                    context.startActivity(Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse(item.portal.url)))
                 }
-            }) { Text("Página oficial", color = Color(0xFF053D83), fontWeight = FontWeight.Bold) }
+            }) {
+                Text("Página oficial", color = Color(0xFF053D83),
+                    fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
