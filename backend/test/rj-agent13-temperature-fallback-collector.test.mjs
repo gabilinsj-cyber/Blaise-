@@ -25,9 +25,9 @@ function fake(now=NOW,dt=NOW-20*60_000){
     budget:{
       async tryReserveMunicipalFallback(p){
         assert.equal(p.ibge,ibge);
-        assert.equal(p.maximum,900);
+        assert.equal(p.maximum,1);
         assert.equal(p.utcDay,new Date(state.now).toISOString().slice(0,10));
-        if(state.reserved>=900||state.now-state.last<35*60_000)return false;
+        if(state.reserved>=1||state.now-state.last<35*60_000)return false;
         state.last=state.now;state.reserved++;return true;
       }
     }
