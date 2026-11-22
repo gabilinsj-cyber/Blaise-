@@ -75,7 +75,7 @@ function validateRow(row,now,enabledSources){
  const published=row.providerPublishedAt==null?null:iso(row.providerPublishedAt);
  if(!Number.isFinite(measured)||!Number.isFinite(ingested)||
    (published!==null&&!Number.isFinite(published))||
-   measured>ingested||ingested>now||now-ingested>2*60_000||
+   measured>ingested||ingested>now||
    (published!==null&&(published<measured||published>ingested)))
    return rejection('INVALID_OR_STALE_TIMESTAMPS',city,field);
  const age=now-measured;
