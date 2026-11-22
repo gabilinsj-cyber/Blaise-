@@ -6,7 +6,7 @@
  * A client polling more often cannot increase provider measurement freshness.
  *
  * Operator contract from 18/11: thermal HG E (only after subscription), OWM E
- * (temperature/feels-like contingency, 900/day; 35m/city), DWD ICON P (2m
+ * (temperature/feels-like contingency, ONE/day globally; 35m/city cooldown), DWD ICON P (2m
  * model forecast; not current thermometer). ECMWF/MET, NOAA, Climatempo and
  * Visual Crossing may cover other sectors but NOT temperature/feels-like.
  */
@@ -59,7 +59,7 @@ export function planRjThermalCadence({
  const openWeatherPolls=Math.ceil(1440/RJ_THERMAL_SELECTED_CITY_TARGET_MINUTES);
  const allCityOwm=92*openWeatherPolls;
  const selectedOwm=selectedMunicipalityIbges.length*openWeatherPolls;
- const maxOwmCities=Math.floor(900/openWeatherPolls);
+ const maxOwmCities=0;
  // These are daily planning ceilings, NOT actual credits or actual requests.
  const allowedHg=hgSubscriptionActive===true &&
    RJ_HG_BRASIL_PRO_PLAN.subscriptionActive===true;
@@ -80,13 +80,14 @@ export function planRjThermalCadence({
     currentObservationIsStationMeasurement:false}),
    openWeather:frozen({approvedForContingency:allowedOwm,
     cacheMinimumMinutes:35,maximumEstimateAgeMinutes:35,
-    dailyInternalCallCeiling:900,
+    dailyInternalCallCeiling:1,
     callsPerCityPerDayForFull35mCoverage:openWeatherPolls,
     estimatedCallsForSelectedCities:selectedOwm,
     estimatedCallsForAll92Cities:allCityOwm,
-    all92At35MinutesWithinBudget:allCityOwm<=900,
-    maxFullTimeCitiesAt35Minutes:maxOwmCities,
-    minUniformIntervalAcross92With900DailyCallsMinutes:round(92*1440/900),
+    no35MinutePromiseWithOneDailyCall:true,
+    all92At35MinutesWithinBudget:allCityOwm<=1,
+    maxFullTimeCitiesAt35Minutes:0,
+    minUniformIntervalAcross92WithOneDailyCallMinutes:round(92*1440),
     requiresSharedBackendCache:true,
     contingencyOnlyWhenOtherAuthorizedThermalUnavailable:true}),
    dwd:frozen({approvedForTemperatureForecast:true,
