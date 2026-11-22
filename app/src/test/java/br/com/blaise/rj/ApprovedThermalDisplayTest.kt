@@ -42,7 +42,11 @@ class ApprovedThermalDisplayTest {
         assertTrue(runCatching { ApprovedThermalDisplayParser.parse(candidate,now) }.isFailure)
         val allowed=candidate+("contingencyAuthorized" to true)
         assertEquals(32.0,ApprovedThermalDisplayParser.parse(allowed,now).feelsLikeC!!,0.001)
-        assertFalse(ApprovedThermalDisplayParser.parse(allowed,now.plusSeconds(390)).valid(now.plusSeconds(390)))
+        val initiallyValid=ApprovedThermalDisplayParser.parse(allowed,now)
+        assertFalse(initiallyValid.valid(now.plusSeconds(390)))
+        assertTrue(runCatching {
+            ApprovedThermalDisplayParser.parse(allowed,now.plusSeconds(390))
+        }.isFailure)
     }
     @Test fun dwdMaySupplyOnlyForecastTemperatureNotAStationThermometer() {
         val payload=base("DWD_ICON_GLOBAL") + mapOf(
