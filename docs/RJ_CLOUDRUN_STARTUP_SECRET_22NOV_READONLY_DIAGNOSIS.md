@@ -114,3 +114,17 @@ A titular executou, na worktree isolada `~/blaise-rj-startup-audit-20261122/back
 **Limites:** evidência de elegibilidade do **plano de candidata**, não de disponibilidade/saúde HTTP, uso autorizado do segredo em runtime, custo zero, integração de fornecedor ou release. O executor de deploy foi removido e o uso de `--execute-approved-zero-traffic` continua bloqueado. A revisão candidata não foi criada; a PR continua Draft. Não executar implantação, alterar tráfego, escala, IAM/segredos ou chamar API meteorológica. Documentos prévios de custo e segurança continuam válidos, inclusive possibilidade de custo na revisão histórica com tag, minScale=1 e billing instance-based.
 
 A próxima ação de baixo risco é **validar prontidão meteorológica offline** com `node scripts/rj-meteorological-production-readiness.mjs --assert-private` na worktree já existente. Esse teste não entra na nuvem e deve continuar mostrando `meteorologicalProductionHomologated=false`, `noProviderNetworkCalls=true` e `noDeployment=true`; não o usar como autorização de produção.
+
+## Auditoria offline de prontidão meteorológica — 22/11/2026, 09h37 BRT
+
+A titular executou em sua worktree isolada `~/blaise-rj-startup-audit-20261122/backend` o script `node scripts/rj-meteorological-production-readiness.mjs --assert-private`, que **não acessa Cloud Run, Firestore, Secret Manager ou APIs meteorológicas**. A captura das 09h37, mostrando a cauda JSON e o retorno ao prompt, comprova os seguintes campos de saída:
+
+- `sectorCount=16`, `missingSectors=[]`, `unexpectedlyClaimedLive=[]`, `excludedSourcesActive=[]`, `policyIntegrityPass=true` e `policyFailures=[]`.
+- `meteorologicalProductionHomologated=false`, `publishNewMeteorologicalSourcesToClients=false`, `allowNewAutomaticCollection=false`, `allowSafetyCriticalAlertsFromUnverifiedSources=false`.
+- `noProviderNetworkCalls=true`, `noCreditReservations=true`, `noPaidPlans=true`, `noDeployment=true`.
+
+**Interpretação:** o gate de integridade passou, mas **nenhuma fonte nova foi homologada para produção**. O status esperado do redutor é `BLOCKED_EXTERNAL_EVIDENCE_REQUIRED`, não uma falha de teste. O retorno ao prompt não prova CI Android, publicação, 92/92 em tempo real, saúde Cloud Run ou saldo da meteoblue.
+
+**Trabalho técnico seguinte, sem novas consultas externas:** rever evidência privada `METEOBLUE_FREE_BASIC6H` (um conjunto real de 7 campos/29 períodos registrado na matriz atual), em especial o bloqueio de **semântica dos 29 pares de chuva total vs. convectiva**; conferir o contrato de publicação e licenciamento. Manter a chave meteoblue anteriormente exposta sem uso até rotação; não tratar 10 milhões de créditos ofertados nem 8 milhões de teto local como saldo efetivo do fornecedor. DWD 92/92 continua exigindo pesos oficiais de grade e frescor operacional; chuva observada/rios exigem fonte de medição rastreável. Não executar `--live`, deploy, merge, mudança de IAM/segredo/tráfego 99%/1%, nem compras.
+
+**CI:** o commit anterior a este registro teve `Android CI` e os workflows offline de meteoblue, DWD, NOAA, Visual Crossing e WeatherAPI concluídos com sucesso. Esses resultados comprovam testes de código, **não homologação ao cliente**.
