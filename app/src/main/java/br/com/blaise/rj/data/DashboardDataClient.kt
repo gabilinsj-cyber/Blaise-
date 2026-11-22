@@ -171,6 +171,7 @@ data class DashboardDataSnapshot(
     val marine: DashboardMarineReading? = null,
     val internationalForecasts: List<DashboardInternationalForecast> = emptyList(),
     val visualCrossingWeather: List<DashboardVisualCrossingWeather> = emptyList(),
+    val approvedThermal: List<ApprovedThermalDisplay> = emptyList(),
 ) {
     fun current(now: Instant): Boolean {
         fun ageWithin(value: Instant, limit: Long): Boolean =
@@ -228,7 +229,7 @@ object DashboardDataParser {
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
         require(payload.keys.containsAll(topLevelKeys) &&
-            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts", "visualCrossingWeather") })
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts", "visualCrossingWeather", "approvedThermal") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
@@ -467,6 +468,13 @@ object DashboardDataParser {
             vcWeather.map{it.ibge}.toSet().size==vcWeather.size)
         require(vcWeather.all{it.current(generatedAt)||it.nextForecast(generatedAt)})
 
+        // Optional future server-side approved thermal projection. No collector
+        // activates as a result of allowing this strict response field.
+        val thermal = (payload["approvedThermal"] as? List<*>)?.map {
+            ApprovedThermalDisplayParser.parse(it, generatedAt)
+        }.orEmpty()
+        require(thermal.size <= 2 && thermal.map { it.ibge }.toSet().size == thermal.size)
+
         return DashboardDataSnapshot(
             generatedAt = generatedAt,
             mode = mode,
@@ -478,6 +486,7 @@ object DashboardDataParser {
             marine = marine,
             internationalForecasts = forecasts,
             visualCrossingWeather = vcWeather,
+            approvedThermal = thermal,
         )
     }
 
