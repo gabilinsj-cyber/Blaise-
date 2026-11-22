@@ -1142,22 +1142,44 @@ private fun AlertsScreen(city1: City, city2: City) {
 }
 
 @Composable
+private fun TrafficStatusPanel(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val now = LocalObservationClock.current
+    // No subscribed official traffic feed is authorized/connected yet.
+    // Never show a green "stable" claim just because the feed is missing.
+    val band = TrafficReferralPolicy.current(null, now)
+    DashboardSection(
+        title = "TRÂNSITO • CONSULTA OFICIAL",
+        subtitle = "Situação resumida • nenhuma ocorrência reproduzida",
+        modifier = modifier,
+    ) {
+        if (band == null) {
+            Text("Situação indisponível • consulte os links oficiais",
+                color = WarningAmber, fontWeight = FontWeight.Bold)
+        } else {
+            Surface(color = Color(band.colorArgb), shape = RoundedCornerShape(10.dp)) {
+                Text(band.label, color = Color.White, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+        }
+        Text("Verde: trânsito estável • amarelo: atenção • vermelho: muito cuidado. " +
+            "As cores só serão ativadas com informação recente verificada.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Links oficiais", color = Gold, fontWeight = FontWeight.Bold)
+        TrafficReferralPolicy.officialLinks.forEach { link ->
+            TextButton(onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse(link.url)))
+                }
+            }) { Text(link.label + " ↗") }
+        }
+    }
+}
+
+@Composable
 private fun TrafficScreen() {
-    DashboardSection(
-        title = "TRÂNSITO • EVENTOS",
-        subtitle = "COR.Rio • CET-Rio • Geo-Rio • Guarda Municipal",
-    ) {
-        FinalDashboardSpec.trafficEvents.forEach { event -> StatusLine(event, "Aguardando ocorrência oficial") }
-    }
-    Spacer(Modifier.height(14.dp))
-    DashboardSection(
-        title = "ROTAS E OPERAÇÃO",
-        subtitle = "Autoria, horário, área, validade e estado operacional preservados",
-    ) {
-        StatusLine("Rotas alternativas", "Somente quando houver evento confirmado")
-        StatusLine("Estágio da cidade", "Aguardando COR.Rio")
-        StatusLine("Câmeras/monitoramento", "Sem reprodução de fonte não autorizada")
-    }
+    TrafficStatusPanel(Modifier.fillMaxWidth())
 }
 
 @Composable
@@ -1546,14 +1568,17 @@ readings.forEach { r ->
 @Composable
 private fun RiskPanel(modifier: Modifier) {
     DashboardSection(
-        title = "RISCO • TRÂNSITO",
-        subtitle = "COR.Rio • CET-Rio • Geo-Rio",
+        title = "TEMPESTADES • CALOR • AR",
+        subtitle = "RJ e Oceano Atlântico • somente fontes verificadas",
         modifier = modifier,
     ) {
-        StatusLine("Alagamentos", "Sem conclusão até receber fonte válida")
-        StatusLine("Interdições", "Aguardando fonte oficial")
-        StatusLine("Deslizamento", "Aguardando informação Geo-Rio validada")
-        StatusLine("Rotas alternativas", "Indisponíveis sem evento confirmado")
+        StatusLine("Possíveis tempestades", "Indisponível sem produto atualizado e validado")
+        StatusLine("Ondas de calor", "Cenário indisponível sem séries e índices")
+        StatusLine("Qualidade do ar", "Índice indisponível sem estação ou modelo homologado")
+        StatusLine("Ciclones e rajadas", "Sem conclusão sem dados atuais com origem")
+        Text("Níveis de risco 4/5 exigem evidência científica em tempo real " +
+            "e recálculo validado em até 20 segundos; sem ela, links oficiais.",
+            color = WarningAmber, style = MaterialTheme.typography.labelSmall)
     }
 }
 
