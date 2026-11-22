@@ -9,7 +9,7 @@
 export const AGENT13_API_BASE = 'https://api.openweathermap.org/data/4.0/onecall/current';
 export const AGENT13_MAX_AGE_MS = 12 * 60_000;
 export const AGENT13_CACHE_MS = 60_000;
-export const AGENT13_DAILY_QUOTA_LIMIT = 900;
+export const AGENT13_DAILY_QUOTA_LIMIT = 1;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 
 function bound(value, low, high) {
@@ -49,7 +49,7 @@ function parseRecord(payload, nowMillis) {
 
 /**
  * In-memory cache is a latency optimization only; reserveQuota must be atomic
- * across all backend replicas and must apply the exact same 900/day limit.
+ * across all backend replicas and must apply the exact same 1/day maximum across all callers.
  */
 export function createOpenWeatherAgent13({
   apiKey,
