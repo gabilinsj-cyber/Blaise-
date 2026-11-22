@@ -71,3 +71,36 @@ Arquivos novos de teste:
 **Pendências operacionais objetivas:** chave WeatherAPI existente deve ser provisionada em Secret Manager com identidade mínima sem exibi-la; resposta real controlada (uma chamada com cota e horário) ainda precisa ser comprovada; validar Visual Crossing licença e registros reais; instalar leitor de cache privado injetado no runtime com parâmetros de autorização distintos; homologar IAM, cotas compartilhadas 92 cidades, qualidade por cidade/região e seletor, testes Android com interface; obter autorização separada antes de implantação. Os 14 agentes, calculadora científica, mapa original, backups, Cloud Run atual, PR #173, tráfego 99%/1% e APK instalado são preservados.
 
 **Nenhuma alteração nesta PR acionou API meteorológica real, contratação, pagamento, leitura de chave, Cloud Run deploy, merge, Play Store ou substituição do APK atual.**
+
+
+## Validação real WeatherAPI V2 — 22/11/2026, 14h52 BRT
+
+O operador executou **uma única consulta controlada** a `https://api.weatherapi.com/v1/current.json` no **Cloud Shell**, fora da PR e fora do runtime, usando a versão **2** do segredo `blaise-weatherapi-free-api-key` do projeto `blaise-v6-rj`. Tela enviada às 14h52 BRT registra **`WEATHERAPI_V2_OK` (HTTP 200 implícito pelo tratamento do script)**, com chave não impressa. A versão 2 constava `ENABLED`; a versão 1, `DISABLED`. O binding IAM `roles/secretmanager.secretAccessor` foi concedido ao serviço `blaise-cloud-run-runtime` apenas para esse segredo. **A leitura efetiva assumindo a conta do Cloud Run NÃO foi demonstrada**, pois a impersonação pelo Cloud Shell falhou por falta de `iam.serviceAccounts.getAccessToken`. A consulta válida demonstra autenticação da **chave no fornecedor** pela sessão do usuário, não homologação de execução Cloud Run.
+
+### Snapshot real validado — local consultado Rio de Janeiro (-22.9068,-43.1729)
+
+| Dado da WeatherAPI | Valor retornado |
+| --- | --- |
+| `temp_c` | **31.1 °C** |
+| `feelslike_c` | **35.5 °C** |
+| `humidity` | **61%** |
+| `cloud` | **93%** |
+| `wind_kph` | **6.1 km/h** |
+| `gust_kph` | **20.1 km/h** |
+| `precip_mm` | **0.17 mm** no campo de condições atuais, **não acumulado diário** |
+| `pressure_mb` | **1007.0 mb (hPa)** |
+| `uv` | **8.2** |
+| `condition.code` | **1153** = light drizzle / **garoa fraca**; categoria simplificada `CHUVA`, **não tempestade** |
+| `last_updated_epoch` como UTC | **2026-11-22T17:45:00+00:00** = **14h45 BRT** |
+| Idade informada | **7.4 minutos** na consulta às ~14h52 BRT |
+
+Fontes documentais para código e natureza dos campos: https://www.weatherapi.com/docs/weather-icons/ e https://www.weatherapi.com/docs/realtime-api/ . **Não há comprovação de estação física ou pluviômetro próprio naquela coordenada**, nem de radar, chuva observada acumulada, alerta oficial ou atualização contínua. A medição ficou dentro da política de 35 minutos **no instante do teste** e deve ficar `Indisponível` após expiração. Foi acrescido um teste de regressão offline que aplica os campos do snapshot ao parser projetor com relógio congelado, sem retornar chave nem publicar a medição histórica como atual.
+
+### Ações pendentes após a prova real
+
+1. Confirmar identidade e leitura do segredo **pelo runtime em ambiente isolado/sem tráfego**, sem atribuir `Service Account Token Creator` ao usuário só por conveniência, antes de qualquer deploy.
+2. Homologar o consumo da cota WeatherAPI Free e as permissões de redistribuição; guardar atribuição na interface e não abrir todos os 92 coletores de uma vez.
+3. Conectar `readWeatherApiPrivateCache` ao backend em homologação **após** autorização separada e teste dos controles de cota, validação por IBGE e freshness; sem ativação em produção nesta etapa.
+4. Para concorrência entre dados Blaise, continuar retendo valores conflitantes e usar INMET **somente como referência privada** se houver revisão de estação/horário comparáveis. Não publicar INMET na interface.
+
+**Estado de homologação atualizado:** chave principal v2 e `current.json` funcionaram numa chamada real; o código de desenvolvimento está preparado e em testes. **Ainda não** existe coletor WeatherAPI ativo no Cloud Run nem liberação dos resultados na interface pública. Sem merge/deploy/tráfego alterado por esta atualização documental.
