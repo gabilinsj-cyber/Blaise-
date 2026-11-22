@@ -56,6 +56,10 @@ function validateRow(row,now,enabledSources){
    return rejection('INVALID_SOURCE_RECORD');
  const id=row.sourceId,field=row.field,city=String(row.ibge??'');
  const policy=SOURCE[id];
+ if(row.regionId!=null &&
+    (typeof row.regionId!=='string' || !/^[A-Za-z0-9_-]{1,50}$/.test(row.regionId) ||
+      row.localRegionGeometryVerified!==true))
+   return rejection('LOCAL_REGION_MAPPING_NOT_VERIFIED',city,field);
  if(!knownCities.has(city))return rejection('UNKNOWN_RJ_CITY',city,field);
  if(!policy||!policy.allowed.includes(field)||row.nature!==policy.nature)
    return rejection('SOURCE_FIELD_OR_NATURE_NOT_APPROVED',city,field);
@@ -79,7 +83,7 @@ function validateRow(row,now,enabledSources){
    return rejection('SOURCE_MEASUREMENT_TOO_OLD',city,field);
  // Weather risk classification is descriptive only; no government levels.
  return freeze({
-  ibge:city,field,sourceId:id,value:row.value,
+  ibge:city,regionId:row.regionId??null,field,sourceId:id,value:row.value,
   nature:policy.nature,measuredAt:row.measuredAt,
   providerPublishedAt:row.providerPublishedAt??null,
   ingestedAt:row.ingestedAt,
@@ -114,13 +118,35 @@ export function auditAgent13Minute({
  }
  const group=new Map();
  for(const item of verified){
-  const key=item.ibge+':'+item.field;
+  const key=item.ibge+':'+(item.regionId??'ALL')+':'+item.field;
   const curr=group.get(key);
   if(!curr||
     iso(item.measuredAt)>iso(curr.measuredAt)||
     (item.measuredAt===curr.measuredAt &&
       SOURCE_ORDER.indexOf(item.sourceId)<SOURCE_ORDER.indexOf(curr.sourceId)))
     group.set(key,item);
+ }
+ // When independent current estimates contradict significantly near the
+ // same time, HOLD for scientific review; newer fetch alone is not enough.
+ const conflicts=new Set();
+ const byPlaceField=new Map();
+ for(const item of verified){
+  const key=item.ibge+':'+(item.regionId??'ALL')+':'+item.field;
+  const values=byPlaceField.get(key)??[];
+  values.push(item);
+  byPlaceField.set(key,values);
+ }
+ const thresholds=freeze({temperatureC:4,feelsLikeC:6,humidityPct:25,forecastTemperatureC:6});
+ for(const [key,values] of byPlaceField){
+  for(let i=0;i<values.length;i++)for(let j=i+1;j<values.length;j++){
+   const a=values[i],b=values[j];
+   if(a.sourceId===b.sourceId||a.nature!==b.nature||
+      Math.abs(iso(a.measuredAt)-iso(b.measuredAt))>15*60_000)continue;
+   const mismatch=a.field==='skyCondition'
+     ?(a.value!==b.value&&(a.value==='TEMPESTADE'||b.value==='TEMPESTADE'))
+     :Math.abs(a.value-b.value)>(thresholds[a.field]??Infinity);
+   if(mismatch)conflicts.add(key);
+  }
  }
  const previous=new Map();
  for(const item of existing){
@@ -129,7 +155,7 @@ export function auditAgent13Minute({
     continue;
   const ts=iso(item.measuredAt);
   if(!Number.isFinite(ts)||ts>nowMs)continue;
-  const key=String(item.ibge)+':'+item.field;
+  const key=String(item.ibge)+':'+(item.regionId??'ALL')+':'+item.field;
   if(!previous.has(key)||iso(previous.get(key).measuredAt)<ts)
     previous.set(key,item);
  }
@@ -140,7 +166,8 @@ export function auditAgent13Minute({
     a.field.localeCompare(b.field);
  });
  const updates=fresh.filter(item=>{
-  const prev=previous.get(item.ibge+':'+item.field);
+  if(conflicts.has(item.ibge+':'+(item.regionId??'ALL')+':'+item.field))return false;
+  const prev=previous.get(item.ibge+':'+(item.regionId??'ALL')+':'+item.field);
   // Never republish an older observation or rebrand an unchanged one.
   return !prev||iso(item.measuredAt)>iso(prev.measuredAt);
  });
@@ -153,6 +180,8 @@ export function auditAgent13Minute({
   inspectedRows:rows.length,
   eligibleRows:verified.length,
   rejectedCount:rejected.length,
+  heldForConflictCount:conflicts.size,
+  heldFields:freeze([...conflicts].sort()),
   rejectionCounts:freeze(Object.fromEntries(
     [...new Set(rejected.map(x=>x.reason))].map(reason=>[
       reason,rejected.filter(x=>x.reason===reason).length
