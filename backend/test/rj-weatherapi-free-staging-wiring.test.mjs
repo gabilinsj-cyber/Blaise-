@@ -116,6 +116,10 @@ test('Agente 13 style private freshness audits true observation age, never check
  assert.equal(report.auditPerformed,true);
  assert.equal(report.providerCalls,0);
  assert.equal(report.creditReservations,0);
+ assert.equal(report.agent13Contract,'BLAISE_RJ_AGENT13_FRESHNESS_AUDIT_V1');
+ assert.equal(report.agent13CandidateRows,3);
+ assert.equal(report.agent13ProposedUpdates,0);
+ assert.equal(report.agent13LicenseGateOpen,false);
  assert.equal(report.liveMinuteSchedulerEnabled,false);
  assert.deepEqual(report.records.map(x=>x.status),[
   'CACHE_MEASUREMENT_FRESH','UNAVAILABLE_OR_EXPIRED'
