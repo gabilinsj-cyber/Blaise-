@@ -70,3 +70,17 @@ A orientação oficial do Cloud Run confirma que uma referência de Secret Manag
 
 **Próxima investigação permitida:** correlacionar eventos por campos estruturados como `trace`, `labels`, `timestamp` e `severity`; imprimir somente contagens e indicadores booleanos, nunca payload dos logs, identidades, segredo ou URLs. Não reativar v1, alterar tráfego 99%/1%, fazer deploy, merger ou chamadas meteorológicas.
 
+
+## Correlação temporal dos três HTTP 500 — 22/11/2026, 09h10 BRT
+
+Captura da titular do Cloud Shell, análise **somente leitura** da revisão histórica `blaise-v6-rj-backend-00058-sos` e intervalo `2026-11-21T11:10:00Z`–`11:32:00Z`, contendo **3 HTTP 500** e **9 avisos de sistema (WARNING)**. Correlação calculada por `trace` e janela **simétrica de 120 segundos**, sem imprimir conteúdo, IDs ou URL:
+
+| Requisição | UTC | Avisos ±120 segundos | trace compartilhado |
+| --- | --- | ---: | --- |
+| 1 | 2026-11-21T11:14:06 | 2 | false |
+| 2 | 2026-11-21T11:26:07 | 2 | false |
+| 3 | 2026-11-21T11:26:08 | 2 | false |
+
+A contagem de proximidade não indica se os avisos ocorreram **antes ou depois** da falha. As requisições 2 e 3 distam apenas um segundo e podem referir-se aos mesmos avisos. `trace=false` significa apenas que não foi comprovado um identificador comum (pode estar ausente); não exclui causalidade. **Não** somar os avisos próximos e concluir que ocorreram seis eventos independentes. O marcador continua `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN` e `likelyStartupBlocker=DISABLED_ENV_SECRET_V1` é uma hipótese baseada em metadados, não um resultado causal confirmado.
+
+Próximo estudo permitido: correlacionar apenas avisos **anteriores** à respectiva requisição (0–120 segundos antes), e presença de `labels.instanceId` compartilhado, retornando só contagens/booleanos. Não revelar identificadores, corpo dos logs, IP, endpoint ou segredo. Não fazer deploy, alterar IAM, segredos, tag, minScale, tráfego 99%/1%, ou consultar APIs meteorológicas.
