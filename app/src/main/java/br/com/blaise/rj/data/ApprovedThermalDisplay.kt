@@ -84,3 +84,55 @@ object ApprovedThermalDisplayParser {
         return result
     }
 }
+
+
+/** One municipality can legitimately have HG temperature and OpenWeather
+ * feels-like at DIFFERENT timestamps. Keep field-level provenance instead of
+ * attributing everything to a single provider.
+ */
+data class ApprovedThermalMunicipalView(
+    val temperatureC: Double?,
+    val feelsLikeC: Double?,
+    val skyCondition: String?,
+    val sourceLabel: String,
+    val nature: String,
+    val validAt: Instant,
+    val temperatureSourceLabel: String?,
+    val temperatureValidAt: Instant?,
+    val feelsLikeSourceLabel: String?,
+    val feelsLikeValidAt: Instant?,
+    val skySourceLabel: String?,
+) {
+    fun valid(now: Instant): Boolean =
+        !validAt.isAfter(now) && Duration.between(validAt,now).seconds in 0L..3600L
+}
+
+object ApprovedThermalMunicipalSelection {
+    private val priority=listOf(
+        "HG_BRASIL_WEATHER_PRO","OPENWEATHER_ONECALL4_CURRENT","DWD_ICON_GLOBAL")
+    fun select(records: List<ApprovedThermalDisplay>, now: Instant):
+        ApprovedThermalMunicipalView? {
+        val valid=records.filter { it.valid(now) }
+        if(valid.isEmpty())return null
+        val ordered=priority.mapNotNull { id ->
+            valid.filter { it.sourceId==id }.maxByOrNull { it.validAt }
+        }
+        val temperature=ordered.firstOrNull { it.temperatureC!=null }
+        val feels=ordered.firstOrNull { it.feelsLikeC!=null }
+        val sky=ordered.firstOrNull { it.skyCondition!=null }
+        val main=temperature ?: feels ?: sky ?: return null
+        return ApprovedThermalMunicipalView(
+            temperatureC=temperature?.temperatureC,
+            feelsLikeC=feels?.feelsLikeC,
+            skyCondition=sky?.skyCondition,
+            sourceLabel=main.sourceLabel,
+            nature=main.nature,
+            validAt=main.validAt,
+            temperatureSourceLabel=temperature?.sourceLabel,
+            temperatureValidAt=temperature?.validAt,
+            feelsLikeSourceLabel=feels?.sourceLabel,
+            feelsLikeValidAt=feels?.validAt,
+            skySourceLabel=sky?.sourceLabel,
+        )
+    }
+}
