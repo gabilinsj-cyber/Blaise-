@@ -792,14 +792,14 @@ private fun HomeScreen(
     Spacer(Modifier.height(14.dp))
     if (wide) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            ForecastPanel(Modifier.weight(0.85f))
-            DailyChartPanel(Modifier.weight(1.55f))
+            ForecastPanel(city1, Modifier.weight(0.85f))
+            DailyChartPanel(city1, Modifier.weight(1.55f))
             CompactNewsAndSeismicPanel(Modifier.weight(1.1f), onNavigate, active)
         }
     } else {
-        ForecastPanel(Modifier.fillMaxWidth())
+        ForecastPanel(city1, Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
-        DailyChartPanel(Modifier.fillMaxWidth())
+        DailyChartPanel(city1, Modifier.fillMaxWidth())
         Spacer(Modifier.height(14.dp))
         CompactNewsAndSeismicPanel(Modifier.fillMaxWidth(), onNavigate, active)
     }
@@ -978,41 +978,100 @@ private fun RioStationMeasurementsPanel() {
 }
 
 @Composable
-private fun ForecastPanel(modifier: Modifier = Modifier) {
+private fun ForecastPanel(city: City, modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(now) }
+    val vc = LocalVisualCrossing.current[city.ibgeCode]?.takeIf {
+        it.nextForecast(now) && java.time.Duration.between(it.checkedAt,now).seconds in 0L..1800L
+    }
+    fun mm(v:Double?) = v?.takeIf{it.isFinite()}?.let {
+        String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f mm", it)
+    } ?: "Indisponível"
     DashboardSection(
-        title = "PREVISÃO DO TEMPO",
-        subtitle = "Hoje • 3 dias • fim de semana",
+        title = "PREVISÃO • ${city.name}",
+        subtitle = "Hoje • 3 dias • 7 dias • 15 dias, conforme disponibilidade real",
         modifier = modifier,
     ) {
-        StatusLine("Manhã", "Aguardando previsão oficial")
-        StatusLine("Tarde", "Aguardando previsão oficial")
-        StatusLine("Noite", "Aguardando previsão oficial")
-        Text("Fonte e horário acompanham cada atualização.", color = Muted, style = MaterialTheme.typography.labelSmall)
+        StatusLine("Chuva prevista na próxima hora",
+            mm(vc?.forecastPrecipitationMm ?: model?.precipitationNextHourMm))
+        StatusLine("Probabilidade de chuva", (vc?.forecastPrecipitationProbabilityPct ?:
+            model?.precipitationProbabilityNextHourPct)?.let {
+                String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.0f%%", it)
+            } ?: "Indisponível")
+        Text("Previsões de 3/7/15 dias: aguardando séries validadas. " +
+            "Um dado horário não cria previsão diária.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
 @Composable
-private fun DailyChartPanel(modifier: Modifier = Modifier) {
+private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
+    val now = LocalObservationClock.current
+    val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(now) }
+    val estimated = LocalVisualCrossing.current[city.ibgeCode]?.takeIf { it.current(now) }
+    val nextHour = LocalVisualCrossing.current[city.ibgeCode]?.takeIf {
+        it.nextForecast(now) &&
+            java.time.Duration.between(it.checkedAt, now).seconds in 0L..1800L
+    }
+    var selected by remember { mutableStateOf("Temperatura") }
+    val chartTypes = listOf("Temperatura", "Sensação térmica", "Chuva", "Acumulado")
+    val reading:Double? = when(selected) {
+        "Temperatura" -> estimated?.temperatureC ?: model?.temperatureC
+        "Sensação térmica" -> estimated?.feelsLikeC ?: model?.feelsLikeC
+        "Chuva" -> nextHour?.forecastPrecipitationMm ?: model?.precipitationNextHourMm
+        else -> null // No observed multi-period accumulation has been licensed.
+    }
+    val unit = if(selected == "Chuva" || selected == "Acumulado") "mm" else "°C"
     DashboardSection(
-        title = "GRÁFICOS DO DIA • RIO DE JANEIRO",
-        subtitle = "Temperatura • chuva • vento",
+        title = "GRÁFICOS DO MUNICÍPIO • ${city.name}",
+        subtitle = "Temperatura • sensação térmica • chuva • acumulado",
         modifier = modifier,
     ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            chartTypes.forEach { type ->
+                Surface(modifier=Modifier.clickable { selected=type }
+                    .testTag("daily-chart-$type"),
+                    color=if(type==selected) Color(0xFF1260B5) else NavyRaised,
+                    shape=RoundedCornerShape(8.dp),
+                    border=BorderStroke(1.dp, Divider)) {
+                    Text(type, color=Color.White,
+                        modifier=Modifier.padding(horizontal=10.dp,vertical=7.dp))
+                }
+            }
+        }
         Surface(
-            modifier = Modifier.fillMaxWidth().height(220.dp).testTag("expanded-daily-chart"),
+            modifier = Modifier.fillMaxWidth().height(190.dp).testTag("expanded-daily-chart"),
             color = Color(0xFF071421),
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, Divider),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("EVOLUÇÃO METEOROLÓGICA", color = Gold, fontWeight = FontWeight.Bold)
-                    Text("00h     06h     12h     18h     24h", color = Muted)
-                    Text("O gráfico será preenchido somente por séries oficiais válidas.", color = Muted, textAlign = TextAlign.Center)
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(selected.uppercase(java.util.Locale.forLanguageTag("pt-BR")),
+                        color=Gold,fontWeight=FontWeight.Bold)
+                    Text(reading?.takeIf { it.isFinite() }?.let {
+                        String.format(java.util.Locale.forLanguageTag("pt-BR"),
+                            "%.1f %s",it,unit)
+                    } ?: "Indisponível",color=Color.White,
+                        style=MaterialTheme.typography.titleLarge)
+                    Text("Ponto validado de referência; série histórica ainda não disponível. " +
+                        "Nenhuma curva sintética será desenhada.",
+                        color=Muted,textAlign=TextAlign.Center,
+                        style=MaterialTheme.typography.bodySmall)
                 }
             }
         }
-        BackendRainfallPanel()
+        val source = when {
+            estimated!=null -> "Visual Crossing • estimativa verificada ${estimated.checkedAt}"
+            model!=null -> "MET Norway/ECMWF • previsão verificada ${model.checkedAt}"
+            else -> "Sem fonte com validade recente"
+        }
+        Text(source,color=Muted,style=MaterialTheme.typography.labelSmall)
+        Text("Acumulado de chuva observada requer pluviômetro/radar licenciado, " +
+            "não é calculado a partir de previsão.",
+            color=WarningAmber,style=MaterialTheme.typography.labelSmall)
     }
 }
 
