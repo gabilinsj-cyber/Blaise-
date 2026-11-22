@@ -24,6 +24,11 @@ data class VerifiedBlaiseAlertEvidence(
     val sourceUpdatedAt: Instant? = null,
     val rjCoverageValidated: Boolean,
     val verifiedByBackend: Boolean,
+    // Level 4/5 must be recalculated from verified real-time scientific inputs.
+    // No upstream government portal link or older forecast can satisfy this gate.
+    val highSeverityRealtimeInputsVerified: Boolean = false,
+    val highSeverityScientificDecisionVerified: Boolean = false,
+    val highSeverityRecalculatedAt: Instant? = null,
 )
 data class OfficialAlertRibbonPresentation(
     val activeValidatedAlert: Boolean,
@@ -44,7 +49,8 @@ data class OfficialAlertRibbonPage(
 )
 
 object OfficialAlertRibbonPolicy {
-    const val MAX_TOP_ALERTS = 4
+    const val MAX_TOP_ALERTS = 3
+    const val HIGH_SEVERITY_RECALC_SECONDS = 20L
     const val MAX_OFFICIAL_SOURCE_SILENCE_HOURS = 6L
     private const val MAX_SOURCE_SILENCE_SECONDS = MAX_OFFICIAL_SOURCE_SILENCE_HOURS * 3600L
     // No SharedPreferences, Room, SQLite, Firestore or local files for notices.
@@ -70,7 +76,7 @@ object OfficialAlertRibbonPolicy {
     )
 
     // Black bold text remains legible on these intentionally LIGHT surfaces.
-    private val colors = listOf(0xFFD8F5E2, 0xFFFFF2AE, 0xFFFFDEBC, 0xFFFFCBCB, 0xFFFFB8B8)
+    private val colors = listOf(0xFFD8F5E2, 0xFFFFF2AE, 0xFFFFDEBC, 0xFFFFCBCB, 0xFFDFC5FA)
     private val messages = listOf(
         "NÍVEL 1 — Atenção: acompanhe as orientações oficiais.",
         "NÍVEL 2 — Atenção reforçada: acompanhe a situação e evite exposição desnecessária.",
@@ -80,11 +86,9 @@ object OfficialAlertRibbonPolicy {
     )
 
     /**
-     * The four MAIN SOURCES stay visible at the top, in their approved order,
-     * even if one agency publishes multiple verified warnings. Each source
-     * shows its strongest current warning. Every remaining verified warning
-     * appears under Mais, always with the same validated-source official link.
-     * A link alone is never evidence of a current danger level.
+     * Exactly three verified/neutral official source cards remain in the header.
+     * Additional verified notices and remaining neutral portal links go to
+     * "Saiba mais". No copied government bulletin or invented level.
      */
     fun layout(evidence: List<VerifiedBlaiseAlertEvidence>, now: Instant): OfficialAlertRibbonPage {
         if (evidence.size > 128) return layout(emptyList(), now)
@@ -99,13 +103,19 @@ object OfficialAlertRibbonPolicy {
                     .thenBy { it.portal.id }
                     .thenBy { it.warningId }
             )
-        val top = portals.map { portal ->
-            verified.firstOrNull { it.portal.id == portal.id }
-                ?: OfficialAlertRibbonItem(portal, null, present(portal.id, null, now))
-        }
+        // Prioritize genuine high-level evidence, then fill the three slots
+        // with neutral source-referral cards. No source is falsely marked safe.
+        val chosen = verified.distinctBy { it.portal.id }.take(MAX_TOP_ALERTS)
+        val top = chosen + portals
+            .filterNot { portal -> chosen.any { it.portal.id == portal.id } }
+            .take(MAX_TOP_ALERTS - chosen.size)
+            .map { portal -> OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)) }
         val selected = top.filter { it.presentation.activeValidatedAlert }
             .map { it.portal.id to it.warningId }.toSet()
-        val additional = verified.filterNot { (it.portal.id to it.warningId) in selected }
+        val additional = verified
+            .filterNot { (it.portal.id to it.warningId) in selected } +
+            portals.filterNot { portal -> top.any { it.portal.id == portal.id } }
+                .map { portal -> OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)) }
         return OfficialAlertRibbonPage(top, additional)
     }
 
@@ -130,6 +140,15 @@ object OfficialAlertRibbonPolicy {
         val sourceSilenceSeconds = Duration.between(sourceTime, now).seconds
         if (sourceTime.isAfter(evidence.checkedAt) ||
             sourceSilenceSeconds !in 0L..MAX_SOURCE_SILENCE_SECONDS) return fallback
+        if (evidence.level >= 4) {
+            val scienceAge = evidence.highSeverityRecalculatedAt
+                ?.let { Duration.between(it, now).seconds }
+            val checkAge = Duration.between(evidence.checkedAt, now).seconds
+            if (!evidence.highSeverityRealtimeInputsVerified ||
+                !evidence.highSeverityScientificDecisionVerified ||
+                scienceAge == null || scienceAge !in 0L..HIGH_SEVERITY_RECALC_SECONDS ||
+                checkAge !in 0L..HIGH_SEVERITY_RECALC_SECONDS) return fallback
+        }
         if (evidence.portalId != portalId || !evidence.verifiedByBackend ||
             !evidence.rjCoverageValidated || evidence.warningId.length !in 4..160 ||
             evidence.level !in 1..5 ||
