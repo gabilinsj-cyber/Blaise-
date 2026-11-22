@@ -115,7 +115,10 @@ private fun loadRjMap(): BoundaryMap? {
 
 /** Geographic outline is factual; the coloring is used only for verified fresh municipal warnings/risks. */
 @Composable
-fun RjMunicipalMap(snapshot: StatewideSnapshot?, modifier: Modifier = Modifier) {
+fun RjMunicipalMap(
+    snapshot: StatewideSnapshot?, modifier: Modifier = Modifier,
+    selectedIbgeCode: Int? = null,
+) {
     var boundary by remember { mutableStateOf<BoundaryMap?>(null) }
     var unavailable by remember { mutableStateOf(false) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -175,7 +178,12 @@ fun RjMunicipalMap(snapshot: StatewideSnapshot?, modifier: Modifier = Modifier) 
                             close()
                         }
                         drawPath(path, fill, style = Fill)
-                        drawPath(path, Color(0xFF87B3D2), style = Stroke(width = 0.8f))
+                        // Selected municipality receives a gold boundary, not
+                        // fabricated weather or a made-up radar intensity.
+                        drawPath(path,
+                            if (shape.ibge == selectedIbgeCode) Color(0xFFFFD166)
+                            else Color(0xFF87B3D2),
+                            style = Stroke(width = if (shape.ibge == selectedIbgeCode) 2.6f else 0.8f))
                     }
                 }
             }
