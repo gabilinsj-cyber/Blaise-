@@ -15,6 +15,7 @@ const safe=(status,reason)=>Object.freeze({
 export function createAgent13ReadOnlyMinuteWorker({
  enabled=false,operatorApproved=false,readSharedSourceCache=null,
  readLastPublishedMetadata=null,tryAcquireMinuteLease=null,
+ readPrivateInmetConflictReviews=null,
  stagePrivateProposals=null,clock=()=>Date.now()
 }={}){
  const configured=enabled===true&&operatorApproved===true&&
@@ -45,6 +46,21 @@ export function createAgent13ReadOnlyMinuteWorker({
    result=auditAgent13Minute({nowMs:now,rows,existing,
     selectedMunicipalityIbges,enabledSources});
   }catch{return safe('BLOCKED','SOURCE_AUDIT_INCOMPLETE');}
+  // Only actual verified conflicts may consult an already-reviewed INTERNAL
+  // INMET panel evidence record. Never request the INMET website here.
+  if(result.heldForConflictCount>0 &&
+     typeof readPrivateInmetConflictReviews==='function'){
+   try{
+    const privateReviews=await readPrivateInmetConflictReviews({
+     conflictKeys:result.heldFields,minute,at:now
+    });
+    if(privateReviews&&typeof privateReviews==='object'&&!Array.isArray(privateReviews))
+     result=auditAgent13Minute({nowMs:now,rows,existing,
+      selectedMunicipalityIbges,enabledSources,privateInmetReviews:privateReviews});
+   }catch{
+    // Keep each unresolved conflict on HOLD; do not block other safe fields.
+   }
+  }
   // This is a private queue only. The public release gate is deliberately
   // absent; no fake current data can reach the subscription dashboard.
   try{
@@ -64,6 +80,7 @@ export function createAgent13ReadOnlyMinuteWorker({
    eligibleRows:result.eligibleRows,
    rejectedRows:result.rejectedCount,
    conflictsHeld:result.heldForConflictCount,
+   conflictsResolvedWithPrivateInmetReview:result.resolvedByPrivateInmetCount,
    proposalsStaged:result.proposedUpdates.length,
    providerCalls:0,creditReservations:0,
    publishedToClients:false,
