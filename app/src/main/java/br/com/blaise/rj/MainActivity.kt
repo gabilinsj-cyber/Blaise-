@@ -27,6 +27,8 @@ import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.data.UsgsRecentEarthquakes
+import br.com.blaise.rj.data.RjIbgeRegions
+import br.com.blaise.rj.data.RjIbgeRegionIndex
 import br.com.blaise.rj.data.UsgsEarthquakeSnapshot
 import br.com.blaise.rj.data.DashboardInternationalForecast
 import br.com.blaise.rj.data.DashboardVisualCrossingWeather
@@ -817,10 +819,14 @@ private fun ExpandedRadarPanel(
     var activeLayer by remember { mutableStateOf("Radar") }
     var selectedRegion by remember { mutableStateOf("Estado inteiro") }
     var showRegions by remember { mutableStateOf(false) }
-    val regionNames = listOf("Estado inteiro", "Região Metropolitana", "Região Serrana",
-        "Costa Verde", "Médio Paraíba", "Centro-Sul Fluminense",
-        "Baixadas Litorâneas", "Norte Fluminense", "Noroeste Fluminense",
-        "Oceano Atlântico")
+    var regionIndex by remember { mutableStateOf<RjIbgeRegionIndex?>(null) }
+    LaunchedEffect(Unit) {
+        // Loads factual IBGE region membership once per screen mount.
+        regionIndex = runCatching { RjIbgeRegions.fetch() }.getOrNull()
+    }
+    val regionNames = listOf("Estado inteiro") + regionIndex?.names.orEmpty()
+    val selectedRegionCodes = if (selectedRegion == "Estado inteiro") emptySet()
+        else regionIndex?.municipalitiesIn(selectedRegion).orEmpty()
     if (showRegions) AlertDialog(
         onDismissRequest = { showRegions = false },
         title = { Text("Selecionar região") },
@@ -861,9 +867,10 @@ private fun ExpandedRadarPanel(
                 modifier = Modifier.testTag("map-select-municipality")) {
                 Text("Município: ${city.name} ▾")
             }
-            OutlinedButton(onClick = { showRegions = true },
+            OutlinedButton(onClick = { showRegions = true }, enabled = regionIndex != null,
                 modifier = Modifier.testTag("map-select-region")) {
-                Text("Região: $selectedRegion ▾")
+                Text(if(regionIndex==null) "Regiões IBGE indisponíveis"
+                    else "Região: $selectedRegion ▾")
             }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -889,11 +896,13 @@ private fun ExpandedRadarPanel(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, Divider),
         ) {
-            RjMunicipalMap(snapshot, Modifier.fillMaxSize(), selectedIbgeCode = city.ibgeCode)
+            RjMunicipalMap(snapshot, Modifier.fillMaxSize(),
+                selectedIbgeCode = city.ibgeCode,
+                selectedRegionIbgeCodes = selectedRegionCodes)
         }
         if (selectedRegion != "Estado inteiro")
-            Text("Região selecionada: $selectedRegion • o mapa conserva a malha estadual " +
-                "até existir recorte regional geográfico auditado.",
+            Text("Região imediata IBGE: $selectedRegion • " +
+                "${selectedRegionCodes.size} municípios destacados na malha oficial.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Camada: $activeLayer • município: ${city.name} • " +
             "dados de até 30 min quando disponíveis; caso contrário, indisponível.",
@@ -944,6 +953,8 @@ private fun ExpandedRadarPanel(
             }
         }
         val sourceLine = when {
+            activeLayer in listOf("Radar","Tempestades","Qualidade do Ar") ->
+                "Sem feed homologado para esta camada"
             currentEstimate != null -> "Visual Crossing • estimativa • ${time(currentEstimate.checkedAt)}"
             forecast != null -> "MET Norway / ECMWF IFS • previsão • ${time(forecast.checkedAt)}"
             else -> "Nenhuma medição recente verificada para esta camada"
