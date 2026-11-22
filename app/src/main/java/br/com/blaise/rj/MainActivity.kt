@@ -27,6 +27,7 @@ import br.com.blaise.rj.data.StatewideDataResult
 import br.com.blaise.rj.data.DashboardDataHttpsClient
 import br.com.blaise.rj.data.DashboardDataNetworkResult
 import br.com.blaise.rj.data.UsgsRecentEarthquakes
+import br.com.blaise.rj.data.ApprovedThermalDisplay
 import br.com.blaise.rj.data.RjIbgeRegions
 import br.com.blaise.rj.data.RjIbgeRegionIndex
 import br.com.blaise.rj.data.UsgsEarthquakeSnapshot
@@ -209,6 +210,7 @@ private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { 
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
 private val LocalVisualCrossing = compositionLocalOf<Map<Int, DashboardVisualCrossingWeather>> { emptyMap() }
+private val LocalApprovedThermal = compositionLocalOf<Map<Int, ApprovedThermalDisplay>> { emptyMap() }
 // Until a signed and audited backend warning contract exists, this list stays empty.
 private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
@@ -326,6 +328,11 @@ fun BlaiseApp(
 
     CompositionLocalProvider(LocalStatewideDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) statewideDashboard else StatewideDataResult.Unavailable, LocalRioStations provides if (powerOn) rioStations else emptyList(), LocalCityWeather provides if (powerOn) cityWeather else emptyMap(), LocalObservationClock provides observationClock,
         LocalBackendDashboard provides if (powerOn && billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null) backendDashboard else DashboardDataNetworkResult.Unavailable,
+        LocalApprovedThermal provides if (powerOn &&
+            billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
+            (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.approvedThermal
+                ?.filter { it.valid(observationClock) }?.associateBy { it.ibge }.orEmpty()
+            else emptyMap(),
         LocalInternationalForecasts provides if (powerOn &&
             billingSnapshot is BillingEntitlementSnapshot.Active && verifiedPurchase != null)
             (backendDashboard as? DashboardDataNetworkResult.Available)?.snapshot?.internationalForecasts
@@ -844,6 +851,7 @@ private fun ExpandedRadarPanel(
         ?.takeIf { it.current(clock) }
     val vc = LocalVisualCrossing.current[city.ibgeCode]
     val currentEstimate = vc?.takeIf { it.current(clock) }
+    val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(clock) }
     // A forecast checked six hours ago is not a 30-minute update.
     val nextHour = vc?.takeIf {
         it.nextForecast(clock) &&
@@ -910,16 +918,18 @@ private fun ExpandedRadarPanel(
         when (activeLayer) {
             "Radar" -> {
                 StatusLine("Radar", "Sem imagens homologadas recentes para o RJ e Atlântico")
+                StatusLine("Climatempo • radar em tempo real",
+                    "Integração aguardando licença, endpoint, georreferência e cobertura")
                 Text("Contornos municipais IBGE não são pixels de precipitação.",
                     color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             "Temp. e Térmica" -> {
-                StatusLine("Temperatura • estimativa Visual Crossing",
-                    metric(currentEstimate?.temperatureC,"°C"))
-                StatusLine("Sensação térmica • estimativa",
-                    metric(currentEstimate?.feelsLikeC ?: forecast?.feelsLikeC,"°C"))
-                StatusLine("Temperatura • previsão ECMWF/IFS",
-                    metric(forecast?.temperatureC,"°C"))
+                StatusLine("Temperatura • fonte aprovada", metric(approvedThermal?.temperatureC,"°C"))
+                StatusLine("Sensação térmica • fonte aprovada", metric(approvedThermal?.feelsLikeC,"°C"))
+                StatusLine("Natureza", approvedThermal?.let { if(it.nature=="P")
+                    "Previsão DWD/ICON • não é termômetro" else "Estimativa de provedor • não é estação" }
+                    ?: "Indisponível")
+                StatusLine("Céu (HG Brasil após contratação)", approvedThermal?.skyCondition ?: "Indisponível")
             }
             "Chuva e Acumulado" -> {
                 StatusLine("Chuva observada e acumulado", "Indisponível sem sensor homologado")
@@ -937,7 +947,7 @@ private fun ExpandedRadarPanel(
             }
             "Ondas de Calor" -> {
                 StatusLine("Temperatura de referência",
-                    metric(currentEstimate?.temperatureC ?: forecast?.temperatureC,"°C"))
+                    metric(approvedThermal?.temperatureC,"°C"))
                 StatusLine("Risco de onda de calor",
                     "Sem classificação até análise de série e fonte válida")
             }
@@ -955,6 +965,8 @@ private fun ExpandedRadarPanel(
         val sourceLine = when {
             activeLayer in listOf("Radar","Tempestades","Qualidade do Ar") ->
                 "Sem feed homologado para esta camada"
+            approvedThermal != null && activeLayer in listOf("Temp. e Térmica","Ondas de Calor") ->
+                "${approvedThermal.sourceLabel} • ${approvedThermal.nature} • ${time(approvedThermal.validAt)}"
             currentEstimate != null -> "Visual Crossing • estimativa • ${time(currentEstimate.checkedAt)}"
             forecast != null -> "MET Norway / ECMWF IFS • previsão • ${time(forecast.checkedAt)}"
             else -> "Nenhuma medição recente verificada para esta camada"
@@ -1020,6 +1032,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     val now = LocalObservationClock.current
     val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(now) }
     val estimated = LocalVisualCrossing.current[city.ibgeCode]?.takeIf { it.current(now) }
+    val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(now) }
     val nextHour = LocalVisualCrossing.current[city.ibgeCode]?.takeIf {
         it.nextForecast(now) &&
             java.time.Duration.between(it.checkedAt, now).seconds in 0L..1800L
@@ -1027,8 +1040,8 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     var selected by remember { mutableStateOf("Temperatura") }
     val chartTypes = listOf("Temperatura", "Sensação térmica", "Chuva", "Acumulado")
     val reading:Double? = when(selected) {
-        "Temperatura" -> estimated?.temperatureC ?: model?.temperatureC
-        "Sensação térmica" -> estimated?.feelsLikeC ?: model?.feelsLikeC
+        "Temperatura" -> approvedThermal?.temperatureC
+        "Sensação térmica" -> approvedThermal?.feelsLikeC
         "Chuva" -> nextHour?.forecastPrecipitationMm ?: model?.precipitationNextHourMm
         else -> null // No observed multi-period accumulation has been licensed.
     }
@@ -1075,6 +1088,9 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
             }
         }
         val source = when {
+            (selected=="Temperatura" || selected=="Sensação térmica") && approvedThermal!=null ->
+                "${approvedThermal.sourceLabel} • ${approvedThermal.nature} • ${approvedThermal.validAt}"
+            selected=="Temperatura" || selected=="Sensação térmica" -> "Fonte térmica autorizada indisponível"
             estimated!=null -> "Visual Crossing • estimativa verificada ${estimated.checkedAt}"
             model!=null -> "MET Norway/ECMWF • previsão verificada ${model.checkedAt}"
             else -> "Sem fonte com validade recente"
@@ -2033,6 +2049,7 @@ private fun CityPanel(
     val vc=LocalVisualCrossing.current[city.ibgeCode]
     val vcCurrent=vc?.takeIf{it.current(clock)}
     val vcNext=vc?.takeIf{it.nextForecast(clock)}
+    val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(clock) }
     Surface(
         modifier = modifier,
         color = Panel,
@@ -2045,13 +2062,17 @@ private fun CityPanel(
             Text("IBGE ${city.ibgeCode}", color = Muted, style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.height(2.dp))
             Text(
-                (observation?.temperatureC ?: vcCurrent?.temperatureC ?: model?.temperatureC)?.let {
+                (approvedThermal?.temperatureC)?.let {
                     String.format(java.util.Locale("pt", "BR"), "%.1f °C", it)
                 } ?: "Indisponível",
                 color = Color.White, fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.headlineSmall,
             )
-            if (observation != null) {
+            if (approvedThermal != null) {
+                Text("${approvedThermal.sourceLabel} • ${if (approvedThermal.nature=="P") "PREVISÃO" else "ESTIMATIVA"} • ${approvedThermal.validAt}",
+                    color=GoldSoft, style=MaterialTheme.typography.labelSmall)
+                StatusLine("Condição do céu", approvedThermal.skyCondition ?: "Indisponível")
+            } else if (observation != null) {
                 Text(report?.summary(clock) ?: "Observação indisponível",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
             } else if(vcCurrent!=null) {
@@ -2087,8 +2108,8 @@ private fun CityPanel(
             } ?: "Indisponível"
             StatusLine("Umidade", metric(observation?.humidityPercent ?: vcCurrent?.humidityPct ?: model?.humidityPct, "%"))
             StatusLine("Vento médio", metric(observation?.windKmh ?: vcCurrent?.windKmh ?: model?.windKmh, "km/h"))
-            StatusLine("Sensação térmica", metric(vcCurrent?.feelsLikeC ?: model?.feelsLikeC, "°C") +
-                if (vcCurrent?.feelsLikeC != null || model?.feelsLikeC != null) " • estimativa" else "")
+            StatusLine("Sensação térmica", metric(approvedThermal?.feelsLikeC, "°C") +
+                if (approvedThermal?.feelsLikeC != null) " • estimativa OpenWeather" else "")
             StatusLine("UV céu limpo (não observado)", metric(model?.uvClearSkyIndex, "índice"))
             StatusLine("Prob. chuva próxima hora", metric(vcNext?.forecastPrecipitationProbabilityPct ?: model?.precipitationProbabilityNextHourPct, "%"))
             StatusLine("Chuva prevista na próxima hora", metric(vcNext?.forecastPrecipitationMm ?: model?.precipitationNextHourMm, "mm"))
