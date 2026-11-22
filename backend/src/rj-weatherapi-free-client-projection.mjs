@@ -37,7 +37,7 @@ export function projectWeatherApiFreeCurrentForPaidDashboard(cache,{
     cache?.data?.last_updated_epoch===undefined)return null;
  const got=stamp(cache.checkedAt);
  const currentMs=cache.data.last_updated_epoch*1000;
- if(!Number.isFinite(got)||got>now||now-got>12*60_000||
+ if(!Number.isFinite(got)||got>now||now-got>35*60_000||
     !Number.isSafeInteger(cache.data.last_updated_epoch)||
     currentMs>got||currentMs>now||now-currentMs>35*60_000)
   return null;
