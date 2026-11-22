@@ -45,3 +45,38 @@
 - Autorização separada do responsável antes de deploy, merge, novos planos ou atualização Play Store.
 
 **Importante:** este documento não implica que todas as 92 cidades estejam recebendo dados "em tempo real". A função da interface é exibir dados já autorizados de forma segura e mostrar falhas honestamente até os coletores reais estarem homologados.
+
+
+## Atualização 22/11 — frequência térmica, 14 agentes, HG e radar Climatempo
+
+### Inventário preservado (não é prova de 14 serviços ativos)
+
+O app administrador contém os 14 papéis definidos: 1 Sentinel, 2 Vector, 3 Fusion, 4 Track, 5 Hydro, 6 Ocean, 7 Seismo, 8 Audit, 9 Correção Horária, 10 Auditoria Profunda, 11 IA Pesquisa, 12 GeoFusion, 13 OpenWeather/Contingência Térmica, 14 Auditor Meteorológico Internacional. `AdminAgentsArchive.kt` mantém todos como `autonomouslyRunningVerified=false`. `ScientificMemoryPolicy.kt` registra os **19** métodos numéricos backend de termodinâmica, meteorologia, hidrologia, ventos, oceanografia e calibração, além de **5** cálculos administrativos: ponto de orvalho Magnus, VPD, Stull, índice de calor Rothfusz e vento-frio. Não iniciar processos autônomos nem emitir alertas críticos a partir de calculadora manual. A regra para níveis 4/5 continua exigir dados em tempo real e recálculo **dentro de 20 segundos**, mas o motor de risco automático NÃO está operacionalmente homologado.
+
+### Matriz de frequência: taxa de consulta ≠ medição nova
+
+| Fonte/campo | Idade/ciclo candidato | Condição na versão de desenvolvimento | Temperatura e sensação |
+|---|---|---|---|
+| **HG Brasil Weather Pro** | fornecedor atualiza os dados em **até 60 min**; planejar **1 consulta/hora por município** | R$ 49,90/mês, 100 cidades, 20.000 requisições/dia; e-mail de autorização comercial recebido 17/11; **contratação adiada para dezembro de 2026**, sem chave/solicitações atuais | Temperatura e condição do céu **E** quando o produto estiver ativo; HG não comprovou campo de sensação térmica direta. Um cálculo futuro dependerá de temperatura, umidade, vento, hora e fórmula adequada |
+| **OpenWeather / Agente 13** | intervalo mínimo de **35 min/mesma cidade**, idade limite 35 min para *temperature/feels_like* | recurso apenas de contingência se fontes principais falharem; teto interno persistente 900 consultas/dia, cache e segredo somente servidor; não reativar devido a risco antigo v1 | Temperatura e sensação E, **não estação observada**, sob licença e gates |
+| **DWD/ICON Global** | P, ciclo e hora de validade específicos, não intervalo de sensor; UI agora exige válido **até 60 min**, sem garantia de novas execuções a cada 30 min | produto de 2m em staging, QA espacial/ciclo e publicação 92/92 ainda pendentes | Temperatura modelo **P**; sensação só com cálculo Blaise e entradas auditadas, jamais automaticamente |
+| **Visual Crossing** | código atual aceita agregado E até 30 min da validade; não garante medição nova a cada 30 min | coletores/segredos/quotas em revisão; permanece **excluído para temperatura/sensação** pela política 18/11 | Pode complementar outros setores como chuva *estimada* e vento se autorizado, não termômetro |
+| **WeatherAPI Free** | planejamento usa cache E de **60 min**, quota de 100.000/mês | OFF, orçamento central projetado e direito comercial/credencial/QA pendentes | Não promovido a fonte térmica aprovada |
+| **ECMWF/IFS via MET Norway, NOAA, satélites** | ciclos próprios, não equivalentes às consultas de 12/30/45 min | demais setores de chuva prevista, vento, nuvens, mar e outros com proveniência O/E/P | **Explicitamente não** temperatura/sensação no gate atual |
+| **meteoblue Free** | `basic-6h`, **29 passos de 6 horas** em resposta privada; TTL privado 6h | 7 campos auditados; 4.000 créditos na consulta controlada e chave exposta, sem redistribuição pública | **Não contém** temperatura/sensação e não pode melhorar a frequência térmica |
+| **Climatempo Radar** | objetivo futuro 2–5 min de quadros, **máximo 12 min** de defasagem | proposta/solicitação empresarial, **sem contrato, API, cobertura e direitos para 92 municípios+Atlântico comprovados**. Sem cópia, raspagem, incorporação ou frame baixado | Radar observa refletividade/chuva, **não temperatura do ar nem sensação térmica** |
+
+**Cálculo de orçamento necessário:** HG 92 municípios × 24 consultas = **2.208 requisições/dia** (sob limite Pro 20.000). Consulta HG a cada 30 min seria 4.416/dia, mas **não torna um produto horário mais fresco**. OpenWeather: `ceil(1440/35)=42` chamadas/município/dia; **92×42 = 3.864/dia**, muito acima de 900. Para **duas cidades** selecionadas seriam **84 chamadas/dia** em um plano hipotético integral de 35 min, antes de reservar margem para outros usuários, tentativas, diferenças de janela, cache e limites contratuais. Distribuir todas as 900 igualmente entre 92 cidades equivale a **147,2 minutos por chamada por município**, portanto não se pode garantir 35 min em todo o estado. A regra real do Agente 13 é **fallback**, não uma rodada aberta e obrigatória.
+
+**Conclusão de frequência:** duas cidades com fonte HG horária disponível teriam a possibilidade de valor válido com idade **até 60 min**; OpenWeather poderá fornecer leitura estimada a **35 min** se permitido, necessário e dentro do limite, mas não há promessa de atualização 35 min em todos os horários. As demais fontes de 12/30/45 min podem ajudar **outros campos**, não a cadência de temperatura sem licença específica, campo térmico e medições novas. O monitor do Android consulta o backend em intervalo de 30 s quando autorizado; isso **não cria medição**. Falta de dado/idade excessiva/ausência de licença = **Indisponível**, exibindo última origem quando tiver significado.
+
+### Código novo e controles não operacionais
+
+- `backend/src/rj-thermal-multisource-cadence.mjs`: plano puro com frequência, orçamento, 92 códigos e separação de natureza. Sem agendador, rede, créditos ou escrita.
+- `backend/src/rj-climatempo-radar-readiness.mjs`: gate empresarial de contrato, imagem/raster georreferenciada, semântica, fonte, prazo de 12 min e cobertura RJ+Atlântico; **até que todos sejam comprovados, não publica**.
+- `app/src/main/java/br/com/blaise/rj/data/ApprovedThermalDisplay.kt`: novo campo **opcional** `approvedThermal` no contrato autenticado `/v1/data/dashboard`, somente até duas cidades, HG E se contratação ativa, OpenWeather E se contingência autorizada, DWD P se válido, fonte e hora, condição do céu somente HG. Não aceita Climatempo/ECMWF/Visual Crossing como temperatura, senhas ou segredos. Backend ainda **não gera** esse campo, portanto exibição efetiva depende de release e conector homologado.
+- A camada de mapa **Radar** exibe "Climatempo aguardando licença" em vez de exibir um mapa de terceiros ou fingir quadros em tempo real.
+
+**A Climatempo permanece exclusivamente cotação:** no Gmail consultado havia solicitações comerciais enviadas em novembro de 2026, não autorização formal para usar um raster ou endpoint no aplicativo de assinaturas. Exigir por escrito: endpoint/API, termos de redistribuição, cobertura de 92 municípios e Atlântico, resolução espacial, últimos 30 min e quadro 2–5 min, custo mensal/franquias, formato/tiles, SLA e prazo máximo 12 min; contar cada quadro com timestamp, bounding box e QA. Não coletar radar de Alerta Rio por caminhos indiretos.
+
+Este registro **não altera PR #173, produção Cloud Run, o tráfego 99%/1%, chaves, franquia, assinatura HG, orçamento Climatempo, Google Play ou APK instalado**. Backend e compilação Android da branch devem passar CI antes da entrega de qualquer APK de teste, sem publicação automática.
