@@ -114,8 +114,10 @@ object OfficialAlertRibbonPolicy {
             .map { it.portal.id to it.warningId }.toSet()
         val additional = verified
             .filterNot { (it.portal.id to it.warningId) in selected } +
-            portals.filterNot { portal -> top.any { it.portal.id == portal.id } }
-                .map { portal -> OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)) }
+            portals.filterNot { portal ->
+                top.any { it.portal.id == portal.id } ||
+                verified.any { it.portal.id == portal.id }
+            }.map { portal -> OfficialAlertRibbonItem(portal, null, present(portal.id, null, now)) }
         return OfficialAlertRibbonPage(top, additional)
     }
 
