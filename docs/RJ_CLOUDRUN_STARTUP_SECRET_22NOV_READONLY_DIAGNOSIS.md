@@ -84,3 +84,19 @@ Captura da titular do Cloud Shell, análise **somente leitura** da revisão hist
 A contagem de proximidade não indica se os avisos ocorreram **antes ou depois** da falha. As requisições 2 e 3 distam apenas um segundo e podem referir-se aos mesmos avisos. `trace=false` significa apenas que não foi comprovado um identificador comum (pode estar ausente); não exclui causalidade. **Não** somar os avisos próximos e concluir que ocorreram seis eventos independentes. O marcador continua `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN` e `likelyStartupBlocker=DISABLED_ENV_SECRET_V1` é uma hipótese baseada em metadados, não um resultado causal confirmado.
 
 Próximo estudo permitido: correlacionar apenas avisos **anteriores** à respectiva requisição (0–120 segundos antes), e presença de `labels.instanceId` compartilhado, retornando só contagens/booleanos. Não revelar identificadores, corpo dos logs, IP, endpoint ou segredo. Não fazer deploy, alterar IAM, segredos, tag, minScale, tráfego 99%/1%, ou consultar APIs meteorológicas.
+
+## Fechamento da correlação de instâncias — 22/11/2026, 09h12 BRT
+
+Resultado de captura da titular após comando Cloud Shell **somente leitura** que correlacionou os três HTTP 500 da revisão `00058-sos` aos `WARNING` anteriores por janela de 120 segundos, sem exibir IDs:
+
+| HTTP 500 | Warnings anteriores <=120s | Identificador de instância no request | Mesma instância comprovada |
+| --- | ---: | --- | --- |
+| 1 (2026-11-21T11:14:06Z) | 1 | false | false |
+| 2 (2026-11-21T11:26:07Z) | 1 | false | false |
+| 3 (2026-11-21T11:26:08Z) | 1 | false | false |
+
+Os dois últimos requests podem referir-se ao **mesmo aviso anterior**. `mesma_instancia=false` resulta da **ausência de ID no request** e significa `NÃO VERIFICADO`, não instâncias diferentes. Nenhuma linha vincula diretamente um WARNING à falha HTTP correspondente por trace/instance. O histórico sustenta um **bloqueador técnico conhecido para novos starts**: a revisão antiga referencia OpenWeather Secret Manager **v1 DISABLED**, enquanto a configuração atual já referencia **v2 ENABLED**. Isso **não demonstra a causa exata dos três HTTP 500**.
+
+**Decisão após o diagnóstico:** encerrar consultas repetitivas de correlação dos mesmos logs. Não atribuir certeza causal, nem reativar v1. O procedimento para corrigir a referência deve usar somente um plano **offline e fail-closed** para **futura revisão isolada com v2**, e não deve sobrescrever o template já v2 do serviço ativo. Os módulos preexistentes `rj-openweather-secret-v2-repair-plan.mjs`, `rj-openweather-zero-min-candidate.mjs` e `rj-openweather-v2-zero-traffic-candidate.mjs` já apresentam o plano e impedem o deploy real; **não mudar essas travas nem executar `--execute-approved-zero-traffic`**. Checagens exigidas antes de autorização separada de futura implantação: verificar estado e vínculo v2, integridade de Redemet, IAM efetiva em runtime, impacto no template/escala/custos, identidade, imagem/digest, ausência de coletores ativos, CI/Android e preservação comprovada de tráfego 99%/1%. A candidata não está autorizada nesta etapa.
+
+**Estado:** `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN`, `newRevisionCreated=false`, `mergePerformed=false`, `trafficChanged=false`, `meteorologicalAPICalls=0`. Valores 99%/1% são a última evidência de leitura anterior; não houve nova mudança promovida por este diagnóstico. Nenhum dado pessoal ou conteúdo de segredo foi adicionado ao repositório.
