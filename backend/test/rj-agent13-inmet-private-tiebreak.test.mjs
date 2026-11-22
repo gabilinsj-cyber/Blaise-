@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- reviewAgent13ConflictWithInmet,RJ_INMET_PANEL_URL,
+ reviewAgent13ConflictWithInmet,fingerprintRjInmetDispute,RJ_INMET_PANEL_URL,
  RJ_INMET_TIEBREAK_AUTO_FETCH,RJ_INMET_TIEBREAK_CLIENT_PUBLICATION
 } from '../src/rj-agent13-inmet-private-tiebreak.mjs';
 import {auditAgent13Minute} from '../src/rj-agent13-freshness-supervisor.mjs';
@@ -26,7 +26,7 @@ const evidence=()=>({
  sameMeteorologicalVariableAndUnitsVerified:true,
  originalObservationTimeVerified:true,referenceQualityApproved:true,
  targetIbge:'3304557',targetRegionId:null,
- parameter:'temperatureC',stationCode:'A601',stationDistanceKm:8,
+ parameter:'temperatureC',conflictFingerprint:fingerprintRjInmetDispute([a,b]),stationCode:'A601',stationDistanceKm:8,
  observedValue:25,observedAt:'2026-11-22T15:00:00.000Z',
  reviewedAt:'2026-11-22T15:14:00.000Z'
 });
@@ -87,6 +87,16 @@ test('outdated, mismatched geography and unverified INMET public panel fail clos
   assert.equal(out.selectedBlaiseReading,null);
   assert.equal(out.inmetValueExposed,false);
  }
+});
+test('private INMET review cannot replay on a changed Blaise conflict',()=>{
+ const altered={...b,value:34};
+ const out=reviewAgent13ConflictWithInmet({
+  ibge:'3304557',regionId:null,field:'temperatureC',
+  candidates:[a,altered],review:evidence(),nowMs:NOW
+ });
+ assert.equal(out.status,'REVIEW_REQUIRED');
+ assert.equal(out.selectedBlaiseReading,null);
+ assert.equal(out.inmetValueExposed,false);
 });
 test('equal distance and differences too large from INMET do not force selection',()=>{
  for(const review of [{...evidence(),observedValue:27},
