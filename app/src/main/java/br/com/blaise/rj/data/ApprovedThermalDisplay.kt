@@ -40,7 +40,8 @@ object ApprovedThermalDisplayParser {
     private val keys = setOf(
         "ibge","sourceId","nature","validAt","checkedAt",
         "temperatureC","feelsLikeC","skyCondition","backendVerified",
-        "commercialLicenseVerified","municipalityGeoVerified","contingencyAuthorized"
+        "commercialLicenseVerified","municipalityGeoVerified","contingencyAuthorized",
+        "hgSubscriptionActive"
     )
     private fun reading(value: Any?, low: Double, high: Double): Double? {
         if(value == null)return null
@@ -64,6 +65,9 @@ object ApprovedThermalDisplayParser {
             (source=="DWD_ICON_GLOBAL" && nature=="P"))
         require(source!="OPENWEATHER_ONECALL4_CURRENT" ||
             m["contingencyAuthorized"]==true)
+        // Written commercial permission alone does not authorize the paid
+        // HG data feed before its account subscription and server collector.
+        require(source!="HG_BRASIL_WEATHER_PRO" || m["hgSubscriptionActive"]==true)
         val valid=Instant.parse(m["validAt"] as? String
             ?: throw IllegalArgumentException("missing_thermal_valid"))
         val checked=Instant.parse(m["checkedAt"] as? String
