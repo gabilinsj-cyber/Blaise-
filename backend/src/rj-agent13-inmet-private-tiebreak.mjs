@@ -10,6 +10,8 @@
  * thermometers. Geography, altitude, variable, time and units must match.
  * This module never treats a station as a measurement in every RJ locality.
  */
+import {createHash} from 'node:crypto';
+
 export const RJ_INMET_TIEBREAK_CONTRACT='RJ_AGENT13_PRIVATE_INMET_DISPUTE_V1';
 export const RJ_INMET_PANEL_URL='https://mapas.inmet.gov.br/';
 export const RJ_INMET_TIEBREAK_AUTO_FETCH=false;
@@ -18,6 +20,24 @@ const ACCEPT=Object.freeze({
  temperatureC:Object.freeze({min:-60,max:65,maxDifference:5,minWinningMargin:0.25,maxAgeMs:90*60_000}),
  humidityPct:Object.freeze({min:0,max:100,maxDifference:20,minWinningMargin:2,maxAgeMs:90*60_000}),
 });
+/** Fingerprint binds a private human check to this exact Blaise conflict.
+ * No INMET observation enters the fingerprint or any public DTO.
+ */
+export function fingerprintRjInmetDispute(candidates){
+ if(!Array.isArray(candidates)||candidates.length<2||candidates.length>5)
+  throw Error('invalid_inmet_dispute_candidates');
+ const items=candidates.map(x=>{
+  if(typeof x?.ibge!=='string'||typeof x?.sourceId!=='string'||
+    typeof x?.field!=='string'||typeof x?.measuredAt!=='string'||
+    typeof x?.value!=='number'||!Number.isFinite(x.value)||
+    (x.regionId!==null&&typeof x.regionId!=='string'))
+   throw Error('invalid_inmet_dispute_candidate');
+  return [x.ibge,x.regionId??null,x.field,x.nature,x.sourceId,x.value,x.measuredAt];
+ }).sort((a,b)=>String(a[4]).localeCompare(String(b[4])));
+ if(new Set(items.map(x=>x[4])).size!==items.length)
+  throw Error('duplicate_inmet_dispute_source');
+ return createHash('sha256').update(JSON.stringify(items)).digest('hex');
+}
 const fail=reason=>Object.freeze({status:'REVIEW_REQUIRED',reason,
   selectedBlaiseReading:null,inmetValueExposed:false,providerCalls:0,
   officialObservationPublished:false,customerPublicationAuthorized:false});
@@ -65,6 +85,7 @@ export function reviewAgent13ConflictWithInmet({
     review.referenceQualityApproved!==true||
     review.targetIbge!==ibge||review.targetRegionId!==regionId||
     review.parameter!==field||
+    review.conflictFingerprint!==fingerprintRjInmetDispute(candidates)||
     typeof review.stationCode!=='string'||
     !/^A\d{3,4}$/.test(review.stationCode)||
     typeof review.stationDistanceKm!=='number'||
