@@ -61,3 +61,12 @@ Carimbos UTC retornados: `11:10:52`, `11:12:42`, `11:15:17`, `11:18:25`, `11:21:
 
 Diagnóstico atualizado: a indisponibilidade da versão 1 do segredo OpenWeather na revisão histórica continua sendo uma **causa plausível e forte de impedimento a novos starts**, mas `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN`. O código de saída não encontrou frases de falha de inicialização por correspondência textual; isso **não exclui** falhas de startup. Para a próxima consulta, limitar a saída a metadados `timestamp`, `severity`, tipo de log e código de status estruturado, **sem imprimir** `textPayload`, `jsonPayload`, `protoPayload` completos, conteúdo do segredo ou identidade da conta. Não reativar v1, não alterar IAM, não fazer deploy, merge, restart, rotação automática, teste HTTP real ou mudança do tráfego 99%/1%. Nenhuma chamada meteorológica foi realizada.
 
+
+## Evidência de severidade — 22/11/2026, 09h08 BRT
+
+Nova captura da consulta `gcloud logging read` **somente leitura** confirmou nove registros na janela histórica associada à revisão `00058-sos`, todos com `severity=WARNING`, fonte classificada como **sistema** e `protoPayload.status.code` **ausente** (`NAO_INFORMADO`). Os mesmos nove eventos foram filtrados por `secret`, `disabled` e `openweather`. Esta ausência de código estruturado **não prova ausência de erro**, nem `WARNING` implica sucesso de inicialização. Os timestamps permanecem os nove já documentados.
+
+A orientação oficial do Cloud Run confirma que uma referência de Secret Manager montada como **variável de ambiente** é lida na inicialização; se a leitura falhar, a instância não inicia (https://docs.cloud.google.com/run/docs/configuring/services/secrets). A incompatibilidade v1 desabilitada é um **bloqueio plausível de novos starts**. Porém, os **três HTTP 500 ainda não possuem vínculo causal comprovado** com esses nove warnings: manter `causeOfThreeHttp500=NOT_CONCLUSIVELY_PROVEN`.
+
+**Próxima investigação permitida:** correlacionar eventos por campos estruturados como `trace`, `labels`, `timestamp` e `severity`; imprimir somente contagens e indicadores booleanos, nunca payload dos logs, identidades, segredo ou URLs. Não reativar v1, alterar tráfego 99%/1%, fazer deploy, merger ou chamadas meteorológicas.
+
