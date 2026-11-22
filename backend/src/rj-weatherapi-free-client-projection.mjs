@@ -10,7 +10,6 @@ export const RJ_WEATHERAPI_FREE_ATTRIBUTION='Dados meteorológicos: WeatherAPI.c
 export const RJ_WEATHERAPI_CLIENT_RELEASE_ENABLED_BY_DEFAULT=false;
 const finite=(n,lo,hi)=>typeof n==='number'&&Number.isFinite(n)&&n>=lo&&n<=hi?n:null;
 const stamp=s=>typeof s==='string'?Date.parse(s):NaN;
-const degrees=(x,y)=>Math.sqrt((x-y)**2);
 const approxKm=(a,b,c,d)=>111*Math.sqrt((a-c)**2+(Math.cos(a*Math.PI/180)*(b-d))**2);
 function sky(code){
  if(code===1000)return 'SOL';
@@ -45,7 +44,7 @@ export function projectWeatherApiFreeCurrentForPaidDashboard(cache,{
  const latitude=finite(cache.location?.lat,-34,-20);
  const longitude=finite(cache.location?.lon,-46,-38);
  if(latitude===null||longitude===null||
-    approxKm(p.lat,p.lon,latitude,longitude)>25)return null;
+    approxKm(p.lat,p.lon,latitude,longitude)>40)return null;
  const temp=finite(cache.data.temp_c,-60,65);
  const feels=finite(cache.data.feelslike_c,-80,80);
  const humidity=finite(cache.data.humidity,0,100);
