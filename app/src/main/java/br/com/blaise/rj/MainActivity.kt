@@ -951,7 +951,7 @@ private fun ExpandedRadarPanel(
         Text("Fonte/última checagem (Brasília): $sourceLine",
             color = Muted, style = MaterialTheme.typography.labelSmall)
         Text("Atualização máxima pretendida: 30 min • sem credencial meteorológica no Android • " +
-            "mapa sem dados de trânsito, CET-Rio ou fontes excluídas.",
+            "sem sobreposição de tráfego ou fontes excluídas.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -1218,14 +1218,14 @@ private fun CitiesScreen(city1: City, city2: City, onChooseCity1: () -> Unit, on
 
 @Composable
 private fun MapScreen(city1: City, city2: City) {
-    ExpandedRadarPanel(Modifier.fillMaxWidth())
+    ExpandedRadarPanel(Modifier.fillMaxWidth(), city1, {})
     Spacer(Modifier.height(14.dp))
     DashboardSection(
         title = "MAPA DE RISCO • ESTADO DO RJ",
         subtitle = "Visão territorial: Estado + ${city1.name} + ${city2.name}",
     ) {
         StatusLine("Camadas meteorológicas", "Aguardando produtos verificados com área e horário")
-        StatusLine("Geo-Rio", "Aguardando riscos georreferenciados por fonte aprovada")
+        StatusLine("Abrangência", "Municípios RJ e Atlântico; apenas camadas aprovadas")
         StatusLine("Radar próprio", "Indisponível até receber frames licenciados com fonte e horário")
         Text("Contornos próprios IBGE não equivalem a uma camada de risco validada.",
             color = Muted, style = MaterialTheme.typography.labelSmall)
