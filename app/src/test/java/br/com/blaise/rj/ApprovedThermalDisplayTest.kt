@@ -1,6 +1,7 @@
 package br.com.blaise.rj
 
 import br.com.blaise.rj.data.ApprovedThermalDisplayParser
+import br.com.blaise.rj.data.ApprovedThermalMunicipalSelection
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
@@ -49,6 +50,22 @@ class ApprovedThermalDisplayTest {
         assertEquals("P",ApprovedThermalDisplayParser.parse(payload,now).nature)
         assertTrue(runCatching { ApprovedThermalDisplayParser.parse(
             payload+("feelsLikeC" to 30.0),now) }.isFailure)
+    }
+    @Test fun hgTemperatureAndOpenweatherFeelsLikeRetainIndependentSourceTimes() {
+        val hg=ApprovedThermalDisplayParser.parse(base(),now)
+        val ow=ApprovedThermalDisplayParser.parse(
+            base("OPENWEATHER_ONECALL4_CURRENT") + mapOf(
+                "contingencyAuthorized" to true, "skyCondition" to null,
+                "temperatureC" to null, "feelsLikeC" to 35.4,
+                "validAt" to "2026-11-22T11:50:00Z"),now)
+        val view=ApprovedThermalMunicipalSelection.select(listOf(ow,hg),now)
+        assertNotNull(view)
+        assertEquals(27.0,view!!.temperatureC!!,0.001)
+        assertEquals(35.4,view.feelsLikeC!!,0.001)
+        assertTrue(view.temperatureSourceLabel!!.contains("HG Brasil"))
+        assertTrue(view.feelsLikeSourceLabel!!.contains("OpenWeather"))
+        assertNotEquals(view.temperatureValidAt,view.feelsLikeValidAt)
+        assertEquals("PARCIALMENTE_NUBLADO",view.skyCondition)
     }
     @Test fun rejectNonThermalSourcesStaleTimesOrSecretShapedExtraFields() {
         for(source in listOf("VISUAL_CROSSING_FREE","ECMWF_IFS",
