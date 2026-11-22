@@ -47,7 +47,7 @@ class DashboardWeatherApiCurrentTest {
             row()+("ibge" to "9999999"),
             row()+("sourceId" to "INMET"),
             row()+("validAt" to "2026-11-22T14:00:00Z"),
-            row()+("checkedAt" to "2026-11-22T14:30:00Z"),
+            row()+("checkedAt" to "2026-11-22T14:20:00Z"),
             row()+("actualStormConfirmed" to true),
             row()+("temperatureC" to 9999.0),
             row()+("apikey" to "must-never-be-here")
