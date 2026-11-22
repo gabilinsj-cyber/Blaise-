@@ -117,7 +117,7 @@ test('35-minute city cooldown is atomic across Cloud Run replicas and shared for
   }),false);
   assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,1);
 });
-test('35-minute city cooldown cannot be bypassed across midnight or via another city',async()=>{
+test('one-call global cap resets next UTC day but city cooldown cannot be bypassed at midnight',async()=>{
   const db=fakeDb();
   const store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   const prev=Date.parse('2026-11-13T23:50:00Z');
@@ -130,7 +130,7 @@ test('35-minute city cooldown cannot be bypassed across midnight or via another 
   }),false);
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...base,ibge:'3303302',utcDay:'2026-11-14',nowMs:prev+20*60_000
-  }),false);
+  }),true);
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...base,utcDay:'2026-11-14',nowMs:prev+35*60_000
   }),false);
