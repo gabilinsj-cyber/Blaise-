@@ -2073,6 +2073,7 @@ private fun CityPanel(
     val vc=LocalVisualCrossing.current[city.ibgeCode]
     val vcCurrent=vc?.takeIf{it.current(clock)}
     val vcNext=vc?.takeIf{it.nextForecast(clock)}
+    val wa=LocalWeatherApi.current[city.ibgeCode]?.takeIf { it.current(clock) }
     val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(clock) }
     Surface(
         modifier = modifier,
@@ -2095,10 +2096,23 @@ private fun CityPanel(
             if (approvedThermal != null) {
                 Text("${approvedThermal.sourceLabel} • ${if (approvedThermal.nature=="P") "PREVISÃO" else "ESTIMATIVA"} • ${approvedThermal.validAt}",
                     color=GoldSoft, style=MaterialTheme.typography.labelSmall)
-                StatusLine("Condição do céu", approvedThermal.skyCondition ?: "Indisponível")
+                StatusLine("Condição do céu",
+                    approvedThermal.skyCondition ?: wa?.skyCondition ?: "Indisponível")
+                if(approvedThermal.temperatureSourceLabel?.contains("Visual Crossing")==true ||
+                    approvedThermal.feelsLikeSourceLabel?.contains("Visual Crossing")==true)
+                    Text("Weather data by Visual Crossing",
+                        color=Muted,style=MaterialTheme.typography.labelSmall)
             } else if (observation != null) {
                 Text(report?.summary(clock) ?: "Observação indisponível",
                     color = Muted, style = MaterialTheme.typography.bodySmall)
+            } else if(wa!=null) {
+                Text("ESTIMATIVA AGREGADA • WEATHERAPI.COM • NÃO É ESTAÇÃO",
+                    color=GoldSoft,fontWeight=FontWeight.Bold,
+                    style=MaterialTheme.typography.labelSmall)
+                Text("Atualizado na fonte: ${wa.validAt} UTC • conferido: ${wa.checkedAt} UTC",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
+                Text(wa.attribution+" • não é aviso oficial",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
             } else if(vcCurrent!=null) {
                 Text("ESTIMATIVA AGREGADA • VISUAL CROSSING • NÃO É ESTAÇÃO",
                     color=GoldSoft,fontWeight=FontWeight.Bold,
@@ -2130,17 +2144,28 @@ private fun CityPanel(
             fun metric(value: Double?, unit: String): String = value?.let {
                 String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit)
             } ?: "Indisponível"
-            StatusLine("Umidade", metric(observation?.humidityPercent ?: vcCurrent?.humidityPct ?: model?.humidityPct, "%"))
-            StatusLine("Vento médio", metric(observation?.windKmh ?: vcCurrent?.windKmh ?: model?.windKmh, "km/h"))
+            StatusLine("Umidade", metric(observation?.humidityPercent ?: wa?.humidityPct
+                ?: vcCurrent?.humidityPct ?: model?.humidityPct, "%"))
+            StatusLine("Vento médio", metric(observation?.windKmh ?: wa?.windKmh
+                ?: vcCurrent?.windKmh ?: model?.windKmh, "km/h"))
             StatusLine("Sensação térmica", metric(approvedThermal?.feelsLikeC, "°C") +
                 if (approvedThermal?.feelsLikeC != null) " • ${approvedThermal.feelsLikeSourceLabel}" else "")
             StatusLine("UV céu limpo (não observado)", metric(model?.uvClearSkyIndex, "índice"))
             StatusLine("Prob. chuva próxima hora", metric(vcNext?.forecastPrecipitationProbabilityPct ?: model?.precipitationProbabilityNextHourPct, "%"))
             StatusLine("Chuva prevista na próxima hora", metric(vcNext?.forecastPrecipitationMm ?: model?.precipitationNextHourMm, "mm"))
             StatusLine("Rajadas previstas", metric(vcNext?.forecastWindGustKmh ?: model?.gustKmh, "km/h"))
+            StatusLine("Nuvens atuais • estimativa", metric(wa?.cloudPct,"%"))
             StatusLine("Nuvens previstas", metric(model?.cloudPct, "%"))
-            StatusLine("Pressão prevista", metric(vcCurrent?.pressureHpa ?: model?.pressureHpa, "hPa"))
+            StatusLine("Pressão atual • estimativa", metric(wa?.pressureHpa ?: vcCurrent?.pressureHpa,"hPa"))
+            StatusLine("Pressão prevista", metric(model?.pressureHpa,"hPa"))
             StatusLine("Ponto de orvalho estimado", metric(vcCurrent?.dewPointC ?: model?.dewPointC, "°C"))
+            if(wa!=null) {
+                StatusLine("Chuva atual estimada • WeatherAPI",metric(wa.precipitationMm,"mm"))
+                StatusLine("Rajada atual estimada • WeatherAPI",metric(wa.gustKmh,"km/h"))
+                StatusLine("UV atual estimado • WeatherAPI",metric(wa.uvIndex,"índice"))
+                Text("${wa.attribution} • leitura ${wa.validAt} UTC • checagem ${wa.checkedAt} UTC",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
+            }
             if(vcCurrent!=null) {
                 StatusLine("Chuva atual estimada • sem pluviômetro",
                     metric(vcCurrent.precipitationMm,"mm"))
