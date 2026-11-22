@@ -102,6 +102,28 @@ test('HG one-hour maximum valid age but not relabeled a 25-minute update',()=>{
    ingestedAt:'2026-11-22T15:20:00.000Z'})]});
  assert.equal(y.previewLatest.length,0);
 });
+test('strongly conflicting thermal values are held instead of silently overwriting',()=>{
+ const a=record({measuredAt:'2026-11-22T15:00:00.000Z',
+  providerPublishedAt:'2026-11-22T15:01:00.000Z',value:19});
+ const b=record({sourceId:'WEATHERAPI_FREE',
+  measuredAt:'2026-11-22T15:04:00.000Z',
+  providerPublishedAt:null,value:34});
+ const x=auditAgent13Minute({nowMs:now,enabledSources:enabled,rows:[a,b]});
+ assert.equal(x.heldForConflictCount,1);
+ assert.equal(x.proposedUpdates.length,0);
+ assert.equal(x.previewLatest[0].sourceId,'WEATHERAPI_FREE');
+ assert.deepEqual(x.heldFields,['3304557:ALL:temperatureC']);
+});
+test('unverified local region cannot be substituted for citywide measurement',()=>{
+ const wrong=record({regionId:'bairro-guaratiba'});
+ const valid=record({regionId:'bairro-guaratiba',localRegionGeometryVerified:true});
+ const a=auditAgent13Minute({nowMs:now,rows:[wrong],enabledSources:enabled});
+ assert.equal(a.proposedUpdates.length,0);
+ assert.ok(a.rejectionCounts.LOCAL_REGION_MAPPING_NOT_VERIFIED);
+ const b=auditAgent13Minute({nowMs:now,rows:[valid],enabledSources:enabled});
+ assert.equal(b.proposedUpdates.length,1);
+ assert.equal(b.proposedUpdates[0].regionId,'bairro-guaratiba');
+});
 test('all 92 RJ are covered as identifiers but no guarantee of 92 active sources',()=>{
  const x=auditAgent13Minute({nowMs:now,enabledSources:{}});
  assert.equal(x.monitoredRjMunicipalities,92);
