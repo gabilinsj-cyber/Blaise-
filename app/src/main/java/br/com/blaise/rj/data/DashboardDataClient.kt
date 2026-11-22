@@ -171,6 +171,7 @@ data class DashboardDataSnapshot(
     val marine: DashboardMarineReading? = null,
     val internationalForecasts: List<DashboardInternationalForecast> = emptyList(),
     val visualCrossingWeather: List<DashboardVisualCrossingWeather> = emptyList(),
+    val weatherApiCurrent: List<DashboardWeatherApiCurrent> = emptyList(),
     val approvedThermal: List<ApprovedThermalDisplay> = emptyList(),
 ) {
     fun current(now: Instant): Boolean {
@@ -229,7 +230,7 @@ object DashboardDataParser {
 
     fun parse(payload: Map<String, Any?>): DashboardDataSnapshot {
         require(payload.keys.containsAll(topLevelKeys) &&
-            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts", "visualCrossingWeather", "approvedThermal") })
+            (payload.keys - topLevelKeys).all { it in setOf("marine", "rainfallAvailability", "officialNoticeLinks", "internationalForecasts", "visualCrossingWeather", "weatherApiCurrent", "approvedThermal") })
         require(payload["contract"] == DASHBOARD_DATA_CONTRACT)
         require(payload["scope"] in setOf("RJ_OFFICIAL_SOURCES_WITH_RIO_CITY_RAINFALL", "RJ_APPROVED_SOURCES"))
 
@@ -468,6 +469,12 @@ object DashboardDataParser {
             vcWeather.map{it.ibge}.toSet().size==vcWeather.size)
         require(vcWeather.all{it.current(generatedAt)||it.nextForecast(generatedAt)})
 
+        val weatherApi=(payload["weatherApiCurrent"] as? List<*>)?.map {
+            DashboardWeatherApiCurrentParser.parse(it,generatedAt)
+        }.orEmpty()
+        require(weatherApi.size<=2 &&
+            weatherApi.map { it.ibge }.toSet().size==weatherApi.size)
+
         // Optional future server-side approved thermal projection. No collector
         // activates as a result of allowing this strict response field.
         val thermal = (payload["approvedThermal"] as? List<*>)?.map {
@@ -475,7 +482,7 @@ object DashboardDataParser {
         }.orEmpty()
         // Two selected municipalities × up to three independent, approved
         // providers. Field provenance must not be collapsed into one record.
-        require(thermal.size <= 6 &&
+        require(thermal.size <= 10 &&
             thermal.map { it.ibge }.toSet().size <= 2 &&
             thermal.map { it.ibge to it.sourceId }.toSet().size == thermal.size)
 
@@ -490,6 +497,7 @@ object DashboardDataParser {
             marine = marine,
             internationalForecasts = forecasts,
             visualCrossingWeather = vcWeather,
+            weatherApiCurrent = weatherApi,
             approvedThermal = thermal,
         )
     }
