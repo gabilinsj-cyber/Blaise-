@@ -20,16 +20,17 @@ test('HG plans 2208 calls/day for 92 hourly locations but is not active',()=>{
  assert.equal(p.mayPublishToClients,false);
 });
 
-test('35-minute full-state OpenWeather fallback exceeds 900/day and two selected cities fit budget only nominally',()=>{
+test('35-minute full-state OpenWeather fallback far exceeds approved 1/day',()=>{
  const p=planRjThermalCadence({
   selectedMunicipalityIbges:[3304557,3303302],openWeatherProviderApproved:true
  });
  assert.equal(p.openWeather.callsPerCityPerDayForFull35mCoverage,42);
  assert.equal(p.openWeather.estimatedCallsForSelectedCities,84);
  assert.equal(p.openWeather.estimatedCallsForAll92Cities,3864);
- assert.equal(p.openWeather.maxFullTimeCitiesAt35Minutes,21);
- assert.equal(p.openWeather.minUniformIntervalAcross92With900DailyCallsMinutes,147.2);
+ assert.equal(p.openWeather.maxFullTimeCitiesAt35Minutes,0);
+ assert.equal(p.openWeather.minUniformIntervalAcross92WithOneDailyCallMinutes,132480);
  assert.equal(p.openWeather.all92At35MinutesWithinBudget,false);
+ assert.equal(p.openWeather.dailyInternalCallCeiling,1);
  assert.equal(p.guaranteedAll92CurrentThermalWithin60Minutes,false);
  assert.equal(p.guaranteedThermalUpdateEvery35Minutes,false);
  assert.equal(p.openWeather.contingencyOnlyWhenOtherAuthorizedThermalUnavailable,true);

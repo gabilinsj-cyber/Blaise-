@@ -111,7 +111,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     providerRainQualifiesAsObservedGauge:false,
     extendOperationalAgent13WithoutAudit:false,
     additionalSourcePublicationEnabled:false,
-    openWeatherDailyInternalMaximum:900,
+    openWeatherDailyInternalMaximum:1,
     requireIndependentSourceStatusByField:true,
     sourceMeasurementsNotAssumed:true,
   }),
@@ -208,7 +208,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     requiresProviderTimestamp:true,
   }),
   singleCamsException:'COPERNICUS_CAMS_UV_VIA_MET_NO',
-  agent13:'OWM_ONLY_IF_ALL_VERIFIED_INTERNATIONAL_TEMPERATURE_FEELS_LIKE_UNAVAILABLE_35M_900_DAY',
+  agent13:'OWM_ONLY_IF_ALL_VERIFIED_INTERNATIONAL_TEMPERATURE_FEELS_LIKE_UNAVAILABLE_35M_1_DAY_GLOBAL',
   notLiveCollection:true
 });
 export function getUnderlyingFamiliesForSector(id){

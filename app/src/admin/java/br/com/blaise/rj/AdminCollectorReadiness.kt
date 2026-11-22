@@ -120,7 +120,7 @@ object AdminCollectorReadiness {
         AdminCollectorReadinessItem(
             "OPENWEATHER_AGENT13", "Agente 13 / OpenWeather",
             "CONTINGÊNCIA TÉRMICA CONDICIONAL",
-            "Temperatura e sensação estimadas apenas quando houver dados válidos, licença e backend verificados. Limite interno de 900 chamadas/dia; nenhuma publicação nova foi homologada."
+            "Temperatura e sensação estimadas apenas quando houver dados válidos, licença e backend verificados. Limite operacional aprovado de apenas 1 chamada/dia UTC em todo o Blaise; nenhuma publicação nova foi homologada."
         ),
         AdminCollectorReadinessItem(
             "METEOBLUE_FREE_FORECAST", "meteoblue Free API • mLM basic-6h",

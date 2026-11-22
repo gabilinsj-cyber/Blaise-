@@ -166,14 +166,14 @@ export function createRjOpenWeatherFirestoreStore({db,clock=()=>Date.now()}={}){
 
   const budget=Object.freeze({
     /**
-     * Shared, fail-closed 35-minute city cooldown AND the existing 900/day
+     * Shared, fail-closed 35-minute city cooldown AND the user-approved 1/day
      * quota in a single Firestore transaction. This never calls OpenWeather.
      * The city key survives the UTC-day rollover, so midnight cannot allow
      * a second provider call inside the 35-minute interval.
      */
     async tryReserveMunicipalFallback({provider,utcDay,maximum,ibge,nowMs}={}){
       if(provider!==RJ_OPENWEATHER_SOURCE_ID||!validDay(utcDay)||
-        !Number.isInteger(maximum)||maximum<1||maximum>900||
+        !Number.isInteger(maximum)||maximum!==1||
         !RJ_IBGE.has(String(ibge))||!Number.isSafeInteger(nowMs)||nowMs<0||
         new Date(nowMs).toISOString().slice(0,10)!==utcDay)
         throw fail('invalid_municipal_reservation');
@@ -208,7 +208,7 @@ export function createRjOpenWeatherFirestoreStore({db,clock=()=>Date.now()}={}){
     async tryReserve({provider,utcDay,maximum}={}){
       if(provider!==RJ_OPENWEATHER_SOURCE_ID||
         !validDay(utcDay)||
-        !Number.isInteger(maximum)||maximum<1||maximum>900)
+        !Number.isInteger(maximum)||maximum!==1)
         throw fail('invalid_quota_reservation');
       const docRef=quotaCollection.doc(utcDay);
       // Firestore's server transaction retries on contention and commits
