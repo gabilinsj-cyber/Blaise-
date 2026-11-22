@@ -93,7 +93,7 @@ object FinalDashboardSpec {
             2 -> 0xFFEAB308.toInt() // amarelo
             3 -> 0xFFEA580C.toInt() // laranja
             4 -> 0xFFDC2626.toInt() // vermelho
-            5 -> 0xFF7F1D1D.toInt() // vermelho extremo
+            5 -> 0xFF7E22CE.toInt() // roxo extremo
             else -> null
         }
 
