@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAgent13ReadOnlyMinuteWorker} from '../src/rj-agent13-freshness-worker.mjs';
+import {fingerprintRjInmetDispute} from '../src/rj-agent13-inmet-private-tiebreak.mjs';
 const NOW=Date.parse('2026-11-22T15:15:00Z');
 const cfg={
  enabled:true,operatorApproved:true,clock:()=>NOW,
@@ -76,6 +77,9 @@ test('INMET panel review is read only on actual conflict; only Blaise winning fi
   measuredAt:'2026-11-22T14:54:00.000Z',
   providerPublishedAt:null
  };
+ inmetReview.conflictFingerprint=fingerprintRjInmetDispute([
+  (await cfg.readSharedSourceCache())[0],weatherApi
+ ]);
  const worker=createAgent13ReadOnlyMinuteWorker({
   ...cfg,
   readSharedSourceCache:async()=>[...(await cfg.readSharedSourceCache()),weatherApi],
