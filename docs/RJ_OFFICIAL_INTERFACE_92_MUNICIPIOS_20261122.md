@@ -8,7 +8,7 @@
 
 | Componente | Código nesta branch | Limitações verificadas |
 |---|---|---|
-| Municípios | Lista IBGE 92 e escolha da Cidade 1/2 já existente; mapa central agora acompanha a Cidade 1, contorno dourado no polígono IBGE selecionado | Não comprova 92 medições atuais; regiões geográficas no seletor ainda não possuem recorte/homologação de geometrias |
+| Municípios | Lista IBGE 92 e escolha da Cidade 1/2 já existente; mapa acompanha Cidade 1, contorno dourado no município selecionado; regiões imediatas são obtidas do endpoint oficial IBGE de localidades e seus municípios são destacados em azul-petróleo | Não comprova 92 medições atuais nem radar regional; se o endpoint IBGE falhar, seletor regional permanece indisponível em vez de inventar vínculos |
 | Camadas do mapa | Radar; temperatura e sensação; chuva e acumulado; tempestades; ondas de calor; qualidade do ar; ventos/ciclones | Radar não possui pixels/fonte licenciados homologados; nunca pintar chuva fictícia. Dados de temperatura/vento/previsão somente de snapshots assinados válidos, quando disponíveis |
 | Gráficos | Abas temperatura, sensação térmica, chuva e acumulado da cidade escolhida; exibe dado pontual com origem quando existe | Não inventa série histórica, curva de 24h ou acumulado observado; todos indisponíveis sem dados reais |
 | Intervalo dos dados | Trava geral projetada para 30 min; Visual Crossing E verificado até 30 min, MET Norway ECMWF P usa validação de emissão/checagem existente | Dados modelados P não são observação O nem radar. Revalidação do lado do servidor e cobertura 92/92 não homologadas |
@@ -38,7 +38,7 @@
 ### Pendências reais para publicar meteorologia completa em até 30 min
 
 - Dados atuais/licenciados de radar, pluviômetros/chuva acumulada, ventos/rajadas, ondas de calor, IQAr e ciclones no Rio e costa oceânica;
-- Grade/mapas com regiões oficiais e renderização de camadas raster vetoriais georreferenciadas aprovadas;
+- Recorte/zoom por região IBGE, legendas raster e mapas meteorológicos georreferenciados licenciados (já é possível destacar municípios membros de uma região imediata com fonte IBGE, mas **não** renderizar radar vivo);
 - Fonte/horário do último ciclo por cada município (92/92), controle da latência, confiança e contingência de indisponibilidade;
 - Homologação científica do recálculo 20 s (níveis 4 e 5), especialmente mar/ciclones, e autorização de alertas de segurança críticos;
 - Revisão contratual/credenciais de cada fornecedor, estabilidade Cloud Run, integração ADM e canário separado com rollback;
