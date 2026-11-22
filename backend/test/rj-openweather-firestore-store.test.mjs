@@ -65,22 +65,22 @@ test('shared cache saves only normalized source data and expires without paid ma
   clock+=60_001;
   assert.equal(await store.cache.get(KEY),null);
 });
-test('transaction quota is reserved exactly 900 times then refuses 901st even across processes',async()=>{
+test('transaction quota permits only one daily call even across instances',async()=>{
   const db=fakeDb();
   const a=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   const b=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
-  const params={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900};
-  const results=await Promise.all(Array.from({length:910},(_,i)=>
+  const params={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:1};
+  const results=await Promise.all(Array.from({length:10},(_,i)=>
     (i%2?a:b).budget.tryReserve(params)));
-  assert.equal(results.filter(Boolean).length,900);
-  assert.equal(results.filter(x=>x===false).length,10);
-  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,900);
+  assert.equal(results.filter(Boolean).length,1);
+  assert.equal(results.filter(x=>x===false).length,9);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,1);
 });
 test('provider, date, key, and malformed cache cannot bypass validation',async()=>{
   const store=createRjOpenWeatherFirestoreStore({db:fakeDb(),clock:()=>NOW});
   for(const params of [
-    {provider:'RAINVIEWER',utcDay:DATE,maximum:900},
-    {provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:'2026-02-31',maximum:900},
+    {provider:'RAINVIEWER',utcDay:DATE,maximum:1},
+    {provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:'2026-02-31',maximum:1},
     {provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:901},
     {provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:0}
   ])await assert.rejects(store.budget.tryReserve(params),/invalid_quota_reservation/);
@@ -94,7 +94,7 @@ test('Firestore failure fails closed and cannot authorize an OpenWeather request
   db.runTransaction=async()=>{throw Error('permission denied');};
   const store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   await assert.rejects(store.budget.tryReserve({
-    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900
+    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:1
   }));
 });
 
@@ -103,7 +103,7 @@ test('35-minute city cooldown is atomic across Cloud Run replicas and shared for
   const a=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   const b=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   const params={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,
-    maximum:900,ibge:'3304557',nowMs:NOW};
+    maximum:1,ibge:'3304557',nowMs:NOW};
   const attempts=await Promise.all(Array.from({length:30},(_,i)=>
     (i%2?a:b).budget.tryReserveMunicipalFallback(params)));
   assert.equal(attempts.filter(Boolean).length,1);
@@ -114,14 +114,14 @@ test('35-minute city cooldown is atomic across Cloud Run replicas and shared for
   }),false);
   assert.equal(await a.budget.tryReserveMunicipalFallback({
     ...params,nowMs:NOW+35*60_000
-  }),true);
-  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,2);
+  }),false);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,1);
 });
 test('35-minute city cooldown cannot be bypassed across midnight or via another city',async()=>{
   const db=fakeDb();
   const store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   const prev=Date.parse('2026-11-13T23:50:00Z');
-  const base={provider:RJ_OPENWEATHER_SOURCE_ID,maximum:900,ibge:'3304557'};
+  const base={provider:RJ_OPENWEATHER_SOURCE_ID,maximum:1,ibge:'3304557'};
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...base,utcDay:'2026-11-13',nowMs:prev
   }),true);
@@ -130,26 +130,26 @@ test('35-minute city cooldown cannot be bypassed across midnight or via another 
   }),false);
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...base,ibge:'3303302',utcDay:'2026-11-14',nowMs:prev+20*60_000
-  }),true);
+  }),false);
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...base,utcDay:'2026-11-14',nowMs:prev+35*60_000
-  }),true);
+  }),false);
 });
-test('municipal fallback and regular reservations share one global 900/day maximum',async()=>{
+test('municipal fallback and regular reservations share one global 1/day maximum',async()=>{
   const db=fakeDb(),store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
   db.data.set(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE,{
-    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,count:899,maximum:900
+    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,count:0,maximum:1
   });
-  const param={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900,
+  const param={provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:1,
     ibge:'3304557',nowMs:NOW};
   assert.equal(await store.budget.tryReserveMunicipalFallback(param),true);
   assert.equal(await store.budget.tryReserve({
-    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900
+    provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:1
   }),false);
   assert.equal(await store.budget.tryReserveMunicipalFallback({
     ...param,ibge:'3303302'
   }),false);
-  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,900);
+  assert.equal(db.data.get(RJ_AGENT13_QUOTA_COLLECTION+'/'+DATE).count,1);
 });
 test('malformed municipal fallback cannot spend quota',async()=>{
   const db=fakeDb(),store=createRjOpenWeatherFirestoreStore({db,clock:()=>NOW});
@@ -158,7 +158,7 @@ test('malformed municipal fallback cannot spend quota',async()=>{
     {ibge:'3304557',maximum:901}, {ibge:'3304557',provider:'OTHER'}
   ]){
     await assert.rejects(store.budget.tryReserveMunicipalFallback({
-      provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:900,
+      provider:RJ_OPENWEATHER_SOURCE_ID,utcDay:DATE,maximum:1,
       ibge:'3304557',nowMs:NOW,...input
     }),/invalid_municipal_reservation/);
   }
