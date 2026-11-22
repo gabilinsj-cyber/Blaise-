@@ -129,10 +129,6 @@ fun RjMunicipalMap(
     val riskByCode = remember(snapshot) {
         snapshot?.municipalities?.associateBy { it.ibge }.orEmpty()
     }
-    val warnings = remember(snapshot) {
-        snapshot?.warnings?.filter { it.current(java.time.Instant.now()) }
-            ?.flatMap { it.municipalityIbges }?.toSet().orEmpty()
-    }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         val geometry = boundary
         if (geometry == null) {
@@ -159,16 +155,16 @@ fun RjMunicipalMap(
                 )
                 geometry.shapes.forEach { shape ->
                     val risk = shape.ibge?.let(riskByCode::get)?.risk
+                    // Level 4/5 and unclassified warning overlays require a
+                    // separately verified 20-second scientific decision.
+                    // Existing municipal risk snapshots do not carry that proof.
                     val fill = when {
                         risk?.current(java.time.Instant.now()) == true -> when (risk.level) {
                             1 -> Color(0xFF236C4F)
                             2 -> Color(0xFF8B7C2E)
                             3 -> Color(0xFF9C612E)
-                            4 -> Color(0xFF9F3B3F)
-                            5 -> Color(0xFF923C75)
-                            else -> Color(0xFF184C73)
+                            else -> Color(0xFF16416B)
                         }
-                        shape.ibge in warnings -> Color(0xFF874847)
                         else -> Color(0xFF16416B)
                     }
                     shape.rings.forEach { ring ->
