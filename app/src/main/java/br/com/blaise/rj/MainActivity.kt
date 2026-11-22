@@ -861,6 +861,7 @@ private fun ExpandedRadarPanel(
         ?.takeIf { it.current(clock) }
     val vc = LocalVisualCrossing.current[city.ibgeCode]
     val currentEstimate = vc?.takeIf { it.current(clock) }
+    val wa = LocalWeatherApi.current[city.ibgeCode]?.takeIf { it.current(clock) }
     val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(clock) }
     // A forecast checked six hours ago is not a 30-minute update.
     val nextHour = vc?.takeIf {
@@ -941,10 +942,14 @@ private fun ExpandedRadarPanel(
                 StatusLine("Natureza", approvedThermal?.let { if(it.nature=="P")
                     "Previsão DWD/ICON • não é termômetro" else "Estimativa de provedor • não é estação" }
                     ?: "Indisponível")
-                StatusLine("Céu (HG Brasil após contratação)", approvedThermal?.skyCondition ?: "Indisponível")
+                StatusLine("Condição do céu • estimativa",
+                    approvedThermal?.skyCondition ?: wa?.skyCondition ?: "Indisponível")
+                StatusLine("Nebulosidade • WeatherAPI", metric(wa?.cloudPct,"%"))
+                StatusLine("Umidade • WeatherAPI", metric(wa?.humidityPct,"%"))
             }
             "Chuva e Acumulado" -> {
                 StatusLine("Chuva observada e acumulado", "Indisponível sem sensor homologado")
+                StatusLine("Chuva atual estimada • WeatherAPI", metric(wa?.precipitationMm,"mm"))
                 StatusLine("Chuva prevista • próxima hora",
                     metric(nextHour?.forecastPrecipitationMm ?: forecast?.precipitationNextHourMm,"mm"))
                 StatusLine("Probabilidade de chuva • próxima hora",
@@ -967,9 +972,9 @@ private fun ExpandedRadarPanel(
                 StatusLine("Índice IQAr", "Indisponível sem fonte de ar validada")
             "Ventos / Ciclone" -> {
                 StatusLine("Vento estimado / previsto",
-                    metric(currentEstimate?.windKmh ?: forecast?.windKmh,"km/h"))
+                    metric(wa?.windKmh ?: currentEstimate?.windKmh ?: forecast?.windKmh,"km/h"))
                 StatusLine("Rajada estimada / prevista",
-                    metric(currentEstimate?.gustKmh ?: forecast?.gustKmh,"km/h"))
+                    metric(wa?.gustKmh ?: currentEstimate?.gustKmh ?: forecast?.gustKmh,"km/h"))
                 StatusLine("Trajetória de ciclones RJ / Atlântico",
                     "Indisponível sem rastreamento atual homologado")
             }
@@ -979,6 +984,7 @@ private fun ExpandedRadarPanel(
                 "Sem feed homologado para esta camada"
             approvedThermal != null && activeLayer in listOf("Temp. e Térmica","Ondas de Calor") ->
                 "${approvedThermal.sourceLabel} • ${approvedThermal.nature} • ${time(approvedThermal.validAt)}"
+            wa != null -> "WeatherAPI.com • estimativa • medição ${time(wa.validAt)}"
             currentEstimate != null -> "Visual Crossing • estimativa • ${time(currentEstimate.checkedAt)}"
             forecast != null -> "MET Norway / ECMWF IFS • previsão • ${time(forecast.checkedAt)}"
             else -> "Nenhuma medição recente verificada para esta camada"
@@ -1044,6 +1050,7 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     val now = LocalObservationClock.current
     val model = LocalInternationalForecasts.current[city.ibgeCode]?.takeIf { it.current(now) }
     val estimated = LocalVisualCrossing.current[city.ibgeCode]?.takeIf { it.current(now) }
+    val weatherApi = LocalWeatherApi.current[city.ibgeCode]?.takeIf { it.current(now) }
     val approvedThermal = LocalApprovedThermal.current[city.ibgeCode]?.takeIf { it.valid(now) }
     val nextHour = LocalVisualCrossing.current[city.ibgeCode]?.takeIf {
         it.nextForecast(now) &&
@@ -1054,7 +1061,8 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
     val reading:Double? = when(selected) {
         "Temperatura" -> approvedThermal?.temperatureC
         "Sensação térmica" -> approvedThermal?.feelsLikeC
-        "Chuva" -> nextHour?.forecastPrecipitationMm ?: model?.precipitationNextHourMm
+        "Chuva" -> weatherApi?.precipitationMm ?: nextHour?.forecastPrecipitationMm
+            ?: model?.precipitationNextHourMm
         else -> null // No observed multi-period accumulation has been licensed.
     }
     val unit = if(selected == "Chuva" || selected == "Acumulado") "mm" else "°C"
@@ -1105,6 +1113,8 @@ private fun DailyChartPanel(city: City, modifier: Modifier = Modifier) {
             selected=="Temperatura" && approvedThermal?.temperatureSourceLabel!=null ->
                 "${approvedThermal.temperatureSourceLabel} • ${approvedThermal.nature} • ${approvedThermal.temperatureValidAt}"
             selected=="Temperatura" || selected=="Sensação térmica" -> "Fonte térmica autorizada indisponível"
+            selected=="Chuva" && weatherApi!=null && weatherApi.precipitationMm!=null ->
+                "WeatherAPI.com • estimativa atual E • ${weatherApi.validAt} • não é acumulado"
             estimated!=null -> "Visual Crossing • estimativa verificada ${estimated.checkedAt}"
             model!=null -> "MET Norway/ECMWF • previsão verificada ${model.checkedAt}"
             else -> "Sem fonte com validade recente"
