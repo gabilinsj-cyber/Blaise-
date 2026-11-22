@@ -806,28 +806,79 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
+private fun ExpandedRadarPanel(
+    modifier: Modifier = Modifier,
+    city: City,
+    onChooseMunicipality: () -> Unit,
+) {
     val clock = LocalObservationClock.current
     val snapshot = (LocalStatewideDashboard.current as? StatewideDataResult.Available)
         ?.snapshot?.takeIf { it.current(clock) }
-    val layers = listOf("Radar", "Chuva", "Temperatura", "Vento", "Nuvens")
     var activeLayer by remember { mutableStateOf("Radar") }
+    var selectedRegion by remember { mutableStateOf("Estado inteiro") }
+    var showRegions by remember { mutableStateOf(false) }
+    val regionNames = listOf("Estado inteiro", "Região Metropolitana", "Região Serrana",
+        "Costa Verde", "Médio Paraíba", "Centro-Sul Fluminense",
+        "Baixadas Litorâneas", "Norte Fluminense", "Noroeste Fluminense",
+        "Oceano Atlântico")
+    if (showRegions) AlertDialog(
+        onDismissRequest = { showRegions = false },
+        title = { Text("Selecionar região") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(regionNames) { name ->
+                    TextButton(onClick = { selectedRegion = name; showRegions = false },
+                        modifier = Modifier.fillMaxWidth()) { Text(name) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showRegions = false }) { Text("Fechar") } },
+    )
+    val forecast = LocalInternationalForecasts.current[city.ibgeCode]
+        ?.takeIf { it.current(clock) }
+    val vc = LocalVisualCrossing.current[city.ibgeCode]
+    val currentEstimate = vc?.takeIf { it.current(clock) }
+    // A forecast checked six hours ago is not a 30-minute update.
+    val nextHour = vc?.takeIf {
+        it.nextForecast(clock) &&
+            java.time.Duration.between(it.checkedAt, clock).seconds in 0L..1800L
+    }
+    fun metric(value: Double?, unit: String): String =
+        value?.takeIf { it.isFinite() }?.let {
+            String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f %s", it, unit)
+        } ?: "Indisponível"
+    fun time(instant: java.time.Instant): String =
+        java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")
+            .withZone(java.time.ZoneId.of("America/Sao_Paulo")).format(instant)
     DashboardSection(
         title = "ESTADO DO RIO DE JANEIRO • 92 MUNICÍPIOS",
-        subtitle = "Mapa próprio com limites IBGE • dados meteorológicos por fonte e validade",
+        subtitle = "Mapa próprio IBGE • RJ e Atlântico • camadas sem dados falsos",
         modifier = modifier,
     ) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedButton(onClick = onChooseMunicipality,
+                modifier = Modifier.testTag("map-select-municipality")) {
+                Text("Município: ${city.name} ▾")
+            }
+            OutlinedButton(onClick = { showRegions = true },
+                modifier = Modifier.testTag("map-select-region")) {
+                Text("Região: $selectedRegion ▾")
+            }
+        }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            layers.forEach { layer ->
+            FinalDashboardSpec.weatherLayers.forEach { layer ->
                 Surface(
-                    modifier = Modifier.clickable { activeLayer = layer }.padding(end = 3.dp),
+                    modifier = Modifier.clickable { activeLayer = layer }
+                        .padding(end = 3.dp).testTag("weather-layer-$layer"),
                     color = if (layer == activeLayer) Color(0xFF1260B5) else NavyRaised,
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Divider),
                 ) {
                     Text(layer, color = Color.White,
-                        fontWeight = if (layer == activeLayer) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (layer == activeLayer) FontWeight.Bold
+                            else FontWeight.Normal,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp))
                 }
             }
@@ -838,57 +889,70 @@ private fun ExpandedRadarPanel(modifier: Modifier = Modifier) {
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, Divider),
         ) {
-            RjMunicipalMap(snapshot, Modifier.fillMaxSize())
+            RjMunicipalMap(snapshot, Modifier.fillMaxSize(), selectedIbgeCode = city.ibgeCode)
         }
-        val activeObservations = LocalCityWeather.current.values.mapNotNull { it.currentObservation(clock) }
-        val activeForecasts = LocalInternationalForecasts.current.values
-            .filter { it.current(clock) }.sortedBy { it.ibge }
-        fun forecastCity(code: Int): String =
-            RioMunicipalities.byIbgeCode(code)?.name ?: "Município não identificado"
-        fun modelMetric(value: Double?, unit: String): String =
-            value?.let { String.format(java.util.Locale("pt", "BR"), "%.1f %s", it, unit) }
-                ?: "Indisponível"
-        fun provenance(row: DashboardInternationalForecast): String {
-            val at = row.validAt.atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
-            return " • previsão ECMWF/IFS $at"
-        }
-        when (activeLayer) {
-            "Radar" -> Text("Radar real: sem frames homologados nesta consulta. Malha geográfica não representa precipitação.",
-                color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-            "Chuva" -> {
-                Text("Chuva observada acumulada: indisponível sem medição autorizada.",
-                    color = WarningAmber, style = MaterialTheme.typography.labelSmall)
-                activeForecasts.forEach { row ->
-                    StatusLine(forecastCity(row.ibge),
-                        "Próxima hora: " + modelMetric(row.precipitationNextHourMm, "mm") +
-                            " • prob. " + modelMetric(row.precipitationProbabilityNextHourPct, "%") +
-                            provenance(row))
-                }
-            }
-            "Temperatura" -> {
-                activeObservations.take(3).forEach { obs ->
-                    StatusLine(obs.station, modelMetric(obs.temperatureC, "°C") + " • observação verificada")
-                }
-                activeForecasts.forEach { row ->
-                    StatusLine(forecastCity(row.ibge),
-                        modelMetric(row.temperatureC, "°C") + provenance(row))
-                }
-            }
-            "Vento" -> activeForecasts.forEach { row ->
-                StatusLine(forecastCity(row.ibge), modelMetric(row.windKmh, "km/h") + provenance(row))
-            }
-            "Nuvens" -> activeForecasts.forEach { row ->
-                StatusLine(forecastCity(row.ibge), modelMetric(row.cloudPct, "%") + provenance(row))
-            }
-        }
-        if(activeForecasts.isEmpty() && activeObservations.isEmpty())
-            Text("Camada meteorológica indisponível • nenhuma observação ou previsão internacional válida nesta consulta.",
+        if (selectedRegion != "Estado inteiro")
+            Text("Região selecionada: $selectedRegion • o mapa conserva a malha estadual " +
+                "até existir recorte regional geográfico auditado.",
                 color = Muted, style = MaterialTheme.typography.labelSmall)
-        Text("Valores indicados são pontos municipais, NÃO uma superfície contínua estimada nem radar ao vivo.",
-            color = Muted, style = MaterialTheme.typography.labelSmall)
-        Text("Geografia: IBGE • contornos oficiais • ampliar com dois dedos • Sem mapa de terceiros.",
+        Text("Camada: $activeLayer • município: ${city.name} • " +
+            "dados de até 30 min quando disponíveis; caso contrário, indisponível.",
             color = Gold, style = MaterialTheme.typography.labelSmall)
+        when (activeLayer) {
+            "Radar" -> {
+                StatusLine("Radar", "Sem imagens homologadas recentes para o RJ e Atlântico")
+                Text("Contornos municipais IBGE não são pixels de precipitação.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+            "Temp. e Térmica" -> {
+                StatusLine("Temperatura • estimativa Visual Crossing",
+                    metric(currentEstimate?.temperatureC,"°C"))
+                StatusLine("Sensação térmica • estimativa",
+                    metric(currentEstimate?.feelsLikeC ?: forecast?.feelsLikeC,"°C"))
+                StatusLine("Temperatura • previsão ECMWF/IFS",
+                    metric(forecast?.temperatureC,"°C"))
+            }
+            "Chuva e Acumulado" -> {
+                StatusLine("Chuva observada e acumulado", "Indisponível sem sensor homologado")
+                StatusLine("Chuva prevista • próxima hora",
+                    metric(nextHour?.forecastPrecipitationMm ?: forecast?.precipitationNextHourMm,"mm"))
+                StatusLine("Probabilidade de chuva • próxima hora",
+                    metric(nextHour?.forecastPrecipitationProbabilityPct ?:
+                        forecast?.precipitationProbabilityNextHourPct,"%"))
+            }
+            "Tempestades" -> {
+                StatusLine("Tempestades em terra e mar",
+                    "Indisponível sem radar/raios e dados georreferenciados atuais")
+                Text("Modelos de chuva não comprovam tempestades em ocorrência.",
+                    color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+            "Ondas de Calor" -> {
+                StatusLine("Temperatura de referência",
+                    metric(currentEstimate?.temperatureC ?: forecast?.temperatureC,"°C"))
+                StatusLine("Risco de onda de calor",
+                    "Sem classificação até análise de série e fonte válida")
+            }
+            "Qualidade do Ar" ->
+                StatusLine("Índice IQAr", "Indisponível sem fonte de ar validada")
+            "Ventos / Ciclone" -> {
+                StatusLine("Vento estimado / previsto",
+                    metric(currentEstimate?.windKmh ?: forecast?.windKmh,"km/h"))
+                StatusLine("Rajada estimada / prevista",
+                    metric(currentEstimate?.gustKmh ?: forecast?.gustKmh,"km/h"))
+                StatusLine("Trajetória de ciclones RJ / Atlântico",
+                    "Indisponível sem rastreamento atual homologado")
+            }
+        }
+        val sourceLine = when {
+            currentEstimate != null -> "Visual Crossing • estimativa • ${time(currentEstimate.checkedAt)}"
+            forecast != null -> "MET Norway / ECMWF IFS • previsão • ${time(forecast.checkedAt)}"
+            else -> "Nenhuma medição recente verificada para esta camada"
+        }
+        Text("Fonte/última checagem (Brasília): $sourceLine",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
+        Text("Atualização máxima pretendida: 30 min • sem credencial meteorológica no Android • " +
+            "mapa sem dados de trânsito, CET-Rio ou fontes excluídas.",
+            color = Muted, style = MaterialTheme.typography.labelSmall)
     }
 }
 
