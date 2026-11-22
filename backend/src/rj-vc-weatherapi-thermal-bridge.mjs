@@ -43,7 +43,7 @@ export function projectRjTwoFreeThermalSources({
     now-time(weatherApi.validAt)>=0&&
     now-time(weatherApi.validAt)<=35*60_000&&
     now-time(weatherApi.checkedAt)>=0&&
-    now-time(weatherApi.checkedAt)<=12*60_000){
+    now-time(weatherApi.checkedAt)<=35*60_000){
   const row=base(weatherApi.ibge,'WEATHERAPI_FREE',
    weatherApi.validAt,weatherApi.checkedAt);
   row.temperatureC=finite(weatherApi.temperatureC);
