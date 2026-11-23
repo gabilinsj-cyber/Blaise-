@@ -7,9 +7,9 @@
  * Operator must rotate any key disclosed in conversation before configuring.
  *
  * Safety gates: explicit subscription, shared cache, SHARED ATOMIC UTC-day
- * quota reservation, 900/day internal budget, 60-second cache and no automatic polling.
- * 900 is reserved solely for this integration; 1,000/day is the published
- * free One Call allowance, but other account usage can still incur charges.
+ * quota reservation, ONE call per UTC day globally, 60-second cache and no automatic polling.
+ * Operator-verified Free-plan allowance for Blaise: ONE global provider call
+ * per UTC day. Do not infer any larger allowance from historical quotas.
  *
  * Provider "current" is a modeled/current weather estimate, never an INMET
  * station observation, true radar frame or Brazilian official alert.
@@ -20,7 +20,7 @@ import {fetchJsonContract} from './source-contract.mjs';
 export const RJ_OPENWEATHER_ONECALL4_CONTRACT='BLAISE_RJ_OPENWEATHER_CURRENT_4_V1';
 export const RJ_OPENWEATHER_HOST='api.openweathermap.org';
 export const RJ_OPENWEATHER_SOURCE_ID='OPENWEATHER_ONECALL4_CURRENT';
-export const RJ_OPENWEATHER_DAILY_INTERNAL_MAX=900;
+export const RJ_OPENWEATHER_DAILY_INTERNAL_MAX=1;
 export const RJ_OPENWEATHER_CACHE_MS=60_000;
 export const RJ_OPENWEATHER_MAX_CURRENT_AGE_MS=12*60_000;
 const RJ_CODES=new Set(RJ_MUNICIPALITIES.map(c=>String(c.ibge)));

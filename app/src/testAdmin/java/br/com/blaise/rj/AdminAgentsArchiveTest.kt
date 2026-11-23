@@ -18,7 +18,8 @@ class AdminAgentsArchiveTest {
 
     @Test fun newestRolesStayConditionalAndExcludeDomesticPublicReadings() {
         val list = AdminRjAgentsArchive.entries
-        assertTrue(list.single { it.number == 13 }.responsibility.contains("quota"))
+        assertTrue(list.single { it.number == 13 }.responsibility.contains("1 chamada global/dia"))
+        assertTrue(list.single { it.number == 13 }.responsibility.contains("INMET é desempate privado"))
         assertTrue(list.single { it.number == 14 }.responsibility.contains("INMET só como comparação interna"))
         assertTrue(list.single { it.number == 12 }.responsibility.contains("92 municípios"))
         assertFalse(list.any { it.autonomouslyRunningVerified })

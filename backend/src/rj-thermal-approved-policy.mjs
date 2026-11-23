@@ -7,6 +7,12 @@
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 const CODES=new Set(RJ_MUNICIPALITIES.map(x=>x.ibge));
 export const RJ_THERMAL_POLICY_V2='RJ_THERMAL_HG_OWM_DWD_ONLY_V2';
+// Legacy V2 source selector remains frozen for historical HG/OWM/DWD tests.
+// Additional operator-approved Free sources are staged in the separate
+// verified-cache bridge; never bypass its explicit redistribution gates.
+export const RJ_THERMAL_STAGED_FREE_CACHE_SOURCES=Object.freeze([
+  'VISUAL_CROSSING_FREE','WEATHERAPI_FREE'
+]);
 export const RJ_THERMAL_PRIORITY=Object.freeze([
   'HG_BRASIL_WEATHER_PRO','OPENWEATHER_ONECALL4_CURRENT','DWD_ICON_GLOBAL'
 ]);

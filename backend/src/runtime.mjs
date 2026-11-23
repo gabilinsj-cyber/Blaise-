@@ -6,6 +6,8 @@ import { initializeOptionalMeteoblueFreeRuntime } from './rj-meteoblue-runtime-o
 import {createRjMeteoblueFreeFirestoreStore} from './rj-meteoblue-free-firestore-store.mjs';
 import {createRjMeteorologicalMemoryReader} from './rj-meteorological-memory-live.mjs';
 import {createRjVisualCrossingPrivateCache} from './rj-visual-crossing-free-cache.mjs';
+import {initializeRjWeatherApiFreeStaging}
+ from './rj-weatherapi-free-staging-wiring.mjs';
 import { createPaidAgent13HttpHandler } from './rj-agent13-paid-http.mjs';
 import { createScientificHttpHandler } from './blaise-scientific-http.mjs';
 import { createScientificStore } from './blaise-scientific-store.mjs';
@@ -196,6 +198,18 @@ async function main() {
     }
   });
   console.log('blaise_meteoblue_runtime:'+meteoblueRuntime.state);
+  // WeatherAPI V2 code-only QA wiring. Cloud Run services always stay
+  // DISABLED by identity guard, even if QA flags were set accidentally.
+  // Does NOT read Secret Manager, poll provider, reserve credits or release
+  // cached data to subscribers. Isolated QA requires separate authorization.
+  const weatherApiStaging=await initializeRjWeatherApiFreeStaging({
+    env:process.env,
+    createDatabase:async({projectId})=>{
+      const {Firestore}=await import('@google-cloud/firestore');
+      return new Firestore({projectId,databaseId:'(default)'});
+    }
+  });
+  console.log('blaise_weatherapi_staging:'+weatherApiStaging.state);
 
   const readInternationalForecasts=metNorwayRuntime.configured===true
     ?async(requestedCodes=['3304557','3303302'])=>{
@@ -288,6 +302,11 @@ async function main() {
     readVisualCrossingPrivateCache,
     visualCrossingSubscriberReleaseApproved:vcSubscriberReleaseApproved &&
       readVisualCrossingPrivateCache!==null,
+    // Intentional locked connection into the existing interface contract.
+    // A different, separately approved change is required to release E data.
+    readWeatherApiPrivateCache:weatherApiStaging.readPrivateCache,
+    weatherApiSubscriberReleaseApproved:false,
+    weatherApiThermalRedistributionApproved:false,
   });
   // Read-only ADMIN memory: opt-in and independent from the meteoblue
   // collector. No weather-provider API calls, no client endpoints, no polling.

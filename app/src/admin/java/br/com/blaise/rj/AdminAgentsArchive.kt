@@ -61,9 +61,13 @@ object AdminRjAgentsArchive {
         AdminRjAgentArchiveEntry(12, "GeoFusion RJ",
             "Correspondência dos 92 municípios IBGE, estações, geometria e mapa próprio.",
             "Função planejada; validação geográfica depende de dados auditáveis."),
-        AdminRjAgentArchiveEntry(13, "OpenWeather / Contingência Térmica",
-            "Temperatura e sensação estimadas apenas quando elegíveis, sob cache e quota.",
-            "Código condicional presente, mas execução real e licença não homologadas."),
+        AdminRjAgentArchiveEntry(13, "Supervisor de Atualidade / OpenWeather",
+            "Auditoria de novos dados a cada 60 s no cache central, por campo e município; " +
+                "horários reais de medição, publicação na fonte e recebimento. " +
+                "Em conflito comprovado, INMET é desempate privado por estação e horário " +
+                "comparáveis: exibir somente dados da fonte Blaise mais próxima. " +
+                "OpenWeather: até 1 chamada global/dia, só contingência.",
+            "Supervisor privado e testes preparados, sem scheduler nem publicação ativos."),
         AdminRjAgentArchiveEntry(14, "Auditor Meteorológico Internacional RJ",
             "Auditoria independente de produtos internacionais; INMET só como comparação interna.",
             "Registro histórico posterior; executor autônomo não comprovado."),

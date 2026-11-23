@@ -5,6 +5,7 @@
  * P=forecast. Display actual values only after independent provenance checks.
  */
 import {RJ_HG_BRASIL_PRO_PLAN} from './rj-hgbrasil-pro-plan.mjs';
+import {RJ_CLIMATEMPO_RADAR_PLAN} from './rj-climatempo-radar-readiness.mjs';
 const product=(sourceId,kind,productId,family,role)=>Object.freeze({
   sourceId,kind,productId,family,role,
   liveIngestionConfirmed:false,validatedRjCoverage:false,
@@ -20,28 +21,37 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('AIR_TEMPERATURE','Temperatura do ar a 2 m',[
     E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CONDITIONS','HG_BRASIL_AGGREGATED','condições agregadas HG; exibição autorizada, contratação adiada'),
     E('OPENWEATHER_ONECALL4_CURRENT','CURRENT_TEMPERATURE','OPENWEATHER_AGGREGATED','estimativa atual; só com licença, Secret Manager e quota'),
-    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','previsão alemã de 2 m; não termômetro observado')
+    P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','previsão alemã de 2 m; não termômetro observado'),
+    E('VISUAL_CROSSING_FREE','CURRENT_ESTIMATED_TEMPERATURE','VISUAL_CROSSING_AGGREGATED','nova fonte aprovada para desenvolvimento; cache e licença condicionais, não estação'),
+    E('WEATHERAPI_FREE','CURRENT_ESTIMATED_TEMPERATURE','WEATHERAPI_AGGREGATED','nova fonte aprovada para desenvolvimento; ainda sem segredo validado')
   ],'NOAA, ECMWF/MET Norway e Climatempo estão excluídas de temperatura. Comparar com referência oficial apenas internamente, sem importar dados oficiais.'),
   sector('THERMAL_SENSATION','Sensação térmica',[
     E('OPENWEATHER_ONECALL4_CURRENT','CURRENT_FEELS_LIKE','OPENWEATHER_AGGREGATED','estimativa de sensação térmica atual do provedor'),
-    E('BLAISE_VECTOR_RJ','THERMAL_FORMULAE','CALCULATED_FROM_AUDITED_INPUTS','cálculo com entradas HG ou DWD homologadas, quando domínio físico permitir')
+    E('BLAISE_VECTOR_RJ','THERMAL_FORMULAE','CALCULATED_FROM_AUDITED_INPUTS','cálculo com entradas HG ou DWD homologadas, quando domínio físico permitir'),
+    E('VISUAL_CROSSING_FREE','CURRENT_FEELS_LIKE','VISUAL_CROSSING_AGGREGATED','sensação atual estimada; somente fonte válida licenciada'),
+    E('WEATHERAPI_FREE','CURRENT_FEELS_LIKE','WEATHERAPI_AGGREGATED','sensação atual estimada; não observação direta')
   ],'HG não fornece sensação térmica direta comprovada. Sem entradas válidas e fórmula aplicada, exibir indisponível. NOAA/Climatempo/ECMWF excluídos.'),
   sector('AIR_PRESSURE_HUMIDITY','Umidade e pressão',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
-    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_HUMIDITY','HG_BRASIL_AGGREGATED','umidade agregada candidata, licença de exibição aprovada; não higrômetro homologado')
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_HUMIDITY','HG_BRASIL_AGGREGATED','umidade agregada candidata, licença de exibição aprovada; não higrômetro homologado'),
+    E('VISUAL_CROSSING_FREE','CURRENT_ESTIMATED_HUMIDITY_PRESSURE','VISUAL_CROSSING_AGGREGATED','condições atuais apenas com cache auditado'),
+    E('WEATHERAPI_FREE','CURRENT_ESTIMATED_HUMIDITY_PRESSURE','WEATHERAPI_AGGREGATED','condições atuais apenas com cache auditado')
   ],'Mesmo ponto, nível atmosférico, unidade e horário de validade.'),
   sector('WIND_GUST','Vento sustentado e rajadas',[
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','comparação'),
-    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_WIND','HG_BRASIL_AGGREGATED','vento/rajadas atuais agregados candidatos, não anemômetro; sem coleta ativa')
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_WIND','HG_BRASIL_AGGREGATED','vento/rajadas atuais agregados candidatos, não anemômetro; sem coleta ativa'),
+    E('VISUAL_CROSSING_FREE','CURRENT_ESTIMATED_WIND','VISUAL_CROSSING_AGGREGATED','vento e rajadas quando existentes, não anemômetro'),
+    E('WEATHERAPI_FREE','CURRENT_ESTIMATED_WIND','WEATHERAPI_AGGREGATED','vento e rajadas estimados, somente timestamp real')
   ],'Previsão de rajadas não é anemômetro medindo vento.'),
   sector('RAIN_NEXT_HOUR','Chuva prevista na próxima hora',[
     P('ECMWF_IFS','IFS_GLOBAL_VIA_MET_NO','ECMWF_IFS','principal'),
     P('NOAA_GFS','GFS_ATMOS','NOAA_GFS','comparação'),
     P('DWD_ICON_GLOBAL','ICON_GLOBAL','DWD_ICON','comparação'),
+    P('VISUAL_CROSSING_FREE','NEXT_HOUR_PRECIPITATION','VISUAL_CROSSING_AGGREGATED','previsão P, nunca pluviômetro em ocorrência')
   ],'Chuva futura prevista não substitui chuva observada agora.'),
   // This is NOT the NEMS10 raw product: basic-6h uses meteoblue mLM
   // post-processing and is never treated as a fourth independent model.
@@ -57,7 +67,8 @@ export const RJ_SOURCE_SECTOR_MATRIX=Object.freeze([
   sector('CLOUDS','Nuvens e sistemas convectivos',[
     O('NOAA_GOES','GOES_EAST_ABI','GOES_EAST','imagens satelitais'),
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','nebulosidade prevista'),
-    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CLOUDINESS','HG_BRASIL_AGGREGATED','nebulosidade atual agregada candidata, não sensor verificado; exibição comercial autorizada')
+    E('HG_BRASIL_WEATHER_PRO','CURRENT_CITY_CLOUDINESS','HG_BRASIL_AGGREGATED','nebulosidade atual agregada candidata, não sensor verificado; exibição comercial autorizada'),
+    E('WEATHERAPI_FREE','CURRENT_CITY_CLOUDINESS','WEATHERAPI_AGGREGATED','nebulosidade atual estimada e código de condição do tempo')
   ],'Imagem de nuvem observada não prova granizo ou tornado na superfície.'),
   sector('CYCLONE_LAND','Frentes e ciclones com possível impacto terrestre',[
     P('ECMWF_IFS','IFS_GLOBAL','ECMWF_IFS','principal'),
@@ -93,7 +104,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   domesticComparisonOnly:Object.freeze(['INMET','CEMADEN']),
   thermalOfficialVisualReviewOnly:Object.freeze(['INMET','DEFESA_CIVIL_RJ']),
   thermalOfficialAutoFetchEnabled:false,
-  thermalApprovedDisplaySources:Object.freeze(['HG_BRASIL_WEATHER_PRO','OPENWEATHER_ONECALL4_CURRENT','DWD_ICON_GLOBAL']),
+  thermalApprovedDisplaySources:Object.freeze(['HG_BRASIL_WEATHER_PRO','OPENWEATHER_ONECALL4_CURRENT','DWD_ICON_GLOBAL','VISUAL_CROSSING_FREE','WEATHERAPI_FREE']),
   thermalExplicitlyDisallowed:Object.freeze(['NOAA_GFS','ECMWF_IFS','MET_NORWAY_LOCATIONFORECAST_2','CLIMATEMPO']),
   officialReferralOnly:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ']),
   officialPublicLinks:Object.freeze(['ALERTA_RIO','DEFESA_CIVIL_RJ','INMET','INPE_CPTEC']),
@@ -101,13 +112,28 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
   marineSstApprovedSources:Object.freeze(['NOAA_COASTWATCH_SST']),
   marineSstValidatedLive:false,
   hgBrasilPro:RJ_HG_BRASIL_PRO_PLAN,
+  visualCrossingFree:Object.freeze({
+    developerApprovalGranted:true,liveCollectorEnabled:false,
+    privateOneShotAlreadyReserved:true,subscriberRedistributionVerified:false,
+    requiresVisibleAttribution:true,freeRecordsPerDay:1000,
+    automaticProviderCalls:false,androidDataFromApprovedCacheOnly:true
+  }),
+  weatherApiFree:Object.freeze({
+    developerApprovalGranted:true,liveCollectorEnabled:false,
+    serverSecretVerified:false,subscriberRedistributionVerified:false,
+    freeCallsPerMonth:100000,internalMonthlyCeiling:80000,
+    automaticProviderCalls:false,androidDataFromApprovedCacheOnly:true
+  }),
+  climatempoRadarPending:RJ_CLIMATEMPO_RADAR_PLAN,
+  climatempoRadarLive:false,
+  climatempoRadarPermittedToRender:false,
   openWeatherOtherFieldsAssessment:Object.freeze({
     recommendedForLaterLicenseReview:Object.freeze(['humidityPct','windKmh','gustKmh']),
     providerRainMayBeModeled:true,
     providerRainQualifiesAsObservedGauge:false,
     extendOperationalAgent13WithoutAudit:false,
     additionalSourcePublicationEnabled:false,
-    openWeatherDailyInternalMaximum:900,
+    openWeatherDailyInternalMaximum:1,
     requireIndependentSourceStatusByField:true,
     sourceMeasurementsNotAssumed:true,
   }),
@@ -204,7 +230,7 @@ export const RJ_SOURCE_MATRIX_POLICY=Object.freeze({
     requiresProviderTimestamp:true,
   }),
   singleCamsException:'COPERNICUS_CAMS_UV_VIA_MET_NO',
-  agent13:'OWM_ONLY_IF_ALL_VERIFIED_INTERNATIONAL_TEMPERATURE_FEELS_LIKE_UNAVAILABLE_35M_900_DAY',
+  agent13:'FRESHNESS_SUPERVISOR_CACHED_60S_PRIVATE_INMET_CONFLICT_OWM_ONE_CALL_GLOBAL_DAILY',
   notLiveCollection:true
 });
 export function getUnderlyingFamiliesForSector(id){

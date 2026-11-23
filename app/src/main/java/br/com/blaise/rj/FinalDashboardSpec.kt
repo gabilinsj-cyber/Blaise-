@@ -14,10 +14,16 @@ object FinalDashboardSpec {
     const val DEFAULT_POWER_STATE = "LIGADO"
     const val ASSISTANT_PROMPT = "Como posso ajudar?"
     const val RADAR_WINDOW_MINUTES = 30
+    const val WEATHER_MAX_AGE_MINUTES = 30
+    const val HIGH_SEVERITY_RECALC_SECONDS = 20
+    const val MAX_TOP_OFFICIAL_ALERTS = 3
+    const val METEOBLUE_FREE_CLIENT_PUBLICATION = false
+    val weatherLayers = listOf("Radar", "Temp. e Térmica", "Chuva e Acumulado", "Tempestades", "Ondas de Calor", "Qualidade do Ar", "Ventos / Ciclone")
+    val trafficStatusLabels = listOf("Trânsito estável", "Atenção", "Muito cuidado")
     const val MAX_INLINE_ALERTS_PER_CITY = 4
     const val HOME_LOCAL_NEWS_COUNT = 2
     const val HOME_INTERNATIONAL_NEWS_COUNT = 1
-    const val HOME_SEISMIC_EVENT_COUNT = 2
+    const val HOME_SEISMIC_EVENT_COUNT = 3
     const val SEISMIC_NOTIFICATION_MIN_MAGNITUDE = 7.0
 
     val primaryNavigation = listOf(
@@ -87,7 +93,7 @@ object FinalDashboardSpec {
             2 -> 0xFFEAB308.toInt() // amarelo
             3 -> 0xFFEA580C.toInt() // laranja
             4 -> 0xFFDC2626.toInt() // vermelho
-            5 -> 0xFF7F1D1D.toInt() // vermelho extremo
+            5 -> 0xFF7E22CE.toInt() // roxo extremo
             else -> null
         }
 

@@ -3,6 +3,8 @@ import { OFFICIAL_ALERT_LINKS } from './official-alert-links-http.mjs';
 import {RJ_MUNICIPALITIES} from './rio-municipalities.mjs';
 import {projectRjInternationalForecast} from './rj-international-forecast-public.mjs';
 import {projectVisualCrossingForPaidDashboard} from './rj-visual-crossing-client-projection.mjs';
+import {projectWeatherApiFreeCurrentForPaidDashboard} from './rj-weatherapi-free-client-projection.mjs';
+import {projectRjTwoFreeThermalSources} from './rj-vc-weatherapi-thermal-bridge.mjs';
 import { ALERTA_RIO_EXPECTED_ACTIVE_STATIONS, ALERTA_RIO_LIVE_SOURCE_ID } from './alerta-rio-source.mjs';
 import { ClientInputError } from './core.mjs';
 import { ALERTA_RIO_RAINFALL_TASK_ID, NOAA_WAVE_TASK_ID } from './official-source-worker.mjs';
@@ -249,6 +251,10 @@ export function createPaidDashboardDataHttpHandler(
     readInternationalForecasts = null,
     readVisualCrossingPrivateCache = null,
     visualCrossingSubscriberReleaseApproved = false,
+    visualCrossingThermalRedistributionApproved = false,
+    readWeatherApiPrivateCache = null,
+    weatherApiSubscriberReleaseApproved = false,
+    weatherApiThermalRedistributionApproved = false,
   } = {},
 ) {
   if (typeof delegate !== 'function') throw new Error('dashboard_http_delegate_invalid');
@@ -261,6 +267,12 @@ export function createPaidDashboardDataHttpHandler(
     throw new Error('visual_crossing_cache_reader_invalid');
   if(typeof visualCrossingSubscriberReleaseApproved!=='boolean')
     throw new Error('visual_crossing_subscriber_release_flag_invalid');
+  if (readWeatherApiPrivateCache !== null && typeof readWeatherApiPrivateCache !== 'function')
+    throw new Error('weatherapi_cache_reader_invalid');
+  if(typeof weatherApiSubscriberReleaseApproved!=='boolean'||
+     typeof weatherApiThermalRedistributionApproved!=='boolean'||
+     typeof visualCrossingThermalRedistributionApproved!=='boolean')
+    throw new Error('free_weather_subscriber_release_flag_invalid');
   if (readInternationalForecasts !== null && typeof readInternationalForecasts !== 'function')
     throw new Error('forecast_provider_invalid');
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 1_000) {
@@ -336,15 +348,49 @@ export function createPaidDashboardDataHttpHandler(
             if(new Set(vc.map(x=>x.ibge)).size!==vc.length)vc=[];
           }catch{vc=[];}
         }
+        // WeatherAPI is read from a separately authorized PRIVATE cache, and
+        // never called once per subscriber. Both sources OFF by default.
+        let weatherApi=[];
+        if(!isStatewide&&weatherApiSubscriberReleaseApproved===true &&
+           typeof readWeatherApiPrivateCache==='function'){
+          try {
+            const candidates=await Promise.all(payload.municipalityIbges.map(code=>
+              readWeatherApiPrivateCache(code)));
+            nowMillis=Date.now();
+            weatherApi=candidates.map((candidate,index)=>
+              projectWeatherApiFreeCurrentForPaidDashboard(candidate,{
+                ibge:payload.municipalityIbges[index],now:nowMillis
+              })).filter(Boolean);
+            if(new Set(weatherApi.map(x=>x.ibge)).size!==weatherApi.length)
+              weatherApi=[];
+          }catch{weatherApi=[];}
+        }
+        // Field-by-field source attribution; conflicting thermometer estimates
+        // stay absent until privately adjudicated. No INMET data in response.
+        const approvedThermal=(!isStatewide)?
+          payload.municipalityIbges.flatMap(ibge=>
+            projectRjTwoFreeThermalSources({
+              visualCrossing:vc.find(x=>x.ibge===ibge),
+              weatherApi:weatherApi.find(x=>x.ibge===ibge),
+              visualCrossingThermalLicenseVerified:
+                visualCrossingSubscriberReleaseApproved&&
+                visualCrossingThermalRedistributionApproved,
+              weatherApiThermalLicenseVerified:
+                weatherApiSubscriberReleaseApproved&&
+                weatherApiThermalRedistributionApproved,
+              now:nowMillis
+            }).approvedThermal) : [];
         const snapshot=isStatewide
           ?buildStatewideDashboardSnapshot(sourceWorker,{nowMillis})
           :buildPaidDashboardSnapshot(sourceWorker,{nowMillis});
         const effective=isStatewide? snapshot :
-          snapshot? ((forecasts.length||vc.length)?Object.freeze({...snapshot,
+          snapshot? ((forecasts.length||vc.length||weatherApi.length||approvedThermal.length)?Object.freeze({...snapshot,
             ...(forecasts.length?{internationalForecasts:Object.freeze(forecasts)}:{}),
-            ...(vc.length?{visualCrossingWeather:Object.freeze(vc)}:{})
+            ...(vc.length?{visualCrossingWeather:Object.freeze(vc)}:{}),
+            ...(weatherApi.length?{weatherApiCurrent:Object.freeze(weatherApi)}:{}),
+            ...(approvedThermal.length?{approvedThermal:Object.freeze(approvedThermal)}:{})
           }):snapshot) :
-          (forecasts.length||vc.length)?Object.freeze({
+          (forecasts.length||vc.length||weatherApi.length||approvedThermal.length)?Object.freeze({
             contract:DASHBOARD_DATA_HTTP_CONTRACT,
             generatedAt:new Date(nowMillis).toISOString(),mode:'normal',
             scope:'RJ_APPROVED_SOURCES',sourceCount:0,currentSourceCount:0,
@@ -353,6 +399,8 @@ export function createPaidDashboardDataHttpHandler(
             marine:null,sources:Object.freeze([]),
             internationalForecasts:Object.freeze(forecasts),
             ...(vc.length?{visualCrossingWeather:Object.freeze(vc)}:{}),
+            ...(weatherApi.length?{weatherApiCurrent:Object.freeze(weatherApi)}:{}),
+            ...(approvedThermal.length?{approvedThermal:Object.freeze(approvedThermal)}:{}),
             privacy:Object.freeze({purchaseTokenExposed:false,
               rawStationPayloadExposed:false,userLocationStored:false})
           }):null;
