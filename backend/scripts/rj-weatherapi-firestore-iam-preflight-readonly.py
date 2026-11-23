@@ -72,6 +72,11 @@ def classify_bindings(entries, account=ACCOUNT):
             denials += 1
             continue
         policy = item.get("policy")
+        if isinstance(policy, dict) and (
+            policy.get("kind") == "DenyPolicy" or "denyPolicy" in policy
+        ):
+            denials += 1
+            continue
         if not isinstance(policy, dict):
             unknown += 1
             continue
