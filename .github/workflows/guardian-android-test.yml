@@ -1,0 +1,29 @@
+name: Guardian Clean - Android Test
+
+on:
+  push:
+    branches:
+      - test/guardian-clean-20261126
+
+permissions:
+  contents: read
+
+jobs:
+  guardian-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Testar Guardian Clean
+        run: |
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          bash ./gradlew --no-daemon --max-workers=2 :app:testDebugUnitTest --tests 'br.com.blaise.rj.assistant.WeatherConversationTest'
