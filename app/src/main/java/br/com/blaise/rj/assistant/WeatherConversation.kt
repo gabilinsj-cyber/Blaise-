@@ -16,11 +16,37 @@ sealed interface ConversationAction {
 }
 
 /** Holds only confirmed conversation context; never assumes an unspoken city. */
-class WeatherConversation {
+class WeatherConversation(private val nowMs: () -> Long = System::currentTimeMillis) {
     private var city: City? = null
     private var pending: String? = null
     private var confirmedScope: String? = null
+
+
+    private val guardianRetentionMs = 24L * 60 * 60 * 1000
+    private var guardianContextStartedAt: Long? = null
+
+    fun clearTemporaryContext() {
+        guardianContextStartedAt = null
+        city = null
+        pending = null
+        confirmedScope = null
+    }
+
     fun accept(raw: String, selectedCity: City, today: LocalDate = LocalDate.now(ZoneId.of("America/Sao_Paulo"))): ConversationAction {
+
+        val guardianNow = nowMs()
+        val guardianStart = guardianContextStartedAt
+
+        if (guardianStart != null &&
+            (guardianNow < guardianStart ||
+             guardianNow - guardianStart >= guardianRetentionMs)) {
+            clearTemporaryContext()
+        }
+
+        if (guardianContextStartedAt == null) {
+            guardianContextStartedAt = guardianNow
+        }
+
         val text = normalizedSpeech(raw)
         if (text.isBlank()) return ConversationAction.Reply("Não consegui ouvir a pergunta. Pode repetir?")
         if (listOf("nao consigo respirar", "ar nao entra no peito", "dor no peito", "desmaio", "confusao mental").any(text::contains))

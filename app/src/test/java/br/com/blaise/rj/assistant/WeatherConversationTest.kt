@@ -54,4 +54,18 @@ class WeatherConversationTest {
         assertEquals("Petrópolis", q.request.city.name)
         assertEquals("Niterói",(c.accept("temperatura na minha cidade",selected) as ConversationAction.Query).request.city.name)
     }
+
+    @Test fun guardianExpiresAfter24Hours() {
+        var now = 0L
+        val c = WeatherConversation { now }
+        c.accept("temperatura em Niterói", selected)
+
+        now = 86400000L - 1
+        assertTrue(c.accept("e o vento?", selected)
+            is ConversationAction.Query)
+
+        now = 86400000L
+        assertTrue(c.accept("e o vento?", selected)
+            is ConversationAction.Reply)
+    }
 }

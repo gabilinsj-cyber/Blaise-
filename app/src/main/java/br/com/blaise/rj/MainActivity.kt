@@ -586,7 +586,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             voice.close()
         }
     }
-    val conversation = remember { WeatherConversation() }
+    val conversation = remember { WeatherConversation { android.os.SystemClock.elapsedRealtime() } }
     val weather = remember { OfficialWeatherClient() }
     var queryJob by remember { mutableStateOf<Job?>(null) }
     var queryVersion by remember { mutableStateOf(0) }
@@ -619,8 +619,39 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             }
         }
     }
+    var guardianDeadline by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+    fun expireGuardianConversation(): Boolean {
+        val deadline = guardianDeadline ?: return false
+        if (android.os.SystemClock.elapsedRealtime() < deadline)
+            return false
+
+        queryVersion += 1
+        queryJob?.cancel()
+        stopSpeaking()
+        conversation.clearTemporaryContext()
+        typedQuestion = ""
+        answer = "Pronto para orientar sem criar dados ou alertas."
+        voiceError = null
+        loading = false
+        guardianDeadline = null
+        return true
+    }
+
+    fun startGuardianRetention() {
+        if (guardianDeadline == null) {
+            guardianDeadline =
+                android.os.SystemClock.elapsedRealtime() +
+                24L * 60 * 60 * 1000
+        }
+    }
+
     fun ask(raw: String, spoken: Boolean) {
         if (!appEnabled) return
+        expireGuardianConversation()
+        startGuardianRetention()
         stopSpeaking()
         queryJob?.cancel()
         queryVersion += 1
@@ -654,7 +685,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                     } catch (_: Exception) {
                         "Não consegui consultar os dados oficiais de ${action.request.city.name} agora. Não tenho uma medição atual confirmada. Tente novamente."
                     }
-                    if (version == queryVersion) {
+                    if (version == queryVersion && !expireGuardianConversation()) {
                         loading = false
                         answer = result
                         if (spoken) readAloud(result)
@@ -689,7 +720,29 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     LaunchedEffect(appEnabled) {
         if (!appEnabled) { recognizer.cancel(); queryJob?.cancel(); queryVersion += 1; loading = false }
     }
-    fun submit() { ask(typedQuestion, false) }
+    LaunchedEffect(guardianDeadline) {
+        val deadline = guardianDeadline ?: return@LaunchedEffect
+        val remaining = deadline -
+            android.os.SystemClock.elapsedRealtime()
+        kotlinx.coroutines.delay(remaining.coerceAtLeast(0L))
+        if (expireGuardianConversation()) recognizer.cancel()
+    }
+
+    DisposableEffect(lifecycle, recognizer) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START &&
+                expireGuardianConversation()) {
+                recognizer.cancel()
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    fun submit() {
+        if (!expireGuardianConversation())
+            ask(typedQuestion, false)
+    }
     Card(
         colors = CardDefaults.cardColors(containerColor = Panel),
         shape = RoundedCornerShape(20.dp),
@@ -733,7 +786,12 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                 if (!expandedInput) TextButton(onClick = { expandedInput = true }) { Text("Digite aqui… ⤢") }
                 if (expandedInput)                 OutlinedTextField(
                     value = typedQuestion,
-                    onValueChange = { typedQuestion = it },
+                    onValueChange = {
+                        if (!expireGuardianConversation()) {
+                            startGuardianRetention()
+                            typedQuestion = it
+                        }
+                    },
                     label = { Text("Pergunta escrita — enviar pelo botão") },
                     singleLine = true,
                     modifier = Modifier.weight(1f).focusRequester(inputFocus).testTag("assistant-input"),
