@@ -1,0 +1,35 @@
+name: Guardian Clean - Cloud Test
+
+on:
+  push:
+    branches:
+      - test/guardian-cloud-20261127
+
+permissions:
+  contents: read
+
+jobs:
+  guardian-cloud:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.20.0'
+
+      - name: Validar dependencias oficiais
+        working-directory: backend
+        run: |
+          test "$(node --version)" = "v24.20.0"
+          sha256sum -c package-lock.sha256
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Testar SDK Guardian Cloud
+        working-directory: backend
+        run: |
+          node --test test/guardian-cloud-sdk.test.mjs
