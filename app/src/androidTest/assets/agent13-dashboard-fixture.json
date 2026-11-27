@@ -1,0 +1,178 @@
+{
+  "contract": "PAID_OFFICIAL_DASHBOARD_SNAPSHOT_V1",
+  "generatedAt": "2026-11-27T16:07:51.226Z",
+  "mode": "normal",
+  "scope": "RJ_APPROVED_SOURCES",
+  "sourceCount": 0,
+  "currentSourceCount": 0,
+  "rainfall": null,
+  "rainfallAvailability": "UNAVAILABLE",
+  "officialNoticeLinks": [
+    {
+      "id": "defesa-civil-rj",
+      "name": "Defesa Civil RJ",
+      "message": "Consulte os avisos oficiais de riscos e emergencias no estado do Rio de Janeiro.",
+      "url": "https://defesacivil.rj.gov.br/"
+    },
+    {
+      "id": "alerta-rio",
+      "name": "Alerta Rio",
+      "message": "Consulte os avisos oficiais de chuvas intensas e deslizamentos na cidade do Rio.",
+      "url": "https://www.sistema-alerta-rio.com.br/alertas/"
+    },
+    {
+      "id": "inmet-avisos",
+      "name": "INMET",
+      "message": "Consulte os avisos meteorológicos no portal oficial do INMET.",
+      "url": "https://avisos.inmet.gov.br/"
+    },
+    {
+      "id": "inpe-cptec-avisos",
+      "name": "INPE / CPTEC",
+      "message": "Consulte os avisos e a previsão de tempo severo no CPTEC/INPE.",
+      "url": "https://www.cptec.inpe.br/"
+    }
+  ],
+  "marine": null,
+  "sources": [],
+  "internationalForecasts": [],
+  "visualCrossingWeather": [
+    {
+      "contract": "RJ_VISUAL_CROSSING_BOUNDED_CITY_E_P_V1",
+      "ibge": "3304557",
+      "sourceId": "VISUAL_CROSSING_FREE",
+      "sourceLabel": "Visual Crossing",
+      "attribution": "Weather data by Visual Crossing",
+      "currentKind": "E_AGGREGATED_NOT_STATION",
+      "forecastKind": "P_MODEL_NOT_OBSERVATION",
+      "currentValidAt": "2026-11-27T15:57:51.181Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "officialAlert": false,
+      "dataNotForSafetyCriticalDecisions": true,
+      "current": {
+        "temperatureC": 24,
+        "feelsLikeC": 25,
+        "humidityPct": null,
+        "dewPointC": null,
+        "windKmh": null,
+        "gustKmh": null,
+        "precipitationMm": null,
+        "precipitationProbabilityPct": null,
+        "pressureHpa": null,
+        "severeRiskIndex": null
+      },
+      "forecastNext": null
+    },
+    {
+      "contract": "RJ_VISUAL_CROSSING_BOUNDED_CITY_E_P_V1",
+      "ibge": "3303302",
+      "sourceId": "VISUAL_CROSSING_FREE",
+      "sourceLabel": "Visual Crossing",
+      "attribution": "Weather data by Visual Crossing",
+      "currentKind": "E_AGGREGATED_NOT_STATION",
+      "forecastKind": "P_MODEL_NOT_OBSERVATION",
+      "currentValidAt": "2026-11-27T15:57:51.181Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "officialAlert": false,
+      "dataNotForSafetyCriticalDecisions": true,
+      "current": {
+        "temperatureC": 24,
+        "feelsLikeC": 25,
+        "humidityPct": null,
+        "dewPointC": null,
+        "windKmh": null,
+        "gustKmh": null,
+        "precipitationMm": null,
+        "precipitationProbabilityPct": null,
+        "pressureHpa": null,
+        "severeRiskIndex": null
+      },
+      "forecastNext": null
+    }
+  ],
+  "weatherApiCurrent": [
+    {
+      "contract": "RJ_WEATHERAPI_FREE_CURRENT_E_V1",
+      "ibge": "3304557",
+      "sourceId": "WEATHERAPI_FREE",
+      "sourceLabel": "WeatherAPI.com",
+      "attribution": "Dados meteorológicos: WeatherAPI.com",
+      "nature": "E_AGGREGATED_NOT_STATION",
+      "validAt": "2026-11-27T16:02:51.000Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "temperatureC": 25,
+      "feelsLikeC": 26,
+      "humidityPct": 70,
+      "windKmh": null,
+      "gustKmh": null,
+      "precipitationMm": null,
+      "cloudPct": null,
+      "pressureHpa": null,
+      "uvIndex": null,
+      "skyCondition": "CHUVA",
+      "officialAlert": false,
+      "actualStormConfirmed": false,
+      "criticalAlertEscalationAuthorized": false
+    },
+    {
+      "contract": "RJ_WEATHERAPI_FREE_CURRENT_E_V1",
+      "ibge": "3303302",
+      "sourceId": "WEATHERAPI_FREE",
+      "sourceLabel": "WeatherAPI.com",
+      "attribution": "Dados meteorológicos: WeatherAPI.com",
+      "nature": "E_AGGREGATED_NOT_STATION",
+      "validAt": "2026-11-27T16:02:51.000Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "temperatureC": 24,
+      "feelsLikeC": 26,
+      "humidityPct": 70,
+      "windKmh": null,
+      "gustKmh": null,
+      "precipitationMm": null,
+      "cloudPct": null,
+      "pressureHpa": null,
+      "uvIndex": null,
+      "skyCondition": "CHUVA",
+      "officialAlert": false,
+      "actualStormConfirmed": false,
+      "criticalAlertEscalationAuthorized": false
+    }
+  ],
+  "approvedThermal": [
+    {
+      "ibge": "3304557",
+      "sourceId": "WEATHERAPI_FREE",
+      "nature": "E",
+      "validAt": "2026-11-27T16:02:51.000Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "temperatureC": 25,
+      "feelsLikeC": 26,
+      "skyCondition": "CHUVA",
+      "backendVerified": true,
+      "commercialLicenseVerified": true,
+      "municipalityGeoVerified": true,
+      "contingencyAuthorized": false,
+      "hgSubscriptionActive": false
+    },
+    {
+      "ibge": "3303302",
+      "sourceId": "WEATHERAPI_FREE",
+      "nature": "E",
+      "validAt": "2026-11-27T16:02:51.000Z",
+      "checkedAt": "2026-11-27T16:07:50.181Z",
+      "temperatureC": 24,
+      "feelsLikeC": 26,
+      "skyCondition": "CHUVA",
+      "backendVerified": true,
+      "commercialLicenseVerified": true,
+      "municipalityGeoVerified": true,
+      "contingencyAuthorized": false,
+      "hgSubscriptionActive": false
+    }
+  ],
+  "privacy": {
+    "purchaseTokenExposed": false,
+    "rawStationPayloadExposed": false,
+    "userLocationStored": false
+  }
+}
