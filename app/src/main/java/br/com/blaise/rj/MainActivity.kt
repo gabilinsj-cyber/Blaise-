@@ -538,7 +538,15 @@ private fun AppHeader(powerOn: Boolean, onPowerChange: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voiceEnabled: Boolean, appEnabled: Boolean) {
+internal fun AssistantPanel(
+    selectedCity: City,
+    onNavigate: (String) -> Unit,
+    voiceEnabled: Boolean,
+    appEnabled: Boolean,
+    guardianNowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
+    guardianWait: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+    guardianWeatherAnswer: (suspend (br.com.blaise.rj.assistant.WeatherRequest) -> String)? = null,
+) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val voice = remember(context) { DoraVoiceService(context) }
@@ -586,7 +594,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
             voice.close()
         }
     }
-    val conversation = remember { WeatherConversation { android.os.SystemClock.elapsedRealtime() } }
+    val conversation = remember { WeatherConversation(guardianNowMs) }
     val weather = remember { OfficialWeatherClient() }
     var queryJob by remember { mutableStateOf<Job?>(null) }
     var queryVersion by remember { mutableStateOf(0) }
@@ -625,7 +633,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
 
     fun expireGuardianConversation(): Boolean {
         val deadline = guardianDeadline ?: return false
-        if (android.os.SystemClock.elapsedRealtime() < deadline)
+        if (guardianNowMs() < deadline)
             return false
 
         queryVersion += 1
@@ -643,7 +651,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     fun startGuardianRetention() {
         if (guardianDeadline == null) {
             guardianDeadline =
-                android.os.SystemClock.elapsedRealtime() +
+                guardianNowMs() +
                 24L * 60 * 60 * 1000
         }
     }
@@ -675,7 +683,7 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
                         val needsWeather = listOf("temperatura", "termica", "sensacao", "umidade", "vento", "tempo", "calor", "friaca", "mormaco", "frio", "chuva", "chover").any(weatherQuestion::contains)
                         if (regional != null && !needsWeather) regional
                         else {
-                            val measured = withTimeout(12_000L) { weather.answer(request) }
+                            val measured = withTimeout(12_000L) { guardianWeatherAnswer?.invoke(request) ?: weather.answer(request) }
                             val freshRegional = br.com.blaise.rj.assistant.statewideAnswer(statewideSnapshot, request, Instant.now())
                             listOfNotNull(measured, freshRegional).joinToString("\n\n")
                         }
@@ -723,8 +731,8 @@ private fun AssistantPanel(selectedCity: City, onNavigate: (String) -> Unit, voi
     LaunchedEffect(guardianDeadline) {
         val deadline = guardianDeadline ?: return@LaunchedEffect
         val remaining = deadline -
-            android.os.SystemClock.elapsedRealtime()
-        kotlinx.coroutines.delay(remaining.coerceAtLeast(0L))
+            guardianNowMs()
+        guardianWait(remaining.coerceAtLeast(0L))
         if (expireGuardianConversation()) recognizer.cancel()
     }
 
