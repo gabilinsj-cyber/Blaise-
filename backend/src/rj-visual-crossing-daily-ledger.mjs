@@ -16,7 +16,7 @@ export function createVisualCrossingDailyLedger({
   async function reserve({
     confirmedDay,
     externalUsed,
-    utcResetVerified = false,
+    rollingWindowConfirmed = false,
     operatorApproved = false,
     costVerified = false
   } = {}) {
@@ -28,7 +28,7 @@ export function createVisualCrossingDailyLedger({
     const day = new Date(now).toISOString().slice(0, 10);
 
     if (confirmedDay !== day ||
-        utcResetVerified !== true ||
+        rollingWindowConfirmed !== true ||
         operatorApproved !== true ||
         costVerified !== true ||
         !Number.isSafeInteger(externalUsed) ||
@@ -38,13 +38,39 @@ export function createVisualCrossingDailyLedger({
 
     const ref = db.collection(VC_DAILY_LEDGER).doc(day);
 
+    const previousDay = new Date(
+      Date.parse(day + 'T00:00:00Z') - 86400000
+    ).toISOString().slice(0, 10);
+
+    const previousRef = db.collection(VC_DAILY_LEDGER)
+      .doc(previousDay);
+
     const trial = db.collection(VC_BUDGET_COLLECTION)
       .doc(VC_TRIAL_ID);
 
     return db.runTransaction(async tx => {
-      const [snap, legacy] = await Promise.all([
-        tx.get(ref), tx.get(trial)
+      const [snap, legacy, previousSnap] = await Promise.all([
+        tx.get(ref), tx.get(trial), tx.get(previousRef)
       ]);
+
+      if (new Date(clock()).toISOString().slice(0,10) !== day)
+        return {approved: false};
+
+      const previous = previousSnap.exists
+        ? previousSnap.data() : null;
+
+      const previousReserved = previous
+        ? previous.reserved : 0;
+
+      const previousBaseline = previous
+        ? previous.externalBaseline : 0;
+
+      if (!Number.isSafeInteger(previousReserved) ||
+          previousReserved < 0 ||
+          !Number.isSafeInteger(previousBaseline) ||
+          previousBaseline < 0 ||
+          (previous && previous.dayUtc !== previousDay))
+        return {approved: false};
 
       const old = snap.exists ? snap.data() : null;
       const prior = old?.reserved ?? 0;
@@ -64,14 +90,17 @@ export function createVisualCrossingDailyLedger({
           !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(historic.dayUtc)
       )) return {approved: false};
 
-      const trialUsed = historic?.dayUtc === day ? 1 : 0;
+      const trialUsed = (
+        historic?.dayUtc === day ||
+        historic?.dayUtc === previousDay
+      ) ? 1 : 0;
 
       const externalBaseline = Math.max(
-        baseline, externalUsed
+        baseline, previousBaseline, externalUsed
       );
 
       const total =
-        prior + externalBaseline + trialUsed + 1;
+        prior + previousReserved + externalBaseline + trialUsed + 1;
 
       if (total > VC_DAILY_CEILING)
         return {

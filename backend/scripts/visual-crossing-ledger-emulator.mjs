@@ -45,7 +45,7 @@ try {
   const options = {
     confirmedDay: day,
     externalUsed: 898,
-    utcResetVerified: true,
+    rollingWindowConfirmed: true,
     operatorApproved: true,
     costVerified: true
   };
@@ -90,6 +90,31 @@ try {
   console.log('CONTADOR EXPERIMENTAL PRESERVADO');
   console.log('PUBLICACAO: DESATIVADA');
   console.log('CHAMADAS METEOROLOGICAS: ZERO');
+
+  const tomorrow = '2026-11-28';
+
+  const nextDay = createVisualCrossingDailyLedger({
+    db: db2,
+    clock: () => Date.parse(
+      tomorrow + 'T00:01:00Z'
+    )
+  });
+
+  const blocked = await nextDay.reserve({
+    ...options,
+    confirmedDay: tomorrow,
+    externalUsed: 0
+  });
+
+  assert.equal(blocked.approved, false);
+
+  const tomorrowDoc = await db
+    .collection(VC_DAILY_LEDGER)
+    .doc(tomorrow).get();
+
+  assert.equal(tomorrowDoc.exists, false);
+
+  console.log('PROTECAO ENTRE DIAS: OK');
   console.log('EMULADOR: APROVADO');
 
 } finally {
