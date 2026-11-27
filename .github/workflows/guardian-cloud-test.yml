@@ -11,7 +11,7 @@ permissions:
 jobs:
   guardian-cloud:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
@@ -33,3 +33,41 @@ jobs:
         working-directory: backend
         run: |
           node --test test/guardian-cloud-sdk.test.mjs
+
+      - name: Guardian Firestore Emulator
+        working-directory: backend
+        env:
+          FIRESTORE_EMULATOR_HOST: '127.0.0.1:8787'
+        run: |
+          set -euo pipefail
+
+          NAME="guardian-firestore-${GITHUB_RUN_ID}"
+
+          cleanup() {
+            docker logs "$NAME" || true
+            docker rm -f "$NAME" || true
+          }
+
+          trap cleanup EXIT
+
+          docker run -d --name "$NAME" \
+            -p 127.0.0.1:8787:8787 \
+            -e COMPONENTS=google-cloud-cli-firestore-emulator \
+            gcr.io/google.com/cloudsdktool/google-cloud-cli:stable \
+            gcloud emulators firestore start \
+            --host-port=0.0.0.0:8787 \
+            --project=demo-guardian-clean --quiet
+
+          READY=0
+
+          for i in $(seq 1 120); do
+            if (echo > /dev/tcp/127.0.0.1/8787) 2>/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 3
+          done
+
+          test "$READY" -eq 1
+
+          node scripts/guardian-cloud-emulator-test.mjs
