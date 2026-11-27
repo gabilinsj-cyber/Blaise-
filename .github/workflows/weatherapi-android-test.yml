@@ -1,0 +1,47 @@
+name: Blaise V7 RJ - WeatherAPI Android
+
+on:
+  push:
+    branches:
+      - test/weatherapi-android-20261127
+
+permissions:
+  contents: read
+
+jobs:
+  weatherapi-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Testar decodificador WeatherAPI
+        run: |
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          bash ./gradlew --no-daemon --max-workers=2 :app:testDebugUnitTest --tests 'br.com.blaise.rj.DashboardWeatherApiCurrentTest'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: WeatherAPI Interface Emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-metrics
+          script: |
+            bash ./gradlew --no-daemon --max-workers=2 :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.blaise.rj.WeatherApiInterfaceTest

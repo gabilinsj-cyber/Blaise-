@@ -207,13 +207,13 @@ private val Muted = Color(0xFFA8B5C5)
 private val Divider = Color(0xFF284A6D)
 private val LocalRioStations = compositionLocalOf<List<br.com.blaise.rj.data.CityWeatherObservation>> { emptyList() }
 private val LocalCityWeather = compositionLocalOf<Map<Int, CityWeatherResult>> { emptyMap() }
-private val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
+internal val LocalObservationClock = compositionLocalOf { Instant.EPOCH }
 private val LocalStatewideDashboard = compositionLocalOf<StatewideDataResult> { StatewideDataResult.Unavailable }
 private val LocalBackendDashboard = compositionLocalOf<DashboardDataNetworkResult> { DashboardDataNetworkResult.Unavailable }
 private val LocalInternationalForecasts = compositionLocalOf<Map<Int, DashboardInternationalForecast>> { emptyMap() }
 private val LocalVisualCrossing = compositionLocalOf<Map<Int, DashboardVisualCrossingWeather>> { emptyMap() }
-private val LocalWeatherApi = compositionLocalOf<Map<Int, DashboardWeatherApiCurrent>> { emptyMap() }
-private val LocalApprovedThermal = compositionLocalOf<Map<Int, ApprovedThermalMunicipalView>> { emptyMap() }
+internal val LocalWeatherApi = compositionLocalOf<Map<Int, DashboardWeatherApiCurrent>> { emptyMap() }
+internal val LocalApprovedThermal = compositionLocalOf<Map<Int, ApprovedThermalMunicipalView>> { emptyMap() }
 // Until a signed and audited backend warning contract exists, this list stays empty.
 private val LocalVerifiedBlaiseWarnings = compositionLocalOf<List<VerifiedBlaiseAlertEvidence>> { emptyList() }
 
@@ -2124,7 +2124,7 @@ private fun OfficialStatusBanner(state: OfficialFeedState) {
 }
 
 @Composable
-private fun CityPanel(
+internal fun CityPanel(
     label: String,
     city: City,
     chooseLabel: String,
@@ -2226,7 +2226,9 @@ private fun CityPanel(
             StatusLine("Pressão prevista", metric(model?.pressureHpa,"hPa"))
             StatusLine("Ponto de orvalho estimado", metric(vcCurrent?.dewPointC ?: model?.dewPointC, "°C"))
             if(wa!=null) {
-                StatusLine("Chuva atual estimada • WeatherAPI",metric(wa.precipitationMm,"mm"))
+                StatusLine("Chuva atual estimada • WeatherAPI",wa.precipitationMm?.let {
+    String.format(java.util.Locale("pt", "BR"), "%.2f mm", it)
+} ?: "Indisponível")
                 StatusLine("Rajada atual estimada • WeatherAPI",metric(wa.gustKmh,"km/h"))
                 StatusLine("UV atual estimado • WeatherAPI",metric(wa.uvIndex,"índice"))
                 Text("${wa.attribution} • leitura ${wa.validAt} UTC • checagem ${wa.checkedAt} UTC",
